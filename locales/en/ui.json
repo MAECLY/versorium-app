@@ -1,0 +1,129 @@
+{
+  "app": {
+    "name": "versorium",
+    "tagline": "The local novel studio",
+    "newProject": "New project",
+    "openProject": "Open project",
+    "closeProject": "Close project"
+  },
+  "empty": {
+    "title": "A quiet desk, a sharp needle.",
+    "body": "Create a project to start writing. Everything stays on this machine.",
+    "cta": "Create your first project"
+  },
+  "binder": {
+    "projects": "Projects",
+    "chapters": "Chapters",
+    "noChapters": "No chapters yet.",
+    "newChapter": "New chapter",
+    "wordCount": "{words} words",
+    "status": {
+      "draft": "draft",
+      "revised": "revised",
+      "final": "final"
+    }
+  },
+  "editor": {
+    "placeholder": "Start writing…",
+    "saved": "Saved",
+    "saving": "Saving…",
+    "unsaved": "Unsaved changes",
+    "error": "Could not save: {error}"
+  },
+  "dialog": {
+    "newProject": "New project",
+    "title": "Title",
+    "titlePlaceholder": "The Long Winter",
+    "language": "Manuscript language",
+    "create": "Create",
+    "cancel": "Cancel",
+    "newChapter": "New chapter",
+    "chapterTitle": "Chapter title",
+    "chapterTitlePlaceholder": "The long winter",
+    "create": "Create",
+    "cancel": "Cancel"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeMode": "Mode",
+    "modeLight": "Light",
+    "modeDark": "Dark",
+    "modeFollow": "Follow system",
+    "language": "Interface language",
+    "comingSoon": "Arrives in a later milestone.",
+    "sections": {
+      "agents": "Agents",
+      "localAi": "Local AI",
+      "git": "Git",
+      "mcp": "MCP",
+      "safety": "Safety",
+      "updates": "Updates",
+      "typography": "Typography"
+    }
+  },
+  "statusbar": {
+    "words": "{words} words",
+    "chapter": "chapter",
+    "project": "project"
+  },
+  "git": {
+    "title": "Git",
+    "tab_status": "Status",
+    "tab_log": "Log",
+    "tab_diff": "Diff",
+    "tab_branches": "Branches",
+    "ahead": "ahead",
+    "behind": "behind",
+    "modified": "Modified",
+    "staged": "Staged",
+    "untracked": "Untracked",
+    "clean": "Working tree clean.",
+    "dirty": "Project has uncommitted changes",
+    "message": "Commit message",
+    "commit": "Commit",
+    "commitHint": "Commit the chapter and project files",
+    "checkpoint": "checkpoint",
+    "newBranch": "New branch name",
+    "create": "Create",
+    "remotes": "Remotes",
+    "noRemotes": "No remotes configured.",
+    "updatesSlot": "Updates login",
+    "novelSlot": "Novel remote login",
+    "updatesSlotHint": "Used only to read releases of maecly/versorium-app.",
+    "novelSlotHint": "Used only for your novel's private repo. Never used for updates.",
+    "token": "GitHub token",
+    "connect": "Connect",
+    "connected": "Connected as",
+    "repoName": "Repository name",
+    "createRepo": "Create private repo",
+    "privateDefault": "Repos are created private by default.",
+    "noToken": "Paste a personal access token to create the novel remote.",
+    "rollbackWord": "Restore the word under the cursor",
+    "rollbackSelection": "Restore the current selection",
+    "rollbackWordShort": "↩ word",
+    "rollbackSelShort": "↩ sel",
+    "nothingToRollback": "Nothing to roll back here."
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "projectExists": "A project with that name already exists.",
+    "notFound": "Project not found.",
+    "project_exists": "A project with that name already exists.",
+    "empty_title": "The title is empty.",
+    "no_repo": "This folder is not a git project.",
+    "no_commits": "There are no commits yet.",
+    "nothing_to_commit": "Nothing to commit.",
+    "bad_token": "GitHub rejected this token.",
+    "network": "Network error while talking to GitHub.",
+    "repo_failed": "GitHub could not create the repository.",
+    "bad_sha": "Unknown commit.",
+    "no_commit": "That commit does not exist.",
+    "branch_exists": "A branch with that name already exists.",
+    "bad_branch": "Invalid branch name.",
+    "empty_message": "The commit message is empty.",
+    "not_found": "Not found.",
+    "io": "File system error."
+  }
+}

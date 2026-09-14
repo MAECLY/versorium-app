@@ -1,0 +1,18 @@
+{
+  "$schema": "./fonts/catalog-schema.md",
+  "version": 0,
+  "note": "Stub (M0). Filled in M4/M7. Entries: id, family, role (body|ui|mono), license, weightAxis, url, sha256, sizeBytes.",
+  "bundled": [
+    {
+      "id": "source-serif-4",
+      "family": "Source Serif 4",
+      "role": "body",
+      "license": "OFL-1.1",
+      "weightAxis": "200-900",
+      "url": null,
+      "sha256": null,
+      "sizeBytes": 0
+    }
+  ],
+  "catalog": []
+}
