@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "note": "Stub (M0). Filled in M4 with LOW/MID writing packs + embeddings. HIGH is never auto-downloaded.",
+  "slots": ["rewrite", "chat", "continuity", "embeddings", "dictation"],
+  "models": []
+}
