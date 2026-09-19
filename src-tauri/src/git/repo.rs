@@ -8,7 +8,7 @@ const APP_NAME: &str = "Versorium";
 const APP_EMAIL: &str = "versorium@local";
 
 fn open(root: &Path) -> Result<Repository, String> {
-    Repository::discover(root).map_err(|_| "no_repo".to_string())
+    Repository::open(root).map_err(|_| "no_repo".to_string())
 }
 
 fn sig() -> Result<Signature<'static>, String> {
@@ -72,10 +72,10 @@ pub fn status(root: &Path) -> Result<StatusInfo, String> {
         if st.is_wt_new() {
             untracked.push(name.clone());
         }
-        if st.is_wt_modified() {
+        if st.is_wt_modified() || st.is_wt_deleted() || st.is_wt_renamed() || st.is_wt_typechange() || st.is_conflicted() {
             modified.push(name.clone());
         }
-        if st.is_index_modified() || st.is_index_new() {
+        if st.is_index_modified() || st.is_index_new() || st.is_index_deleted() || st.is_index_renamed() || st.is_index_typechange() {
             staged.push(name);
         }
     }
@@ -123,12 +123,13 @@ pub fn diff(root: &Path) -> Result<String, String> {
     let tree = head.tree().map_err(|_| "io".to_string())?;
     let mut opts = DiffOptions::new();
     opts.context_lines(3);
+    opts.include_untracked(true).recurse_untracked_dirs(true).show_untracked_content(true);
     let d = repo
         .diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts))
         .map_err(|_| "io".to_string())?;
     let mut out = String::new();
     d.print(git2::DiffFormat::Patch, |_, _, line| {
-        out.push(line.origin());
+        if matches!(line.origin(), '+' | '-' | ' ') { out.push(line.origin()); }
         out.push_str(&String::from_utf8_lossy(line.content()));
         true
     })
@@ -140,6 +141,7 @@ pub fn diff(root: &Path) -> Result<String, String> {
 pub fn commit_all(root: &Path, message: &str) -> Result<String, String> {
     let repo = open(root)?;
     let mut index = repo.index().map_err(|_| "io".to_string())?;
+    index.update_all(["*"], None).map_err(|_| "io".to_string())?;
     index
         .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
         .map_err(|_| "io".to_string())?;
@@ -147,6 +149,9 @@ pub fn commit_all(root: &Path, message: &str) -> Result<String, String> {
     let tree_id = index.write_tree().map_err(|_| "io".to_string())?;
     let tree = repo.find_tree(tree_id).map_err(|_| "io".to_string())?;
     let parent = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
+    if parent.as_ref().is_some_and(|commit| commit.tree_id() == tree_id) {
+        return Err("nothing_to_commit".into());
+    }
     let parents: Vec<&git2::Commit> = parent.iter().collect();
     let s = sig()?;
     let oid = repo
@@ -216,7 +221,7 @@ pub fn checkout_file(root: &Path, file: &str, sha: Option<&str>) -> Result<(), S
         tree.get_path(Path::new(file)).map_err(|_| "not_found".to_string())?;
     let obj = entry.to_object(&repo).map_err(|_| "not_found".to_string())?;
     let blob = obj.as_blob().ok_or("not_found".to_string())?;
-    std::fs::write(root.join(file), blob.content()).map_err(|_| "io".to_string())
+    crate::storage::atomic_write(&crate::storage::project_file(root, file)?, blob.content())
 }
 
 #[derive(Debug, Serialize)]
