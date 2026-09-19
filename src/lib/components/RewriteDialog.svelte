@@ -46,7 +46,7 @@
     return out;
   }
 
-  $derived(diff = result === null ? [] : lineDiff(text, result));
+  let diff = $derived(result === null ? [] : lineDiff(text, result));
 
   async function detect(): Promise<void> {
     if (!isTauri()) return;
@@ -138,7 +138,7 @@
           class="v-card overflow-y-auto"
           style="max-height: 45vh; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12.5px; line-height: 1.5;"
         >
-          {#each diff as line (line.text + line.kind + $id(line))}
+          {#each diff as line, index (index)}
             <div
               style={
                 line.kind === "del"

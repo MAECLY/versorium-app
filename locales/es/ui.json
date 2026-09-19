@@ -21,7 +21,8 @@
       "draft": "borrador",
       "revised": "revisado",
       "final": "final"
-    }
+    },
+    "noProjects": "Aún no hay proyectos."
   },
   "editor": {
     "placeholder": "Empieza a escribir…",
@@ -39,9 +40,7 @@
     "cancel": "Cancelar",
     "newChapter": "Nuevo capítulo",
     "chapterTitle": "Título del capítulo",
-    "chapterTitlePlaceholder": "El largo invierno",
-    "create": "Crear",
-    "cancel": "Cancelar"
+    "chapterTitlePlaceholder": "El largo invierno"
   },
   "settings": {
     "title": "Ajustes",
@@ -125,5 +124,9 @@
     "empty_message": "El mensaje de commit está vacío.",
     "not_found": "No encontrado.",
     "io": "Error del sistema de archivos."
+  },
+  "languages": {
+    "en": "English",
+    "es": "Español"
   }
 }

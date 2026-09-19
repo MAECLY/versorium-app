@@ -1,7 +1,6 @@
 <script lang="ts">
   import { store } from "$lib/binder/store.svelte";
   import { t } from "$lib/i18n";
-  import type { ChapterMeta } from "$lib/tauri";
 
   let { onRequestNewChapter }: { onRequestNewChapter: () => void } = $props();
 </script>
@@ -13,11 +12,13 @@
   <div class="v-row flex-shrink-0 px-3 pt-3">
     <span class="v-section-title">{t("binder.projects")}</span>
   </div>
-  <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2" role="list">
+  <ul class="m-0 min-h-0 flex-1 list-none overflow-y-auto px-2 py-2" aria-label={t("binder.projects")}>
     {#each store.projects as p (p.path)}
+      <li>
       <button
         class="v-list-item {store.project?.path === p.path ? 'v-list-item-active' : ''}"
-        role="listitem"
+        aria-current={store.project?.path === p.path ? "true" : undefined}
+        disabled={store.loading}
         onclick={() => store.openProject(p.path)}
       >
         <span style="font-size: 13px;">{p.meta.title}</span>
@@ -25,10 +26,11 @@
           {t("binder.wordCount", { words: p.chapters.reduce((a, c) => a + c.words, 0) })}
         </span>
       </button>
+      </li>
     {:else}
-      <p class="v-muted m-0 px-2" style="font-size: 12px;">—</p>
+      <li class="v-muted px-2" style="font-size: 12px;">{t("binder.noProjects")}</li>
     {/each}
-  </div>
+  </ul>
 
   {#if store.project}
     <div class="v-row flex-shrink-0 border-t px-3 pt-3" style="border-color: var(--border);">
@@ -37,17 +39,20 @@
         class="v-btn"
         style="margin-left: auto; padding: 2px 8px; font-size: 12px;"
         title={t("binder.newChapter")}
+        aria-label={t("binder.newChapter")}
         onclick={onRequestNewChapter}
       >
         +
       </button>
     </div>
-    <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2" role="list">
+    <ul class="m-0 min-h-0 flex-1 list-none overflow-y-auto px-2 py-2" aria-label={t("binder.chapters")}>
       {#each store.project.chapters as ch (ch.id)}
         {@const active = store.currentChapter?.id === ch.id}
+        <li>
         <button
           class="v-list-item {active ? 'v-list-item-active' : ''}"
-          role="listitem"
+          aria-current={active ? "true" : undefined}
+          disabled={store.loading}
           onclick={() => store.openChapter(ch)}
         >
           <span class="v-muted" style="font-size: 11px; font-variant-numeric: tabular-nums;">
@@ -60,9 +65,10 @@
             {t("binder.status." + ch.status)}
           </span>
         </button>
+        </li>
       {:else}
-        <p class="v-muted m-0 px-2" style="font-size: 12px;">{t("binder.noChapters")}</p>
+        <li class="v-muted px-2" style="font-size: 12px;">{t("binder.noChapters")}</li>
       {/each}
-    </div>
+    </ul>
   {/if}
 </aside>
