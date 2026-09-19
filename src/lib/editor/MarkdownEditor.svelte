@@ -135,10 +135,17 @@
     return { from: selection.from, to: selection.to, text: view.state.sliceDoc(selection.from, selection.to) };
   }
 
-  export function applyExternal(from: number, to: number, text: string): boolean {
+  /** Replace a range the Rust side already persisted (no human ops are logged).
+   *  With `expected`, refuses when the passage no longer matches. */
+  export function applyExternal(from: number, to: number, text: string, expected?: string): boolean {
     if (!view || from < 0 || from > to || to > view.state.doc.length) return false;
+    if (expected !== undefined && view.state.sliceDoc(from, to) !== expected) return false;
     view.dispatch({ changes: { from, to, insert: text }, annotations: source.of("external") });
     return true;
+  }
+
+  export function getDoc(): string {
+    return view?.state.doc.toString() ?? "";
   }
 
   export function flushOps(): Promise<void> {

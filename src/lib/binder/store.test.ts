@@ -63,3 +63,19 @@ describe("chapter persistence", () => {
     expect(store.saveState).toBe("saved");
   });
 });
+
+describe("adoptSaved", () => {
+  it("takes a body Rust already persisted without scheduling another save", async () => {
+    store.updateBody("typed before rewrite");
+    const meta = { ...chapter("a"), words: 2 };
+    store.adoptSaved("rewritten body", meta);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(api.saveChapter).not.toHaveBeenCalled();
+    expect(store.chapterBody).toBe("rewritten body");
+    expect(store.currentChapter).toEqual(meta);
+    expect(store.project?.chapters[0]).toEqual(meta);
+    expect(store.saveState).toBe("saved");
+    await store.flush();
+    expect(api.saveChapter).not.toHaveBeenCalled();
+  });
+});
