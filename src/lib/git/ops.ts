@@ -1,10 +1,6 @@
 import type { Op } from "$lib/tauri";
 
-/**
- * Derive character-level ops from two versions of a body.
- * Convention: delete positions reference the OLD doc, insert positions
- * reference the NEW doc (matches how the editor applies them).
- */
+/** Offsets use CodeMirror's UTF-16 coordinates; delete is old, insert is new. */
 export function deriveOps(oldBody: string, newBody: string, author: string): Op[] {
   if (oldBody === newBody) return [];
   let start = 0;
@@ -13,8 +9,7 @@ export function deriveOps(oldBody: string, newBody: string, author: string): Op[
   let endOld = oldBody.length;
   let endNew = newBody.length;
   while (
-    endOld > start &&
-    endNew > start &&
+    endOld > start && endNew > start &&
     oldBody.charCodeAt(endOld - 1) === newBody.charCodeAt(endNew - 1)
   ) {
     endOld--;
@@ -30,58 +25,90 @@ export function deriveOps(oldBody: string, newBody: string, author: string): Op[
   return ops;
 }
 
-/**
- * Batched, debounced ops logger. Accumulates ops from keystrokes and
- * flushes them to Rust (JSONL packs + snapshots) after a pause.
- * Best-effort: a failed flush never blocks writing.
- */
+interface Batch { body: string; ops: Op[] }
+
+/** Serial writes retain their original body and stay queued until acknowledged. */
 export class OpsLogger {
   private pending: Op[] = [];
+  private pendingBody: string;
+  private queue: Batch[] = [];
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private flushing: Promise<void> | undefined;
   private lastBody: string;
+  private disposed = false;
 
   constructor(
-    private flush: (body: string, ops: Op[]) => Promise<unknown>,
+    private sink: (body: string, ops: Op[]) => Promise<unknown>,
     initialBody: string,
+    private onError: (error: unknown) => void = () => {},
   ) {
-    this.lastBody = initialBody;
+    this.lastBody = this.pendingBody = initialBody;
   }
 
   track(newBody: string, author: string): void {
-    const ops = deriveOps(this.lastBody, newBody, author);
-    if (ops.length === 0) return;
-    this.lastBody = newBody;
-    this.pending.push(...ops);
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => void this.flushNow(), 500);
+    this.trackOps(newBody, deriveOps(this.lastBody, newBody, author));
   }
 
-  /** Record an op directly (e.g. rollback) without deriving from bodies. */
-  addRaw(op: Op): void {
-    this.pending.push(op);
+  /** Accept precise editor transactions, including disjoint cursor edits. */
+  trackOps(newBody: string, ops: Op[]): void {
+    this.lastBody = newBody;
+    if (!ops.length) return;
+    this.pendingBody = newBody;
+    this.pending.push(...ops);
+    this.schedule(500);
+  }
+
+  addRaw(op: Op, body: string): void {
+    this.trackOps(body, [op]);
+  }
+
+  private schedule(delay: number): void {
     if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => void this.flushNow(), 500);
+    if (this.disposed) return;
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      void this.flushNow().catch((error) => {
+        this.onError(error);
+        this.schedule(1500);
+      });
+    }, delay);
+  }
+
+  private async drain(): Promise<void> {
+    while (this.queue.length) {
+      const batch = this.queue[0];
+      await this.sink(batch.body, batch.ops);
+      this.queue.shift();
+    }
   }
 
   async flushNow(): Promise<void> {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = undefined;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = undefined;
+    if (this.pending.length) {
+      this.queue.push({ body: this.pendingBody, ops: this.pending });
+      this.pending = [];
     }
-    if (this.pending.length === 0) return;
-    const ops = this.pending;
-    this.pending = [];
+    if (this.flushing) return this.flushing;
+    if (!this.queue.length) return;
+    const attempt = this.drain();
+    this.flushing = attempt;
     try {
-      await this.flush(this.lastBody, ops);
-    } catch {
-      // ops log is best-effort
+      await attempt;
+    } finally {
+      if (this.flushing === attempt) this.flushing = undefined;
     }
   }
 
+  /** External updates change the comparison baseline, never discard queued edits. */
   reset(body: string): void {
+    this.lastBody = body;
+  }
+
+  dispose(): void {
+    this.disposed = true;
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
-    this.pending = [];
-    this.lastBody = body;
+    void this.flushNow().catch(this.onError);
   }
 }

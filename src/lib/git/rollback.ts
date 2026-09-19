@@ -1,87 +1,86 @@
-import type { EditorView } from "@codemirror/view";
+import type { ChangeSet, Text } from "@codemirror/state";
 import type { Op } from "$lib/tauri";
 
-export interface SelSnap {
+interface Edit {
+  from: number;
+  to: number;
+  previous: string;
+  current: string;
+}
+
+export interface RollbackChange {
   from: number;
   to: number;
   text: string;
-  ts: number;
+  op: Op;
 }
 
-const MAX_SNAPS = 300;
-const snaps = new Map<string, SelSnap[]>();
+const MAX_EDITS = 1000;
 
-/** Remember the text under a selection (called on every selection change). */
-export function snapshotSelection(
-  chapterId: string,
-  from: number,
-  to: number,
-  text: string,
-): void {
-  if (to <= from) return;
-  const list = snaps.get(chapterId) ?? [];
-  list.push({ from, to, text, ts: Date.now() });
-  while (list.length > MAX_SNAPS) list.shift();
-  snaps.set(chapterId, list);
-}
+/** Session history for one editor. Offsets follow unrelated edits to the document. */
+export class RollbackHistory {
+  private edits: Edit[] = [];
 
-export function clearSnaps(chapterId: string): void {
-  snaps.delete(chapterId);
-}
+  clear(): void { this.edits = []; }
 
-/** Most recent snapshot intersecting [from, to]. */
-export function findSnap(chapterId: string, from: number, to: number): SelSnap | null {
-  const list = snaps.get(chapterId);
-  if (!list) return null;
-  for (let i = list.length - 1; i >= 0; i--) {
-    const s = list[i];
-    if (s.to > from && s.from < to) return s;
+  /** Discard an older edit only when a newer change overlaps its text. */
+  map(changes: ChangeSet): void {
+    this.edits = this.edits.filter((edit) => {
+      let overlaps = false;
+      changes.iterChangedRanges((from, to) => {
+        if (edit.from === edit.to) {
+          if (from <= edit.from && to >= edit.to) overlaps = true;
+        } else if (from === to) {
+          if (from > edit.from && from < edit.to) overlaps = true;
+        } else if (from < edit.to && to > edit.from) overlaps = true;
+      });
+      return !overlaps;
+    }).map((edit) => {
+      const from = changes.mapPos(edit.from, 1);
+      return { ...edit, from, to: edit.from === edit.to ? from : changes.mapPos(edit.to, -1) };
+    });
   }
-  return null;
+
+  record(changes: ChangeSet, before: Text): void {
+    this.map(changes);
+    changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+      this.edits.push({
+        from: fromB, to: toB,
+        previous: before.sliceString(fromA, toA), current: inserted.toString(),
+      });
+    });
+    if (this.edits.length > MAX_EDITS) this.edits.splice(0, this.edits.length - MAX_EDITS);
+  }
+
+  /** Undo the latest contained change; never replace text outside the chosen scope. */
+  take(doc: string, from: number, to: number): RollbackChange | null {
+    if (from < 0 || to < from || to > doc.length) return null;
+    for (let i = this.edits.length - 1; i >= 0; i--) {
+      const edit = this.edits[i];
+      if (edit.from < from || edit.to > to) continue;
+      if (doc.slice(edit.from, edit.to) !== edit.current) continue;
+      this.edits.splice(i, 1);
+      return {
+        from: edit.from, to: edit.to, text: edit.previous,
+        op: {
+          seq: 0, ts: Date.now(), author: "human", kind: "rollback",
+          from: edit.from, to: edit.to, text: edit.previous,
+        },
+      };
+    }
+    return null;
+  }
 }
 
-/** Expand a cursor position to word boundaries (unicode-aware). */
+/** Word boundaries include combining marks and supplementary-plane letters. */
 export function wordRange(doc: string, pos: number): { from: number; to: number } {
-  const isWord = (c: string) => /\p{L}|\p{N}|_/u.test(c);
-  let from = pos;
-  let to = pos;
-  while (from > 0 && isWord(doc[from - 1])) from--;
-  while (to < doc.length && isWord(doc[to])) to++;
-  if (to === from) {
-    from = Math.max(0, from - 1);
-    to = Math.min(doc.length, to + 1);
+  const bounded = Math.max(0, Math.min(doc.length, pos));
+  for (const match of doc.matchAll(/[\p{L}\p{N}\p{M}_]+/gu)) {
+    const from = match.index;
+    const to = from + match[0].length;
+    if (from <= bounded && to >= bounded) return { from, to };
+    if (from > bounded) break;
   }
-  return { from, to };
-}
-
-/**
- * Restore the snapshotted text over the intersection of [from, to] and the
- * stored selection. Applies the change to the view and returns the rollback
- * op (caller logs it), or null when nothing applicable was stored.
- */
-export function applyRollback(
-  view: EditorView,
-  chapterId: string,
-  from: number,
-  to: number,
-): Op | null {
-  const snap = findSnap(chapterId, from, to);
-  if (!snap) return null;
-  const f = Math.max(from, snap.from);
-  const t = Math.min(to, snap.to);
-  if (t <= f) return null;
-  const restored = snap.text.slice(f - snap.from, t - snap.from);
-  view.dispatch({
-    changes: { from: f, to: t, insert: restored },
-    selection: { anchor: t },
-  });
-  return {
-    seq: 0,
-    ts: Date.now(),
-    author: "human",
-    kind: "rollback",
-    from: f,
-    to: t,
-    text: restored,
-  };
+  // A collapsed range also lets a completely deleted word be restored at the caret.
+  return { from: bounded, to: bounded };
 }
