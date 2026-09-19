@@ -2,13 +2,14 @@
 //! - Updates slot: reads releases of maecly/versorium-app (M6)
 //! - Novel slot: user's account/org repos for the novel remote (private default)
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 const UA: &str = "versorium";
 
 async fn client() -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent(UA)
+        .timeout(std::time::Duration::from_secs(20))
         .build()
         .expect("http client")
 }
@@ -32,10 +33,43 @@ pub async fn me(token: &str) -> Result<GhUser, String> {
     r.json().await.map_err(|_| "network".to_string())
 }
 
-/// Create a repo under the token's user. Returns the https clone URL.
-pub async fn create_repo(token: &str, name: &str, private: bool) -> Result<String, String> {
+#[derive(Debug, Serialize)]
+pub struct GhOwner {
+    pub login: String,
+    pub kind: &'static str,
+}
+
+pub async fn owners(token: &str) -> Result<Vec<GhOwner>, String> {
+    let user = me(token).await?;
+    let mut owners = vec![GhOwner { login: user.login, kind: "user" }];
+    let client = client().await;
+    for page in 1..=100 {
+        let response = client.get("https://api.github.com/user/orgs")
+            .query(&[("per_page", 100), ("page", page)])
+            .bearer_auth(token).send().await.map_err(|_| "network")?;
+        if !response.status().is_success() { return Err("bad_token".into()); }
+        let orgs: Vec<GhUser> = response.json().await.map_err(|_| "network")?;
+        let done = orgs.len() < 100;
+        owners.extend(orgs.into_iter().map(|org| GhOwner { login: org.login, kind: "organization" }));
+        if done { break; }
+    }
+    Ok(owners)
+}
+
+/// Create only under an explicitly selected account belonging to this token.
+pub async fn create_repo(token: &str, name: &str, private: bool, owner: Option<&str>) -> Result<String, String> {
+    let user = me(token).await?;
+    let endpoint = match owner.filter(|owner| !owner.eq_ignore_ascii_case(&user.login)) {
+        Some(org) => {
+            let allowed = owners(token).await?.iter().any(|item|
+                item.kind == "organization" && item.login.eq_ignore_ascii_case(org));
+            if !allowed { return Err("repo_failed".into()); }
+            format!("https://api.github.com/orgs/{org}/repos")
+        }
+        None => "https://api.github.com/user/repos".to_string(),
+    };
     let r = client().await
-        .post("https://api.github.com/user/repos")
+        .post(endpoint)
         .bearer_auth(token)
         .json(&serde_json::json!({ "name": name, "private": private, "auto_init": false }))
         .send()
@@ -45,14 +79,28 @@ pub async fn create_repo(token: &str, name: &str, private: bool) -> Result<Strin
         return Err("repo_failed".to_string());
     }
     let v: serde_json::Value = r.json().await.map_err(|_| "network".to_string())?;
-    Ok(v["clone_url"].as_str().unwrap_or_default().to_string())
+    v["clone_url"].as_str().filter(|url| url.starts_with("https://github.com/"))
+        .map(String::from).ok_or_else(|| "repo_failed".to_string())
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct GhRepo {
     full_name: String,
     private: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_github_repository_fields_without_renaming_them() {
+        let repo: GhRepo = serde_json::from_str(r#"{"full_name":"writer/novel","private":true}"#).unwrap();
+        assert_eq!(repo.full_name, "writer/novel");
+        assert!(repo.private);
+        let owner = serde_json::to_value(GhOwner { login: "writer".into(), kind: "user" }).unwrap();
+        assert_eq!(owner["kind"], "user");
+    }
 }
 
 /// First page of the token's repos (user + orgs it belongs to).

@@ -21,7 +21,8 @@
       "draft": "borrador",
       "revised": "revisado",
       "final": "final"
-    }
+    },
+    "noProjects": "Aún no hay proyectos."
   },
   "editor": {
     "placeholder": "Empieza a escribir…",
@@ -39,9 +40,7 @@
     "cancel": "Cancelar",
     "newChapter": "Nuevo capítulo",
     "chapterTitle": "Título del capítulo",
-    "chapterTitlePlaceholder": "El largo invierno",
-    "create": "Crear",
-    "cancel": "Cancelar"
+    "chapterTitlePlaceholder": "El largo invierno"
   },
   "settings": {
     "title": "Ajustes",
@@ -124,6 +123,54 @@
     "bad_branch": "Nombre de rama inválido.",
     "empty_message": "El mensaje de commit está vacío.",
     "not_found": "No encontrado.",
-    "io": "Error del sistema de archivos."
+    "io": "Error del sistema de archivos.",
+    "no_provider": "Ese agente no está instalado.",
+    "ai_failed": "El agente no respondió.",
+    "ai_empty": "El agente no devolvió nada.",
+    "bad_range": "Ese pasaje está fuera del capítulo.",
+    "stale_selection": "El pasaje cambió desde que lo seleccionaste. Selecciónalo de nuevo."
+  },
+  "languages": {
+    "en": "English",
+    "es": "Español"
+  },
+  "ai": {
+    "rewrite": "Reescribir",
+    "provider": "Agente",
+    "busy": "Reescribiendo…",
+    "noProviders": "No se encontró ningún agente. Instala Claude Code, Codex, OpenCode u Ollama y vuelve a comprobar en Ajustes → Agentes.",
+    "preview": "Vista previa",
+    "original": "Original",
+    "rewritten": "Reescrito",
+    "discard": "Descartar",
+    "apply": "Aplicar",
+    "selectFirst": "Selecciona un pasaje primero.",
+    "callGoesTo": "Esta llamada va a {provider}.",
+    "kindLocal": "Local",
+    "kindCli": "CLI",
+    "checkpointNote": "Versorium guarda un punto de control en Git antes de aplicar. Puedes revertirlo.",
+    "creative": "Continuar capítulo",
+    "creativeSoon": "El modo creativo llega en la v1.1."
+  },
+  "agents": {
+    "title": "Agentes",
+    "hint": "Cada agente gestiona su propio inicio de sesión. Versorium nunca guarda sus claves.",
+    "recheck": "Volver a comprobar",
+    "checking": "Comprobando…",
+    "connected": "Conectado",
+    "detected": "Detectado",
+    "missing": "No instalado",
+    "models": "Modelos",
+    "version": "Versión",
+    "path": "Ruta",
+    "ollamaOffline": "Binario encontrado, demonio apagado. Inicia Ollama para conectar.",
+    "none": "La detección de agentes se ejecuta dentro de la app de escritorio."
+  },
+  "safety": {
+    "title": "Seguridad",
+    "censorship": "Censura",
+    "censorshipHint": "Activada oculta los modelos locales sin censura y pide a los agentes en la nube que mantengan el texto limpio. Desactivada prefiere rutas sin censura. El enrutado llega con IA local.",
+    "on": "Activada",
+    "off": "Desactivada"
   }
 }

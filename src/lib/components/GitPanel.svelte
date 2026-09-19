@@ -58,6 +58,7 @@
     busy = true;
     notice = "";
     try {
+      await store.flushAll();
       await api.gitCommit(path, commitMsg.trim() || t("git.checkpoint"));
       commitMsg = "";
       await refresh();

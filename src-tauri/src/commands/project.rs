@@ -56,6 +56,13 @@ pub fn app_info() -> serde_json::Value {
     })
 }
 
+/// Called by the frontend after the first mount: reveal the (hidden) window.
+#[tauri::command]
+pub fn ui_ready(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.show().map_err(|_| "io".to_string())?;
+    window.set_focus().map_err(|_| "io".to_string())
+}
+
 #[tauri::command]
 pub fn default_projects_dir() -> Result<PathBuf, String> {
     dirs::document_dir()
@@ -66,6 +73,7 @@ pub fn default_projects_dir() -> Result<PathBuf, String> {
 #[tauri::command]
 pub fn list_projects(path: PathBuf) -> Result<Vec<Project>, String> {
     let mut out: Vec<Project> = Vec::new();
+    fs::create_dir_all(&path).map_err(|_| "io".to_string())?;
     let rd = fs::read_dir(&path).map_err(|_| "io".to_string())?;
     for entry in rd.flatten() {
         let p = entry.path();
@@ -142,6 +150,11 @@ pub fn create_project(args: CreateProjectArgs) -> Result<Project, String> {
     )
     .map_err(|_| "io".to_string())?;
     fs::write(root.join("style/voice.md"), "# Voice\n").map_err(|_| "io".to_string())?;
+    fs::write(root.join(".gitignore"), concat!(
+        ".versorium/cache/\n.versorium/embeddings/\n.versorium/logs/\n",
+        "models/\n*.gguf\n*.key\n*.pem\n.env\n.env.*\n",
+        "settings.json\n.DS_Store\n.versorium-save-*.tmp\n"
+    )).map_err(|_| "io".to_string())?;
 
     // M1: every project is a git repo from birth (libgit2, no system git).
     crate::git::repo::init_with_commit(&root).map_err(|_| "io".to_string())?;
@@ -186,11 +199,11 @@ pub fn create_chapter(path: PathBuf, title: String) -> Result<ChapterMeta, Strin
         .unwrap_or(0)
         + 1;
     let (id, file) = chapter_path_for(&meta, next, &title);
-    let full = path.join(&file);
+    let full = crate::storage::project_file(&path, &file)?;
     if full.exists() {
         return Err("project_exists".into());
     }
-    fs::write(&full, render_chapter(&id, &title, "draft", 0, "")).map_err(|_| "io".to_string())?;
+    crate::storage::atomic_write(&full, render_chapter(&id, &title, "draft", 0, ""))?;
     Ok(ChapterMeta {
         id,
         title,
@@ -233,7 +246,8 @@ pub fn render_chapter(id: &str, title: &str, status: &str, words: u32, body: &st
 /// Split a chapter file into (frontmatter map in canonical order, body).
 /// Tolerant: missing or malformed frontmatter yields an empty map.
 pub fn split_frontmatter(text: &str) -> (BTreeMap<String, String>, String) {
-    let trimmed = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let normalized = text.strip_prefix('\u{feff}').unwrap_or(text).replace("\r\n", "\n");
+    let trimmed = normalized.as_str();
     if !trimmed.starts_with("---\n") {
         return (BTreeMap::new(), text.to_string());
     }
@@ -246,7 +260,7 @@ pub fn split_frontmatter(text: &str) -> (BTreeMap<String, String>, String) {
     for line in rest[..end].lines() {
         if let Some((k, v)) = line.split_once(':') {
             let key = k.trim();
-            let val = v.trim().trim_matches('"').trim().to_string();
+            let val = serde_json::from_str::<String>(v.trim()).unwrap_or_else(|_| v.trim().to_string());
             if !key.is_empty() {
                 map.insert(key.to_string(), val);
             }
@@ -280,15 +294,7 @@ pub fn slugify(s: &str) -> String {
 }
 
 fn yaml_scalar(s: &str) -> String {
-    let t = s.trim();
-    if t.is_empty() {
-        return "\"\"".into();
-    }
-    if t.starts_with(|c: char| "!&*-?#|>,\"'{[:".contains(c)) || t.contains(" #") {
-        format!("\"{}\"", t.replace('"', "\\\""))
-    } else {
-        t.to_string()
-    }
+    serde_json::to_string(s.trim()).unwrap_or_else(|_| "\"\"".into())
 }
 
 fn now_secs() -> i64 {

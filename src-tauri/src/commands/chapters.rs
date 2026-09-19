@@ -1,11 +1,10 @@
 //! Chapter files: list, read, save (frontmatter owned by Rust, body by editor).
 
 use crate::commands::project::{count_words, split_frontmatter, ChapterMeta};
+use crate::storage::{atomic_write, project_file};
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
-
-const FM_KEYS: [&str; 5] = ["id", "title", "status", "pov", "words"];
 
 pub fn list_chapters_inner(root: &Path) -> Result<Vec<ChapterMeta>, String> {
     let dir = root.join("manuscript");
@@ -60,7 +59,7 @@ pub struct ChapterRef {
 
 #[tauri::command]
 pub fn read_chapter(args: ChapterRef) -> Result<serde_json::Value, String> {
-    let text = fs::read_to_string(args.path.join(&args.file))
+    let text = fs::read_to_string(project_file(&args.path, &args.file)?)
         .map_err(|_| "not_found".to_string())?;
     let (fm, body) = split_frontmatter(&text);
     Ok(serde_json::json!({ "frontmatter": fm, "body": body }))
@@ -73,24 +72,29 @@ pub fn save_chapter(
     body: String,
     status: Option<String>,
 ) -> Result<ChapterMeta, String> {
-    let full = path.join(&file);
+    let full = project_file(&path, &file)?;
     let text = fs::read_to_string(&full).map_err(|_| "not_found".to_string())?;
-    let (mut fm, _) = split_frontmatter(&text);
-    if let Some(s) = status {
-        fm.insert("status".into(), s);
-    }
     let words = count_words(&body);
-    fm.insert("words".into(), words.to_string());
-
+    // Keep author-supplied YAML (including unknown keys and multiline values).
+    // Only fields owned by this command are replaced.
+    let normalized = text.strip_prefix('\u{feff}').unwrap_or(&text).replace("\r\n", "\n");
+    let header = normalized.strip_prefix("---\n")
+        .and_then(|rest| rest.split_once("\n---\n").map(|(fm, _)| fm));
     let mut out = String::from("---\n");
-    for k in FM_KEYS {
-        if let Some(v) = fm.get(k) {
-            out.push_str(&format!("{k}: {v}\n"));
+    for line in header.unwrap_or_default().lines() {
+        if line.starts_with("words:") || (status.is_some() && line.starts_with("status:")) {
+            continue;
         }
+        out.push_str(line);
+        out.push('\n');
     }
+    if let Some(s) = status {
+        out.push_str(&format!("status: {}\n", serde_json::to_string(&s).map_err(|_| "io")?));
+    }
+    out.push_str(&format!("words: {words}\n"));
     out.push_str("---\n");
     out.push_str(&body);
-    fs::write(&full, out).map_err(|_| "io".to_string())?;
+    atomic_write(&full, out)?;
     parse_chapter_file(&full).ok_or_else(|| "not_found".to_string())
 }
 
@@ -134,5 +138,18 @@ mod tests {
         assert_eq!(cm.words, 5);
         let raw = fs::read_to_string(root.join("manuscript/ch-01-hello.md")).unwrap();
         assert!(raw.contains("words: 5"));
+    }
+
+    #[test]
+    fn save_preserves_custom_yaml_and_quoted_title() {
+        let (_dir, root) = tmp_project();
+        let file = "manuscript/ch-01-hello.md";
+        fs::write(root.join(file), "---\r\nid: ch-01\r\ntitle: \"A: \\\"quote\\\"\"\r\ntags: [night, rain]\r\nsummary: |\r\n  Keep this line\r\nwords: 1\r\n---\r\nold").unwrap();
+        let saved = save_chapter(root.clone(), file.into(), "new body".into(), None).unwrap();
+        assert_eq!(saved.title, "A: \"quote\"");
+        let raw = fs::read_to_string(root.join(file)).unwrap();
+        assert!(raw.contains("tags: [night, rain]\nsummary: |\n  Keep this line\n"));
+        assert!(raw.ends_with("---\nnew body"));
+        assert!(save_chapter(root, "../outside.md".into(), "bad".into(), None).is_err());
     }
 }

@@ -21,7 +21,8 @@
       "draft": "draft",
       "revised": "revised",
       "final": "final"
-    }
+    },
+    "noProjects": "No projects yet."
   },
   "editor": {
     "placeholder": "Start writing…",
@@ -39,9 +40,7 @@
     "cancel": "Cancel",
     "newChapter": "New chapter",
     "chapterTitle": "Chapter title",
-    "chapterTitlePlaceholder": "The long winter",
-    "create": "Create",
-    "cancel": "Cancel"
+    "chapterTitlePlaceholder": "The long winter"
   },
   "settings": {
     "title": "Settings",
@@ -124,6 +123,54 @@
     "bad_branch": "Invalid branch name.",
     "empty_message": "The commit message is empty.",
     "not_found": "Not found.",
-    "io": "File system error."
+    "io": "File system error.",
+    "no_provider": "That agent is not installed.",
+    "ai_failed": "The agent did not answer.",
+    "ai_empty": "The agent returned nothing.",
+    "bad_range": "That passage is outside the chapter.",
+    "stale_selection": "The passage changed since you selected it. Select it again."
+  },
+  "languages": {
+    "en": "English",
+    "es": "Español"
+  },
+  "ai": {
+    "rewrite": "Rewrite",
+    "provider": "Agent",
+    "busy": "Rewriting…",
+    "noProviders": "No agent found. Install Claude Code, Codex, OpenCode or Ollama and re-check in Settings → Agents.",
+    "preview": "Preview",
+    "original": "Original",
+    "rewritten": "Rewritten",
+    "discard": "Discard",
+    "apply": "Apply",
+    "selectFirst": "Select a passage first.",
+    "callGoesTo": "This call goes to {provider}.",
+    "kindLocal": "Local",
+    "kindCli": "CLI",
+    "checkpointNote": "Versorium snapshots Git before applying. You can roll back.",
+    "creative": "Continue chapter",
+    "creativeSoon": "Creative mode arrives in v1.1."
+  },
+  "agents": {
+    "title": "Agents",
+    "hint": "Harnesses keep their own login. Versorium never stores their keys.",
+    "recheck": "Re-check",
+    "checking": "Checking…",
+    "connected": "Connected",
+    "detected": "Detected",
+    "missing": "Missing",
+    "models": "Models",
+    "version": "Version",
+    "path": "Path",
+    "ollamaOffline": "Binary found, daemon offline. Start Ollama to connect.",
+    "none": "Agent detection runs inside the desktop app."
+  },
+  "safety": {
+    "title": "Safety",
+    "censorship": "Censorship",
+    "censorshipHint": "ON hides uncensored local models and asks cloud agents to keep it clean. OFF prefers uncensored routes. Routing arrives with Local AI.",
+    "on": "On",
+    "off": "Off"
   }
 }

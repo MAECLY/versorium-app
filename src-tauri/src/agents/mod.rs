@@ -1,6 +1,8 @@
 //! Agent detection + rewrite invocation (M2).
 //!
-//! Detection: look for CLI harnesses on PATH (claude, codex, opencode, ollama, gh).
+//! Detection: look for CLI harnesses on PATH, then in the usual install dirs
+//! (claude, codex, opencode, ollama, gh) — the app may be launched without the
+//! login shell's PATH.
 //! Invocation order per action: CLI harness → (M3: MCP write-back) → (M4: BYOK / local).
 //!
 //! Detection is best-effort: a binary on PATH is "connected" (the harness manages
@@ -33,16 +35,118 @@ pub struct AgentInfo {
     pub models: Option<Vec<String>>,
 }
 
-/// Find an executable on PATH. Returns the first match.
-pub fn find_in_path(name: &str) -> Option<PathBuf> {
-    let paths = std::env::var_os("PATH")?;
-    for dir in std::env::split_paths(&paths) {
-        let cand = dir.join(name);
-        if cand.is_file() {
-            return Some(cand);
+/// Candidate file names for a binary. Windows resolves `claude` to
+/// `claude.cmd` (npm shim) or `claude.exe`; unix uses the bare name.
+fn candidate_names(name: &str) -> Vec<String> {
+    if cfg!(windows) {
+        vec![
+            name.to_string(),
+            format!("{name}.exe"),
+            format!("{name}.cmd"),
+            format!("{name}.bat"),
+        ]
+    } else {
+        vec![name.to_string()]
+    }
+}
+
+fn is_executable(path: &Path) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        path.metadata()
+            .map(|m| m.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
+}
+
+/// First directory in `dirs` holding an executable named `name`.
+pub fn find_in_dirs(name: &str, dirs: impl IntoIterator<Item = PathBuf>) -> Option<PathBuf> {
+    let names = candidate_names(name);
+    dirs.into_iter()
+        .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
+        .find(|cand| is_executable(cand))
+}
+
+fn path_dirs() -> Vec<PathBuf> {
+    std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).collect())
+        .unwrap_or_default()
+}
+
+/// Version-manager shims keep one `bin` per installed toolchain; newest first
+/// so a freshly installed CLI wins over a stale copy.
+fn versioned_bins(parent: PathBuf) -> Vec<PathBuf> {
+    let Ok(rd) = std::fs::read_dir(&parent) else {
+        return Vec::new();
+    };
+    let mut versions: Vec<PathBuf> = rd
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect();
+    versions.sort();
+    versions.reverse();
+    versions.into_iter().map(|v| v.join("bin")).collect()
+}
+
+/// Where installers drop CLIs when the login shell's PATH is not inherited
+/// (app launched from Finder / Explorer / a launcher).
+fn well_known_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    #[cfg(windows)]
+    {
+        let var = |k: &str| std::env::var_os(k).map(PathBuf::from);
+        if let Some(local) = var("LOCALAPPDATA") {
+            dirs.push(local.join("Programs").join("Ollama"));
+            dirs.push(local.join("Microsoft").join("WinGet").join("Links"));
+        }
+        if let Some(roaming) = var("APPDATA") {
+            dirs.push(roaming.join("npm"));
+        }
+        if let Some(home) = var("USERPROFILE") {
+            dirs.push(home.join(".cargo").join("bin"));
+            dirs.push(home.join(".bun").join("bin"));
+        }
+        if let Some(pf) = var("ProgramFiles") {
+            dirs.push(pf.join("GitHub CLI"));
+            dirs.push(pf.join("Ollama"));
         }
     }
-    None
+    #[cfg(not(windows))]
+    {
+        if let Some(home) = dirs::home_dir() {
+            dirs.push(home.join(".local/bin"));
+            dirs.push(home.join(".cargo/bin"));
+            dirs.push(home.join(".bun/bin"));
+            dirs.push(home.join(".volta/bin"));
+            dirs.push(home.join(".npm-global/bin"));
+            dirs.extend(versioned_bins(home.join(".nvm/versions/node")));
+            dirs.push(home.join(".fnm/aliases/default/bin"));
+        }
+        dirs.push(PathBuf::from("/usr/local/bin"));
+        dirs.push(PathBuf::from("/opt/homebrew/bin"));
+        dirs.push(PathBuf::from("/opt/local/bin"));
+        dirs.push(PathBuf::from("/snap/bin"));
+        #[cfg(target_os = "macos")]
+        {
+            dirs.push(PathBuf::from("/Applications/Ollama.app/Contents/Resources"));
+            dirs.push(PathBuf::from("/usr/local/opt/ollama/bin"));
+        }
+    }
+    dirs
+}
+
+/// Find an executable: PATH first, then the well-known install dirs.
+pub fn find_binary(name: &str) -> Option<PathBuf> {
+    find_in_dirs(name, path_dirs()).or_else(|| find_in_dirs(name, well_known_dirs()))
 }
 
 /// Run a command with a hard timeout. Returns trimmed stdout, or None on
@@ -86,8 +190,9 @@ fn version_of(bin: &Path) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-/// Detect the agent harnesses on PATH. Ollama's daemon state is merged in
-/// separately (it is a network check, not a PATH check).
+/// Detect the agent harnesses (PATH + well-known dirs). Ollama's daemon
+/// state is merged in separately (it is a network check, not a PATH check).
+/// Version probes run in parallel; each is capped at VERSION_TIMEOUT.
 pub fn detect_binaries() -> Vec<AgentInfo> {
     const SPECS: [(&str, &str); 5] = [
         ("claude", "Claude Code"),
@@ -96,30 +201,38 @@ pub fn detect_binaries() -> Vec<AgentInfo> {
         ("ollama", "Ollama"),
         ("gh", "GitHub CLI"),
     ];
-    SPECS
-        .iter()
-        .map(|(id, name)| match find_in_path(id) {
-            Some(p) => AgentInfo {
-                id: (*id).to_string(),
-                name: (*name).to_string(),
-                path: Some(p.to_string_lossy().into_owned()),
-                version: version_of(&p),
-                // For ollama, the caller upgrades to "connected" when the
-                // daemon answers; a binary alone is "detected".
-                state: if *id == "ollama" { "detected" } else { "connected" }
-                    .to_string(),
-                models: None,
-            },
-            None => AgentInfo {
-                id: (*id).to_string(),
-                name: (*name).to_string(),
-                path: None,
-                version: None,
-                state: "missing".to_string(),
-                models: None,
-            },
-        })
-        .collect()
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = SPECS
+            .iter()
+            .map(|(id, name)| {
+                scope.spawn(move || match find_binary(id) {
+                    Some(p) => AgentInfo {
+                        id: (*id).to_string(),
+                        name: (*name).to_string(),
+                        path: Some(p.to_string_lossy().into_owned()),
+                        version: version_of(&p),
+                        // For ollama, the caller upgrades to "connected" when the
+                        // daemon answers; a binary alone is "detected".
+                        state: if *id == "ollama" { "detected" } else { "connected" }
+                            .to_string(),
+                        models: None,
+                    },
+                    None => AgentInfo {
+                        id: (*id).to_string(),
+                        name: (*name).to_string(),
+                        path: None,
+                        version: None,
+                        state: "missing".to_string(),
+                        models: None,
+                    },
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| h.join().expect("detect thread panicked"))
+            .collect()
+    })
 }
 
 /// Check the local Ollama daemon. Returns (online, model names).
@@ -178,7 +291,7 @@ pub async fn rewrite(provider: &str, text: &str) -> Result<String, String> {
 
 async fn cli_rewrite(bin: &str, args: &[&str], text: &str) -> Result<String, String> {
     let prompt = rewrite_prompt(text);
-    let path = find_in_path(bin).ok_or_else(|| "no_provider".to_string())?;
+    let path = find_binary(bin).ok_or_else(|| "no_provider".to_string())?;
     let mut all: Vec<String> = args.iter().map(|s| s.to_string()).collect();
     all.push(prompt);
     let out = tauri::async_runtime::spawn_blocking(move || run_capped(&path, &all, CLI_TIMEOUT))
@@ -230,6 +343,33 @@ async fn ollama_rewrite(text: &str) -> Result<String, String> {
 mod tests {
     use super::*;
 
+    /// Real harnesses on this machine (not run in CI): `cargo test -- --ignored live_`.
+    #[test]
+    #[ignore = "talks to the agents installed on this machine"]
+    fn live_detect_and_rewrite_with_installed_agents() {
+        let agents = detect_binaries();
+        for a in &agents {
+            eprintln!("{:<10} {:<10} {:?} {:?}", a.id, a.state, a.version, a.path);
+        }
+        let (online, models) = tauri::async_runtime::block_on(ollama_status());
+        eprintln!("ollama daemon online={online} models={models:?}");
+
+        let passage = "La niña esperó junto a la ventana toda la noche, pero nadie vino.";
+        for provider in ["ollama", "claude"] {
+            let usable = agents.iter().any(|a| a.id == provider && a.state != "missing")
+                && (provider != "ollama" || online);
+            if !usable {
+                eprintln!("{provider}: skipped (not usable here)");
+                continue;
+            }
+            let out = tauri::async_runtime::block_on(rewrite(provider, passage))
+                .unwrap_or_else(|e| panic!("{provider} rewrite failed: {e}"));
+            eprintln!("{provider} → {out}");
+            assert!(!out.trim().is_empty(), "{provider} returned nothing");
+            assert_ne!(out.trim(), passage, "{provider} returned the passage unchanged");
+        }
+    }
+
     #[test]
     fn rewrite_prompt_contains_passage_and_rules() {
         let p = rewrite_prompt("The long winter came.");
@@ -241,7 +381,50 @@ mod tests {
     #[test]
     fn find_in_path_finds_shell() {
         // `sh` exists on every sane PATH; a nonsense name must not resolve.
-        assert!(find_in_path("sh").is_some());
-        assert!(find_in_path("versorium-does-not-exist-xyz").is_none());
+        assert!(find_in_dirs("sh", path_dirs()).is_some());
+        assert!(find_binary("sh").is_some());
+        assert!(find_binary("versorium-does-not-exist-xyz").is_none());
+    }
+
+    #[test]
+    fn find_in_dirs_scans_given_dirs_in_order() {
+        let empty = tempfile::tempdir().unwrap();
+        let bin = tempfile::tempdir().unwrap();
+        let exe = bin.path().join(if cfg!(windows) { "fakecli.exe" } else { "fakecli" });
+        std::fs::write(&exe, "#!/bin/sh\necho 1.0\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let dirs = || [empty.path().to_path_buf(), bin.path().to_path_buf()];
+        assert_eq!(find_in_dirs("fakecli", dirs()), Some(exe.clone()));
+        assert!(find_in_dirs("othercli", dirs()).is_none());
+        // A directory named like the binary is not a match.
+        std::fs::create_dir(bin.path().join("dircli")).unwrap();
+        assert!(find_in_dirs("dircli", dirs()).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn find_in_dirs_requires_executable_bit() {
+        let bin = tempfile::tempdir().unwrap();
+        let plain = bin.path().join("notexec");
+        std::fs::write(&plain, "data").unwrap();
+        assert!(find_in_dirs("notexec", [bin.path().to_path_buf()]).is_none());
+    }
+
+    #[test]
+    fn detect_binaries_reports_all_five_specs() {
+        let found = detect_binaries();
+        let ids: Vec<&str> = found.iter().map(|a| a.id.as_str()).collect();
+        assert_eq!(ids, ["claude", "codex", "opencode", "ollama", "gh"]);
+        for a in &found {
+            match a.state.as_str() {
+                "missing" => assert!(a.path.is_none()),
+                "connected" | "detected" => assert!(a.path.is_some()),
+                other => panic!("unexpected state {other}"),
+            }
+        }
     }
 }

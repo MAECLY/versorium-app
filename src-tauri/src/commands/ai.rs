@@ -8,6 +8,8 @@ use crate::agents::{self, AgentInfo};
 use crate::commands::chapters::save_chapter;
 use crate::commands::project::split_frontmatter;
 use crate::ops::Op;
+use crate::storage::project_file;
+use crate::text::{utf16_len, utf16_to_byte};
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
@@ -43,28 +45,39 @@ pub async fn ai_rewrite(provider: String, text: String) -> Result<String, String
 pub struct AiApplyArgs {
     pub path: PathBuf,
     pub file: String,
-    /// Body offset range (frontmatter excluded), UTF-8 valid.
+    /// Body range in UTF-16 code units (editor coordinates), frontmatter excluded.
     pub from: usize,
     pub to: usize,
     /// Replacement text.
     pub text: String,
     /// Provider id — recorded in ops as `ai:<provider>`.
     pub provider: String,
+    /// The passage the user selected; the write is refused if the file moved on.
+    pub expected: String,
 }
 
-/// Apply a rewrite to a chapter: checkpoint → splice → ops.
+/// Apply a rewrite to a chapter: validate → checkpoint → splice → ops.
+///
+/// Every check runs before the git checkpoint so a rejected apply never
+/// leaves a commit behind.
 #[tauri::command]
 pub fn ai_apply_rewrite(args: AiApplyArgs) -> Result<crate::commands::project::ChapterMeta, String> {
-    let full = args.path.join(&args.file);
+    let full = project_file(&args.path, &args.file)?;
     let raw = fs::read_to_string(&full).map_err(|_| "not_found".to_string())?;
     let (_, body) = split_frontmatter(&raw);
-    if args.from > args.to || args.to > body.len() {
-        return Err("not_found".to_string());
+    if args.from > args.to {
+        return Err("bad_range".into());
     }
-    let deleted = &body[args.from..args.to];
+    let (start, end) = match (utf16_to_byte(&body, args.from), utf16_to_byte(&body, args.to)) {
+        (Some(s), Some(e)) => (s, e),
+        _ => return Err("bad_range".into()),
+    };
+    let deleted = &body[start..end];
+    if deleted != args.expected {
+        return Err("stale_selection".into());
+    }
 
-    // 1) Git checkpoint BEFORE the write. If the snapshot fails, the write
-    //    is not applied (spec M2 DoD).
+    // Git checkpoint BEFORE the write. If the snapshot fails, nothing is applied.
     if let Err(e) = crate::git::repo::commit_all(
         &args.path,
         &format!("checkpoint: before ai rewrite ({})", args.provider),
@@ -74,12 +87,10 @@ pub fn ai_apply_rewrite(args: AiApplyArgs) -> Result<crate::commands::project::C
         }
     }
 
-    // 2) Splice + save (re-renders frontmatter + word count).
-    let new_body = format!("{}{}{}", &body[..args.from], args.text, &body[args.to..]);
+    let new_body = format!("{}{}{}", &body[..start], args.text, &body[end..]);
     let cm = save_chapter(args.path.clone(), args.file.clone(), new_body.clone(), None)?;
 
-    // 3) Ops with author = "ai:<provider>" — delete at old coordinates,
-    //    insert at new coordinates. append_ops re-stamps seq + ts.
+    // Ops in editor coordinates: delete at old offsets, insert at new ones.
     let author = format!("ai:{}", args.provider);
     let mut ops: Vec<Op> = Vec::new();
     if !deleted.is_empty() {
@@ -100,7 +111,7 @@ pub fn ai_apply_rewrite(args: AiApplyArgs) -> Result<crate::commands::project::C
             author,
             kind: "insert".into(),
             from: args.from,
-            to: args.from + args.text.len(),
+            to: args.from + utf16_len(&args.text),
             text: args.text.clone(),
         });
     }
@@ -128,54 +139,59 @@ mod tests {
         p.path.into()
     }
 
-    #[test]
-    fn apply_rewrite_splices_body_and_records_ops() {
-        let dir = tempfile::tempdir().unwrap();
-        let p = make_project(dir.path(), "Rewrite Test");
-        let ch = create_chapter(p.clone(), "One".into()).unwrap();
-        let body = "Old sentence one.\nOld sentence two.";
+    fn write_body(p: &Path, ch: &crate::commands::project::ChapterMeta, body: &str) {
         fs::write(
             p.join(&ch.file),
             format!("---\nid: {}\ntitle: One\n---\n{}", ch.id, body),
         )
         .unwrap();
+    }
 
-        // Replace "Old sentence one." (0..17) with "New sentence one."
-        let cm = ai_apply_rewrite(AiApplyArgs {
-            path: p.clone(),
-            file: ch.file.clone(),
-            from: 0,
-            to: 17,
-            text: "New sentence one.".into(),
+    fn read_ops(p: &Path, chapter: &str) -> Vec<Op> {
+        let ops_dir = p.join(".versorium").join("ops").join(chapter);
+        let jsonl = fs::read_dir(&ops_dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .find(|e| e.path().extension().is_some_and(|x| x == "jsonl"))
+            .expect("ops pack missing")
+            .path();
+        fs::read_to_string(&jsonl)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect()
+    }
+
+    fn apply(p: &Path, file: &str, from: usize, to: usize, text: &str, expected: &str) -> Result<crate::commands::project::ChapterMeta, String> {
+        ai_apply_rewrite(AiApplyArgs {
+            path: p.to_path_buf(),
+            file: file.into(),
+            from,
+            to,
+            text: text.into(),
             provider: "claude".into(),
+            expected: expected.into(),
         })
-        .unwrap();
+    }
+
+    #[test]
+    fn apply_rewrite_splices_body_and_records_ops() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = make_project(dir.path(), "Rewrite Test");
+        let ch = create_chapter(p.clone(), "One".into()).unwrap();
+        write_body(&p, &ch, "Old sentence one.\nOld sentence two.");
+
+        let cm = apply(&p, &ch.file, 0, 17, "New sentence one.", "Old sentence one.").unwrap();
 
         let raw = fs::read_to_string(p.join(&cm.file)).unwrap();
         let (_, new_body) = split_frontmatter(&raw);
         assert_eq!(new_body, "New sentence one.\nOld sentence two.");
 
-        // Git: checkpoint commit exists with the provider in the message.
         let log = repo::log(&p, 10).unwrap();
-        assert!(log
-            .iter()
-            .any(|c| c.message == "checkpoint: before ai rewrite (claude)"));
+        assert!(log.iter().any(|c| c.message == "checkpoint: before ai rewrite (claude)"));
 
-        // Ops: delete + insert, both authored by ai:claude.
-        let ops_dir = p.join(".versorium").join("ops").join(&cm.id);
-        let jsonl = fs::read_dir(&ops_dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().is_some_and(|x| x == "jsonl"))
-            .next()
-            .expect("ops pack missing")
-            .path();
-        let lines = fs::read_to_string(&jsonl).unwrap();
-        let ops: Vec<Op> = lines
-            .lines()
-            .filter(|l| !l.is_empty())
-            .map(|l| serde_json::from_str(l).unwrap())
-            .collect();
+        let ops = read_ops(&p, &cm.id);
         assert_eq!(ops.len(), 2);
         assert!(ops.iter().all(|o| o.author == "ai:claude"));
         assert_eq!(ops[0].kind, "delete");
@@ -186,25 +202,59 @@ mod tests {
     }
 
     #[test]
+    fn apply_rewrite_uses_utf16_offsets_for_multibyte_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = make_project(dir.path(), "Multibyte");
+        let ch = create_chapter(p.clone(), "One".into()).unwrap();
+        // "Año nuevo — 🌙 " = 15 UTF-16 units (emoji counts 2), 21 bytes.
+        let body = "Año nuevo — 🌙 luna.\nSegunda.";
+        write_body(&p, &ch, body);
+
+        let cm = apply(&p, &ch.file, 15, 20, "estrella.", "luna.").unwrap();
+
+        let raw = fs::read_to_string(p.join(&cm.file)).unwrap();
+        let (_, new_body) = split_frontmatter(&raw);
+        assert_eq!(new_body, "Año nuevo — 🌙 estrella.\nSegunda.");
+
+        let ops = read_ops(&p, &cm.id);
+        assert_eq!(ops.len(), 2);
+        assert_eq!((ops[0].kind.as_str(), ops[0].from, ops[0].to), ("delete", 15, 20));
+        assert_eq!(ops[0].text, "luna.");
+        assert_eq!((ops[1].kind.as_str(), ops[1].from, ops[1].to), ("insert", 15, 24));
+        assert_eq!(ops[1].text, "estrella.");
+    }
+
+    #[test]
+    fn apply_rewrite_refuses_stale_selection_without_checkpoint() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = make_project(dir.path(), "Stale");
+        let ch = create_chapter(p.clone(), "One".into()).unwrap();
+        write_body(&p, &ch, "Old sentence one.");
+        let before = repo::log(&p, 10).unwrap().len();
+
+        let err = apply(&p, &ch.file, 0, 17, "x", "Something else..").unwrap_err();
+        assert_eq!(err, "stale_selection");
+
+        let log = repo::log(&p, 10).unwrap();
+        assert_eq!(log.len(), before);
+        assert!(!log.iter().any(|c| c.message.starts_with("checkpoint: before ai rewrite")));
+        let raw = fs::read_to_string(p.join(&ch.file)).unwrap();
+        assert!(raw.ends_with("Old sentence one."));
+    }
+
+    #[test]
     fn apply_rewrite_rejects_bad_range() {
         let dir = tempfile::tempdir().unwrap();
         let p = make_project(dir.path(), "Bad Range");
         let ch = create_chapter(p.clone(), "One".into()).unwrap();
-        let body = "short";
-        fs::write(
-            p.join(&ch.file),
-            format!("---\nid: {}\ntitle: One\n---\n{}", ch.id, body),
-        )
-        .unwrap();
-        let err = ai_apply_rewrite(AiApplyArgs {
-            path: p,
-            file: ch.file,
-            from: 3,
-            to: 99,
-            text: "x".into(),
-            provider: "claude".into(),
-        })
-        .unwrap_err();
-        assert_eq!(err, "not_found");
+        write_body(&p, &ch, "short 🌙");
+        let before = repo::log(&p, 10).unwrap().len();
+
+        assert_eq!(apply(&p, &ch.file, 3, 99, "x", "").unwrap_err(), "bad_range");
+        assert_eq!(apply(&p, &ch.file, 5, 3, "x", "").unwrap_err(), "bad_range");
+        // Inside the surrogate pair of the emoji (units 6..8).
+        assert_eq!(apply(&p, &ch.file, 6, 7, "x", "").unwrap_err(), "bad_range");
+        assert_eq!(repo::log(&p, 10).unwrap().len(), before);
+        assert!(apply(&p, "../outside.md", 0, 0, "x", "").is_err());
     }
 }

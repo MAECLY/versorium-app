@@ -13,41 +13,78 @@
   import NewProjectDialog from "$lib/binder/NewProjectDialog.svelte";
   import NewChapterDialog from "$lib/binder/NewChapterDialog.svelte";
   import SettingsModal from "$lib/settings/SettingsModal.svelte";
+  import RewriteDialog from "$lib/components/RewriteDialog.svelte";
+  import { detectAgents } from "$lib/ai/agents";
 
   let showSettings = $state(false);
   let showNewProject = $state(false);
   let showNewChapter = $state(false);
   let showGit = $state(false);
   let gitDirty = $state(false);
+  let showRewrite = $state(false);
+  let rewriteSel = $state<{ from: number; to: number; text: string } | null>(null);
 
   let editorRef: {
     rollbackWord: () => boolean;
     rollbackSelection: () => boolean;
     flushOps: () => Promise<void>;
+    getSelection: () => { from: number; to: number; text: string } | null;
+    applyExternal: (from: number, to: number, text: string, expected?: string) => boolean;
+    getDoc: () => string;
   } | undefined = $state(undefined);
 
-  let saveTimer: ReturnType<typeof setTimeout> | undefined;
-
-  function onEditorChange(body: string): void {
-    store.chapterBody = body;
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => void store.saveChapter(body), 800);
+  function onOps(path: string, chapter: string, body: string, ops: Op[]): Promise<unknown> {
+    return api.opsAppend(path, chapter, body, ops);
   }
 
-  /** Stable sink: derived ops go to the Rust ops log for the open chapter. */
-  function onOps(body: string, ops: Op[]): Promise<unknown> {
-    const ch = store.currentChapter;
-    if (!store.project || !ch) return Promise.resolve();
-    return api.opsAppend(store.project.path, ch.id, body, ops);
+  async function doCommit(): Promise<void> {
+    const path = store.project?.path;
+    if (!path || store.loading) return;
+    try {
+      await store.flushAll();
+      await api.gitCommit(path, t("git.checkpoint"));
+      await refreshGit();
+    } catch (e) { store.error = store.codeMessagePublic(e); }
   }
 
-  function doCommit(): void {
-    if (!store.project) return;
-    void editorRef?.flushOps();
-    void store.saveChapter(store.chapterBody).then(() =>
-      api.gitCommit(store.project!.path, t("git.checkpoint")),
-    ).then(() => void refreshGit())
-      .catch((e) => (store.error = store.codeMessagePublic(e)));
+  function doRewrite(): void {
+    if (!store.project || !store.currentChapter || store.loading) return;
+    const sel = editorRef?.getSelection() ?? null;
+    if (!sel) {
+      store.error = t("ai.selectFirst");
+      return;
+    }
+    rewriteSel = sel;
+    showRewrite = true;
+  }
+
+  /** Checkpoint → Rust write → editor splice → adopt as saved. Throws to keep the dialog open. */
+  async function applyRewrite(result: string, provider: string): Promise<void> {
+    const sel = rewriteSel;
+    const path = store.project?.path;
+    const chapter = store.currentChapter;
+    if (!sel || !path || !chapter || !editorRef) return;
+    if (editorRef.getDoc().slice(sel.from, sel.to) !== sel.text) throw "stale_selection";
+    await store.flushAll();
+    const meta = await api.aiApplyRewrite({
+      path, file: chapter.file, from: sel.from, to: sel.to, text: result, provider, expected: sel.text,
+    });
+    if (editorRef.applyExternal(sel.from, sel.to, result, sel.text)) {
+      store.adoptSaved(editorRef.getDoc(), meta);
+    } else {
+      // Rust already wrote the file; re-read it rather than let the editor diverge.
+      await store.openChapter(meta);
+    }
+    showRewrite = false;
+    rewriteSel = null;
+    await refreshGit();
+  }
+
+  function onKeydown(event: KeyboardEvent): void {
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "r") {
+      event.preventDefault();
+      doRewrite();
+    }
   }
 
   function doRollbackWord(): void {
@@ -68,21 +105,47 @@
     }
   }
 
-  onMount(async () => {
-    await initLocale();
-    await initTheme();
-    if (isTauri()) {
-      void store.refreshProjects();
-      // Auto checkpoint: commit dirty work every 60 s while a project is open.
-      setInterval(() => {
-        if (!store.project) return;
-        void store.saveChapter(store.chapterBody)
-          .then(() => api.gitAutoCheckpoint(store.project!.path))
-          .then(() => void refreshGit())
-          .catch(() => {});
-      }, 60_000);
-      setInterval(() => void refreshGit(), 15_000);
-    }
+  onMount(() => {
+    store.beforeLeave = () => editorRef?.flushOps() ?? Promise.resolve();
+    void (async () => {
+      await initLocale();
+      await initTheme();
+      if (isTauri()) {
+        await store.refreshProjects();
+        // Probing five CLIs takes seconds; warm the cache so Rewrite opens ready.
+        void detectAgents().catch(() => undefined);
+      }
+    })();
+    const checkpoint = setInterval(async () => {
+      const path = store.project?.path;
+      if (!path || !isTauri() || store.loading) return;
+      try {
+        await store.flushAll();
+        await api.gitAutoCheckpoint(path);
+        await refreshGit();
+      } catch (e) { store.error = store.codeMessagePublic(e); }
+    }, 60_000);
+    const poll = setInterval(() => void refreshGit(), 15_000);
+    window.addEventListener("keydown", onKeydown);
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    if (isTauri()) void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+      const window = getCurrentWindow();
+      const off = await window.onCloseRequested(async event => {
+        event.preventDefault();
+        try { await store.flushAll(); await window.destroy(); }
+        catch (e) { store.error = store.codeMessagePublic(e); }
+      });
+      if (disposed) off(); else unlisten = off;
+    });
+    return () => {
+      disposed = true;
+      clearInterval(checkpoint);
+      clearInterval(poll);
+      window.removeEventListener("keydown", onKeydown);
+      unlisten?.();
+      store.beforeLeave = undefined;
+    };
   });
 </script>
 
@@ -91,6 +154,7 @@
     onOpenSettings={() => (showSettings = true)}
     onToggleGit={() => (showGit = !showGit)}
     onCommit={doCommit}
+    onRewrite={doRewrite}
     onRollbackWord={doRollbackWord}
     onRollbackSelection={doRollbackSelection}
     gitDirty={gitDirty}
@@ -101,13 +165,18 @@
 
     <main class="min-w-0 flex-1" style="background: var(--bg-editor);">
       {#if store.project && store.currentChapter}
+        {#key store.project.path + "/" + store.currentChapter.file}
         <MarkdownEditor
           bind:this={editorRef}
           doc={store.chapterBody}
           chapterId={store.currentChapter.id}
-          onChange={onEditorChange}
+          projectPath={store.project.path}
+          disabled={store.loading}
+          onChange={(body) => store.updateBody(body)}
           onOps={onOps}
+          onOpsError={(e) => { store.error = store.codeMessagePublic(e); }}
         />
+        {/key}
       {:else}
         <EmptyState onRequestNew={() => (showNewProject = true)} />
       {/if}
@@ -139,5 +208,12 @@
   {/if}
   {#if showNewChapter}
     <NewChapterDialog onClose={() => (showNewChapter = false)} />
+  {/if}
+  {#if showRewrite && rewriteSel}
+    <RewriteDialog
+      text={rewriteSel.text}
+      onClose={() => { showRewrite = false; rewriteSel = null; }}
+      onApply={applyRewrite}
+    />
   {/if}
 </div>

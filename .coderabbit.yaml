@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit is switched off for this repository: no automatic or incremental
+# reviews, no PR summaries, walkthroughs, diagrams, labels, reviewer
+# suggestions, commit statuses, chat replies or learnings.
+language: en-US
+early_access: false
+
+reviews:
+  auto_review:
+    enabled: false
+    auto_incremental_review: false
+    drafts: false
+  high_level_summary: false
+  review_status: false
+  review_details: false
+  review_progress: false
+  commit_status: false
+  fail_commit_status: false
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: false
+  request_changes_workflow: false
+
+chat:
+  auto_reply: false
+  art: false
+
+knowledge_base:
+  opt_out: true
