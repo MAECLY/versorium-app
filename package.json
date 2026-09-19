@@ -10,7 +10,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",
     "test": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "test:ui": "vitest run"
+    "test:ui": "vitest run",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
