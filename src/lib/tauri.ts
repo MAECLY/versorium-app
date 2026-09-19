@@ -139,7 +139,8 @@ export const api = {
     invoke<void>("git_remote_add", { path, name, url }),
   gitRemoteRemove: (path: string, name: string) => invoke<void>("git_remote_remove", { path, name }),
   githubMe: (token: string) => invoke<string>("github_me", { token }),
-  githubCreateRepo: (token: string, name: string) => invoke<string>("github_create_repo", { token, name }),
+  githubOwners: (token: string) => invoke<{ login: string; kind: "user" | "organization" }[]>("github_owners", { token }),
+  githubCreateRepo: (token: string, name: string, owner?: string) => invoke<string>("github_create_repo", { token, name, owner }),
   githubListRepos: (token: string) => invoke<{ name: string; private: boolean }[]>("github_list_repos", { token }),
   opsAppend: (path: string, chapter: string, body: string, ops: Op[]) =>
     invoke<Op[]>("ops_append", { path, chapter, body, ops }),
