@@ -21,7 +21,8 @@
       "draft": "draft",
       "revised": "revised",
       "final": "final"
-    }
+    },
+    "noProjects": "No projects yet."
   },
   "editor": {
     "placeholder": "Start writing…",
@@ -39,9 +40,7 @@
     "cancel": "Cancel",
     "newChapter": "New chapter",
     "chapterTitle": "Chapter title",
-    "chapterTitlePlaceholder": "The long winter",
-    "create": "Create",
-    "cancel": "Cancel"
+    "chapterTitlePlaceholder": "The long winter"
   },
   "settings": {
     "title": "Settings",
@@ -125,5 +124,9 @@
     "empty_message": "The commit message is empty.",
     "not_found": "Not found.",
     "io": "File system error."
+  },
+  "languages": {
+    "en": "English",
+    "es": "Español"
   }
 }
