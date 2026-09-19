@@ -70,6 +70,19 @@ export class BinderStore {
     try { await this.flush(); return true; } catch { return false; }
   }
 
+  /** Rust already wrote this body (e.g. an applied rewrite): adopt it as saved. */
+  adoptSaved(body: string, meta: ChapterMeta): void {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    this.chapterBody = body;
+    this.savedBody = body;
+    this.currentChapter = meta;
+    if (this.project) {
+      this.project = { ...this.project, chapters: this.project.chapters.map(c => c.file === meta.file ? meta : c) };
+    }
+    this.saveState = "saved";
+  }
+
   async flushAll(): Promise<void> {
     await this.beforeLeave?.();
     await this.flush();

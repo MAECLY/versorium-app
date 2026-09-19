@@ -101,10 +101,13 @@ export interface AgentInfo {
 export interface AiApplyArgs {
   path: string;
   file: string;
+  /** UTF-16 offsets into the body (editor coordinates), frontmatter excluded. */
   from: number;
   to: number;
   text: string;
   provider: string;
+  /** The passage as selected; Rust refuses the write if the file moved on. */
+  expected: string;
 }
 
 export const api = {
