@@ -45,6 +45,7 @@ pub fn run() {
             commands::git::git_remote_add,
             commands::git::git_remote_remove,
             commands::git::github_me,
+            commands::git::github_owners,
             commands::git::github_create_repo,
             commands::git::github_list_repos,
             commands::ops::ops_append,
