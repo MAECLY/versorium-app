@@ -20,10 +20,30 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             let store = commands::settings::SettingsStore::load(dir.join("settings.json"));
             app.manage(store);
+            // Debug builds only: VERSORIUM_DEVTOOLS=1 opens the WebKit/WebView2
+            // inspector at launch so a blank window can be diagnosed from a terminal.
+            #[cfg(debug_assertions)]
+            if std::env::var_os("VERSORIUM_DEVTOOLS").is_some() {
+                if let Some(window) = app.get_webview_window("main") {
+                    window.open_devtools();
+                }
+            }
+            // The window starts hidden (tauri.conf.json) and the frontend shows it
+            // once mounted: no white flash, and WebKit starts painting from a
+            // visible state. If the frontend never reports, show it anyway.
+            if let Some(window) = app.get_webview_window("main") {
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    if !window.is_visible().unwrap_or(true) {
+                        let _ = window.show();
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::project::app_info,
+            commands::project::ui_ready,
             commands::project::default_projects_dir,
             commands::project::list_projects,
             commands::project::create_project,

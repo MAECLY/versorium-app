@@ -56,6 +56,13 @@ pub fn app_info() -> serde_json::Value {
     })
 }
 
+/// Called by the frontend after the first mount: reveal the (hidden) window.
+#[tauri::command]
+pub fn ui_ready(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.show().map_err(|_| "io".to_string())?;
+    window.set_focus().map_err(|_| "io".to_string())
+}
+
 #[tauri::command]
 pub fn default_projects_dir() -> Result<PathBuf, String> {
     dirs::document_dir()
