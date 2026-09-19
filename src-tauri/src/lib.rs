@@ -6,6 +6,7 @@
 mod commands;
 mod git;
 mod ops;
+mod storage;
 mod agents;
 pub mod i18n;
 
