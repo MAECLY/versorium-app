@@ -26,28 +26,18 @@
     flushOps: () => Promise<void>;
   } | undefined = $state(undefined);
 
-  let saveTimer: ReturnType<typeof setTimeout> | undefined;
-
-  function onEditorChange(body: string): void {
-    store.chapterBody = body;
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => void store.saveChapter(body), 800);
+  function onOps(path: string, chapter: string, body: string, ops: Op[]): Promise<unknown> {
+    return api.opsAppend(path, chapter, body, ops);
   }
 
-  /** Stable sink: derived ops go to the Rust ops log for the open chapter. */
-  function onOps(body: string, ops: Op[]): Promise<unknown> {
-    const ch = store.currentChapter;
-    if (!store.project || !ch) return Promise.resolve();
-    return api.opsAppend(store.project.path, ch.id, body, ops);
-  }
-
-  function doCommit(): void {
-    if (!store.project) return;
-    void editorRef?.flushOps();
-    void store.saveChapter(store.chapterBody).then(() =>
-      api.gitCommit(store.project!.path, t("git.checkpoint")),
-    ).then(() => void refreshGit())
-      .catch((e) => (store.error = store.codeMessagePublic(e)));
+  async function doCommit(): Promise<void> {
+    const path = store.project?.path;
+    if (!path || store.loading) return;
+    try {
+      await store.flushAll();
+      await api.gitCommit(path, t("git.checkpoint"));
+      await refreshGit();
+    } catch (e) { store.error = store.codeMessagePublic(e); }
   }
 
   function doRollbackWord(): void {
@@ -68,21 +58,41 @@
     }
   }
 
-  onMount(async () => {
-    await initLocale();
-    await initTheme();
-    if (isTauri()) {
-      void store.refreshProjects();
-      // Auto checkpoint: commit dirty work every 60 s while a project is open.
-      setInterval(() => {
-        if (!store.project) return;
-        void store.saveChapter(store.chapterBody)
-          .then(() => api.gitAutoCheckpoint(store.project!.path))
-          .then(() => void refreshGit())
-          .catch(() => {});
-      }, 60_000);
-      setInterval(() => void refreshGit(), 15_000);
-    }
+  onMount(() => {
+    store.beforeLeave = () => editorRef?.flushOps() ?? Promise.resolve();
+    void (async () => {
+      await initLocale();
+      await initTheme();
+      if (isTauri()) await store.refreshProjects();
+    })();
+    const checkpoint = setInterval(async () => {
+      const path = store.project?.path;
+      if (!path || !isTauri() || store.loading) return;
+      try {
+        await store.flushAll();
+        await api.gitAutoCheckpoint(path);
+        await refreshGit();
+      } catch (e) { store.error = store.codeMessagePublic(e); }
+    }, 60_000);
+    const poll = setInterval(() => void refreshGit(), 15_000);
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    if (isTauri()) void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+      const window = getCurrentWindow();
+      const off = await window.onCloseRequested(async event => {
+        event.preventDefault();
+        try { await store.flushAll(); await window.destroy(); }
+        catch (e) { store.error = store.codeMessagePublic(e); }
+      });
+      if (disposed) off(); else unlisten = off;
+    });
+    return () => {
+      disposed = true;
+      clearInterval(checkpoint);
+      clearInterval(poll);
+      unlisten?.();
+      store.beforeLeave = undefined;
+    };
   });
 </script>
 
@@ -101,13 +111,18 @@
 
     <main class="min-w-0 flex-1" style="background: var(--bg-editor);">
       {#if store.project && store.currentChapter}
+        {#key store.project.path + "/" + store.currentChapter.file}
         <MarkdownEditor
           bind:this={editorRef}
           doc={store.chapterBody}
           chapterId={store.currentChapter.id}
-          onChange={onEditorChange}
+          projectPath={store.project.path}
+          disabled={store.loading}
+          onChange={(body) => store.updateBody(body)}
           onOps={onOps}
+          onOpsError={(e) => { store.error = store.codeMessagePublic(e); }}
         />
+        {/key}
       {:else}
         <EmptyState onRequestNew={() => (showNewProject = true)} />
       {/if}
