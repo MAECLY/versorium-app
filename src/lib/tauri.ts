@@ -146,7 +146,7 @@ export const api = {
   githubCreateRepo: (token: string, name: string, owner?: string) => invoke<string>("github_create_repo", { token, name, owner }),
   githubListRepos: (token: string) => invoke<{ name: string; private: boolean }[]>("github_list_repos", { token }),
   opsAppend: (path: string, chapter: string, body: string, ops: Op[]) =>
-    invoke<Op[]>("ops_append", { path, chapter, body, ops }),
+    invoke<Op[]>("ops_append", { args: { path, chapter, body, ops } }),
   opsRecent: (path: string, chapter: string, limit?: number) =>
     invoke<Op[]>("ops_recent", { path, chapter, limit }),
   opsSnapshots: (path: string, chapter: string) => invoke<number[]>("ops_snapshots", { path, chapter }),
