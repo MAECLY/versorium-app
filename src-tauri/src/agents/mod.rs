@@ -343,6 +343,33 @@ async fn ollama_rewrite(text: &str) -> Result<String, String> {
 mod tests {
     use super::*;
 
+    /// Real harnesses on this machine (not run in CI): `cargo test -- --ignored live_`.
+    #[test]
+    #[ignore = "talks to the agents installed on this machine"]
+    fn live_detect_and_rewrite_with_installed_agents() {
+        let agents = detect_binaries();
+        for a in &agents {
+            eprintln!("{:<10} {:<10} {:?} {:?}", a.id, a.state, a.version, a.path);
+        }
+        let (online, models) = tauri::async_runtime::block_on(ollama_status());
+        eprintln!("ollama daemon online={online} models={models:?}");
+
+        let passage = "La niña esperó junto a la ventana toda la noche, pero nadie vino.";
+        for provider in ["ollama", "claude"] {
+            let usable = agents.iter().any(|a| a.id == provider && a.state != "missing")
+                && (provider != "ollama" || online);
+            if !usable {
+                eprintln!("{provider}: skipped (not usable here)");
+                continue;
+            }
+            let out = tauri::async_runtime::block_on(rewrite(provider, passage))
+                .unwrap_or_else(|e| panic!("{provider} rewrite failed: {e}"));
+            eprintln!("{provider} → {out}");
+            assert!(!out.trim().is_empty(), "{provider} returned nothing");
+            assert_ne!(out.trim(), passage, "{provider} returned the passage unchanged");
+        }
+    }
+
     #[test]
     fn rewrite_prompt_contains_passage_and_rules() {
         let p = rewrite_prompt("The long winter came.");
