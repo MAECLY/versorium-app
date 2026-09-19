@@ -112,12 +112,12 @@ export const api = {
   defaultProjectsDir: () => invoke<string>("default_projects_dir"),
   listProjects: (path: string) => invoke<Project[]>("list_projects", { path }),
   createProject: (path: string, title: string, language: string) =>
-    invoke<Project>("create_project", { path, title, language }),
+    invoke<Project>("create_project", { args: { path, title, language } }),
   openProject: (path: string) => invoke<Project>("open_project", { path }),
   createChapter: (path: string, title: string) => invoke<ChapterMeta>("create_chapter", { path, title }),
   listChapters: (path: string) => invoke<ChapterMeta[]>("list_chapters", { path }),
   readChapter: (path: string, file: string) =>
-    invoke<ChapterDoc>("read_chapter", { path, file }),
+    invoke<ChapterDoc>("read_chapter", { args: { path, file } }),
   saveChapter: (path: string, file: string, body: string, status?: string) =>
     invoke<ChapterMeta>("save_chapter", { path, file, body, status }),
   getSettings: () => invoke<AppSettings>("get_settings"),
