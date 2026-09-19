@@ -208,7 +208,11 @@ button:focus-visible {
     border-color 150ms ease-out;
 }
 
-.v-btn:hover {
+.v-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.v-btn:hover:not(:disabled) {
   border-color: var(--accent);
 }
 
@@ -218,7 +222,7 @@ button:focus-visible {
   border-color: var(--accent);
 }
 
-.v-btn-primary:hover {
+.v-btn-primary:hover:not(:disabled) {
   filter: brightness(1.08);
 }
 

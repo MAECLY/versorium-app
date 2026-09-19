@@ -4,6 +4,7 @@
   import { api, isTauri, type AgentInfo } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
   import { lineDiff } from "$lib/ai/diff";
+  import { detectAgents } from "$lib/ai/agents";
   import Modal from "$lib/components/Modal.svelte";
 
   interface Props {
@@ -17,6 +18,7 @@
   let { text, onClose, onApply }: Props = $props();
 
   let providers = $state<AgentInfo[]>([]);
+  let detecting = $state(isTauri());
   let provider = $state("");
   let busy = $state(false);
   let applying = $state(false);
@@ -35,13 +37,16 @@
 
   async function detect(): Promise<void> {
     if (!isTauri()) return;
+    detecting = true;
     try {
-      const all = await api.agentsDetect();
+      const all = await detectAgents();
       // gh is for git, not prose.
       providers = all.filter((a) => a.state !== "missing" && a.id !== "gh");
       if (!providers.some((p) => p.id === provider)) provider = providers[0]?.id ?? "";
     } catch {
       providers = [];
+    } finally {
+      detecting = false;
     }
   }
 
@@ -109,7 +114,9 @@
       </p>
     {/if}
 
-    {#if providers.length === 0 && !busy}
+    {#if detecting}
+      <p class="v-muted m-0" style="font-size: 13px;" aria-live="polite">{t("agents.checking")}</p>
+    {:else if providers.length === 0 && !busy}
       <p class="v-muted m-0" style="font-size: 13px;">{t("ai.noProviders")}</p>
     {/if}
 

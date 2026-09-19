@@ -65,7 +65,7 @@
       <button class="v-btn" onclick={onCommit} title={t("git.commitHint")}>{t("git.commit")}</button>
       <button class="v-btn" onclick={onRewrite} title={t("ai.rewrite")}>{t("ai.rewrite")}</button>
       <!-- Creative Mode: visible, disabled, tooltip (spec §5). No engine in v1. -->
-      <button class="v-btn" disabled aria-disabled="true" title={t("ai.creativeSoon")} style="opacity: 0.55; cursor: not-allowed;">
+      <button class="v-btn" disabled aria-disabled="true" title={t("ai.creativeSoon")}>
         {t("ai.creative")}
       </button>
       <button class="v-btn" onclick={onRollbackSelection} title={t("git.rollbackSelection")}>

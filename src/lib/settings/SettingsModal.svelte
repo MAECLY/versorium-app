@@ -11,6 +11,7 @@
   } from "$lib/themes";
   import { api, isTauri, type AgentInfo } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
+  import { detectAgents } from "$lib/ai/agents";
   import Modal from "$lib/components/Modal.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
@@ -21,17 +22,19 @@
   let agents = $state<AgentInfo[]>([]);
   let checking = $state(false);
 
-  async function recheck(): Promise<void> {
+  async function load(force: boolean): Promise<void> {
     if (!isTauri() || checking) return;
     checking = true;
     try {
-      agents = await api.agentsDetect();
+      agents = await detectAgents(force);
     } catch {
       agents = [];
     } finally {
       checking = false;
     }
   }
+
+  const recheck = (): Promise<void> => load(true);
 
   const stateColor: Record<AgentInfo["state"], string> = {
     connected: "var(--ok)",
@@ -71,7 +74,7 @@
           censorship = s.censorship;
         })
         .catch(() => {});
-      void recheck();
+      void load(false);
     }
     if (store.project) repoName = store.project.path.split("/").pop() ?? "";
   });

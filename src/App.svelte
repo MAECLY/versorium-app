@@ -14,6 +14,7 @@
   import NewChapterDialog from "$lib/binder/NewChapterDialog.svelte";
   import SettingsModal from "$lib/settings/SettingsModal.svelte";
   import RewriteDialog from "$lib/components/RewriteDialog.svelte";
+  import { detectAgents } from "$lib/ai/agents";
 
   let showSettings = $state(false);
   let showNewProject = $state(false);
@@ -109,7 +110,11 @@
     void (async () => {
       await initLocale();
       await initTheme();
-      if (isTauri()) await store.refreshProjects();
+      if (isTauri()) {
+        await store.refreshProjects();
+        // Probing five CLIs takes seconds; warm the cache so Rewrite opens ready.
+        void detectAgents().catch(() => undefined);
+      }
     })();
     const checkpoint = setInterval(async () => {
       const path = store.project?.path;
