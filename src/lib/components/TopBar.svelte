@@ -7,6 +7,7 @@
     onOpenSettings,
     onToggleGit,
     onCommit,
+    onRewrite,
     onRollbackWord,
     onRollbackSelection,
     gitDirty,
@@ -14,6 +15,7 @@
     onOpenSettings: () => void;
     onToggleGit: () => void;
     onCommit: () => void;
+    onRewrite: () => void;
     onRollbackWord: () => void;
     onRollbackSelection: () => void;
     gitDirty: boolean;
@@ -61,6 +63,11 @@
         style="width: 8px; height: 8px; border-radius: 50%; background: {gitDirty ? "var(--warn)" : "var(--text-mute)"}; opacity: {gitDirty ? 1 : 0.4};"
       ></span>
       <button class="v-btn" onclick={onCommit} title={t("git.commitHint")}>{t("git.commit")}</button>
+      <button class="v-btn" onclick={onRewrite} title={t("ai.rewrite")}>{t("ai.rewrite")}</button>
+      <!-- Creative Mode: visible, disabled, tooltip (spec §5). No engine in v1. -->
+      <button class="v-btn" disabled aria-disabled="true" title={t("ai.creativeSoon")}>
+        {t("ai.creative")}
+      </button>
       <button class="v-btn" onclick={onRollbackSelection} title={t("git.rollbackSelection")}>
         {t("git.rollbackSelShort")}
       </button>

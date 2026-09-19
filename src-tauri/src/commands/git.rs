@@ -78,8 +78,13 @@ pub async fn github_me(token: String) -> Result<String, String> {
 
 /// Create a private repo under the token's user; returns clone URL.
 #[tauri::command]
-pub async fn github_create_repo(token: String, name: String) -> Result<String, String> {
-    github::create_repo(&token, &name, true).await
+pub async fn github_create_repo(token: String, name: String, owner: Option<String>) -> Result<String, String> {
+    github::create_repo(&token, &name, true, owner.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn github_owners(token: String) -> Result<Vec<github::GhOwner>, String> {
+    github::owners(&token).await
 }
 
 #[tauri::command]

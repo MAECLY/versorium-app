@@ -3,8 +3,8 @@ import { t } from "$lib/i18n";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
-/** Reactive app store (Svelte 5 runes module). */
-class BinderStore {
+/** All navigation drains the current document before changing its identity. */
+export class BinderStore {
   projects = $state<Project[]>([]);
   project = $state<Project | null>(null);
   currentChapter = $state<ChapterMeta | null>(null);
@@ -12,117 +12,154 @@ class BinderStore {
   loading = $state(false);
   saveState = $state<SaveState>("idle");
   error = $state<string | null>(null);
+  beforeLeave: (() => Promise<void>) | undefined;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private savedBody = "";
+  private writes = Promise.resolve();
 
-  get canOpen(): boolean {
-    return this.project !== null;
-  }
+  get canOpen(): boolean { return this.project !== null; }
 
   async refreshProjects(): Promise<void> {
+    try {
+      this.projects = await api.listProjects(await api.defaultProjectsDir());
+    } catch (e) {
+      this.error = this.codeMessagePublic(e);
+    }
+  }
+
+  updateBody(body: string): void {
+    this.chapterBody = body;
+    this.saveState = "idle";
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => void this.flush().catch(() => {}), 800);
+  }
+
+  /** Capture both document identity and content before crossing an await. */
+  async flush(): Promise<void> {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    const path = this.project?.path;
+    const file = this.currentChapter?.file;
+    const body = this.chapterBody;
+    if (!path || !file) return;
+    const run = this.writes.catch(() => {}).then(async () => {
+      if (this.project?.path === path && this.currentChapter?.file === file && body === this.savedBody) return;
+      this.saveState = "saving";
+      try {
+        const updated = await api.saveChapter(path, file, body);
+        if (this.project?.path === path) {
+          this.project = { ...this.project, chapters: this.project.chapters.map(c => c.file === file ? updated : c) };
+          if (this.currentChapter?.file === file) {
+            this.currentChapter = updated;
+            this.savedBody = body;
+            this.saveState = this.chapterBody === body ? "saved" : "idle";
+          }
+        }
+      } catch (e) {
+        this.saveState = "error";
+        this.error = this.codeMessagePublic(e);
+        throw e;
+      }
+    });
+    this.writes = run;
+    await run;
+  }
+
+  async saveChapter(body: string): Promise<boolean> {
+    this.chapterBody = body;
+    try { await this.flush(); return true; } catch { return false; }
+  }
+
+  /** Rust already wrote this body (e.g. an applied rewrite): adopt it as saved. */
+  adoptSaved(body: string, meta: ChapterMeta): void {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    this.chapterBody = body;
+    this.savedBody = body;
+    this.currentChapter = meta;
+    if (this.project) {
+      this.project = { ...this.project, chapters: this.project.chapters.map(c => c.file === meta.file ? meta : c) };
+    }
+    this.saveState = "saved";
+  }
+
+  async flushAll(): Promise<void> {
+    await this.beforeLeave?.();
+    await this.flush();
+  }
+
+  private async navigate(action: () => Promise<void>): Promise<void> {
+    if (this.loading) return;
     this.loading = true;
     try {
-      const dir = await api.defaultProjectsDir();
-      try {
-        await (await import("node:fs")).promises.mkdir(dir, { recursive: true });
-      } catch {
-        // outside Tauri; Rust creates it on demand
-      }
-      this.projects = await api.listProjects(dir);
+      await this.flushAll();
+      await action();
       this.error = null;
     } catch (e) {
-      this.error = String(e);
-    } finally {
-      this.loading = false;
-    }
+      this.error = this.codeMessagePublic(e);
+    } finally { this.loading = false; }
+  }
+
+  private async selectProject(project: Project): Promise<void> {
+    const chapter = project.chapters[0] ?? null;
+    const doc = chapter ? await api.readChapter(project.path, chapter.file) : null;
+    this.project = project;
+    this.currentChapter = chapter;
+    this.chapterBody = doc?.body ?? "";
+    this.savedBody = this.chapterBody;
+    this.saveState = "idle";
   }
 
   async createProject(title: string, language: string): Promise<void> {
-    this.loading = true;
-    try {
-      const dir = await api.defaultProjectsDir();
-      const p = await api.createProject(dir, title, language);
+    await this.navigate(async () => {
+      const project = await api.createProject(await api.defaultProjectsDir(), title, language);
+      await this.selectProject(project);
       await this.refreshProjects();
-      this.project = p;
-      await this.openChapter(p.chapters[0]);
-      this.error = null;
-    } catch (e) {
-      this.error = this.codeMessage(e);
-    } finally {
-      this.loading = false;
-    }
+    });
   }
 
   async openProject(path: string): Promise<void> {
-    this.loading = true;
-    try {
-      const p = await api.openProject(path);
-      this.project = p;
-      if (p.chapters.length > 0) await this.openChapter(p.chapters[0]);
-      this.error = null;
-    } catch (e) {
-      this.error = this.codeMessage(e);
-    } finally {
-      this.loading = false;
-    }
+    await this.navigate(async () => this.selectProject(await api.openProject(path)));
   }
 
   async openChapter(chapter: ChapterMeta): Promise<void> {
-    if (!this.project) return;
-    this.currentChapter = chapter;
-    const doc = await api.readChapter(this.project.path, chapter.file);
-    this.chapterBody = doc.body;
-    this.saveState = "idle";
+    await this.navigate(async () => {
+      if (!this.project) return;
+      const doc = await api.readChapter(this.project.path, chapter.file);
+      this.currentChapter = chapter;
+      this.chapterBody = doc.body;
+      this.savedBody = doc.body;
+      this.saveState = "idle";
+    });
   }
 
   async createChapter(title: string): Promise<void> {
-    if (!this.project) return;
-    this.loading = true;
-    try {
-      const ch = await api.createChapter(this.project.path, title);
-      const fresh = await api.listChapters(this.project.path);
-      this.project = { ...this.project, chapters: fresh };
-      await this.openChapter(ch);
-      this.error = null;
-    } catch (e) {
-      this.error = this.codeMessage(e);
-    } finally {
-      this.loading = false;
-    }
+    await this.navigate(async () => {
+      if (!this.project) return;
+      const chapter = await api.createChapter(this.project.path, title);
+      const doc = await api.readChapter(this.project.path, chapter.file);
+      this.project = { ...this.project, chapters: [...this.project.chapters, chapter] };
+      this.currentChapter = chapter;
+      this.chapterBody = doc.body;
+      this.savedBody = doc.body;
+      this.saveState = "idle";
+    });
   }
 
-  /** Debounced autosave of the open chapter. Returns true on success. */
-  async saveChapter(body: string): Promise<boolean> {
-    if (!this.project || !this.currentChapter) return false;
-    this.saveState = "saving";
-    try {
-      const updated = await api.saveChapter(this.project.path, this.currentChapter.file, body);
-      this.currentChapter = updated;
-      const fresh = await api.listChapters(this.project.path);
-      this.project = { ...this.project, chapters: fresh };
-      this.saveState = "saved";
-      return true;
-    } catch (e) {
-      this.saveState = "error";
-      this.error = this.codeMessage(e);
-      return false;
-    }
+  async closeProject(): Promise<void> {
+    await this.navigate(async () => {
+      this.project = null;
+      this.currentChapter = null;
+      this.chapterBody = "";
+      this.savedBody = "";
+      this.saveState = "idle";
+    });
   }
 
-  closeProject(): void {
-    this.project = null;
-    this.currentChapter = null;
-    this.chapterBody = "";
-    this.saveState = "idle";
-  }
-
-  private codeMessage(e: unknown): string {
+  codeMessagePublic(e: unknown): string {
     const raw = String(e ?? "");
     const code = raw.split(" ").pop() ?? raw;
-    return t(`errors.${code}`) !== `errors.${code}` ? t(`errors.${code}`) : raw;
-  }
-
-  /** Public variant for components outside the store. */
-  codeMessagePublic(e: unknown): string {
-    return this.codeMessage(e);
+    return t(`errors.${code}`) !== `errors.${code}` ? t(`errors.${code}`) : t("errors.generic");
   }
 }
 

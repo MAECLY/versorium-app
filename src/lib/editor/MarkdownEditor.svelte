@@ -1,123 +1,157 @@
 <script lang="ts">
+  import { untrack } from "svelte";
+  import { Annotation, Compartment, EditorState } from "@codemirror/state";
   import { EditorView } from "@codemirror/view";
   import { createMarkdownState } from "./cm";
   import { t } from "$lib/i18n";
   import { OpsLogger } from "$lib/git/ops";
-  import {
-    snapshotSelection,
-    clearSnaps,
-    wordRange,
-    applyRollback,
-  } from "$lib/git/rollback";
+  import { RollbackHistory, wordRange } from "$lib/git/rollback";
   import type { Op } from "$lib/tauri";
 
   interface Props {
     doc: string;
+    projectPath: string;
     chapterId: string;
+    disabled?: boolean;
     onChange: (body: string) => void;
-    /** Sinks derived ops to the Rust ops log. */
-    onOps?: (body: string, ops: Op[]) => Promise<unknown>;
+    onOps?: (path: string, chapter: string, body: string, ops: Op[]) => Promise<unknown>;
+    onOpsError?: (error: unknown) => void;
   }
 
-  let { doc, chapterId, onChange, onOps }: Props = $props();
-
+  let { doc, projectPath, chapterId, disabled = false, onChange, onOps, onOpsError }: Props = $props();
   let host: HTMLDivElement | undefined = $state();
-  let view: EditorView | undefined;
-  let activeId = $state("");
+  let view: EditorView | undefined = $state.raw();
   let logger: OpsLogger | undefined;
-  let skipDerive = false;
+  let history = new RollbackHistory();
+  const source = Annotation.define<"external" | "rollback">();
+  const editable = new Compartment();
+  const editing = (locked: boolean) => [EditorState.readOnly.of(locked), EditorView.editable.of(!locked)];
+  // Parents pass `store.project.path` / `store.currentChapter.id`; those objects are
+  // reassigned on every save. A derived string only notifies when the value changes,
+  // so the editor (focus, selection, undo) survives autosave.
+  const docKey = $derived(projectPath && chapterId ? `${projectPath}\u0000${chapterId}` : "");
 
   $effect(() => {
-    const id = chapterId;
-    const d = doc;
-    if (!host || !id) return;
-
-    logger?.flushNow();
-    clearSnaps(id);
-
-    if (view && activeId === id) {
-      // Same chapter: only sync when the doc changed from outside (e.g. rollback).
-      if (view.state.doc.toString() !== d) {
-        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: d } });
-      }
-      logger?.reset(d);
-      return;
-    }
-
-    // New chapter (or first mount): rebuild the editor.
-    view?.destroy();
-    activeId = id;
-    logger = onOps
-      ? new OpsLogger((body, ops) => onOps(body, ops), d)
+    const parent = host;
+    const key = docKey;
+    if (!parent || !key) return;
+    const [path, chapter] = key.split("\u0000");
+    const initialDoc = untrack(() => doc);
+    const sink = untrack(() => onOps);
+    const localHistory = new RollbackHistory();
+    history = localHistory;
+    const localLogger = sink
+      ? new OpsLogger((body, ops) => sink(path, chapter, body, ops), initialDoc, (error) => onOpsError?.(error))
       : undefined;
-    view = new EditorView({
-      parent: host,
-      state: createMarkdownState(d, [
-        EditorView.updateListener.of((u) => {
-          if (u.docChanged) {
-            const body = u.state.doc.toString();
-            onChange(body);
-            if (!skipDerive) logger?.track(body, "human");
-            skipDerive = false;
-          } else if (u.selectionSet) {
-            const s = u.state.selection.main;
-            if (s.from < s.to) {
-              snapshotSelection(id, s.from, s.to, u.state.sliceDoc(s.from, s.to));
+    logger = localLogger;
+    const created = new EditorView({
+      parent,
+      state: createMarkdownState(initialDoc, [
+        editable.of(editing(untrack(() => disabled))),
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged) return;
+          const ops: Op[] = [];
+          let notify = false;
+          for (const transaction of update.transactions) {
+            if (!transaction.docChanged) continue;
+            const origin = transaction.annotation(source);
+            if (origin === "external") {
+              localHistory.clear();
+              localLogger?.reset(transaction.newDoc.toString());
+              continue;
             }
+            notify = true;
+            if (origin === "rollback") {
+              localHistory.map(transaction.changes);
+              continue;
+            }
+            localHistory.record(transaction.changes, transaction.startState.doc);
+            const ts = Date.now();
+            transaction.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+              if (toA > fromA) ops.push({
+                seq: 0, ts, author: "human", kind: "delete", from: fromA, to: toA,
+                text: transaction.startState.sliceDoc(fromA, toA),
+              });
+              if (toB > fromB) ops.push({
+                seq: 0, ts, author: "human", kind: "insert", from: fromB, to: toB, text: inserted.toString(),
+              });
+            });
           }
+          const body = update.state.doc.toString();
+          if (ops.length) localLogger?.trackOps(body, ops);
+          if (notify) onChange(body);
         }),
       ]),
     });
+    view = created;
+    return () => {
+      localLogger?.dispose();
+      created.destroy();
+      localHistory.clear();
+      if (view === created) view = undefined;
+      if (logger === localLogger) logger = undefined;
+    };
   });
 
-  /** Restore the word under the cursor from the last selection snapshot. */
+  $effect(() => {
+    const body = doc;
+    const current = view;
+    if (current && current.state.doc.toString() !== body) {
+      current.dispatch({
+        changes: { from: 0, to: current.state.doc.length, insert: body },
+        annotations: source.of("external"),
+      });
+    }
+  });
+
+  $effect(() => {
+    view?.dispatch({ effects: editable.reconfigure(editing(disabled)) });
+  });
+
+  function rollback(from: number, to: number): boolean {
+    if (!view || disabled) return false;
+    const change = history.take(view.state.doc.toString(), from, to);
+    if (!change) return false;
+    view.dispatch({
+      changes: { from: change.from, to: change.to, insert: change.text },
+      selection: { anchor: change.from + change.text.length },
+      annotations: source.of("rollback"),
+    });
+    logger?.addRaw(change.op, view.state.doc.toString());
+    return true;
+  }
+
   export function rollbackWord(): boolean {
-    const v = view;
-    if (!v || !logger) return false;
-    const pos = v.state.selection.main.head;
-    const { from, to } = wordRange(v.state.doc.toString(), pos);
-    const op = applyRollback(v, activeId, from, to);
-    if (!op) return false;
-    skipDerive = true;
-    logger.addRaw(op);
-    return true;
+    if (!view) return false;
+    const { from, to } = wordRange(view.state.doc.toString(), view.state.selection.main.head);
+    return rollback(from, to);
   }
 
-  /** Restore the current selection from the last selection snapshot. */
   export function rollbackSelection(): boolean {
-    const v = view;
-    if (!v || !logger) return false;
-    const s = v.state.selection.main;
-    if (s.from >= s.to) return false;
-    const op = applyRollback(v, activeId, s.from, s.to);
-    if (!op) return false;
-    skipDerive = true;
-    logger.addRaw(op);
-    return true;
+    const selection = view?.state.selection.main;
+    return !!selection && selection.from < selection.to && rollback(selection.from, selection.to);
   }
 
-  /** Current selection in body coordinates, or null when collapsed. */
   export function getSelection(): { from: number; to: number; text: string } | null {
-    const v = view;
-    if (!v) return null;
-    const s = v.state.selection.main;
-    if (s.from >= s.to) return null;
-    return { from: s.from, to: s.to, text: v.state.sliceDoc(s.from, s.to) };
+    if (!view) return null;
+    const selection = view.state.selection.main;
+    if (selection.empty) return null;
+    return { from: selection.from, to: selection.to, text: view.state.sliceDoc(selection.from, selection.to) };
   }
 
-  /** Replace [from, to) with `text` without logging it as a human op
-   *  (the Rust side records the ai:<provider> ops instead). */
-  export function applyExternal(from: number, to: number, text: string): boolean {
-    const v = view;
-    if (!v) return false;
-    const len = v.state.doc.length;
-    if (from > to || to > len) return false;
-    skipDerive = true;
-    v.dispatch({ changes: { from, to, insert: text } });
+  /** Replace a range the Rust side already persisted (no human ops are logged).
+   *  With `expected`, refuses when the passage no longer matches. */
+  export function applyExternal(from: number, to: number, text: string, expected?: string): boolean {
+    if (!view || from < 0 || from > to || to > view.state.doc.length) return false;
+    if (expected !== undefined && view.state.sliceDoc(from, to) !== expected) return false;
+    view.dispatch({ changes: { from, to, insert: text }, annotations: source.of("external") });
     return true;
   }
 
-  /** Flush pending ops immediately (called before commit / checkpoint). */
+  export function getDoc(): string {
+    return view?.state.doc.toString() ?? "";
+  }
+
   export function flushOps(): Promise<void> {
     return logger?.flushNow() ?? Promise.resolve();
   }

@@ -1,6 +1,6 @@
 # STATUS
 
-## Current milestone: M1 — Git + character ops ✅ (DoD green, pending git commit)
+## Current milestone: M2 — Agents + rewrite + censorship ✅ (DoD green)
 
 ## How to run
 
@@ -8,80 +8,70 @@
 # Node v20 via nvm must be on PATH (no system node on this machine)
 export PATH="$HOME/.nvm/versions/node/v20.19.1/bin:$PATH"
 
-pnpm tauri dev        # dev window
-pnpm check            # svelte-check (0 errors, 10 warnings)
-pnpm build            # vite build → dist/
-cargo test --manifest-path src-tauri/Cargo.toml   # 18 passed
+pnpm tauri dev        # dev window (VERSORIUM_DEVTOOLS=1 opens the inspector)
+pnpm check            # svelte-check (0 errors, 0 warnings)
+pnpm test             # cargo test (37 unit tests)
+pnpm test:ui          # vitest, jsdom (14 tests)
+pnpm test:e2e         # Playwright, system Chrome, mocked IPC (5 specs)
+cargo test --manifest-path src-tauri/Cargo.toml -- --ignored live_   # real CLIs + Ollama on this machine
 ```
 
-## M1 DoD checklist
+Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?mock=tauri`.
 
-- [x] Every new project is a git repo from birth (libgit2 `git2`, vendored — no system git); branch pinned to `main`, first commit `m0: project created`
-- [x] Commit button (TopBar, default message `checkpoint`) + auto checkpoint every 60 s while a project is open (`checkpoint: autosave`)
-- [x] Character ops log, author=`human`: JSONL packs at `.versorium/ops/<chapter>/<YYYY-MM-DD>.jsonl`, monotonically increasing `seq` per chapter, snapshot every 200 ops at `.versorium/snapshots/<chapter>/<seq>.md`
-- [x] Rollback word (cursor) / rollback selection, from in-memory selection snapshots (ring, 300); rollback recorded as op `kind:"rollback"`
-- [x] Mini Git panel (bottom drawer): status (modified/staged/untracked, ahead/behind), log (50), diff (HEAD→workdir patch), branches (list + create + current marker), remotes (list + remove)
-- [x] GitHub connect in Settings — two OAuth slots, never mixed: **Updates** (reads releases of maecly/versorium-app) and **Novel** (user repos). CTA shown when no token; token validated via `GET /user`
-- [x] Novel slot creates a **private** repo by default and adds it as `origin`
-- [x] Dirty dot in TopBar (15 s poll) + i18n for all new strings (EN/ES)
+## M2 DoD checklist
 
-## Verification (this machine, 2026-09-11)
+- [x] Detect binaries `claude`, `codex`, `opencode`, `ollama`, `gh` — PATH first, then the usual install dirs per OS (Finder/Explorer launches do not inherit the login shell PATH); Windows tries `.exe/.cmd/.bat`; five `--version` probes run in parallel (5 s cap each); Ollama daemon probed on `127.0.0.1:11434`
+- [x] Settings → Agents: one card per harness — Connected / Detected / Missing, version, path, Ollama models, offline-daemon hint, Re-check. Detection cached per session (warmed at startup)
+- [x] Select text → Rewrite → diff preview → Apply / Discard (`RewriteDialog` on `<dialog>`, agent picker, −/+ line diff, Cmd/Ctrl+Shift+R)
+- [x] Applied rewrite writes ops with `author=ai:<provider>` (delete at old UTF-16 coords, insert at new) into the same JSONL packs as human keystrokes
+- [x] Git checkpoint BEFORE apply (`checkpoint: before ai rewrite (<provider>)`; identical tree → no-op, still refused if the checkpoint itself fails)
+- [x] Censorship toggle in Settings → Safety, persisted in `settings.json` (routing by it arrives with Local AI, M4)
+- [x] Spec §2.3 "this call goes to X": privacy line + Local / CLI pill in the dialog
+- [x] Spec §5 Creative Mode: visible, disabled, tooltip "arrives in v1.1" — no engine
+- [x] i18n EN + ES for everything above (key sets identical, 0 hardcoded strings)
+
+## Verification (this machine, 2026-09-19, macOS 27.0)
 
 | Check | Result |
 |---|---|
-| `cargo test` (src-tauri) | ✅ 18 passed, 0 failed (incl. e2e `create_project_initializes_git`: `.git` exists, branch `main`, clean tree, 1 commit) |
-| `pnpm check` (svelte-check) | ✅ 0 errors, 10 warnings (pre-existing a11y patterns) |
-| `pnpm build` (vite) | ✅ built in ~1 s |
-| `pnpm tauri dev` | ✅ window opens, process alive, no panics in log |
+| `cargo test` | ✅ 37 passed (UTF-16 offsets, stale-selection refusal without checkpoint, agent dir scan + exec bit, five-spec detection) |
+| `cargo test -- --ignored live_` | ✅ 5/5 detected with real versions; Ollama (qwen3.8) and `claude -p` both returned a rewrite |
+| `pnpm check` | ✅ 0 errors, 0 warnings |
+| `pnpm test:ui` | ✅ 14 passed (diff, agent cache, store flush/ordering/adoptSaved, IPC payload shapes, App smoke) |
+| `pnpm test:e2e` | ✅ 5 passed — rewrite happy path (checkpoint first, `ai:<provider>` ops, editor updated), Local/CLI labels + failing harness keeps the dialog open, no-selection hint, agents cards + censorship persistence, ES translation |
+| Real app (`pnpm tauri dev`, driven via macOS accessibility) | ✅ project created → typed → selected → Rewrite with **Claude Code** → Apply. On disk: chapter has the rewritten sentence (with `ñ`), ops pack holds 58 `human` ops then `ai:claude` delete/insert in UTF-16 coords, git tree dirty afterwards for the next checkpoint |
 
-Rust unit tests: git repo (init/status/commit/log, branches+checkout, remote roundtrip, no-repo errors), ops (append/read-back, snapshot cadence, day format), project/settings/chapters (M0) + new e2e git-init test.
+## Bugs found and fixed on the way
 
-## Files / structure (M1 delta)
+- `ops_append` payload never matched the Rust signature → **human keystrokes were never logged in the real app** since M1 (swallowed by the best-effort logger). Caught by the E2E IPC mock, which mirrors the Rust signatures.
+- Editor was torn down 800 ms after every pause (props read reassigned store objects) → lost focus, selection and session history. Fixed with a value-equal derived key.
+- `ai_apply_rewrite` sliced bytes with UTF-16 offsets → any accented passage broke. Now converts and refuses stale selections before the checkpoint.
+- White window on launch (macOS 27 / wry 0.55.1: `visibilityState=hidden`, DOM complete, never painted). Window now starts hidden and the frontend reveals it once mounted (`ui_ready`); Rust shows it after 3 s regardless.
+- Rewrite dialog said "No agent found" while detection was still running.
 
-- Rust `src-tauri/src/`:
-  - `git/repo.rs` — init_with_commit (branch `main`), status (+ahead/behind), log, diff (patch text), commit_all (empty-commit → `nothing_to_commit`), branches/create, checkout_file, remotes add/remove
-  - `git/github.rs` — minimal REST client (reqwest + rustls): me / create_repo(private) / list_repos
-  - `ops/mod.rs` — JSONL packs + seq counter + snapshot every 200 ops, restore_snapshot
-  - `commands/git.rs` (12 commands), `commands/ops.rs` (4), `commands/settings.rs` (+`githubUpdatesToken`/`githubNovelToken`), `commands/project.rs` (git init on create), `lib.rs` (29 commands registered)
-- Frontend `src/`:
-  - `lib/git/ops.ts` — `deriveOps` (prefix/suffix diff) + `OpsLogger` (500 ms debounce, best-effort flush)
-  - `lib/git/rollback.ts` — selection snapshot ring + word/selection restore
-  - `lib/editor/MarkdownEditor.svelte` — ops tracking + public `rollbackWord/rollbackSelection/flushOps`
-  - `lib/components/GitPanel.svelte`, `TopBar.svelte` (commit + rollbacks + Git toggle + dirty dot), `App.svelte` (wiring, 60 s auto checkpoint, 15 s dirty poll)
-  - `lib/settings/SettingsModal.svelte` — real Git section (two slots, private repo create)
-  - `lib/tauri.ts` — git/ops types + api wrappers
-- Locales: `git.*` (43 keys) + `errors.*` (Rust error codes) in `en` + `es`
+## Files / structure (M2 delta)
 
-## Architecture decisions (M1)
+- Rust `src-tauri/src/`: `agents/mod.rs` (dir scan, parallel probes, live test), `commands/ai.rs` (validate → checkpoint → splice → ops), `text.rs` (UTF-16 helpers), `commands/project.rs::ui_ready`, `lib.rs` (hidden window reveal, devtools env)
+- Frontend `src/`: `lib/ai/{agents,diff}.ts` (+tests), `lib/components/RewriteDialog.svelte`, `lib/settings/SettingsModal.svelte` (Agents + Safety), `lib/components/TopBar.svelte` (Rewrite, Creative placeholder), `App.svelte` (apply pipeline), `lib/binder/store.svelte.ts::adoptSaved`, `lib/editor/MarkdownEditor.svelte` (`applyExternal` guard, `getDoc`, stable doc key), `main.ts` (boot, mock hook, fatal surface)
+- Tests: `tests/e2e/mock-tauri.ts`, `tests/e2e/m2-rewrite.spec.ts`, `playwright.config.ts`
+- Locales: `ai.*`, `agents.*`, `safety.*`, `errors.{no_provider,ai_failed,ai_empty,bad_range,stale_selection}`
 
-1. **Vendored libgit2** — `git2 = 0.19` with `vendored-libgit2`; no system git anywhere. libgit2 defaults the initial branch to `master`, so `init_with_commit` pins `main` before the first commit.
-2. **Ops are derived, not keystroke-tracked** — each editor update diffs old vs new body (common prefix/suffix) into delete/insert ops; positions: deletes reference the old doc, inserts the new doc.
-3. **Rollback is snapshot-based, not replay** — selection snapshots kept in memory (300 ring per chapter); restoring word/selection re-inserts the stored text and logs a `rollback` op. Full replay from the JSONL log is a later milestone.
-4. **GitHub = plain REST** — no SDK; `reqwest` with rustls. Error codes (`bad_token`, `network`, `repo_failed`) localize through the same `errors.*` map.
-5. **Two token slots are separate fields** in `settings.json` and are never interchangeable in code paths (Updates reads releases only; Novel manages the novel remote).
-6. **Empty commit** — git2 reports it as an error message; mapped to `nothing_to_commit` (localized, not an error state in the auto-checkpoint path).
+## Architecture decisions (M2)
 
-## Known holes (M1)
+1. **Editor coordinates everywhere** — ops (human and AI) use UTF-16 code units; Rust converts to bytes only to splice. `expected` travels with every apply so a moved file is refused (`stale_selection`) before any commit.
+2. **Harnesses own their login** — detection is presence-based; nothing is stored. Rewrite invokes `claude -p`, `codex exec`, `opencode run`, or Ollama `/api/generate` (first served model; picker is M4).
+3. **Checkpoint first, then write, then ops** — mirrors the MCP write path planned for M3.
+4. **IPC mock for browser E2E** — `tests/e2e/mock-tauri.ts` keeps the Rust arg shapes; anything the UI can do can be exercised in Chrome/Playwright.
 
-- GitHub tokens stored in `settings.json` (plaintext) — `keyring` was planned in M0 notes; defer to M6 hardening pass.
-- No push/pull yet: `origin` is added, but network git operations are not wired (CLI or a later milestone).
-- Rollback snapshots are in-memory only; closing the app loses them (the ops log + disk snapshots remain).
-- 10 svelte-check warnings (pre-existing a11y patterns) — cosmetic.
+## Known holes (M2)
 
-## Next: M2 — Agents + rewrite + censorship
+- Projects list word count is stale until reload (`store.projects` is only refreshed on create/mount).
+- Ollama rewrite uses the first served model; no per-slot model picker until M4.
+- No "this call goes to X" banner in the status bar yet (privacy segment of the bottom bar is M4/M7 polish).
+- Censorship toggle does not route yet (by design: M4).
+- GitHub tokens still plaintext in `settings.json` (keyring pass deferred to M6).
+- Real-app E2E is driven ad hoc via macOS accessibility; browser E2E is the automated one.
 
-DoD targets: detect local agent binaries (claude / codex / opencode / ollama / gh) on PATH, Agents cards in Settings, Rewrite → diff → Apply flow (author=`ai:<provider>` ops), git checkpoint before apply, censorship toggle in Safety section.
+## Next: M3 — MCP server (read default)
 
-## Git
-
-Agent shell blocks mutating git commands — handoff to the user:
-
-```bash
-# (once) if the m0 commit was never made:
-cd ~/Documents/Github/versorium-app && git init -b main && git add -A && git commit -m "m0: skeleton"
-
-# M1:
-cd ~/Documents/Github/versorium-app && git add -A && git commit -m "m1: git + ops"
-```
-
-Remote (`maecly/versorium-app`, private) needs `gh`/token — not available in agent shell; create manually and push after.
+DoD targets: `versorium mcp` stdio (+ optional localhost HTTP/SSE), tools `list_project`, `read_document`, `search`, `assemble_context`, `history_list`; write tools present but rejected unless Settings → MCP allows write; write path = preview + git checkpoint + `author=ai:<client>`; client config snippets (Claude Desktop / OpenCode / Cursor) in README; warning copy about AI deleting text.

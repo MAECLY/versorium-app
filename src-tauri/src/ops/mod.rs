@@ -7,7 +7,11 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+static WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 pub const SNAPSHOT_EVERY: u64 = 200;
 
@@ -47,9 +51,13 @@ fn now_secs() -> i64 {
 }
 
 fn now_day() -> String {
-    let days = now_secs() / 86400;
-    let era = (if days >= 0 { days } else { days - 146096 }) / 146100;
-    let doe = days - era * 146100;
+    day_for_seconds(now_secs())
+}
+
+fn day_for_seconds(seconds: i64) -> String {
+    let days = seconds.div_euclid(86400) + 719468;
+    let era = days.div_euclid(146097);
+    let doe = days - era * 146097;
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
     let y = yoe + era * 400;
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
@@ -59,11 +67,34 @@ fn now_day() -> String {
     format!("{:04}-{:02}-{:02}", if m <= 2 { y + 1 } else { y }, m, d)
 }
 
-fn read_seq(dir: &Path) -> u64 {
-    fs::read_to_string(dir.join("seq"))
-        .ok()
-        .and_then(|s| s.trim().parse().ok())
-        .unwrap_or(0)
+fn pack_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
+    if !dir.exists() { return Ok(Vec::new()); }
+    let mut files = Vec::new();
+    for entry in fs::read_dir(dir).map_err(|_| "io")? {
+        let path = entry.map_err(|_| "io")?.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+            files.push(path);
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+fn read_pack(file: &Path) -> Result<Vec<Op>, String> {
+    fs::read_to_string(file).map_err(|_| "io".to_string())?
+        .lines().filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_str(line).map_err(|_| "io".to_string()))
+        .collect()
+}
+
+fn read_seq(dir: &Path) -> Result<u64, String> {
+    let mut seq = fs::read_to_string(dir.join("seq")).ok()
+        .and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+    // A crash after appending but before saving the counter must not reuse IDs.
+    for file in pack_files(dir)? {
+        seq = seq.max(read_pack(&file)?.last().map(|op| op.seq).unwrap_or(0));
+    }
+    Ok(seq)
 }
 
 /// Stamp ops with seq, append to today's JSONL, snapshot every SNAPSHOT_EVERY.
@@ -72,17 +103,19 @@ pub fn append_ops(root: &Path, chapter: &str, body: &str, ops: &[Op]) -> Result<
     if ops.is_empty() {
         return Ok(Vec::new());
     }
+    let _guard = WRITE_LOCK.lock().map_err(|_| "io".to_string())?;
     let dir = ops_dir(root, chapter);
     fs::create_dir_all(&dir).map_err(|_| "io".to_string())?;
     let file = dir.join(format!("{}.jsonl", now_day()));
-    let mut out = fs::read_to_string(&file).unwrap_or_default();
+    let mut out = String::new();
     let mut stamped = Vec::new();
-    let mut seq = read_seq(&dir);
+    let initial_seq = read_seq(&dir)?;
+    let mut seq = initial_seq;
     for op in ops {
         seq += 1;
         let full = Op {
             seq,
-            ts: now_secs(),
+            ts: if op.ts > 0 { op.ts } else { now_secs() * 1000 },
             author: op.author.clone(),
             kind: op.kind.clone(),
             from: op.from,
@@ -93,12 +126,18 @@ pub fn append_ops(root: &Path, chapter: &str, body: &str, ops: &[Op]) -> Result<
         out.push_str(&serde_json::to_string(&full).map_err(|_| "io".to_string())?);
         out.push('\n');
     }
-    fs::write(&file, out).map_err(|_| "io".to_string())?;
-    fs::write(dir.join("seq"), seq.to_string()).map_err(|_| "io".to_string())?;
-    if seq % SNAPSHOT_EVERY == 0 {
+    let mut pack = fs::OpenOptions::new().create(true).append(true).open(&file).map_err(|_| "io")?;
+    let previous_len = pack.metadata().map_err(|_| "io")?.len();
+    if pack.write_all(out.as_bytes()).and_then(|_| pack.sync_all()).is_err() {
+        let _ = pack.set_len(previous_len);
+        return Err("io".into());
+    }
+    // Counter/snapshot are recoverable indexes; the synced pack is authoritative.
+    let _ = crate::storage::atomic_write(&dir.join("seq"), seq.to_string());
+    if initial_seq / SNAPSHOT_EVERY < seq / SNAPSHOT_EVERY {
         let sdir = snap_dir(root, chapter);
         if fs::create_dir_all(&sdir).is_ok() {
-            let _ = fs::write(sdir.join(format!("{seq}.md")), body);
+            let _ = crate::storage::atomic_write(&sdir.join(format!("{seq}.md")), body);
         }
     }
     Ok(stamped)
@@ -106,9 +145,10 @@ pub fn append_ops(root: &Path, chapter: &str, body: &str, ops: &[Op]) -> Result<
 
 pub fn recent_ops(root: &Path, chapter: &str, limit: usize) -> Result<Vec<Op>, String> {
     let dir = ops_dir(root, chapter);
-    let file = dir.join(format!("{}.jsonl", now_day()));
-    let text = fs::read_to_string(&file).unwrap_or_default();
-    let ops: Vec<Op> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let _guard = WRITE_LOCK.lock().map_err(|_| "io".to_string())?;
+    let mut ops = Vec::new();
+    for file in pack_files(&dir)? { ops.extend(read_pack(&file)?); }
+    ops.sort_by_key(|op| op.seq);
     let start = ops.len().saturating_sub(limit);
     Ok(ops[start..].to_vec())
 }
@@ -177,5 +217,49 @@ mod tests {
     fn day_format() {
         assert_eq!(now_day().len(), 10);
         assert_eq!(now_day().chars().nth(4).unwrap(), '-');
+        assert_eq!(day_for_seconds(0), "1970-01-01");
+        assert_eq!(day_for_seconds(1_779_062_400), "2026-05-18");
+        assert_eq!(day_for_seconds(1_709_164_800), "2024-02-29");
+    }
+
+    #[test]
+    fn snapshot_when_batch_crosses_boundary_and_recover_counter() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = ops_dir(dir.path(), "ch-01");
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("seq"), "199").unwrap();
+        append_ops(dir.path(), "ch-01", "ab", &[op("insert", 0, 1, "a"), op("insert", 1, 2, "b")]).unwrap();
+        assert_eq!(snapshots(dir.path(), "ch-01").unwrap(), vec![201]);
+        fs::remove_file(d.join("seq")).unwrap();
+        let stamped = append_ops(dir.path(), "ch-01", "abc", &[op("insert", 2, 3, "c")]).unwrap();
+        assert_eq!(stamped[0].seq, 202);
+    }
+
+    #[test]
+    fn reads_previous_day_and_preserves_event_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut event = op("insert", 0, 1, "a");
+        event.ts = 12345;
+        append_ops(dir.path(), "ch-01", "a", &[event]).unwrap();
+        let d = ops_dir(dir.path(), "ch-01");
+        fs::rename(d.join(format!("{}.jsonl", now_day())), d.join("2000-01-01.jsonl")).unwrap();
+        append_ops(dir.path(), "ch-01", "ab", &[op("insert", 1, 2, "b")]).unwrap();
+        let recent = recent_ops(dir.path(), "ch-01", 10).unwrap();
+        assert_eq!(recent.len(), 2);
+        assert_eq!(recent[0].ts, 12345);
+    }
+
+    #[test]
+    fn concurrent_appends_have_unique_sequences() {
+        let dir = tempfile::tempdir().unwrap();
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                scope.spawn(|| {
+                    append_ops(dir.path(), "ch-01", "a", &[op("insert", 0, 1, "a")]).unwrap();
+                });
+            }
+        });
+        let recent = recent_ops(dir.path(), "ch-01", 20).unwrap();
+        assert_eq!(recent.iter().map(|op| op.seq).collect::<Vec<_>>(), (1..=8).collect::<Vec<_>>());
     }
 }

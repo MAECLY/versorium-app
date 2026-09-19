@@ -7,3 +7,7 @@ src-tauri/target/
 .svelte-kit/
 .env
 .env.*
+
+# Playwright
+test-results/
+playwright-report/
