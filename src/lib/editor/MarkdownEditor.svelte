@@ -26,12 +26,16 @@
   const source = Annotation.define<"external" | "rollback">();
   const editable = new Compartment();
   const editing = (locked: boolean) => [EditorState.readOnly.of(locked), EditorView.editable.of(!locked)];
+  // Parents pass `store.project.path` / `store.currentChapter.id`; those objects are
+  // reassigned on every save. A derived string only notifies when the value changes,
+  // so the editor (focus, selection, undo) survives autosave.
+  const docKey = $derived(projectPath && chapterId ? `${projectPath}\u0000${chapterId}` : "");
 
   $effect(() => {
     const parent = host;
-    const path = projectPath;
-    const chapter = chapterId;
-    if (!parent || !path || !chapter) return;
+    const key = docKey;
+    if (!parent || !key) return;
+    const [path, chapter] = key.split("\u0000");
     const initialDoc = untrack(() => doc);
     const sink = untrack(() => onOps);
     const localHistory = new RollbackHistory();
