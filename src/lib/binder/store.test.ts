@@ -2,7 +2,10 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { BinderStore } from "./store.svelte";
 import { api, type ChapterMeta, type Project } from "$lib/tauri";
 
-vi.mock("$lib/tauri", () => ({ api: { saveChapter: vi.fn(), readChapter: vi.fn(), openProject: vi.fn() } }));
+vi.mock("$lib/tauri", () => ({
+  api: { saveChapter: vi.fn(), readChapter: vi.fn(), openProject: vi.fn(), mcpSetActiveProject: vi.fn() },
+  isTauri: () => true,
+}));
 vi.mock("$lib/i18n", () => ({ t: (key: string) => key }));
 
 const chapter = (id: string): ChapterMeta => ({ id, file: `${id}.md`, title: id, status: "draft", words: 0, mtime: 0 });
@@ -16,6 +19,8 @@ beforeEach(() => {
   store.currentChapter = project.chapters[0];
   vi.mocked(api.saveChapter).mockImplementation(async (_path, file) => ({ ...chapter(file[0]), words: 3 }));
   vi.mocked(api.readChapter).mockResolvedValue({ body: "Chapter B", frontmatter: {} });
+  vi.mocked(api.openProject).mockResolvedValue(project);
+  vi.mocked(api.mcpSetActiveProject).mockResolvedValue(undefined);
 });
 afterEach(() => vi.useRealTimers());
 
@@ -77,5 +82,28 @@ describe("adoptSaved", () => {
     expect(store.saveState).toBe("saved");
     await store.flush();
     expect(api.saveChapter).not.toHaveBeenCalled();
+  });
+});
+
+describe("MCP active project", () => {
+  it("notifies the separate MCP process when a project opens", async () => {
+    await store.openProject("/novel");
+    expect(api.mcpSetActiveProject).toHaveBeenCalledWith("/novel");
+  });
+
+  it("notifies with null when the project closes", async () => {
+    await store.closeProject();
+    expect(api.mcpSetActiveProject).toHaveBeenLastCalledWith(null);
+    expect(store.project).toBeNull();
+  });
+
+  it("a failed notification never blocks navigation nor surfaces an error", async () => {
+    vi.mocked(api.mcpSetActiveProject).mockRejectedValue("io");
+    await store.openProject("/novel");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.mcpSetActiveProject).toHaveBeenCalledWith("/novel");
+    expect(store.project?.path).toBe("/novel");
+    expect(store.currentChapter?.id).toBe("a");
+    expect(store.error).toBeNull();
   });
 });
