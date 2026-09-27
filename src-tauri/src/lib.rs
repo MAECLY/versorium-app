@@ -82,6 +82,12 @@ pub fn run() {
             commands::ai::agents_detect,
             commands::ai::ai_rewrite,
             commands::ai::ai_apply_rewrite,
+            commands::mcp::mcp_status,
+            commands::mcp::mcp_set_write,
+            commands::mcp::mcp_install_client,
+            commands::mcp::mcp_uninstall_client,
+            commands::mcp::mcp_log,
+            commands::mcp::mcp_set_active_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Versorium");
