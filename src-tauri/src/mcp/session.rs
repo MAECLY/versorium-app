@@ -42,6 +42,16 @@ impl Session {
         &self.client
     }
 
+    /// Sibling of the settings file, so a session pointed at a scratch settings
+    /// file logs there too — production logs land in the app-data dir, tests
+    /// never touch it.
+    pub fn log_path(&self) -> PathBuf {
+        self.settings_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("mcp-log.jsonl")
+    }
+
     fn settings(&self) -> Settings {
         crate::commands::settings::SettingsStore::load(self.settings_path.clone()).get()
     }
@@ -95,6 +105,13 @@ mod tests {
 
     fn session(dir: &Path, client: &str) -> Session {
         Session::new(client.into(), dir.join("settings.json"))
+    }
+
+    #[test]
+    fn the_log_sits_next_to_the_settings_it_was_given() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = session(dir.path(), "codex");
+        assert_eq!(s.log_path(), dir.path().join("mcp-log.jsonl"));
     }
 
     #[test]
