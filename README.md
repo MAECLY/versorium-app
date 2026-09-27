@@ -136,6 +136,42 @@ key is `mcp`, `type` is required, and the command is a single array (there is no
 }
 ```
 
+**Cursor** — `<repo>/.cursor/mcp.json` (project) or `~/.cursor/mcp.json`
+(global). Versorium does not write this one for you:
+
+```json
+{
+  "mcpServers": {
+    "versorium": {
+      "type": "stdio",
+      "command": "/path/to/versorium",
+      "args": ["mcp", "--client", "cursor"]
+    }
+  }
+}
+```
+
+Then open Cursor's Tools & Integrations settings and confirm `versorium` is
+enabled; restart Cursor if it does not appear. (`type` is optional in practice —
+working configs omit it — but Cursor's reference table lists it.)
+
+**VS Code** — `<repo>/.vscode/mcp.json`. Note the key is **`servers`**, not
+`mcpServers`; copying the Cursor snippet here will not work:
+
+```json
+{
+  "servers": {
+    "versorium": {
+      "command": "/path/to/versorium",
+      "args": ["mcp", "--client", "vscode"]
+    }
+  }
+}
+```
+
+VS Code asks you to trust the server the first time; no restart is needed after
+that.
+
 ## Project layout on disk
 
 Each novel is a plain folder under `Documents/Versorium/<slug>/`:
