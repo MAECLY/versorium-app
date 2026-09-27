@@ -128,7 +128,10 @@
     "ai_failed": "The agent did not answer.",
     "ai_empty": "The agent returned nothing.",
     "bad_range": "That passage is outside the chapter.",
-    "stale_selection": "The passage changed since you selected it. Select it again."
+    "stale_selection": "The passage changed since you selected it. Select it again.",
+    "mcp_config_failed": "Versorium could not write that client's config file.",
+    "mcp_client_unknown": "Unknown MCP client.",
+    "no_home": "Could not locate your home folder."
   },
   "languages": {
     "en": "English",
@@ -172,5 +175,38 @@
     "censorshipHint": "ON hides uncensored local models and asks cloud agents to keep it clean. OFF prefers uncensored routes. Routing arrives with Local AI.",
     "on": "On",
     "off": "Off"
+  },
+  "mcp": {
+    "title": "MCP",
+    "intro": "A local server on this machine (stdio). Agents connect to it to read your manuscript. Read-only until you allow writing.",
+    "command": "Command",
+    "commandHint": "Connected clients spawn this. Nothing listens on the network.",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "detected": "Installed on this machine",
+    "notDetected": "Not found on this machine",
+    "configPath": "Config",
+    "allowWrite": "Allow write",
+    "writeWarning": "Write lets the AI change your manuscript. Versorium will snapshot Git first. You can roll back. The model can still delete text if you allow the edit.",
+    "readOnly": "Read-only",
+    "log": "Tool log",
+    "logEmpty": "No tool calls yet.",
+    "logHint": "Records tool names, clients and paths. Never your manuscript text.",
+    "refresh": "Refresh",
+    "scopeRead": "read",
+    "scopeWrite": "write",
+    "outcomeOk": "ok",
+    "outcomeDenied": "denied",
+    "outcomeError": "error",
+    "restartHint": "Restart {client} for the change to take effect.",
+    "none": "The MCP server runs inside the desktop app.",
+    "clients": {
+      "claude-code": "Claude Code",
+      "claude-desktop": "Claude Desktop",
+      "codex": "Codex",
+      "opencode": "OpenCode"
+    }
   }
 }

@@ -110,6 +110,41 @@ export interface AiApplyArgs {
   expected: string;
 }
 
+// --- M3: MCP server ---
+
+export type McpClientId = "claude-code" | "claude-desktop" | "codex" | "opencode";
+
+export interface McpClient {
+  id: McpClientId;
+  name: string;
+  /** Absolute path of the client config Versorium would write. */
+  configPath: string;
+  /** The client itself is installed on this machine. */
+  detected: boolean;
+  /** Our server entry is present in that config. */
+  installed: boolean;
+  /** This client may call the write tools. Off by default (spec §7). */
+  writeAllowed: boolean;
+}
+
+export interface McpStatus {
+  /** Absolute path to the versorium binary the clients would spawn. */
+  command: string;
+  args: string[];
+  logPath: string;
+  clients: McpClient[];
+}
+
+export interface McpLogEntry {
+  ts: number;
+  client: string;
+  tool: string;
+  scope: "read" | "write";
+  outcome: "ok" | "denied" | "error";
+  /** Paths and counts only — never manuscript prose. */
+  detail: string;
+}
+
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   uiReady: () => invoke<void>("ui_ready"),
@@ -159,6 +194,15 @@ export const api = {
   aiRewrite: (provider: string, text: string) =>
     invoke<string>("ai_rewrite", { provider, text }),
   aiApplyRewrite: (args: AiApplyArgs) => invoke<ChapterMeta>("ai_apply_rewrite", { args }),
+
+  // --- M3: MCP server ---
+  mcpStatus: () => invoke<McpStatus>("mcp_status"),
+  mcpSetWrite: (client: string, allowed: boolean) =>
+    invoke<McpStatus>("mcp_set_write", { client, allowed }),
+  mcpInstallClient: (client: string) => invoke<McpStatus>("mcp_install_client", { client }),
+  mcpUninstallClient: (client: string) => invoke<McpStatus>("mcp_uninstall_client", { client }),
+  mcpLog: (limit?: number) => invoke<McpLogEntry[]>("mcp_log", { limit }),
+  mcpSetActiveProject: (path: string | null) => invoke<void>("mcp_set_active_project", { path }),
 };
 
 export function isTauri(): boolean {
