@@ -46,8 +46,7 @@ pub fn entry(client: &str, tool: &str, scope: &str, outcome: &str, detail: Strin
 }
 
 /// Append one entry. Best-effort: a failed log must never fail a tool call.
-pub fn append(entry: &LogEntry) {
-    let Ok(path) = crate::paths::mcp_log_path() else { return };
+pub fn append(path: &std::path::Path, entry: &LogEntry) {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
@@ -55,10 +54,10 @@ pub fn append(entry: &LogEntry) {
     let appended = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(&path)
+        .open(path)
         .and_then(|mut f| writeln!(f, "{line}"));
     if appended.is_ok() {
-        trim(&path);
+        trim(path);
     }
 }
 
@@ -76,7 +75,11 @@ fn trim(path: &std::path::Path) {
 /// Newest first, capped at `limit`. Unparseable lines are skipped, not fatal.
 pub fn read(limit: usize) -> Vec<LogEntry> {
     let Ok(path) = crate::paths::mcp_log_path() else { return Vec::new() };
-    let Ok(text) = std::fs::read_to_string(&path) else { return Vec::new() };
+    read_from(&path, limit)
+}
+
+pub fn read_from(path: &std::path::Path, limit: usize) -> Vec<LogEntry> {
+    let Ok(text) = std::fs::read_to_string(path) else { return Vec::new() };
     let mut entries: Vec<LogEntry> = text
         .lines()
         .filter(|l| !l.trim().is_empty())
@@ -102,11 +105,16 @@ mod tests {
     }
 
     #[test]
-    fn reading_a_missing_or_corrupt_log_is_not_fatal() {
-        // read() resolves the real app-data path; on a machine without one it
-        // must still return an empty list rather than panicking.
-        let entries = read(10);
-        assert!(entries.len() <= 500);
+    fn appending_and_reading_round_trips_without_touching_app_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mcp-log.jsonl");
+        append(&path, &entry("codex", "search", "read", "ok", "3 hits".into()));
+        append(&path, &entry("codex", "write_document", "write", "denied", "no grant".into()));
+        let entries = read_from(&path, 10);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].tool, "write_document", "newest first");
+        assert_eq!(entries[1].tool, "search");
+        assert!(read_from(&dir.path().join("absent.jsonl"), 10).is_empty());
     }
 
     #[test]
