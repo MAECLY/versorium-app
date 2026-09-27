@@ -6,6 +6,7 @@
 //! specific client write access.
 
 pub mod clients;
+pub mod dispatch;
 pub mod log;
 pub mod query;
 pub mod server;
