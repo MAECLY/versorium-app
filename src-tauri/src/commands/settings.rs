@@ -15,6 +15,12 @@ pub struct Settings {
     /// Two OAuth slots, never mixed: app updates vs the user's novel repos.
     pub github_updates_token: Option<String>,
     pub github_novel_token: Option<String>,
+    /// MCP clients allowed to call write tools. Empty = every client is
+    /// read-only, which is the default the spec requires (§7).
+    pub mcp_write_clients: Vec<String>,
+    /// Project the GUI currently has open, so the separate `versorium mcp`
+    /// process knows what "the manuscript" means. Cleared when none is open.
+    pub mcp_active_project: Option<String>,
 }
 
 impl Default for Settings {
@@ -26,6 +32,8 @@ impl Default for Settings {
             censorship: false,
             github_updates_token: None,
             github_novel_token: None,
+            mcp_write_clients: Vec::new(),
+            mcp_active_project: None,
         }
     }
 }
@@ -99,6 +107,9 @@ pub fn set_settings(
         if let Some(v) = patch.get("githubNovelToken").and_then(|v| v.as_str()) {
             s.github_novel_token = if v.is_empty() { None } else { Some(v.into()) };
         }
+        // mcpWriteClients / mcpActiveProject are deliberately NOT patchable from
+        // here: granting write is its own command so the UI cannot flip it by
+        // accident while saving an unrelated preference.
     });
     Ok(state.get())
 }
@@ -106,6 +117,19 @@ pub fn set_settings(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn write_grants_are_not_patchable_through_set_settings() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = SettingsStore::load(dir.path().join("settings.json"));
+        store.update(|s| s.mcp_write_clients.push("codex".into()));
+        // A generic patch must not be able to add or drop a grant.
+        let patch = serde_json::json!({ "mcpWriteClients": ["claude-code"], "uiLocale": "es" });
+        if let Some(v) = patch.get("uiLocale").and_then(|v| v.as_str()) {
+            store.update(|s| s.ui_locale = v.into());
+        }
+        assert_eq!(store.get().mcp_write_clients, vec!["codex".to_string()]);
+    }
 
     #[test]
     fn loads_defaults_when_missing() {
@@ -127,6 +151,7 @@ mod tests {
         let s = store.get();
         assert_eq!(s.ui_locale, "es");
         assert!(s.censorship);
+        assert!(s.mcp_write_clients.is_empty(), "MCP is read-only until granted");
         let raw = fs::read_to_string(dir.path().join("settings.json")).unwrap();
         assert!(raw.contains("\"uiLocale\": \"es\""));
     }
