@@ -11,6 +11,8 @@ pub mod log;
 pub mod query;
 pub mod server;
 pub mod session;
+pub mod tools;
+pub mod write;
 
 /// How the MCP process was invoked.
 #[derive(Debug, Clone, PartialEq, Eq)]
