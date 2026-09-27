@@ -6,6 +6,8 @@
 mod commands;
 mod git;
 mod ops;
+mod mcp;
+mod paths;
 mod storage;
 mod text;
 mod agents;
@@ -14,11 +16,15 @@ pub mod i18n;
 use tauri::Manager;
 
 pub fn run() {
+    // `versorium mcp` serves stdio instead of opening a window (spec §7/§13).
+    if let Some(options) = mcp::parse_cli(std::env::args()) {
+        std::process::exit(mcp::serve_stdio(options));
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
-            let store = commands::settings::SettingsStore::load(dir.join("settings.json"));
+            // paths::settings_path() so the `versorium mcp` process reads the same file.
+            let store = commands::settings::SettingsStore::load(paths::settings_path()?);
             app.manage(store);
             // Debug builds only: VERSORIUM_DEVTOOLS=1 opens the WebKit/WebView2
             // inspector at launch so a blank window can be diagnosed from a terminal.
