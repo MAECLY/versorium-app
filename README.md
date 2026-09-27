@@ -42,6 +42,100 @@ checkpoint, then writes the chapter and logs the ops as `ai:<provider>`.
 The dialog states where the passage goes (Local vs CLI). Settings → Safety
 holds the censorship toggle; routing by it arrives with Local AI (M4).
 
+## MCP server (M3)
+
+Versorium exposes its own MCP server so the agents you already use can read the
+manuscript. It is **read-only by default** and speaks stdio on this machine
+only — nothing listens on a network port.
+
+```bash
+versorium mcp                      # serve stdio (this is what a client runs)
+versorium mcp --client claude-code # identify the caller for permissions + log
+```
+
+Settings → MCP connects a client for you (backing the file up first) and shows
+every tool call an agent made. The `--client` id comes from the config you
+approved, not from the wire, so one client cannot borrow another's permission.
+
+### Read tools
+
+`get_app_state`, `list_projects`, `open_project`, `list_documents`,
+`read_document`, `search`, `assemble_context`, `history_list`, `history_blame`,
+`diff`, `git_status`, `git_log`, `get_style`, `codex_search`, `codex_get`.
+
+### Write tools
+
+The write tools exist but **refuse** unless you grant that specific client write
+access in Settings → MCP. When granted, every write still goes through the same
+pipeline as your own keystrokes:
+
+1. the tool returns a **diff preview** and changes nothing unless it is called
+   again with `confirm: true`;
+2. Versorium makes a **git checkpoint** first — if the snapshot fails, the write
+   does not happen;
+3. the change is recorded in the ops log as `ai:<client>`, so you can roll it
+   back word by word.
+
+Deleting a document needs a second flag (`acknowledge_delete`) on top of
+`confirm`.
+
+> **Write lets the AI change your manuscript. Versorium will snapshot Git first.
+> You can roll back. The model can still delete text if you allow the edit.**
+
+### Connecting a client by hand
+
+Settings → MCP writes these for you. If you would rather do it yourself, replace
+`/path/to/versorium` with the binary path shown in that panel.
+
+**Claude Code** — prefer the CLI, because `~/.claude.json` is live session state
+that a running Claude Code rewrites:
+
+```bash
+claude mcp add --scope user versorium -- /path/to/versorium mcp --client claude-code
+```
+
+**Codex** — likewise; a duplicate `[mcp_servers.versorium]` table would make the
+whole `config.toml` unparseable:
+
+```bash
+codex mcp add versorium -- /path/to/versorium mcp --client codex
+```
+
+**Claude Desktop** — no CLI; edit
+`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS),
+`%APPDATA%\Claude\claude_desktop_config.json` (Windows) or
+`~/.config/Claude/claude_desktop_config.json` (Linux), keeping every other key:
+
+```json
+{
+  "mcpServers": {
+    "versorium": {
+      "command": "/path/to/versorium",
+      "args": ["mcp", "--client", "claude-desktop"],
+      "env": {}
+    }
+  }
+}
+```
+
+Quit Claude Desktop fully and relaunch — closing the window is not enough.
+
+**OpenCode** — `~/.config/opencode/opencode.json`. Note the shape differs: the
+key is `mcp`, `type` is required, and the command is a single array (there is no
+`args`):
+
+```json
+{
+  "mcp": {
+    "versorium": {
+      "type": "local",
+      "command": ["/path/to/versorium", "mcp", "--client", "opencode"],
+      "enabled": true
+    }
+  }
+}
+```
+
 ## Project layout on disk
 
 Each novel is a plain folder under `Documents/Versorium/<slug>/`:
