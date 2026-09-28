@@ -92,7 +92,7 @@
       aria-pressed={corkboard}
       title={t("binder.corkboardHint")}
     >
-      {corkboard ? t("binder.editor") : t("binder.corkboard")}
+      {t("binder.corkboard")}
     </button>
     <button
       class="v-btn v-bar-btn"

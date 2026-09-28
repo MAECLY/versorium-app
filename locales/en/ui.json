@@ -27,8 +27,7 @@
     "corkboard": "Corkboard",
     "corkboardHint": "See the chapters as cards.",
     "corkboardLoading": "Reading chapters…",
-    "corkboardEmpty": "Nothing written yet.",
-    "editor": "Editor"
+    "corkboardEmpty": "Nothing written yet."
   },
   "editor": {
     "placeholder": "Start writing…",

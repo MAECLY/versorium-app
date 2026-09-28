@@ -27,8 +27,7 @@
     "corkboard": "Fichas",
     "corkboardHint": "Mira los capítulos como fichas en un tablero.",
     "corkboardLoading": "Leyendo capítulos…",
-    "corkboardEmpty": "Todavía sin escribir.",
-    "editor": "Editor"
+    "corkboardEmpty": "Todavía sin escribir."
   },
   "editor": {
     "placeholder": "Empieza a escribir…",
