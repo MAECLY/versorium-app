@@ -224,6 +224,9 @@ const mcpLog: McpLogEntry[] = [
   { ts: 1_759_000_060_000, client: "codex", tool: "write_document", scope: "write", outcome: "denied", detail: "write not allowed for codex" },
 ];
 
+/// Mirrors settings::SLOT_KINDS; Rust rejects anything else as `bad_args`.
+const SLOT_KINDS = ["none", "builtin", "ollama", "cli"];
+
 const agents: AgentInfo[] = [
   { id: "claude", name: "Claude Code", path: "/mock/bin/claude", version: "2.1.0", state: "connected", models: null },
   { id: "codex", name: "Codex", path: "/mock/bin/codex", version: "0.9.0", state: "connected", models: null },
@@ -595,13 +598,39 @@ const commands: Record<string, (args: Args) => unknown> = {
   mcp_log: ({ limit }) => mcpLog.slice(-Number(limit ?? 50)).reverse(),
   mcp_set_active_project: () => undefined,
 
-  ai_rewrite: ({ provider, text }) => {
+  // Mirrors agents::rewrite: dispatch on the assignment, never on `kind` alone.
+  ai_rewrite: ({ kind, id, text }) => {
     const passage = String(text).trim();
     if (!passage) throw "ai_empty";
-    if (!agents.some((a) => a.id === provider && a.state !== "missing")) throw "no_provider";
-    // Codex stands in for a failing harness so the error path is testable.
-    if (provider === "codex") throw "ai_failed";
-    return `${passage} — rewritten by ${provider}`;
+    if (!SLOT_KINDS.includes(String(kind))) throw "bad_args";
+    const model = String(id ?? "").trim();
+    if (!model) throw "no_provider";
+    switch (kind) {
+      case "cli": {
+        // `gh` is in `agents` but is a git tool: Rust only accepts the three
+        // prose harnesses, so the mock must refuse it the same way.
+        if (!["claude", "codex", "opencode"].includes(model)) throw "no_provider";
+        if (!agents.some((a) => a.id === model && a.state !== "missing")) throw "no_provider";
+        // Codex stands in for a failing harness so the error path is testable.
+        if (model === "codex") throw "ai_failed";
+        break;
+      }
+      case "ollama": {
+        const daemon = agents.find((a) => a.id === "ollama");
+        if (daemon?.state !== "connected") throw "ollama_offline";
+        // A slot can outlive the model it names; no substituting another.
+        if (!daemon.models?.includes(model)) throw "no_provider";
+        break;
+      }
+      case "builtin": {
+        if (models.find((m) => m.id === model)?.state !== "ready") throw "no_provider";
+        // Weights on disk, no engine to load them.
+        throw "no_runtime";
+      }
+      default:
+        throw "no_provider";
+    }
+    return `${passage} — rewritten by ${model}`;
   },
 
   ai_apply_rewrite: ({ args }) => {

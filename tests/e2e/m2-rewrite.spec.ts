@@ -44,6 +44,10 @@ test("rewrite a selection: checkpoint, ops author=ai, editor updated", async ({ 
   await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
   const dialog = page.getByRole("dialog", { name: "Rewrite" });
   await expect(dialog).toBeVisible();
+  // With no slot configured the dialog opens on the local daemon, so a CLI
+  // harness has to be asked for: the passage only leaves the machine on a
+  // deliberate choice.
+  await dialog.getByLabel("Agent").selectOption({ label: "Claude Code" });
   // Privacy line (spec §2.3): the passage leaves through the CLI login.
   await expect(dialog.getByText("This call goes to Claude Code.")).toBeVisible();
   await expect(dialog.getByText("CLI", { exact: true })).toBeVisible();
@@ -75,11 +79,11 @@ test("ollama is labelled local and a failing harness keeps the dialog open", asy
   await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
   const dialog = page.getByRole("dialog", { name: "Rewrite" });
 
-  await dialog.getByLabel("Agent").selectOption("ollama");
+  // The daemon's model is named, not just "Ollama": the model is what runs.
   await expect(dialog.getByRole("option", { name: "Ollama · qwen3.8:latest" })).toBeAttached();
   await expect(dialog.getByText("Local", { exact: true })).toBeVisible();
 
-  await dialog.getByLabel("Agent").selectOption("codex");
+  await dialog.getByLabel("Agent").selectOption({ label: "Codex" });
   await dialog.getByRole("button", { name: "Rewrite", exact: true }).click();
   await expect(dialog.getByRole("alert")).toHaveText("The agent did not answer.");
   await expect(dialog.getByRole("button", { name: "Apply" })).toBeDisabled();
@@ -125,4 +129,66 @@ test("the whole M2 surface is translated", async ({ page }) => {
   const settings = page.getByRole("dialog", { name: "Ajustes" });
   await expect(settings.getByRole("region", { name: "Agentes" }).getByText("Conectado", { exact: true }).first()).toBeVisible();
   await expect(settings.getByRole("checkbox", { name: "Censura" })).toBeVisible();
+});
+
+test("the rewrite names the model, and downloaded weights say they have no engine", async ({
+  page,
+}) => {
+  await createProject(page, "Which Model");
+  await typeAndSelectLine(page, "El faro seguía encendido.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const dialog = page.getByRole("dialog", { name: "Rewrite" });
+
+  // The local daemon is the default because it is the only choice that keeps
+  // the passage on this machine and can actually answer.
+  await expect(dialog.getByText("This call goes to Ollama · qwen3.8:latest.")).toBeVisible();
+  await dialog.getByRole("button", { name: "Rewrite", exact: true }).click();
+  // Attribution is the model, not the family: "ollama" alone never said which.
+  await expect(dialog.getByRole("region", { name: "Preview" })).toContainText(
+    "+ El faro seguía encendido. — rewritten by qwen3.8:latest",
+  );
+  await dialog.getByRole("button", { name: "Apply" }).click();
+  await expect(dialog).toBeHidden();
+
+  const state = await mockState(page);
+  expect(state.commits[0]).toBe("checkpoint: before ai rewrite (qwen3.8:latest)");
+  expect(state.ops.some((op) => op.author === "ai:qwen3.8:latest")).toBe(true);
+
+  // A downloaded GGUF is offered, and explains itself rather than looking broken.
+  await typeAndSelectLine(page, "Otra noche mas.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const again = page.getByRole("dialog", { name: "Rewrite" });
+  await again.getByLabel("Agent").selectOption({ label: "Gemma 3 1B" });
+  await again.getByRole("button", { name: "Rewrite", exact: true }).click();
+  await expect(again.getByRole("alert")).toContainText("no engine to run it yet");
+  await expect(again.getByRole("button", { name: "Apply" })).toBeDisabled();
+});
+
+test("the configured Rewrite slot is what the dialog opens on", async ({ page }) => {
+  await createProject(page, "Configured Slot");
+  // Setting the slot is covered by the M4 spec; here it is only a precondition.
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.rewrite = { kind: "cli", id: "claude" };
+  });
+
+  await typeAndSelectLine(page, "Nadie contestó.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const dialog = page.getByRole("dialog", { name: "Rewrite" });
+  // The configured slot wins over the local default, and says it is the one
+  // chosen in Settings rather than leaving the writer to guess.
+  await expect(dialog.getByText("This call goes to Claude Code.")).toBeVisible();
+  await expect(
+    dialog.getByRole("option", { name: "Claude Code (configured)" }),
+  ).toBeAttached();
+
+  // A slot naming something this machine cannot run falls back rather than
+  // failing: opencode is "missing" in the mock.
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.rewrite = { kind: "cli", id: "opencode" };
+  });
+  await dialog.getByRole("button", { name: "Discard" }).click();
+  await typeAndSelectLine(page, "Nadie contestó.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const again = page.getByRole("dialog", { name: "Rewrite" });
+  await expect(again.getByText("This call goes to Ollama · qwen3.8:latest.")).toBeVisible();
 });
