@@ -83,7 +83,10 @@ pub struct Settings {
     pub theme: String,
     pub theme_mode: String,
     pub censorship: bool,
-    /// Two OAuth slots, never mixed: app updates vs the user's novel repos.
+    /// Legacy home of the two tokens, kept only so an existing install can be
+    /// migrated. Credentials now live in the OS store (`crate::secrets`); these
+    /// are cleared the first time the store accepts them and are never written
+    /// again. The wire shape keeps them so an older settings.json still parses.
     pub github_updates_token: Option<String>,
     pub github_novel_token: Option<String>,
     /// `stable` (default) or `beta` — the spec's two release channels.
@@ -113,6 +116,12 @@ pub struct Settings {
     pub typewriter: bool,
     /// Whether the first-run tour has been completed or dismissed.
     pub onboarded: bool,
+    /// Folder a novel is archived into — typically one the OS already syncs.
+    /// `None` means backups are off, which is the default: writing a novel
+    /// somewhere the writer never chose is not a sensible default.
+    pub backup_dir: Option<String>,
+    /// How many archives to keep before the oldest is dropped.
+    pub backup_keep: usize,
 }
 
 impl Default for Settings {
@@ -138,6 +147,8 @@ impl Default for Settings {
             focus_mode: false,
             typewriter: false,
             onboarded: false,
+            backup_dir: None,
+            backup_keep: crate::backup::DEFAULT_KEEP,
         }
     }
 }
