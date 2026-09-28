@@ -7,7 +7,8 @@ import { expect, test, type Page } from "@playwright/test";
 async function openLocalAi(page: Page) {
   await page.goto("/?mock=tauri");
   await page.getByRole("button", { name: "Settings" }).click();
-  const settings = page.getByRole("dialog", { name: "Settings" });
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Local AI" }).click();
   return { settings, localAi: settings.getByRole("region", { name: "Local AI" }) };
 }
 
@@ -106,7 +107,8 @@ test("the Local AI panel is translated", async ({ page }) => {
   await page.goto("/?mock=tauri");
   await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
   await page.getByRole("button", { name: "Ajustes" }).click();
-  const settings = page.getByRole("dialog", { name: "Ajustes" });
+  const settings = page.getByRole("region", { name: "Ajustes" });
+  await settings.getByRole("button", { name: "IA local" }).click();
   const localAi = settings.getByRole("region", { name: "IA local" });
   await expect(localAi.getByRole("tab", { name: "Escritura" })).toBeVisible();
   await expect(localAi.getByRole("button", { name: "Descargar" }).first()).toBeVisible();
