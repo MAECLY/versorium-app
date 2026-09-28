@@ -126,8 +126,19 @@ fn hide_if_skipped(
 }
 
 fn status_from(state: &SettingsStore) -> UpdateStatus {
+    // Cheap and non-blocking: whether a credential exists, not its value. The
+    // keyring read happens in `signed_in`, off the async thread.
+    status_with(state, signed_in(state))
+}
+
+/// Whether an updates token exists anywhere. Blocking (it may touch the OS
+/// credential store), so async callers wrap it.
+fn signed_in(state: &SettingsStore) -> bool {
+    crate::secrets::updates_token(state).is_some()
+}
+
+fn status_with(state: &SettingsStore, signed_in: bool) -> UpdateStatus {
     let settings = state.get();
-    let token = settings.github_updates_token.as_deref().unwrap_or_default();
     let (available, last_error) = last_check()
         .lock()
         .map(|s| (s.available.clone(), s.error.clone()))
@@ -137,7 +148,7 @@ fn status_from(state: &SettingsStore) -> UpdateStatus {
         available: hide_if_skipped(available, settings.update_skipped.as_deref()),
         channel: settings.update_channel,
         automatic: settings.update_automatic,
-        signed_in: !token.trim().is_empty(),
+        signed_in,
         // The command has returned, so by definition it is no longer checking;
         // the frontend owns its own in-flight state.
         checking: false,
@@ -210,7 +221,7 @@ pub async fn update_check(
     state: tauri::State<'_, SettingsStore>,
 ) -> Result<UpdateStatus, String> {
     let settings = state.get();
-    let token = settings.github_updates_token.clone().unwrap_or_default();
+    let token = crate::secrets::updates_token(&state).unwrap_or_default();
     if token.trim().is_empty() {
         // Spec §11: no token, no check. The UI shows a sign-in prompt instead
         // of looping against an endpoint that can only refuse us.
@@ -247,7 +258,7 @@ pub async fn update_install(
     state: tauri::State<'_, SettingsStore>,
 ) -> Result<(), String> {
     let settings = state.get();
-    let token = settings.github_updates_token.clone().unwrap_or_default();
+    let token = crate::secrets::updates_token(&state).unwrap_or_default();
     if token.trim().is_empty() {
         return Err("not_signed_in".into());
     }

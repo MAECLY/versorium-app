@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod backup;
 pub mod chapters;
 pub mod formats;
 pub mod git;
@@ -8,5 +9,6 @@ pub mod models;
 pub mod ops;
 pub mod polish;
 pub mod project;
+pub mod secrets;
 pub mod settings;
 pub mod update;

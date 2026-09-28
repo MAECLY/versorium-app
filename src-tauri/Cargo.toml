@@ -39,6 +39,11 @@ llama-cpp-2 = { version = "=0.1.157", default-features = false, features = ["com
 # one so an accented character split across two tokens survives. The deprecated
 # `token_to_str` makes a fresh decoder per call and loses exactly that.
 encoding_rs = "0.8.35"
+# Credentials in the OS store instead of settings.json. The default `v1`
+# feature is exactly the three native stores (Keychain, Credential Manager,
+# Secret Service); `cli` would pull in nine. No new system packages: the Linux
+# backend is zbus, pure Rust.
+keyring = "4"
 
 [dev-dependencies]
 tempfile = "3"
