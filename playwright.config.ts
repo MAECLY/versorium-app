@@ -16,7 +16,9 @@ export default defineConfig({
   },
   projects: [{ name: "chrome", use: { ...devices["Desktop Chrome"], channel: "chrome" } }],
   webServer: {
-    command: "pnpm dev",
+    // The local vite binary, not a package-manager script: which pnpm/npm is on
+    // PATH varies per machine, and the dev server should not depend on it.
+    command: "./node_modules/.bin/vite",
     url: "http://localhost:1420",
     reuseExistingServer: true,
     timeout: 60_000,
