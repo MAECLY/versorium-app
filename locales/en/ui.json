@@ -168,7 +168,8 @@
     "bad_update_host": "The update pointed somewhere unexpected and was refused.",
     "continuity_no_model": "No model is selected for Continuity. Pick one under Local AI.",
     "continuity_daemon_offline": "The Ollama daemon is not running, so the check could not start.",
-    "continuity_failed": "The continuity check could not finish."
+    "continuity_failed": "The continuity check could not finish.",
+    "no_runtime": "That model is downloaded, but Versorium has no engine to run it yet. Pick Ollama or a CLI agent."
   },
   "languages": {
     "en": "English",
@@ -190,7 +191,8 @@
     "kindCli": "CLI",
     "checkpointNote": "Versorium snapshots Git before applying. You can roll back.",
     "creative": "Continue chapter",
-    "creativeSoon": "Creative mode arrives in v1.1."
+    "creativeSoon": "Creative mode arrives in v1.1.",
+    "configuredSuffix": "(configured)"
   },
   "agents": {
     "title": "Agents",

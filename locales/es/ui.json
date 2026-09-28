@@ -168,7 +168,8 @@
     "bad_update_host": "La actualización apuntaba a un sitio inesperado y se rechazó.",
     "continuity_no_model": "No hay modelo asignado a Continuidad. Elige uno en IA local.",
     "continuity_daemon_offline": "El daemon de Ollama no está corriendo, así que la revisión no pudo empezar.",
-    "continuity_failed": "La revisión de continuidad no pudo terminar."
+    "continuity_failed": "La revisión de continuidad no pudo terminar.",
+    "no_runtime": "Ese modelo está descargado, pero Versorium aún no tiene motor para ejecutarlo. Elige Ollama o un agente CLI."
   },
   "languages": {
     "en": "English",
@@ -190,7 +191,8 @@
     "kindCli": "CLI",
     "checkpointNote": "Versorium guarda un punto de control en Git antes de aplicar. Puedes revertirlo.",
     "creative": "Continuar capítulo",
-    "creativeSoon": "El modo creativo llega en la v1.1."
+    "creativeSoon": "El modo creativo llega en la v1.1.",
+    "configuredSuffix": "(configurado)"
   },
   "agents": {
     "title": "Agentes",

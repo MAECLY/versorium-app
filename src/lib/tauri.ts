@@ -385,8 +385,9 @@ export const api = {
 
   // --- M2: agents + rewrite ---
   agentsDetect: () => invoke<AgentInfo[]>("agents_detect"),
-  aiRewrite: (provider: string, text: string) =>
-    invoke<string>("ai_rewrite", { provider, text }),
+  /** `kind` + `id` are a slot assignment: the id names *which* model to use. */
+  aiRewrite: (kind: SlotKind, id: string, text: string) =>
+    invoke<string>("ai_rewrite", { kind, id, text }),
   aiApplyRewrite: (args: AiApplyArgs) => invoke<ChapterMeta>("ai_apply_rewrite", { args }),
 
   // --- M3: MCP server ---

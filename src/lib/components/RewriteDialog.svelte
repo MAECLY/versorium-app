@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { t } from "$lib/i18n";
-  import { api, isTauri, type AgentInfo } from "$lib/tauri";
+  import { api, isTauri, type SlotKind } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
   import { lineDiff } from "$lib/ai/diff";
   import { detectAgents } from "$lib/ai/agents";
@@ -17,34 +17,86 @@
 
   let { text, onClose, onApply }: Props = $props();
 
-  let providers = $state<AgentInfo[]>([]);
+  /** One thing the passage can be sent to, as a settings slot assignment. */
+  interface Choice {
+    kind: SlotKind;
+    id: string;
+    label: string;
+    /** Set on the model configured under Settings → Local AI → Rewrite. */
+    configured: boolean;
+  }
+
+  /** The three harnesses that rewrite prose. `gh` is for git, and Rust refuses it. */
+  const PROSE_HARNESSES = ["claude", "codex", "opencode"];
+
+  let choices = $state<Choice[]>([]);
   let detecting = $state(isTauri());
-  let provider = $state("");
+  /** `<kind>\u0000<id>` — a select value has to be a string, and an id alone is
+   * ambiguous once the same name can be both an Ollama tag and a catalog id. */
+  let picked = $state("");
   let busy = $state(false);
   let applying = $state(false);
   let error = $state("");
   let result = $state<string | null>(null);
 
   let diff = $derived(result === null ? [] : lineDiff(text, result));
-  let selected = $derived(providers.find((p) => p.id === provider));
-  // Where the passage goes (spec §2.3): Ollama stays on this machine, the rest ride the CLI login.
-  let kind = $derived(selected?.id === "ollama" ? "local" : "cli");
+  let selected = $derived(choices.find((c) => key(c) === picked));
+  // Where the passage goes (spec §2.3): weights on this machine stay here, a
+  // harness rides its own login.
+  let kind = $derived(selected?.kind === "cli" ? "cli" : "local");
 
-  function label(p: AgentInfo): string {
-    const model = p.id === "ollama" ? p.models?.[0] : undefined;
-    return model ? `${p.name} · ${model}` : p.name;
+  function key(c: { kind: SlotKind; id: string }): string {
+    return `${c.kind}\u0000${c.id}`;
   }
 
+  /**
+   * Build the list from the same three sources Settings offers, so a choice
+   * here is a slot assignment Rust can dispatch on. Sending a bare provider
+   * name used to leave Rust picking whichever model the daemon listed first.
+   */
   async function detect(): Promise<void> {
     if (!isTauri()) return;
     detecting = true;
     try {
-      const all = await detectAgents();
-      // gh is for git, not prose.
-      providers = all.filter((a) => a.state !== "missing" && a.id !== "gh");
-      if (!providers.some((p) => p.id === provider)) provider = providers[0]?.id ?? "";
+      const [view, agents] = await Promise.all([api.modelsView(), detectAgents()]);
+      const configured = view.slots.rewrite;
+      const isConfigured = (kind: SlotKind, id: string) =>
+        configured.kind === kind && configured.id === id;
+
+      const builtin: Choice[] = view.models
+        .filter((m) => m.task === "writing" && m.state === "ready")
+        .map((m) => ({
+          kind: "builtin" as const,
+          id: m.id,
+          label: m.label,
+          configured: isConfigured("builtin", m.id),
+        }));
+      const ollama: Choice[] = (view.ollama.running ? view.ollama.models : []).map((m) => ({
+        kind: "ollama" as const,
+        id: m.name,
+        label: `Ollama · ${m.name}`,
+        configured: isConfigured("ollama", m.name),
+      }));
+      const cli: Choice[] = agents
+        .filter((a) => a.state !== "missing" && PROSE_HARNESSES.includes(a.id))
+        .map((a) => ({
+          kind: "cli" as const,
+          id: a.id,
+          label: a.name,
+          configured: isConfigured("cli", a.id),
+        }));
+
+      // Built-in weights come last only because nothing loads them yet: an
+      // option that always fails must not be what the dialog opens on. Move
+      // them first once there is an engine — local is the preferred path.
+      choices = [...ollama, ...cli, ...builtin];
+      // The configured slot wins; otherwise keep a still-valid pick, then fall
+      // back to the first option so the button is never armed with nothing.
+      const preferred = choices.find((c) => c.configured);
+      if (preferred) picked = key(preferred);
+      else if (!choices.some((c) => key(c) === picked)) picked = choices[0] ? key(choices[0]) : "";
     } catch {
-      providers = [];
+      choices = [];
     } finally {
       detecting = false;
     }
@@ -55,12 +107,12 @@
   });
 
   async function doRewrite(): Promise<void> {
-    if (busy || !provider) return;
+    if (busy || !selected) return;
     busy = true;
     error = "";
     result = null;
     try {
-      result = await api.aiRewrite(provider, text);
+      result = await api.aiRewrite(selected.kind, selected.id, text);
     } catch (e) {
       error = store.codeMessagePublic(e);
     } finally {
@@ -69,11 +121,13 @@
   }
 
   async function doApply(): Promise<void> {
-    if (result === null || applying) return;
+    if (result === null || applying || !selected) return;
     applying = true;
     error = "";
     try {
-      await onApply(result, provider);
+      // Attribute to the model, not the family: `ai:claude` for a harness,
+      // `ai:qwen3.8:latest` for a daemon tag. Ops authors are opaque strings.
+      await onApply(result, selected.id);
     } catch (e) {
       error = store.codeMessagePublic(e);
     } finally {
@@ -92,13 +146,13 @@
     <div class="v-row mb-2" style="gap: 8px; flex-wrap: wrap;">
       <label class="v-row" style="gap: 8px; font-size: 13px;">
         {t("ai.provider")}
-        <select bind:value={provider} style="min-width: 180px;" disabled={busy || applying}>
-          {#each providers as p (p.id)}
-            <option value={p.id}>{label(p)}</option>
+        <select bind:value={picked} style="min-width: 180px;" disabled={busy || applying}>
+          {#each choices as c (key(c))}
+            <option value={key(c)}>{c.configured ? `${c.label} ${t("ai.configuredSuffix")}` : c.label}</option>
           {/each}
         </select>
       </label>
-      <button class="v-btn" disabled={busy || applying || !provider} onclick={() => void doRewrite()}>
+      <button class="v-btn" disabled={busy || applying || !selected} onclick={() => void doRewrite()}>
         {busy ? t("ai.busy") : t("ai.rewrite")}
       </button>
     </div>
@@ -110,13 +164,13 @@
         >
           {kind === "local" ? t("ai.kindLocal") : t("ai.kindCli")}
         </span>
-        <span class="v-muted">{t("ai.callGoesTo", { provider: selected.name })}</span>
+        <span class="v-muted">{t("ai.callGoesTo", { provider: selected.label })}</span>
       </p>
     {/if}
 
     {#if detecting}
       <p class="v-muted m-0" style="font-size: 13px;" aria-live="polite">{t("agents.checking")}</p>
-    {:else if providers.length === 0 && !busy}
+    {:else if choices.length === 0 && !busy}
       <p class="v-muted m-0" style="font-size: 13px;">{t("ai.noProviders")}</p>
     {/if}
 
