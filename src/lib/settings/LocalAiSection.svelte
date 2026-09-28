@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { t, getLocale } from "$lib/i18n";
-  import { isTauri, type ModelCard, type SlotKind, type SlotName } from "$lib/tauri";
+  import { api, isTauri, type LlamaBackendState, type ModelCard, type SlotKind, type SlotName } from "$lib/tauri";
   import { models, humanSize, percent } from "$lib/models/state.svelte";
 
   type Tab = "writing" | "ollama" | "studio" | "dictation";
@@ -9,6 +9,27 @@
   /** Light to largest, so the ladder reads top-down like the spec describes it. */
   const TIER_ORDER = ["low", "mid", "midPlus", "high"];
   const SLOTS: SlotName[] = ["rewrite", "chat", "continuity", "embeddings", "dictation"];
+
+  /** llama.cpp's state. Null until the first answer arrives. */
+  let engine = $state<LlamaBackendState | null>(null);
+
+  /**
+   * Warm-up runs on a background thread in Rust with nothing to notify us, so
+   * this asks again until it settles. The interval is slow on purpose: the cost
+   * being waited on is ~15s of Metal shader compilation, once per machine.
+   */
+  async function pollEngine(): Promise<void> {
+    if (!isTauri()) return;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      try {
+        engine = await api.llamaBackend();
+      } catch {
+        return;
+      }
+      if (engine.state !== "warming") return;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
 
   /** Weight icon per speed (spec §6.2): rocket, lightning, flame. */
   const SPEED_GLYPH: Record<ModelCard["speed"], string> = {
@@ -40,6 +61,7 @@
 
   onMount(() => {
     if (!isTauri()) return;
+    void pollEngine();
     void models.load().then(() => {
       const studio = models.view?.studio;
       if (studio) {
@@ -167,7 +189,9 @@
             {t("localAi.wizard.ram")}: {view.hardware.totalRamGb.toFixed(1)} GB ·
             {t("localAi.wizard.cores")}: {view.hardware.cpuCores} ·
             {t("localAi.wizard.platform")}: {view.hardware.os}/{view.hardware.arch} ·
-            {t("localAi.wizard.gpu")}: {view.hardware.gpu}
+            {t("localAi.wizard.gpu")}: {view.hardware.gpu === "hardware_gpu_pending"
+              ? t("errors.hardware_gpu_pending")
+              : view.hardware.gpu}
           </p>
           <p class="m-0 mt-2" style="font-size: 12.5px;">
             {t("localAi.wizard.recommended", {
@@ -176,6 +200,24 @@
             })}
           </p>
           <p class="v-muted m-0 mt-1" style="font-size: 12px;">{t("localAi.wizard.hint")}</p>
+
+          <p class="v-row m-0 mt-2" style="font-size: 12px; gap: 8px;" aria-live="polite">
+            <span style="font-weight: 600;">{t("localAi.engine.title")}</span>
+            {#if engine === null || engine.state === "warming"}
+              <span class="v-muted">{t("localAi.engine.warming")}</span>
+            {:else if engine.state === "failed"}
+              <span style="color: var(--warn);">{t("localAi.engine.failed")}</span>
+            {:else}
+              <span
+                style="padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--accent-contrast); background: var(--accent);"
+              >
+                {engine.device?.label ?? t("localAi.engine.cpuOnly")}
+              </span>
+              {#if !engine.gpuOffload}
+                <span class="v-muted">{t("localAi.engine.noGpuBuild")}</span>
+              {/if}
+            {/if}
+          </p>
         </div>
       {/if}
 

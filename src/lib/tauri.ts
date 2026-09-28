@@ -234,6 +234,26 @@ export interface StudioView {
   enabled: boolean;
 }
 
+/** Which device llama.cpp will use. Asked for separately from the model cards:
+ *  the backend is a property of the machine, not of a model. */
+export interface LlamaBackendState {
+  /** `warming` while llama.cpp starts — on Apple Silicon that is ~15s of
+   *  Metal shader compilation, long enough to need saying. */
+  state: "warming" | "ready" | "failed";
+  device: { label: string; deviceType: string; memFreeMb: number; memTotalMb: number } | null;
+  /** False on the Windows and Linux builds today, so CPU speeds there are
+   *  expected rather than a fault. */
+  gpuOffload: boolean;
+}
+
+/** Text produced by the running generation. Polled, like a download's bytes. */
+export interface LlamaProgress {
+  model: string;
+  text: string;
+  tokens: number;
+  done: boolean;
+}
+
 export interface LocalAiView {
   models: ModelCard[];
   hardware: Hardware;
@@ -412,6 +432,12 @@ export const api = {
   studioTest: (host: string, port: number) => invoke<boolean>("studio_test", { host, port }),
   studioSave: (host: string, port: number, enabled: boolean) =>
     invoke<StudioView>("studio_save", { host, port, enabled }),
+
+  // --- the in-process engine ---
+  llamaBackend: () => invoke<LlamaBackendState>("llama_backend"),
+  llamaProgress: () => invoke<LlamaProgress | null>("llama_progress"),
+  llamaCancel: () => invoke<void>("llama_cancel"),
+  llamaUnload: () => invoke<void>("llama_unload"),
 
   // --- M5: formats ---
   exportManuscript: (path: string, format: ExportFormat, dest: string) =>
