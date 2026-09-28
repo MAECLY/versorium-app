@@ -9,7 +9,8 @@
   "empty": {
     "title": "Un escritorio tranquilo, una aguja fina.",
     "body": "Crea un proyecto para empezar a escribir. Todo queda en esta máquina.",
-    "cta": "Crear tu primer proyecto"
+    "cta": "Crear tu primer proyecto",
+    "setup": "Configurar Versorium"
   },
   "binder": {
     "projects": "Proyectos",
@@ -22,14 +23,23 @@
       "revised": "revisado",
       "final": "final"
     },
-    "noProjects": "Aún no hay proyectos."
+    "noProjects": "Aún no hay proyectos.",
+    "corkboard": "Corcho",
+    "corkboardHint": "Mira los capítulos como fichas.",
+    "corkboardLoading": "Leyendo capítulos…",
+    "corkboardEmpty": "Todavía sin escribir.",
+    "editor": "Editor"
   },
   "editor": {
     "placeholder": "Empieza a escribir…",
     "saved": "Guardado",
     "saving": "Guardando…",
     "unsaved": "Cambios sin guardar",
-    "error": "No se pudo guardar: {error}"
+    "error": "No se pudo guardar: {error}",
+    "focus": "Concentración",
+    "focusHint": "Atenúa todo menos la página. Sal con Escape o acercando el cursor al borde.",
+    "typewriter": "Máquina de escribir",
+    "typewriterHint": "Mantiene la línea que escribes en el tercio inferior."
   },
   "dialog": {
     "newProject": "Nuevo proyecto",
@@ -155,7 +165,10 @@
     "export_docx_scene_titles_dropped": "Los títulos de escena no existen en el formato de manuscrito; los cortes de escena sí quedan.",
     "no_release": "Ninguna versión coincide con este canal.",
     "no_manifest": "Esa versión no trae el manifiesto de actualización.",
-    "bad_update_host": "La actualización apuntaba a un sitio inesperado y se rechazó."
+    "bad_update_host": "La actualización apuntaba a un sitio inesperado y se rechazó.",
+    "continuity_no_model": "No hay modelo asignado a Continuidad. Elige uno en IA local.",
+    "continuity_daemon_offline": "El daemon de Ollama no está corriendo, así que la revisión no pudo empezar.",
+    "continuity_failed": "La revisión de continuidad no pudo terminar."
   },
   "languages": {
     "en": "English",
@@ -420,5 +433,102 @@
       "later": "Más tarde",
       "skip": "Omitir esta versión"
     }
+  },
+  "onboarding": {
+    "title": "Bienvenida a Versorium",
+    "steps": "Pasos de configuración",
+    "stepOf": "Paso {step} de {total}",
+    "step": {
+      "machine": "Esta máquina",
+      "agents": "Lo que encontramos",
+      "project": "Tu novela",
+      "template": "Una forma para empezar",
+      "firstScene": "La primera escena"
+    },
+    "machineSummary": "{ram} de memoria y {cores} núcleos. El paquete {tier} es el más grande que entra con holgura.",
+    "machineUnknown": "Versorium no pudo leer la memoria de esta máquina. Igual puedes elegir un modelo después.",
+    "machineHint": "Aquí no se descarga nada. Los modelos se eligen en Ajustes, cuando los quieras.",
+    "agentsHint": "Versorium usa las IAs que ya tienes. Cada una conserva su propia sesión: aquí no se guarda ninguna clave.",
+    "agentsNone": "No encontramos ninguna herramienta de agente. Versorium funciona sin ellas; puedes añadir una después.",
+    "projectHint": "Una novela es una carpeta normal en tu disco, versionada con git desde el primer guardado.",
+    "projectCreated": "Creada. Tu novela está en disco y bajo control de versiones.",
+    "templateHint": "Una estructura solo siembra títulos de capítulo. Versorium nunca escribe prosa que no pediste.",
+    "templateChapters": "{count} capítulos",
+    "templatePreview": "Capítulos",
+    "templates": {
+      "blank": {
+        "name": "En blanco"
+      },
+      "threeAct": {
+        "name": "Tres actos",
+        "1": "Acto I — Planteamiento",
+        "2": "Acto II — Confrontación",
+        "3": "Acto III — Desenlace"
+      },
+      "saveTheCat": {
+        "name": "Save the Cat",
+        "1": "Imagen inicial",
+        "2": "Tema enunciado",
+        "3": "Planteamiento",
+        "4": "Catalizador",
+        "5": "Debate",
+        "6": "Entrada al segundo acto",
+        "7": "Trama B",
+        "8": "Juegos y diversión",
+        "9": "Punto medio",
+        "10": "Los malos se acercan",
+        "11": "Todo está perdido",
+        "12": "Noche oscura del alma",
+        "13": "Entrada al tercer acto",
+        "14": "Final",
+        "15": "Imagen final"
+      },
+      "kishotenketsu": {
+        "name": "Kishōtenketsu",
+        "1": "Ki — Introducción",
+        "2": "Shō — Desarrollo",
+        "3": "Ten — Giro",
+        "4": "Ketsu — Conclusión"
+      }
+    },
+    "firstSceneBody": "Eso es todo. Tu manuscrito es Markdown en tu disco, y no sale de esta máquina salvo que tú lo envíes a algún sitio.",
+    "rewriteHint": "Selecciona un pasaje y pulsa Reescribir para pasárselo a un agente. Ves el diff antes de que cambie nada.",
+    "createProject": "Crearla",
+    "useTemplate": "Usar esta",
+    "next": "Siguiente",
+    "back": "Atrás",
+    "skip": "Saltar configuración",
+    "start": "Empezar a escribir",
+    "working": "Trabajando…",
+    "none": "La configuración corre dentro de la app de escritorio."
+  },
+  "typography": {
+    "intro": "Con qué letra te muestra el editor tu prosa.",
+    "sample": "El invierno fue largo, y la niña esperaba junto a la ventana.",
+    "systemFace": "ya está en esta máquina",
+    "downloadLater": "Las familias descargables llegan con el gestor de fuentes en una versión posterior. Nada de esto necesita descarga.",
+    "none": "La tipografía la gestiona la app de escritorio."
+  },
+  "crash": {
+    "title": "Informes de fallo",
+    "privacy": "Los archivos de fallo se quedan en esta máquina y no llevan texto del manuscrito: solo la versión, la plataforma y dónde se detuvo el código. No se envía nada salvo que pulses Informar.",
+    "empty": "Ningún fallo registrado. Mejor así.",
+    "none": "Los informes de fallo los gestiona la app de escritorio.",
+    "build": "{version} · {os} {arch}",
+    "report": "Informar",
+    "openIssue": "Abrir una incidencia",
+    "copyLink": "Copiar enlace",
+    "copied": "Copiado",
+    "reviewHint": "La incidencia se abre rellenada. Léela antes de publicarla: puedes recortar lo que prefieras no compartir.",
+    "clear": "Borrar"
+  },
+  "continuity": {
+    "title": "Revisión de continuidad",
+    "hint": "Lee el manuscrito contra sí mismo buscando contradicciones. Es un esbozo: necesita un modelo local asignado a la tarea Continuidad.",
+    "run": "Revisar",
+    "running": "Leyendo…",
+    "clean": "No se encontró nada contradictorio.",
+    "noProject": "Abre una novela primero.",
+    "none": "La revisión de continuidad corre dentro de la app de escritorio."
   }
 }
