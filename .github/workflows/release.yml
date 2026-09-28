@@ -1,0 +1,269 @@
+# Builds and publishes a signed Versorium release.
+#
+# Push a tag `vX.Y.Z` to cut a stable release, or `vX.Y.Z-beta.N` for the beta
+# channel. The release is created as a DRAFT: a human verifies it (see
+# RELEASING.md) and publishes it, because the updater starts offering a version
+# the moment it is public.
+#
+# `workflow_dispatch` builds every target without touching a release, for
+# checking that the pipeline still compiles.
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # The one place the canonical repository is named. `github.repository` is
+  # correct for any fork, so nothing here hardcodes an owner.
+  REPO: ${{ github.repository }}
+
+jobs:
+  # Refuse to build before wasting four runners on artifacts the updater would
+  # reject. An unsigned release is worse than no release: it installs, and then
+  # every client silently fails to verify it.
+  guard:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Signing key must be configured
+        env:
+          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. See RELEASING.md — an unsigned build is rejected by every updater client."
+            exit 1
+          fi
+
+      - name: Tag must match the app version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          conf=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+          pkg=$(python3 -c "import json;print(json.load(open('package.json'))['version'])")
+          crate=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
+          echo "tag=$tag  tauri.conf.json=$conf  package.json=$pkg  Cargo.toml=$crate"
+          # The updater compares against tauri.conf.json's version. A tag that
+          # disagrees with it produces a release nobody is ever offered.
+          if [ "$tag" != "$conf" ]; then
+            echo "::error::Tag $tag does not match tauri.conf.json version $conf. The updater would never offer this release."
+            exit 1
+          fi
+          if [ "$conf" != "$pkg" ] || [ "$conf" != "$crate" ]; then
+            echo "::error::Versions disagree — tauri.conf.json=$conf package.json=$pkg Cargo.toml=$crate. Bump all three."
+            exit 1
+          fi
+
+  build:
+    needs: [guard]
+    # guard is skipped on workflow_dispatch; only a real failure should stop us.
+    if: always() && needs.guard.result != 'failure' && needs.guard.result != 'cancelled'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+            name: macOS (Apple silicon)
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+            name: macOS (Intel)
+          - platform: ubuntu-22.04
+            args: ''
+            name: Linux
+          - platform: windows-latest
+            args: ''
+            name: Windows
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # webkit2gtk-4.1 is the Tauri 2 requirement — 4.0 is Tauri 1 and its
+      # absence is the most common reason a Linux job fails.
+      - name: Install Linux build dependencies
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            patchelf \
+            xdg-utils \
+            file \
+            wget
+
+      # An explicit version is required: package.json has no `packageManager`
+      # field, and without one the action stops rather than guessing. 10 is the
+      # major that matches `lockfileVersion: '9.0'` in pnpm-lock.yaml.
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: ${{ matrix.args }}
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Stable tags carry no suffix; anything after the patch number is a beta.
+      - name: Classify the release
+        id: channel
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # On a tag push: build, sign, and upload into a draft release.
+      - name: Build and upload
+        if: github.event_name == 'push'
+        uses: tauri-apps/tauri-action@action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Versorium ${{ github.ref_name }}
+          releaseBody: |
+            ## English
+            See the assets below to download this version.
+
+            First run on macOS: right-click the app and choose Open — Versorium is
+            not notarised yet. Windows SmartScreen may warn for the same reason.
+            Updates are still verified against the signing key regardless.
+
+            ## Español
+            Descarga esta versión desde los archivos de abajo.
+
+            Primera apertura en macOS: clic derecho y Abrir — Versorium todavía no
+            está notarizada. Windows SmartScreen puede avisar por lo mismo. Las
+            actualizaciones se verifican igualmente contra la clave de firma.
+          # Draft, so a human checks latest.json and the checksums before any
+          # client is offered the update.
+          releaseDraft: true
+          prerelease: ${{ steps.channel.outputs.prerelease }}
+          args: ${{ matrix.args }}
+          retryAttempts: 2
+
+      # On workflow_dispatch: build only. Omitting tagName/releaseName/releaseId
+      # is the documented way to make the action upload nothing.
+      - name: Build only (dry run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: tauri-apps/tauri-action@action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          args: ${{ matrix.args }}
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: versorium-${{ matrix.platform }}${{ matrix.args }}
+
+  # Everything the spec asks for that tauri-action does not do: a SHA256SUMS
+  # asset, and a latest.json whose URLs a private repository can actually serve.
+  finalise:
+    needs: [build]
+    if: github.event_name == 'push' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect the release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p assets && cd assets
+          gh release download "$GITHUB_REF_NAME" --repo "$REPO" --clobber
+          ls -la
+
+      # Spec §11 wants minisign *and* sha256. The .sig files are the first half;
+      # this is the second, over every installer we publish.
+      - name: Write SHA256SUMS
+        run: |
+          cd assets
+          rm -f SHA256SUMS latest.json
+          sha256sum * > ../SHA256SUMS
+          cat ../SHA256SUMS
+
+      # A private repository does not serve
+      # github.com/<owner>/<repo>/releases/download/... even with a token —
+      # that path 404s. The API asset endpoint does, with
+      # `Accept: application/octet-stream`. tauri-action writes the browser
+      # form, so rewrite it to the API form the client actually requests.
+      - name: Point latest.json at API asset URLs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          release_id=$(gh api "repos/$REPO/releases/tags/$GITHUB_REF_NAME" --jq '.id')
+          gh api --paginate "repos/$REPO/releases/$release_id/assets" > release-assets.json
+          python3 - <<'REWRITE'
+          import json, os, sys, urllib.parse
+
+          with open("release-assets.json") as f:
+              ids = {a["name"]: a["id"] for a in json.load(f)}
+
+          repo = os.environ["REPO"]
+          with open("assets/latest.json") as f:
+              manifest = json.load(f)
+
+          missing = []
+          for target, entry in manifest.get("platforms", {}).items():
+              name = urllib.parse.unquote(entry["url"].rsplit("/", 1)[-1])
+              if name in ids:
+                  entry["url"] = f"https://api.github.com/repos/{repo}/releases/assets/{ids[name]}"
+              else:
+                  missing.append((target, name))
+
+          if missing:
+              for target, name in missing:
+                  print(f"::error::latest.json names {name} for {target}, which is not an asset of this release")
+              sys.exit(1)
+
+          with open("latest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+          print(json.dumps(manifest, indent=2))
+          REWRITE
+
+      - name: Upload SHA256SUMS and the rewritten latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" SHA256SUMS latest.json \
+            --repo "$REPO" --clobber
+
+      - name: Summary
+        run: |
+          {
+            echo "### Versorium $GITHUB_REF_NAME is built and waiting as a draft"
+            echo
+            echo "Verify it before publishing — see RELEASING.md."
+            echo
+            echo '```'
+            cat SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

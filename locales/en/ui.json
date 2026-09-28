@@ -152,7 +152,10 @@
     "import_images_dropped": "Images were not carried across.",
     "empty_document": "That file has no text to import.",
     "export_pdf_characters_replaced": "Some characters cannot be printed in a PDF and were replaced.",
-    "export_docx_scene_titles_dropped": "Scene titles are not part of manuscript format; the scene breaks remain."
+    "export_docx_scene_titles_dropped": "Scene titles are not part of manuscript format; the scene breaks remain.",
+    "no_release": "No release matched this channel.",
+    "no_manifest": "That release has no update manifest attached.",
+    "bad_update_host": "The update pointed somewhere unexpected and was refused."
   },
   "languages": {
     "en": "English",
@@ -381,6 +384,41 @@
       "warningsTitle": "What this import cannot carry across",
       "action": "Create project",
       "cancel": "Discard"
+    }
+  },
+  "updates": {
+    "title": "Updates",
+    "intro": "Versorium checks its own releases. Nothing about your manuscript is sent.",
+    "currentVersion": "Installed version",
+    "signedOut": "Sign in under Git → Updates login to check for updates. Without it Versorium does not check at all.",
+    "checkNow": "Check now",
+    "checking": "Checking…",
+    "upToDate": "This is the newest release.",
+    "availableShort": "Version {version} is available.",
+    "never": "Not checked yet.",
+    "automatic": "Automatic updates",
+    "automaticHint": "Check once at launch. On by default on the stable channel.",
+    "channel": "Channel",
+    "channels": {
+      "stable": "Stable",
+      "beta": "Beta"
+    },
+    "channelHint": "Beta is opt-in and ships unfinished work.",
+    "offlineHint": "A network problem is left alone — no pop-up, no retry loop.",
+    "gatekeeper": "Builds are signed with minisign, but not yet notarized by Apple or Microsoft, so the first launch may warn you.",
+    "none": "Updates are handled by the desktop app.",
+    "dialog": {
+      "title": "A new version of Versorium",
+      "heading": "Version {version} is ready",
+      "from": "You have {version}.",
+      "released": "Released {date}",
+      "notes": "What changed",
+      "noNotes": "This release came with no notes.",
+      "verified": "Versorium checks the signature and the checksum before replacing anything. If either fails, nothing is installed.",
+      "install": "Download & Install",
+      "installing": "Installing…",
+      "later": "Later",
+      "skip": "Skip this version"
     }
   }
 }

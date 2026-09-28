@@ -11,3 +11,7 @@ src-tauri/target/
 # Playwright
 test-results/
 playwright-report/
+
+# pnpm 12 regenerates this with an unanswered allowBuilds placeholder;
+# CI pins pnpm 10, which does not need it.
+pnpm-workspace.yaml
