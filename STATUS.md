@@ -1,6 +1,6 @@
 # STATUS
 
-## Current milestone: M5 — Formats ✅ (DoD green)
+## Current milestone: M6 — Updater ✅ (DoD green)
 
 ## How to run
 
@@ -21,6 +21,18 @@ versorium mcp [--client <id>]   # serve MCP over stdio
 ```
 
 Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?mock=tauri`.
+
+## M6 DoD checklist
+
+- [x] Tauri updater plugin (2.13) wired, with `createUpdaterArtifacts` and the real minisign public key
+- [x] Reads GitHub Releases of the app's own repo, over the **API asset endpoint** — the only form that serves bytes from a private repository
+- [x] **minisign + sha256** — the plugin verifies the signature, and the client verifies the digest against the release's `SHA256SUMS` before installing
+- [x] Settings → Updates, using the M1 Updates token slot that has always been separate from the novel token
+- [x] Dialog with **Download & Install / Later / Skip this version**
+- [x] CI workflow that builds and publishes a signed release on a `vX.Y.Z` tag, plus `RELEASING.md`
+- [x] Channels `stable` (default) and `beta`; automatic checking on by default on stable; offline never nags
+
+## M5 DoD checklist (done)
 
 ## M5 DoD checklist
 
@@ -57,12 +69,36 @@ Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?moc
 
 | Check | Result |
 |---|---|
-| `cargo test` | ✅ 247 unit + 4 integration passed |
-| `cargo test -- --ignored live_` | ✅ 6 passed — **epubcheck 5.2.1 reports zero errors and zero warnings**, poppler reads the PDF's prose and running head, pandoc reads the DOCX chapters back, plus the M4 model download and the M2 agent rewrites |
+| `cargo test` | ✅ 269 unit + 4 integration passed |
 | `cargo clippy` | ✅ 0 warnings |
 | `pnpm check` | ✅ 0 errors, 0 warnings |
-| `pnpm test:ui` | ✅ 44 passed |
-| `pnpm test:e2e` | ✅ 26 passed (7 new for export/import) |
+| `pnpm test:ui` | ✅ 57 passed |
+| `pnpm test:e2e` | ✅ 33 passed (7 new for updates) |
+| `cargo test -- --ignored live_` | ✅ carried from M5: epubcheck 0/0, poppler, pandoc, a real model download, Ollama, Claude Code |
+
+**Not verified end to end:** no release has been cut, so the workflow has never
+run and no client has ever been offered a real update. The pieces are tested in
+isolation; the first `v0.1.1` tag is what proves the whole chain.
+
+## How the updater is kept from being a backdoor
+
+An automated review flagged the runtime-endpoint design, and it was right to
+look. The answer is that the endpoint is not configurable at all:
+
+- Owner, repo and host are **compile-time constants**. There is no environment
+  variable, no setting and no command parameter that can change where an update
+  comes from — anything that could would be arbitrary code execution carrying
+  our own signature. An override "for testing" was planned and deliberately
+  dropped for exactly this reason.
+- Every URL that reaches the network is re-validated to be **https on
+  `api.github.com`**, so a tampered API response cannot redirect the download.
+  Tests run hostile inputs through it, including `api.github.com.evil.example.com`.
+- `endpoints: []` in the config is not an omission: the plugin refuses a check
+  that did not set an endpoint at runtime, which closes the unauthenticated JS
+  path rather than opening one. A static URL could not work anyway — a private
+  repo's asset id changes with every release.
+- The **private** signing key lives outside the repository. Only the public half
+  is committed, which is what a public key is for.
 
 ## How the formats were built
 
@@ -104,61 +140,64 @@ whichever one the client opened with.
 
 ## Bugs found and fixed on the way
 
-- **quick-xml reports an escaped entity as its own event** rather than folding
-  it into the surrounding text. Ignoring it silently deleted every escaped
-  character — a chapter titled `Cap. 2 & "El <norte>"` came back as
-  `Cap. 2  El norte`.
-- **`<w:p/>` is a real empty paragraph**, not a non-event; skipping it shifted
-  every later paragraph index.
-- **The native save picker was never mocked**, so the export E2E waited forever
-  on a dialog that never answered.
-- **A Scrivener `Type=` attribute also appears outside the binder** — in
-  `Collections`, `ProjectTargets` and `PrintSettings` — so the walk has to gate
-  on being inside `<Binder>` rather than matching globally.
+- **`latest.json` from `tauri-action` 404s on a private repo.** It writes
+  `github.com/.../releases/download/...`, and only the API asset endpoint serves
+  bytes. The release workflow rewrites every platform URL, and the client
+  refuses the un-rewritten form outright so the problem is named at check time
+  rather than failing later on an empty download.
+- **Signing in did not reach the panel that cares.** The Updates section reads
+  the token saved under Git → Updates, and kept reporting "signed out" until
+  Settings was reopened. Found by the end-to-end test — the seam between two
+  sections is exactly what a unit test on either one misses.
+- **A tag/version mismatch published silently.** A release tagged `v0.2.0` while
+  the config still said `0.1.0` uploads fine and is never offered to anyone; the
+  guard job now refuses it.
+- **`pnpm/action-setup` would have failed every build** — no `packageManager`
+  field, so it refuses to guess.
 
-## Files / structure (M5 delta)
+## Files / structure (M6 delta)
 
-- `src-tauri/src/formats/`: `mod.rs` (the Manuscript shape and scene splitting),
-  `markdown.rs`, `docx.rs`, `epub.rs`, `pdf.rs`, `scrivener.rs`
-- `src-tauri/src/commands/formats.rs` (4 commands), `author` on `ProjectMeta`
-- Frontend: `src/lib/formats/state.svelte.ts`,
-  `src/lib/components/ManuscriptDialog.svelte`, Manuscript button in the TopBar
-- `FORMATS.md` — the round-trip documentation
-- Tests: `tests/e2e/m5-formats.spec.ts`, mock extended with the native pickers
+- `src-tauri/src/update/mod.rs` (release selection, host guard, sha256),
+  `src-tauri/src/commands/update.rs` (6 commands)
+- `tauri.conf.json`: `createUpdaterArtifacts`, the public key, `endpoints: []`
+- Frontend: `src/lib/update/state.svelte.ts`,
+  `src/lib/settings/UpdatesSection.svelte`,
+  `src/lib/components/UpdateDialog.svelte`
+- `.github/workflows/release.yml`, `RELEASING.md`
+- Tests: `tests/e2e/m6-updates.spec.ts`, mock extended
 
-## Architecture decisions (M5)
+## Architecture decisions (M6)
 
-1. **Formats never touch the disk layout.** They take a `Manuscript` and emit
-   bytes, or take bytes and produce chapters, so five formats stop each
-   re-deriving what a chapter or a scene is.
-2. **Losses are i18n codes, not prose** — the same convention the importers use,
-   so what a format could not carry is said in the reader's language.
-3. **Import writes nothing until confirmed.** The preview exists so the writer
-   sees the losses before a project exists, not after.
-4. **An export that would print a blank running head is refused** before a file
-   is created, rather than shipping a manuscript with an empty header.
-5. **The PDF embeds no fonts.** Base-14 Times-Roman means no licensing, no
-   bundle weight, and no font loading — at the cost of anything outside WinAnsi,
-   which is reported.
+1. **download → verify → install**, not `download_and_install`. The spec
+   requires rejecting a bad checksum, and the combined call leaves no window to
+   look at the bytes.
+2. **No token means no check.** Not a failed check — no request at all, so a
+   private repo never sees a 401 loop and the UI shows a sign-in path instead.
+3. **Later is per session, Skip is forever.** Only Skip reaches Rust.
+4. **Release notes render as text.** A release body is remote content; a test
+   pins that an `onerror` payload never becomes an element.
+5. **Releases are drafts.** Publishing is the moment clients start being
+   offered an update, so it stays a deliberate act after the checks in
+   `RELEASING.md`.
 
-## Known holes (M5)
+## Known holes (M6)
 
-- **No Scrivener export.** Spec §9 wants a round trip; the DoD asked for import
-  only, and that is what shipped.
-- **No EPUB import.** §9 marks it best-effort; the DoD does not list it.
-- Scene titles do not survive DOCX or PDF (standard manuscript format has no
-  place for them) and characters outside WinAnsi do not survive PDF. Both are
-  reported to the writer and documented in `FORMATS.md`.
-- DOCX heading detection was reasoned against generated fixtures: the research
-  pass was **blocked from reading the real .docx files on this machine** by a
-  PII classifier, so producer variants are handled generously but were not
-  observed in the wild.
-- Carried over: no built-in inference runtime, Whisper packs absent, GitHub
-  tokens plaintext until M6, no HTTP/SSE MCP transport, no network git.
+- **The repo constants say `maecly/versorium-app`** (spec §11) while the current
+  git remote is a personal fork. One human decision, one constant, one line in
+  `RELEASING.md`.
+- No release has been cut, so the workflow is unproven in practice. Several CI
+  details could not be verified without running it: that `ubuntu-22.04` runners
+  remain available, that `gh release download` works against a draft, and the
+  macOS x86_64 cross-compile.
+- No Apple notarization or Windows Authenticode yet — minisign only, so a first
+  launch warns. Stated in the UI rather than hidden.
+- GitHub tokens are still plaintext in `settings.json`; the keyring pass never
+  happened and is now a standing hole rather than a deferred M6 item.
+- Carried over: no built-in inference runtime, no Scrivener export, no EPUB
+  import, no HTTP/SSE MCP transport, no network git.
 
-## Next: M6 — Updater
+## Next: M7 — Polish
 
-DoD targets: the Tauri updater plugin reading GitHub Releases of
-`maecly/versorium-app`, minisign + SHA256 verification, a Settings → Updates
-login kept separate from the novel GitHub, an Install / Later / Skip dialog, and
-a CI workflow that builds a `vX.Y.Z` tag.
+DoD targets: onboarding with no signup, a basic corkboard, a continuity-check
+stub, a local crash log with a Report button that opens an issue **carrying no
+manuscript text**, focus and typewriter modes, and a font catalogue stub.

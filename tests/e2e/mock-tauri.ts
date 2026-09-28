@@ -54,6 +54,17 @@ interface ProjectState {
   remotes: { name: string; url: string }[];
 }
 
+interface AvailableUpdate { version: string; notes: string; date: string | null }
+interface UpdateStatus {
+  currentVersion: string;
+  available: AvailableUpdate | null;
+  channel: "stable" | "beta";
+  automatic: boolean;
+  signedIn: boolean;
+  checking: boolean;
+  lastError: string | null;
+}
+
 interface ImportedChapter { title: string; body: string; synopsis: string | null }
 interface Imported { title: string; chapters: ImportedChapter[]; warnings: string[] }
 
@@ -120,6 +131,18 @@ const importPreview: Imported = {
     "Scrivener labels and status flags are not imported.",
     "Comments and footnotes in 2 documents were dropped.",
   ],
+};
+
+const update: UpdateStatus = {
+  currentVersion: "0.1.0",
+  // Signed out to start: the spec forbids checking without a token, so the UI
+  // must show the sign-in path rather than an error.
+  available: null,
+  channel: "stable",
+  automatic: true,
+  signedIn: false,
+  checking: false,
+  lastError: null,
 };
 
 let lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null = null;
@@ -321,6 +344,8 @@ const commands: Record<string, (args: Args) => unknown> = {
   get_settings: () => ({ ...settings }),
   set_settings: ({ patch }) => {
     Object.assign(settings, patch as Partial<typeof settings>);
+    // Saving the Updates token is what signs the updater in.
+    update.signedIn = Boolean(settings.githubUpdatesToken);
     return { ...settings };
   },
 
@@ -358,8 +383,8 @@ const commands: Record<string, (args: Args) => unknown> = {
     p.remotes = p.remotes.filter((r) => r.name !== name);
   },
   github_me: ({ token }) => {
-    if (String(token).startsWith("ghp_")) return "mock-writer";
-    throw "bad_token";
+    if (!String(token).startsWith("ghp_")) throw "bad_token";
+    return "mock-writer";
   },
   github_owners: () => [
     { login: "mock-writer", kind: "user" },
@@ -382,6 +407,30 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   agents_detect: () => agents.map((a) => ({ ...a, models: a.models ? [...a.models] : null })),
+
+  // --- M6: updates ---
+  update_status: () => ({ ...update }),
+  update_check: () => {
+    if (!update.signedIn) throw "bad_token";
+    update.available = { version: "0.2.0", notes: "Corkboard, focus mode.", date: "2026-10-01" };
+    update.lastError = null;
+    return { ...update };
+  },
+  update_install: () => undefined,
+  update_skip: ({ version }) => {
+    if (update.available?.version === version) update.available = null;
+    return { ...update };
+  },
+  update_set_channel: ({ channel }) => {
+    if (channel !== "stable" && channel !== "beta") throw "bad_args";
+    update.channel = channel;
+    update.available = null;
+    return { ...update };
+  },
+  update_set_automatic: ({ automatic }) => {
+    update.automatic = Boolean(automatic);
+    return { ...update };
+  },
 
   // --- M5: formats ---
   export_manuscript: ({ path, format, dest }) => {
@@ -598,6 +647,7 @@ declare global {
       models: ModelCard[];
       slots: Record<string, SlotAssignment>;
       lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null;
+      update: UpdateStatus;
     };
   }
 }
@@ -606,7 +656,7 @@ window.__TAURI_INTERNALS__ = internals;
 window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
-    projects, settings, calls, agents, mcpClients, mcpLog, models, slots,
+    projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update,
     get lastExport() {
       return lastExport;
     },
