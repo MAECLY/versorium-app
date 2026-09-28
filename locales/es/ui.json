@@ -482,7 +482,18 @@
       "install": "Descargar e instalar",
       "installing": "Instalando…",
       "later": "Más tarde",
-      "skip": "Omitir esta versión"
+      "skip": "Omitir esta versión",
+      "restart": "Reiniciar ahora"
+    },
+    "phase": {
+      "downloading": "Descargando…",
+      "verifying": "Comprobando la firma…",
+      "installing": "Instalando…",
+      "ready": "Instalada",
+      "failed": "No se pudo terminar",
+      "bytes": "{received} de {total} MB",
+      "bytesUnknown": "{received} MB",
+      "readyHint": "Reinicia para abrir la versión nueva."
     }
   },
   "onboarding": {

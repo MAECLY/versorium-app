@@ -234,6 +234,17 @@ export interface StudioView {
   enabled: boolean;
 }
 
+/** How far along an install is. The phases are the real steps, not an
+ *  animation: downloading has byte counts, verifying is the two signature
+ *  checks, installing hands the bytes to the platform, ready means restart. */
+export interface InstallProgress {
+  phase: "downloading" | "verifying" | "installing" | "ready" | "failed";
+  received: number;
+  /** Absent when the server sends no length; show indeterminate, not zero. */
+  total: number | null;
+  error: string | null;
+}
+
 /** Which device llama.cpp will use. Asked for separately from the model cards:
  *  the backend is a property of the machine, not of a model. */
 export interface LlamaBackendState {
@@ -432,6 +443,9 @@ export const api = {
   studioTest: (host: string, port: number) => invoke<boolean>("studio_test", { host, port }),
   studioSave: (host: string, port: number, enabled: boolean) =>
     invoke<StudioView>("studio_save", { host, port, enabled }),
+
+  updateProgress: () => invoke<InstallProgress | null>("update_progress"),
+  updateRelaunch: () => invoke<void>("update_relaunch"),
 
   // --- the in-process engine ---
   llamaBackend: () => invoke<LlamaBackendState>("llama_backend"),
