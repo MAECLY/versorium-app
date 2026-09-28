@@ -42,12 +42,25 @@ impl ToolOutput {
     /// Pretty JSON as the text body, the same value as structured content, so a
     /// client that ignores `structuredContent` still sees everything.
     pub fn json(value: Value) -> Self {
+        let value = as_object(value);
         let text = serde_json::to_string_pretty(&value).unwrap_or_else(|_| value.to_string());
         Self { text, structured: Some(value) }
     }
 
     pub fn with(text: impl Into<String>, value: Value) -> Self {
-        Self { text: text.into(), structured: Some(value) }
+        Self { text: text.into(), structured: Some(as_object(value)) }
+    }
+}
+
+/// `structuredContent` must be a JSON object: 2025-11-25 documents it as one and
+/// real clients reject anything else (Claude Code answers a bare array with
+/// `expected: "record"`). A list-shaped result is wrapped rather than rejected,
+/// and the text body is rendered from the wrapped value so both views agree.
+fn as_object(value: Value) -> Value {
+    if value.is_object() {
+        value
+    } else {
+        json!({ "results": value })
     }
 }
 
@@ -460,11 +473,12 @@ pub(crate) mod tests {
         let doc = call(&mut session, "read_document", &json!({ "file": fx.chapter.file })).unwrap();
         assert_eq!(doc.text, SECRET);
 
+        // List-shaped results are wrapped: structuredContent must be an object.
         let hits = call(&mut session, "search", &json!({ "query": "aguja" })).unwrap();
-        assert_eq!(hits.structured.unwrap().as_array().unwrap().len(), 1);
+        assert_eq!(hits.structured.unwrap()["results"].as_array().unwrap().len(), 1);
 
         let docs = call(&mut session, "list_documents", &json!({})).unwrap();
-        assert_eq!(docs.structured.unwrap().as_array().unwrap().len(), 1);
+        assert_eq!(docs.structured.unwrap()["results"].as_array().unwrap().len(), 1);
 
         assert!(call(&mut session, "git_status", &json!({})).is_ok());
         assert!(call(&mut session, "history_list", &json!({ "document": fx.chapter.id })).is_ok());
@@ -476,6 +490,20 @@ pub(crate) mod tests {
         assert_eq!(resolve_chapter(&fx.root, &fx.chapter.file).unwrap().id, fx.chapter.id);
         assert_eq!(resolve_chapter(&fx.root, &fx.chapter.id).unwrap().file, fx.chapter.file);
         assert_eq!(resolve_chapter(&fx.root, "manuscript/nope.md").unwrap_err(), "not_found");
+    }
+
+    #[test]
+    fn a_list_result_is_wrapped_so_structured_content_stays_an_object() {
+        assert!(ToolOutput::json(json!([1, 2])).structured.unwrap().is_object());
+        assert_eq!(ToolOutput::json(json!([1, 2])).structured.unwrap()["results"], json!([1, 2]));
+        // An object passes through untouched.
+        assert_eq!(ToolOutput::json(json!({ "a": 1 })).structured.unwrap(), json!({ "a": 1 }));
+        // The text body is rendered from the wrapped value, so both agree.
+        let wrapped = ToolOutput::json(json!(["x"]));
+        assert_eq!(
+            serde_json::from_str::<Value>(&wrapped.text).unwrap(),
+            wrapped.structured.unwrap()
+        );
     }
 
     #[test]
