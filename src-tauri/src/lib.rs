@@ -4,6 +4,7 @@
 //! The frontend talks to these modules through Tauri commands.
 
 mod commands;
+mod formats;
 mod git;
 mod ops;
 mod mcp;
