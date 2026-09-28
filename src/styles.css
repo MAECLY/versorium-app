@@ -369,3 +369,58 @@ button:focus-visible {
   background: color-mix(in srgb, var(--ai) 22%, transparent);
   border-bottom: 1px dotted var(--ai);
 }
+
+/* ------------------------------------------------- focus mode / corkboard */
+
+/* DESIGN → Motion: "chrome se desvanece", transitions 120–180ms ease-out.
+   The chrome keeps its layout box so nothing reflows on the way in or out —
+   only its opacity and its ability to take a click change. */
+.v-chrome {
+  transition: opacity 160ms ease-out;
+}
+
+.v-focus .v-chrome {
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+/* Reaching for it brings it back, so focus mode is never a trap. Escape is
+   the other way out, wired in App.svelte. */
+.v-focus .v-chrome:hover,
+.v-focus .v-chrome:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.v-corkcard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 150px;
+  padding: 12px 14px;
+  text-align: left;
+  transition:
+    border-color 160ms ease-out,
+    background 160ms ease-out;
+}
+
+.v-corkcard:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.v-corkcard:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.v-corkcard-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v-chrome,
+  .v-corkcard {
+    transition: none;
+  }
+}

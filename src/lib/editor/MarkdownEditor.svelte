@@ -3,6 +3,7 @@
   import { Annotation, Compartment, EditorState } from "@codemirror/state";
   import { EditorView } from "@codemirror/view";
   import { createMarkdownState } from "./cm";
+  import { createModeCompartments } from "./modes";
   import { t } from "$lib/i18n";
   import { OpsLogger } from "$lib/git/ops";
   import { RollbackHistory, wordRange } from "$lib/git/rollback";
@@ -13,12 +14,26 @@
     projectPath: string;
     chapterId: string;
     disabled?: boolean;
+    /** Chrome fades and the column gets air (DESIGN → Motion). */
+    focus?: boolean;
+    /** The caret's line rides at the lower third. */
+    typewriter?: boolean;
     onChange: (body: string) => void;
     onOps?: (path: string, chapter: string, body: string, ops: Op[]) => Promise<unknown>;
     onOpsError?: (error: unknown) => void;
   }
 
-  let { doc, projectPath, chapterId, disabled = false, onChange, onOps, onOpsError }: Props = $props();
+  let {
+    doc,
+    projectPath,
+    chapterId,
+    disabled = false,
+    focus = false,
+    typewriter = false,
+    onChange,
+    onOps,
+    onOpsError,
+  }: Props = $props();
   let host: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined = $state.raw();
   let logger: OpsLogger | undefined;
@@ -26,6 +41,9 @@
   const source = Annotation.define<"external" | "rollback">();
   const editable = new Compartment();
   const editing = (locked: boolean) => [EditorState.readOnly.of(locked), EditorView.editable.of(!locked)];
+  // Focus and typewriter live in compartments for the same reason `editable`
+  // does: toggling one must reconfigure the running editor, never rebuild it.
+  const modes = createModeCompartments();
   // Parents pass `store.project.path` / `store.currentChapter.id`; those objects are
   // reassigned on every save. A derived string only notifies when the value changes,
   // so the editor (focus, selection, undo) survives autosave.
@@ -48,6 +66,7 @@
       parent,
       state: createMarkdownState(initialDoc, [
         editable.of(editing(untrack(() => disabled))),
+        ...modes.initial(untrack(() => focus), untrack(() => typewriter)),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           const ops: Op[] = [];
@@ -106,6 +125,10 @@
 
   $effect(() => {
     view?.dispatch({ effects: editable.reconfigure(editing(disabled)) });
+  });
+
+  $effect(() => {
+    view?.dispatch({ effects: modes.reconfigure(focus, typewriter) });
   });
 
   function rollback(from: number, to: number): boolean {
