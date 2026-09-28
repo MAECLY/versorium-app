@@ -145,6 +145,100 @@ export interface McpLogEntry {
   detail: string;
 }
 
+// --- M4: local models ---
+
+export type SlotName = "rewrite" | "chat" | "continuity" | "embeddings" | "dictation";
+/** Where a slot's model comes from. `cli` reuses a detected harness (M2). */
+export type SlotKind = "none" | "builtin" | "ollama" | "cli";
+
+export interface SlotAssignment {
+  kind: SlotKind;
+  id: string;
+}
+
+export interface Slots {
+  rewrite: SlotAssignment;
+  chat: SlotAssignment;
+  continuity: SlotAssignment;
+  embeddings: SlotAssignment;
+  dictation: SlotAssignment;
+}
+
+/** A catalog entry flattened together with what is on disk right now. */
+export interface ModelCard {
+  id: string;
+  family: string;
+  label: string;
+  task: "writing" | "embeddings" | "dictation";
+  tier: "low" | "mid" | "midPlus" | "high";
+  params: string;
+  quant: string;
+  sizeBytes: number;
+  ramHintGB: number;
+  ctx: number;
+  speed: "fast" | "balanced" | "slow";
+  quality: "basic" | "good" | "high";
+  badge: string | null;
+  uncensored: boolean;
+  license: string;
+  repo: string;
+  state: "missing" | "partial" | "ready" | "corrupt";
+  /** Bytes already on disk; 0 unless `state` is `partial`. */
+  receivedBytes: number;
+  /** The RAM hint fits this machine with 20% headroom. */
+  fits: boolean;
+}
+
+export interface Hardware {
+  totalRamGb: number;
+  availableRamGb: number;
+  cpuCores: number;
+  arch: string;
+  os: string;
+  gpu: string;
+  recommendedTier: string;
+}
+
+export interface DownloadProgress {
+  id: string;
+  received: number;
+  total: number;
+  done: boolean;
+}
+
+export interface OllamaModel {
+  name: string;
+  sizeBytes: number;
+  modified: string;
+}
+
+export interface OllamaView {
+  /** The daemon answered on 127.0.0.1:11434. */
+  running: boolean;
+  models: OllamaModel[];
+  /** The `ollama` binary exists on this machine. */
+  installed: boolean;
+}
+
+export interface StudioView {
+  host: string;
+  port: number;
+  enabled: boolean;
+}
+
+export interface LocalAiView {
+  models: ModelCard[];
+  hardware: Hardware;
+  slots: Slots;
+  progress: DownloadProgress | null;
+  ollama: OllamaView;
+  studio: StudioView;
+  /** Censorship is on, so uncensored models are hidden (spec §6.2). */
+  censorship: boolean;
+  diskUsedBytes: number;
+  modelsDir: string;
+}
+
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   uiReady: () => invoke<void>("ui_ready"),
@@ -203,6 +297,20 @@ export const api = {
   mcpUninstallClient: (client: string) => invoke<McpStatus>("mcp_uninstall_client", { client }),
   mcpLog: (limit?: number) => invoke<McpLogEntry[]>("mcp_log", { limit }),
   mcpSetActiveProject: (path: string | null) => invoke<void>("mcp_set_active_project", { path }),
+
+  // --- M4: local models ---
+  modelsView: () => invoke<LocalAiView>("models_view"),
+  modelsDownload: (id: string) => invoke<void>("models_download", { id }),
+  modelsCancel: (id: string) => invoke<void>("models_cancel", { id }),
+  modelsDelete: (id: string) => invoke<void>("models_delete", { id }),
+  modelsProgress: () => invoke<DownloadProgress | null>("models_progress"),
+  modelsSetSlot: (slot: SlotName, kind: SlotKind, id: string) =>
+    invoke<Slots>("models_set_slot", { slot, kind, id }),
+  ollamaPull: (name: string) => invoke<void>("ollama_pull", { name }),
+  ollamaRemove: (name: string) => invoke<void>("ollama_remove", { name }),
+  studioTest: (host: string, port: number) => invoke<boolean>("studio_test", { host, port }),
+  studioSave: (host: string, port: number, enabled: boolean) =>
+    invoke<StudioView>("studio_save", { host, port, enabled }),
 };
 
 export function isTauri(): boolean {

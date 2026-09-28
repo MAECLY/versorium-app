@@ -131,7 +131,12 @@
     "stale_selection": "The passage changed since you selected it. Select it again.",
     "mcp_config_failed": "Versorium could not write that client's config file.",
     "mcp_client_unknown": "Unknown MCP client.",
-    "no_home": "Could not locate your home folder."
+    "no_home": "Could not locate your home folder.",
+    "download_busy": "Another model is already downloading. Wait for it to finish.",
+    "sha_mismatch": "The download did not match its checksum, so it was deleted. Try again.",
+    "not_ready": "Download that model before selecting it.",
+    "bad_catalog": "The model catalog could not be read.",
+    "bad_args": "That value is not one Versorium accepts."
   },
   "languages": {
     "en": "English",
@@ -207,6 +212,109 @@
       "claude-desktop": "Claude Desktop",
       "codex": "Codex",
       "opencode": "OpenCode"
+    }
+  },
+  "localAi": {
+    "title": "Local AI",
+    "intro": "Models that run on this machine. Nothing leaves it.",
+    "none": "Local models run inside the desktop app.",
+    "refresh": "Refresh",
+    "diskUsed": "Downloaded models use {size}.",
+    "modelsDir": "Stored in",
+    "tabs": {
+      "writing": "Writing",
+      "ollama": "Ollama",
+      "studio": "Studio",
+      "dictation": "Dictation"
+    },
+    "wizard": {
+      "title": "This machine",
+      "ram": "Memory",
+      "cores": "Cores",
+      "platform": "Platform",
+      "gpu": "Graphics",
+      "recommended": "With {ram} of memory, the {tier} pack is the largest that fits comfortably.",
+      "recommendedBadge": "Recommended",
+      "hint": "Nothing downloads on its own. Pick a model when you want it."
+    },
+    "tiers": {
+      "low": "light",
+      "mid": "balanced",
+      "midPlus": "large",
+      "high": "largest"
+    },
+    "card": {
+      "download": "Download",
+      "cancel": "Cancel",
+      "ready": "Ready",
+      "selected": "Selected",
+      "delete": "Delete",
+      "confirmDelete": "Delete for good?",
+      "keep": "Keep",
+      "resume": "Resume",
+      "partial": "{done} of {total} downloaded",
+      "oneLiner": "{speed} • {quality}",
+      "meta": "{size} • {quality} • {quant} • {ctx} context • needs {ram} RAM",
+      "uncensored": "uncensored",
+      "tooBig": "Larger than this machine can hold comfortably. You can still download it.",
+      "corrupt": "The file on disk does not match its checksum. Delete it and download again.",
+      "license": "License",
+      "empty": "The catalog has no models for this tab yet."
+    },
+    "speeds": {
+      "fast": "Fast",
+      "balanced": "Balanced",
+      "slow": "Slow"
+    },
+    "qualities": {
+      "basic": "basic quality",
+      "good": "good quality",
+      "high": "high quality"
+    },
+    "ollama": {
+      "running": "Running",
+      "offline": "Offline",
+      "notInstalled": "The ollama binary was not found on this machine.",
+      "installHint": "Install Ollama and start it, then refresh.",
+      "offlineHint": "Ollama is installed but its daemon is not answering. Start it, then refresh.",
+      "pulled": "Pulled models",
+      "empty": "No models pulled yet.",
+      "pullPlaceholder": "Model name, e.g. qwen3:4b",
+      "pull": "Pull",
+      "remove": "Remove",
+      "confirmRemove": "Remove it?",
+      "modified": "Updated {when}"
+    },
+    "studio": {
+      "intro": "LM Studio or llama-server, anything speaking the OpenAI API on this machine.",
+      "host": "Host",
+      "port": "Port",
+      "test": "Test connection",
+      "reachable": "Answered.",
+      "unreachable": "No answer on that address.",
+      "enable": "Use this server",
+      "save": "Save"
+    },
+    "dictation": {
+      "intro": "Dictate into the open chapter with a local Whisper model.",
+      "soon": "The Whisper packs arrive in a later milestone. The downloader they will use is already here."
+    },
+    "slots": {
+      "title": "What each model is used for",
+      "intro": "Pick a model per task. A task with no model falls back to a connected agent.",
+      "none": "None",
+      "builtin": "Built-in",
+      "ollamaGroup": "Ollama",
+      "rewrite": "Rewrite",
+      "rewriteHint": "Rewriting a selected passage.",
+      "chat": "Project chat",
+      "chatHint": "Talking about the manuscript.",
+      "continuity": "Continuity",
+      "continuityHint": "Checking the story against itself.",
+      "embeddings": "Search",
+      "embeddingsHint": "Indexing the manuscript so search understands meaning.",
+      "dictation": "Dictation",
+      "dictationHint": "Turning speech into text."
     }
   }
 }
