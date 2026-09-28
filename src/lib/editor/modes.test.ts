@@ -3,6 +3,8 @@ import { EditorView } from "@codemirror/view";
 import { createMarkdownState } from "./cm";
 import {
   TYPEWRITER_ANCHOR,
+  TYPEWRITER_HEAD,
+  TYPEWRITER_TAIL,
   createModeCompartments,
   desiredScrollTop,
   focusMode,
@@ -92,4 +94,20 @@ it("keeps undo history across a mode change", () => {
 it("offers both modes as real extensions", () => {
   expect(typewriterMode()).toBeTruthy();
   expect(focusMode()).toBeTruthy();
+});
+
+it("leaves room above the first line, or the mode does nothing on a short chapter", () => {
+  // The scroller clamps at zero, so an early line has a target scroll of zero
+  // and cannot move. Padding the top by the anchor fraction is what puts line
+  // one at the lower third with no scrolling at all -- without it, toggling
+  // typewriter on a fresh chapter changed nothing on screen.
+  const anchorVh = `${Math.round(TYPEWRITER_ANCHOR * 100)}vh`;
+  expect(TYPEWRITER_HEAD).toBe(anchorVh);
+  expect(TYPEWRITER_TAIL).toBe(anchorVh);
+
+  // Restated as the arithmetic the padding relies on: a first line sitting one
+  // anchor-height down needs no scroll, and is already at the anchor.
+  const viewport = 600;
+  const firstLineTop = viewport * TYPEWRITER_ANCHOR;
+  expect(desiredScrollTop(firstLineTop, viewport)).toBe(0);
 });
