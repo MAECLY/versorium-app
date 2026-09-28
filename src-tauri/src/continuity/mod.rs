@@ -169,19 +169,14 @@ pub async fn check(root: &Path, slot: &SlotAssignment) -> Result<ContinuityRepor
     }
 }
 
+/// A whole-novel summary is not a paragraph, so this waits far longer than a
+/// rewrite does.
+const CONTINUITY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
 async fn generate(model: &str, prompt: &str) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(300))
-        .build()
-        .map_err(|_| FAILED.to_string())?;
-    let response = client
-        .post("http://127.0.0.1:11434/api/generate")
-        .json(&serde_json::json!({ "model": model, "prompt": prompt, "stream": false }))
-        .send()
+    crate::agents::ollama_generate(model, prompt, CONTINUITY_TIMEOUT)
         .await
-        .map_err(|_| FAILED.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|_| FAILED.to_string())?;
-    Ok(body["response"].as_str().unwrap_or("").trim().to_string())
+        .map_err(|_| FAILED.to_string())
 }
 
 #[cfg(test)]

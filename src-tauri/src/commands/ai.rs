@@ -5,6 +5,7 @@
 //! then splice + save, then ops with `author = "ai:<provider>"`.
 
 use crate::agents::{self, AgentInfo};
+use crate::commands::settings::SlotAssignment;
 use crate::commands::chapters::save_chapter;
 use crate::commands::project::split_frontmatter;
 use crate::ops::Op;
@@ -31,13 +32,20 @@ pub async fn agents_detect() -> Vec<AgentInfo> {
     agents
 }
 
-/// Rewrite a selected passage with the given provider.
+/// Rewrite a selected passage with a model assignment.
+///
+/// `kind` + `id` are the same shape as a settings slot, so the caller can send
+/// the configured Rewrite slot straight through. They travel together because
+/// `kind` alone cannot name an Ollama tag or a catalog entry.
 #[tauri::command]
-pub async fn ai_rewrite(provider: String, text: String) -> Result<String, String> {
+pub async fn ai_rewrite(kind: String, id: String, text: String) -> Result<String, String> {
     if text.trim().is_empty() {
         return Err("ai_empty".into());
     }
-    agents::rewrite(&provider, &text).await
+    if !crate::commands::settings::SLOT_KINDS.contains(&kind.as_str()) {
+        return Err("bad_args".into());
+    }
+    agents::rewrite(&SlotAssignment { kind, id }, &text).await
 }
 
 #[derive(Debug, Deserialize)]
