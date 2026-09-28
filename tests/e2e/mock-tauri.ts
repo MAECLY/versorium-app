@@ -53,6 +53,15 @@ interface ProjectState {
   remotes: { name: string; url: string }[];
 }
 
+interface ModelCard {
+  id: string; family: string; label: string; task: string; tier: string;
+  params: string; quant: string; sizeBytes: number; ramHintGB: number; ctx: number;
+  speed: string; quality: string; badge: string | null; uncensored: boolean;
+  license: string; repo: string; state: string; receivedBytes: number; fits: boolean;
+}
+
+interface SlotAssignment { kind: string; id: string }
+
 interface McpClient {
   id: string;
   name: string;
@@ -93,6 +102,43 @@ const settings = {
 
 const projects = new Map<string, ProjectState>();
 const calls: { cmd: string; args: Args }[] = [];
+
+const GB = 1024 ** 3;
+
+const models: ModelCard[] = [
+  { id: "gemma3-1b-q4km", family: "Gemma", label: "Gemma 3 1B", task: "writing", tier: "low",
+    params: "1B", quant: "Q4_K_M", sizeBytes: 0.8 * GB, ramHintGB: 2, ctx: 8192, speed: "fast",
+    quality: "basic", badge: null, uncensored: false, license: "gemma", repo: "mock/gemma3-1b",
+    state: "ready", receivedBytes: 0, fits: true },
+  { id: "qwen3-4b-q4km", family: "Qwen", label: "Qwen3 4B Instruct", task: "writing", tier: "mid",
+    params: "4B", quant: "Q4_K_M", sizeBytes: 2.5 * GB, ramHintGB: 3.5, ctx: 32768, speed: "balanced",
+    quality: "good", badge: "Balanced", uncensored: false, license: "apache-2.0", repo: "mock/qwen3-4b",
+    state: "missing", receivedBytes: 0, fits: true },
+  { id: "qwen3-14b-q5km", family: "Qwen", label: "Qwen3 14B", task: "writing", tier: "midPlus",
+    params: "14B", quant: "Q5_K_M", sizeBytes: 9 * GB, ramHintGB: 12, ctx: 32768, speed: "slow",
+    quality: "high", badge: "Balanced+", uncensored: false, license: "apache-2.0", repo: "mock/qwen3-14b",
+    state: "partial", receivedBytes: 3 * GB, fits: true },
+  { id: "dolphin-24b-q4km", family: "Dolphin", label: "Dolphin 24B", task: "writing", tier: "high",
+    params: "24B", quant: "Q4_K_M", sizeBytes: 14 * GB, ramHintGB: 20, ctx: 32768, speed: "slow",
+    quality: "high", badge: null, uncensored: true, license: "apache-2.0", repo: "mock/dolphin-24b",
+    state: "missing", receivedBytes: 0, fits: false },
+  { id: "nomic-embed", family: "Nomic", label: "Nomic Embed", task: "embeddings", tier: "low",
+    params: "137M", quant: "F16", sizeBytes: 0.08 * GB, ramHintGB: 0.5, ctx: 2048, speed: "fast",
+    quality: "good", badge: null, uncensored: false, license: "apache-2.0", repo: "mock/nomic",
+    state: "ready", receivedBytes: 0, fits: true },
+];
+
+const slots: Record<string, SlotAssignment> = {
+  rewrite: { kind: "none", id: "" },
+  chat: { kind: "none", id: "" },
+  continuity: { kind: "none", id: "" },
+  embeddings: { kind: "none", id: "" },
+  dictation: { kind: "none", id: "" },
+};
+
+let downloadProgress: { id: string; received: number; total: number; done: boolean } | null = null;
+
+const studio = { host: "127.0.0.1", port: 1234, enabled: false };
 
 const mcpClients: McpClient[] = [
   { id: "claude-code", name: "Claude Code", configPath: "/mock/project/.mcp.json", detected: true, installed: false, writeAllowed: false },
@@ -317,6 +363,58 @@ const commands: Record<string, (args: Args) => unknown> = {
 
   agents_detect: () => agents.map((a) => ({ ...a, models: a.models ? [...a.models] : null })),
 
+  // --- M4: local models ---
+  models_view: () => ({
+    models: models.map((m) => ({ ...m })),
+    hardware: { totalRamGb: 36, availableRamGb: 18, cpuCores: 12, arch: "aarch64",
+                os: "macos", gpu: "Apple unified memory (Metal)", recommendedTier: "midPlus" },
+    slots: { ...slots },
+    progress: downloadProgress,
+    ollama: { running: true, installed: true,
+              models: [{ name: "qwen3.8:latest", sizeBytes: 17_741_872_154, modified: "2026-09-04T11:30:22Z" }] },
+    studio: { ...studio },
+    censorship: settings.censorship,
+    diskUsedBytes: models.filter((m) => m.state === "ready").reduce((a, m) => a + m.sizeBytes, 0),
+    modelsDir: "/mock/Library/versorium/models",
+  }),
+  models_download: ({ id }) => {
+    const model = models.find((m) => m.id === id);
+    if (!model) throw "not_found";
+    if (downloadProgress && !downloadProgress.done) throw "download_busy";
+    model.state = "partial";
+    downloadProgress = { id: String(id), received: model.sizeBytes / 2, total: model.sizeBytes, done: false };
+  },
+  models_cancel: ({ id }) => {
+    if (downloadProgress?.id === id) downloadProgress = null;
+  },
+  models_delete: ({ id }) => {
+    const model = models.find((m) => m.id === id);
+    if (!model) throw "not_found";
+    model.state = "missing";
+    model.receivedBytes = 0;
+    // A slot must never point at a file that is gone.
+    for (const key of Object.keys(slots)) {
+      if (slots[key].kind === "builtin" && slots[key].id === id) slots[key] = { kind: "none", id: "" };
+    }
+  },
+  models_progress: () => downloadProgress,
+  models_set_slot: ({ slot, kind, id }) => {
+    const name = String(slot);
+    if (!(name in slots)) throw "bad_args";
+    if (kind === "builtin" && models.find((m) => m.id === id)?.state !== "ready") throw "not_ready";
+    slots[name] = kind === "none" ? { kind: "none", id: "" } : { kind: String(kind), id: String(id) };
+    return { ...slots };
+  },
+  ollama_pull: () => undefined,
+  ollama_remove: () => undefined,
+  studio_test: ({ port }) => Number(port) === 1234,
+  studio_save: ({ host, port, enabled }) => {
+    studio.host = String(host);
+    studio.port = Number(port);
+    studio.enabled = Boolean(enabled);
+    return { ...studio };
+  },
+
   // --- M3: MCP ---
   mcp_status: () => ({
     command: "/mock/bin/versorium",
@@ -437,12 +535,14 @@ declare global {
       agents: AgentInfo[];
       mcpClients: McpClient[];
       mcpLog: McpLogEntry[];
+      models: ModelCard[];
+      slots: Record<string, SlotAssignment>;
     };
   }
 }
 
 window.__TAURI_INTERNALS__ = internals;
 window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
-window.__VERSORIUM_MOCK__ = { projects, settings, calls, agents, mcpClients, mcpLog };
+window.__VERSORIUM_MOCK__ = { projects, settings, calls, agents, mcpClients, mcpLog, models, slots };
 
 export {};

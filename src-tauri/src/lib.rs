@@ -7,6 +7,7 @@ mod commands;
 mod git;
 mod ops;
 mod mcp;
+mod models;
 pub mod paths;
 mod storage;
 mod text;
@@ -88,6 +89,16 @@ pub fn run() {
             commands::mcp::mcp_uninstall_client,
             commands::mcp::mcp_log,
             commands::mcp::mcp_set_active_project,
+            commands::models::models_view,
+            commands::models::models_download,
+            commands::models::models_cancel,
+            commands::models::models_delete,
+            commands::models::models_progress,
+            commands::models::models_set_slot,
+            commands::models::ollama_pull,
+            commands::models::ollama_remove,
+            commands::models::studio_test,
+            commands::models::studio_save,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Versorium");

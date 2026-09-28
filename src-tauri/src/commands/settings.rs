@@ -5,6 +5,77 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
+/// Where one task's model comes from. `kind` is `none` | `builtin` | `ollama` |
+/// `cli`; `id` is the catalog id, the Ollama tag, or the harness name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SlotAssignment {
+    pub kind: String,
+    pub id: String,
+}
+
+impl Default for SlotAssignment {
+    fn default() -> Self {
+        // Not `String::default()`: an empty `kind` would read as a fourth,
+        // undefined state. Every unassigned slot says so explicitly.
+        Self { kind: "none".into(), id: String::new() }
+    }
+}
+
+/// One model per task, not one model globally (spec §6.2): rewriting a
+/// selection and checking continuity want different sizes.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Slots {
+    pub rewrite: SlotAssignment,
+    pub chat: SlotAssignment,
+    pub continuity: SlotAssignment,
+    pub embeddings: SlotAssignment,
+    pub dictation: SlotAssignment,
+}
+
+pub const SLOT_NAMES: [&str; 5] = ["rewrite", "chat", "continuity", "embeddings", "dictation"];
+pub const SLOT_KINDS: [&str; 4] = ["none", "builtin", "ollama", "cli"];
+
+impl Slots {
+    /// Read one slot by name. Only the tests need this — the command layer
+    /// always mutates — so it is not compiled into the shipped binary.
+    #[cfg(test)]
+    pub fn get(&self, slot: &str) -> Option<&SlotAssignment> {
+        match slot {
+            "rewrite" => Some(&self.rewrite),
+            "chat" => Some(&self.chat),
+            "continuity" => Some(&self.continuity),
+            "embeddings" => Some(&self.embeddings),
+            "dictation" => Some(&self.dictation),
+            _ => None,
+        }
+    }
+
+    pub fn get_mut(&mut self, slot: &str) -> Option<&mut SlotAssignment> {
+        match slot {
+            "rewrite" => Some(&mut self.rewrite),
+            "chat" => Some(&mut self.chat),
+            "continuity" => Some(&mut self.continuity),
+            "embeddings" => Some(&mut self.embeddings),
+            "dictation" => Some(&mut self.dictation),
+            _ => None,
+        }
+    }
+
+    /// Every slot, for callers that need to sweep them all.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SlotAssignment> {
+        [
+            &mut self.rewrite,
+            &mut self.chat,
+            &mut self.continuity,
+            &mut self.embeddings,
+            &mut self.dictation,
+        ]
+        .into_iter()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
@@ -21,6 +92,13 @@ pub struct Settings {
     /// Project the GUI currently has open, so the separate `versorium mcp`
     /// process knows what "the manuscript" means. Cleared when none is open.
     pub mcp_active_project: Option<String>,
+    /// Which model serves each task. Empty on a fresh install: nothing local
+    /// is selected until the user downloads something.
+    pub slots: Slots,
+    /// LM Studio / llama-server, an OpenAI-compatible endpoint on this machine.
+    pub studio_host: String,
+    pub studio_port: u16,
+    pub studio_enabled: bool,
 }
 
 impl Default for Settings {
@@ -34,6 +112,11 @@ impl Default for Settings {
             github_novel_token: None,
             mcp_write_clients: Vec::new(),
             mcp_active_project: None,
+            slots: Slots::default(),
+            studio_host: "127.0.0.1".into(),
+            // LM Studio's default local port.
+            studio_port: 1234,
+            studio_enabled: false,
         }
     }
 }
@@ -107,9 +190,10 @@ pub fn set_settings(
         if let Some(v) = patch.get("githubNovelToken").and_then(|v| v.as_str()) {
             s.github_novel_token = if v.is_empty() { None } else { Some(v.into()) };
         }
-        // mcpWriteClients / mcpActiveProject are deliberately NOT patchable from
-        // here: granting write is its own command so the UI cannot flip it by
-        // accident while saving an unrelated preference.
+        // mcpWriteClients / mcpActiveProject / slots / studio* are deliberately
+        // NOT patchable from here: granting write, pointing a task at a model
+        // and aiming at a local endpoint each get their own command, so the UI
+        // cannot flip one by accident while saving an unrelated preference.
     });
     Ok(state.get())
 }
@@ -129,6 +213,43 @@ mod tests {
             store.update(|s| s.ui_locale = v.into());
         }
         assert_eq!(store.get().mcp_write_clients, vec!["codex".to_string()]);
+    }
+
+    #[test]
+    fn a_fresh_install_has_no_model_selected_for_any_task() {
+        let store = SettingsStore::load(PathBuf::from("/nonexistent/versorium/settings.json"));
+        let s = store.get();
+        for name in SLOT_NAMES {
+            let slot = s.slots.get(name).expect("known slot");
+            assert_eq!(slot.kind, "none", "{name} must start unassigned");
+            assert!(slot.id.is_empty(), "{name} must start with no id");
+        }
+        assert_eq!(s.studio_host, "127.0.0.1");
+        assert_eq!(s.studio_port, 1234);
+        assert!(!s.studio_enabled, "we never reach out to a local server unasked");
+    }
+
+    #[test]
+    fn a_settings_file_written_before_slots_existed_still_loads() {
+        // Upgrading must not reset someone's theme just because the file
+        // predates these fields.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(&path, r#"{"uiLocale":"es","theme":"needle"}"#).unwrap();
+        let s = SettingsStore::load(path).get();
+        assert_eq!(s.ui_locale, "es");
+        assert_eq!(s.theme, "needle");
+        assert_eq!(s.slots.rewrite.kind, "none");
+        assert_eq!(s.studio_port, 1234);
+    }
+
+    #[test]
+    fn slots_are_addressable_by_name_and_sweepable() {
+        let mut slots = Slots::default();
+        assert!(slots.get("nope").is_none());
+        slots.get_mut("continuity").unwrap().kind = "ollama".into();
+        assert_eq!(slots.continuity.kind, "ollama");
+        assert_eq!(slots.iter_mut().count(), SLOT_NAMES.len());
     }
 
     #[test]

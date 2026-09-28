@@ -14,10 +14,11 @@
   import { detectAgents } from "$lib/ai/agents";
   import { mcp } from "$lib/mcp/state.svelte";
   import Modal from "$lib/components/Modal.svelte";
+  import LocalAiSection from "$lib/settings/LocalAiSection.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
 
-  const placeholderSections: string[] = ["localAi", "updates", "typography"];
+  const placeholderSections: string[] = ["updates", "typography"];
 
   // --- Agents (M2): harnesses keep their own login; we only detect ---
   let agents = $state<AgentInfo[]>([]);
@@ -241,6 +242,9 @@
         </ul>
       {/if}
     </section>
+
+    <!-- Local AI (live in M4): built-in GGUF ladder, Ollama, Studio, slots -->
+    <LocalAiSection />
 
     <!-- Safety (M2): censorship toggle; routing arrives with Local AI -->
     <section class="mb-6" aria-label={t("safety.title")}>
