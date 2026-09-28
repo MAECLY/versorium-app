@@ -22,6 +22,8 @@ dirs = "6"
 thiserror = "2"
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+sha2 = "0.11.0"
+sysinfo = "0.39.6"
 
 [dev-dependencies]
 tempfile = "3"
