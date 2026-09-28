@@ -37,6 +37,7 @@
     "@codemirror/view": "^6.36.4",
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-dialog": "^2.7.3",
+    "@tauri-apps/plugin-opener": "^2.6.0",
     "@tauri-apps/plugin-updater": "^2.13.0",
     "codemirror": "^6.0.1"
   }

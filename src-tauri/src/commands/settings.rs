@@ -105,6 +105,14 @@ pub struct Settings {
     pub studio_host: String,
     pub studio_port: u16,
     pub studio_enabled: bool,
+    /// Which entry of `fonts/catalog.json` the editor renders in.
+    pub editor_font: String,
+    /// Chrome fades and the page centres (DESIGN-VERSORIUM.md).
+    pub focus_mode: bool,
+    /// The active line sits at the lower third.
+    pub typewriter: bool,
+    /// Whether the first-run tour has been completed or dismissed.
+    pub onboarded: bool,
 }
 
 impl Default for Settings {
@@ -126,6 +134,10 @@ impl Default for Settings {
             // LM Studio's default local port.
             studio_port: 1234,
             studio_enabled: false,
+            editor_font: "system-serif".into(),
+            focus_mode: false,
+            typewriter: false,
+            onboarded: false,
         }
     }
 }
@@ -199,10 +211,22 @@ pub fn set_settings(
         if let Some(v) = patch.get("githubNovelToken").and_then(|v| v.as_str()) {
             s.github_novel_token = if v.is_empty() { None } else { Some(v.into()) };
         }
-        // mcpWriteClients / mcpActiveProject / slots / studio* are deliberately
-        // NOT patchable from here: granting write, pointing a task at a model
-        // and aiming at a local endpoint each get their own command, so the UI
-        // cannot flip one by accident while saving an unrelated preference.
+        // Writing-surface preferences are patchable: unlike a write grant or a
+        // model slot, flipping one by accident costs a keystroke to undo.
+        if let Some(v) = patch.get("focusMode").and_then(|v| v.as_bool()) {
+            s.focus_mode = v;
+        }
+        if let Some(v) = patch.get("typewriter").and_then(|v| v.as_bool()) {
+            s.typewriter = v;
+        }
+        if let Some(v) = patch.get("onboarded").and_then(|v| v.as_bool()) {
+            s.onboarded = v;
+        }
+        // mcpWriteClients / mcpActiveProject / slots / studio* / editorFont are
+        // deliberately NOT patchable from here: granting write, pointing a task
+        // at a model, aiming at a local endpoint and choosing a font that must
+        // exist in the catalogue each get their own command, so the UI cannot
+        // flip one by accident while saving an unrelated preference.
     });
     Ok(state.get())
 }
