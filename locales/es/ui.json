@@ -150,7 +150,9 @@
     "import_docx_formatting_dropped": "La negrita, la cursiva y el resto del formato no se trajeron.",
     "import_docx_no_headings": "No se encontró ningún Título 1, así que el documento entero pasó a ser un capítulo.",
     "import_images_dropped": "Las imágenes no se trajeron.",
-    "empty_document": "Ese archivo no tiene texto que importar."
+    "empty_document": "Ese archivo no tiene texto que importar.",
+    "export_pdf_characters_replaced": "Algunos caracteres no se pueden imprimir en un PDF y se reemplazaron.",
+    "export_docx_scene_titles_dropped": "Los títulos de escena no existen en el formato de manuscrito; los cortes de escena sí quedan."
   },
   "languages": {
     "en": "English",
@@ -361,7 +363,8 @@
       "authorMissing": "Añade la autoría para exportar en este formato.",
       "action": "Exportar",
       "busy": "Exportando…",
-      "done": "Escribí {size} en {path}"
+      "done": "Escribí {size} en {path}",
+      "warningsTitle": "Este formato no pudo llevarse todo:"
     },
     "import": {
       "title": "Importar",

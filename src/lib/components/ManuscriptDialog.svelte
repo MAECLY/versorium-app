@@ -155,6 +155,16 @@
             path: formats.result.path,
           })}
         </p>
+        {#if formats.result.warnings.length > 0}
+          <p class="m-0 mt-2" style="font-size: 12px; color: var(--warn);">
+            {t("manuscript.export.warningsTitle")}
+          </p>
+          <ul class="m-0 mt-1 list-none p-0" style="font-size: 12px; color: var(--warn);">
+            {#each formats.result.warnings as warning, index (index)}
+              <li>{warningMessage(warning)}</li>
+            {/each}
+          </ul>
+        {/if}
       {/if}
     </div>
 
