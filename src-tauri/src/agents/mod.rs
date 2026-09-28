@@ -18,6 +18,8 @@ use std::time::Duration;
 const CLI_TIMEOUT: Duration = Duration::from_secs(120);
 /// Cap for `--version` probes during detection.
 const VERSION_TIMEOUT: Duration = Duration::from_secs(5);
+/// Cap for a question to a daemon that is already running locally.
+const OLLAMA_API_TIMEOUT: Duration = Duration::from_secs(10);
 /// Ollama daemon address (local only, per spec §6.2).
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 
@@ -262,6 +264,113 @@ pub async fn ollama_status() -> (bool, Vec<String>) {
     }
 }
 
+/// Models the daemon has pulled: (name, size in bytes, modified timestamp).
+/// Empty when the daemon is offline — callers already know that from
+/// `ollama_status`, so an unreachable daemon is not an error here.
+pub async fn ollama_models() -> Vec<(String, u64, String)> {
+    let Ok(client) = reqwest::Client::builder().timeout(OLLAMA_API_TIMEOUT).build() else {
+        return Vec::new();
+    };
+    let Ok(response) = client.get(format!("{OLLAMA_URL}/api/tags")).send().await else {
+        return Vec::new();
+    };
+    if !response.status().is_success() {
+        return Vec::new();
+    }
+    let Ok(body) = response.json::<serde_json::Value>().await else {
+        return Vec::new();
+    };
+    body["models"]
+        .as_array()
+        .map(|models| {
+            models
+                .iter()
+                .filter_map(|m| {
+                    let name = m["name"].as_str()?.to_string();
+                    Some((
+                        name,
+                        m["size"].as_u64().unwrap_or(0),
+                        m["modified_at"].as_str().unwrap_or_default().to_string(),
+                    ))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Pull a model. This downloads gigabytes, so the request carries no overall
+/// deadline — only a connect timeout. Progress arrives as NDJSON, which is read
+/// to completion so the call returns when the pull is really finished.
+pub async fn ollama_pull(name: &str) -> Result<(), String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("bad_args".into());
+    }
+    let client = reqwest::Client::builder()
+        .connect_timeout(OLLAMA_API_TIMEOUT)
+        .build()
+        .map_err(|_| "network".to_string())?;
+    let mut response = client
+        .post(format!("{OLLAMA_URL}/api/pull"))
+        // `model` is the current field name; `name` is kept for older daemons,
+        // which ignore the one they do not know.
+        .json(&serde_json::json!({ "model": name, "name": name, "stream": true }))
+        .send()
+        .await
+        .map_err(|_| "ollama_offline".to_string())?;
+    if !response.status().is_success() {
+        return Err("ollama_failed".into());
+    }
+    // A pull can fail midway with a 200 and an {"error": …} line, so the stream
+    // has to be read rather than trusted.
+    let mut tail = String::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| "network".to_string())? {
+        tail.push_str(&String::from_utf8_lossy(&chunk));
+        if let Some(cut) = tail.rfind('\n') {
+            let complete: String = tail.drain(..=cut).collect();
+            if let Some(error) = first_ndjson_error(&complete) {
+                return Err(error);
+            }
+        }
+    }
+    if let Some(error) = first_ndjson_error(&tail) {
+        return Err(error);
+    }
+    Ok(())
+}
+
+/// `ollama_failed` when any line reports an error; the daemon's own message is
+/// not surfaced because these codes are localized on the frontend.
+fn first_ndjson_error(text: &str) -> Option<String> {
+    text.lines()
+        .filter(|l| !l.trim().is_empty())
+        .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .find(|v| v.get("error").is_some())
+        .map(|_| "ollama_failed".to_string())
+}
+
+pub async fn ollama_delete(name: &str) -> Result<(), String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("bad_args".into());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(OLLAMA_API_TIMEOUT)
+        .build()
+        .map_err(|_| "network".to_string())?;
+    let response = client
+        .delete(format!("{OLLAMA_URL}/api/delete"))
+        .json(&serde_json::json!({ "model": name, "name": name }))
+        .send()
+        .await
+        .map_err(|_| "ollama_offline".to_string())?;
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err("ollama_failed".into())
+    }
+}
+
 /// The editor prompt sent to a rewrite provider. The passage is the user's
 /// own text; the prompt never asks for new content (selection-only, spec §17).
 pub fn rewrite_prompt(text: &str) -> String {
@@ -368,6 +477,51 @@ mod tests {
             assert!(!out.trim().is_empty(), "{provider} returned nothing");
             assert_ne!(out.trim(), passage, "{provider} returned the passage unchanged");
         }
+    }
+
+    #[test]
+    #[ignore = "talks to the Ollama daemon on this machine"]
+    fn live_ollama_lists_and_round_trips_a_tiny_model() {
+        let (online, _) = tauri::async_runtime::block_on(ollama_status());
+        if !online {
+            eprintln!("ollama offline: skipped");
+            return;
+        }
+        let models = tauri::async_runtime::block_on(ollama_models());
+        for (name, size, modified) in &models {
+            eprintln!("{name:<30} {size:>14} {modified}");
+        }
+        assert!(!models.is_empty(), "a running daemon with no models is unexpected here");
+        assert!(models.iter().all(|(n, _, _)| !n.is_empty()));
+        // An unknown tag must fail rather than hang or silently succeed.
+        assert_eq!(
+            tauri::async_runtime::block_on(ollama_pull("versorium-does-not-exist:1b")).unwrap_err(),
+            "ollama_failed"
+        );
+    }
+
+    #[test]
+    fn an_empty_model_name_never_reaches_the_daemon() {
+        assert_eq!(
+            tauri::async_runtime::block_on(ollama_pull("   ")).unwrap_err(),
+            "bad_args"
+        );
+        assert_eq!(
+            tauri::async_runtime::block_on(ollama_delete("")).unwrap_err(),
+            "bad_args"
+        );
+    }
+
+    #[test]
+    fn a_pull_that_reports_an_error_midstream_is_a_failure() {
+        // Ollama answers 200 and then streams the failure, so success cannot be
+        // inferred from the status code alone.
+        let stream = "{\"status\":\"pulling manifest\"}\n{\"error\":\"model not found\"}\n";
+        assert_eq!(first_ndjson_error(stream).as_deref(), Some("ollama_failed"));
+        assert!(first_ndjson_error("{\"status\":\"success\"}\n").is_none());
+        assert!(first_ndjson_error("").is_none());
+        // A half-written line must not be mistaken for a failure.
+        assert!(first_ndjson_error("{\"status\":\"downloading\",\"compl").is_none());
     }
 
     #[test]
