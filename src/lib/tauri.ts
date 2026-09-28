@@ -268,6 +268,26 @@ export interface Imported {
   warnings: string[];
 }
 
+// --- M6: updates ---
+
+export interface AvailableUpdate {
+  version: string;
+  notes: string;
+  date: string | null;
+}
+
+export interface UpdateStatus {
+  currentVersion: string;
+  available: AvailableUpdate | null;
+  channel: "stable" | "beta";
+  automatic: boolean;
+  /** An updates token is present. Without one we do not check at all (spec §11). */
+  signedIn: boolean;
+  checking: boolean;
+  /** An i18n code, never prose. */
+  lastError: string | null;
+}
+
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   uiReady: () => invoke<void>("ui_ready"),
@@ -349,6 +369,16 @@ export const api = {
     invoke<Project>("import_apply", { source, title }),
   setAuthor: (path: string, author: string) =>
     invoke<ProjectMeta>("set_author", { path, author }),
+
+  // --- M6: updates ---
+  updateStatus: () => invoke<UpdateStatus>("update_status"),
+  updateCheck: () => invoke<UpdateStatus>("update_check"),
+  updateInstall: () => invoke<void>("update_install"),
+  updateSkip: (version: string) => invoke<UpdateStatus>("update_skip", { version }),
+  updateSetChannel: (channel: "stable" | "beta") =>
+    invoke<UpdateStatus>("update_set_channel", { channel }),
+  updateSetAutomatic: (automatic: boolean) =>
+    invoke<UpdateStatus>("update_set_automatic", { automatic }),
 
   /** Where to write an export. Returns null when the user backs out. */
   pickExportTarget: (defaultPath: string, name: string, extension: string) =>

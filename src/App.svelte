@@ -15,7 +15,9 @@
   import SettingsModal from "$lib/settings/SettingsModal.svelte";
   import RewriteDialog from "$lib/components/RewriteDialog.svelte";
   import ManuscriptDialog from "$lib/components/ManuscriptDialog.svelte";
+  import UpdateDialog from "$lib/components/UpdateDialog.svelte";
   import { detectAgents } from "$lib/ai/agents";
+  import { updates } from "$lib/update/state.svelte";
 
   let showSettings = $state(false);
   let showNewProject = $state(false);
@@ -24,6 +26,7 @@
   let gitDirty = $state(false);
   let showRewrite = $state(false);
   let showManuscript = $state(false);
+  let dismissedUpdate = $state(false);
   let rewriteSel = $state<{ from: number; to: number; text: string } | null>(null);
 
   let editorRef: {
@@ -116,6 +119,9 @@
         await store.refreshProjects();
         // Probing five CLIs takes seconds; warm the cache so Rewrite opens ready.
         void detectAgents().catch(() => undefined);
+        // Quiet, once, and only if the writer asked for it (spec §11). A failure
+        // here must never be the first thing they see.
+        void updates.checkOnStartup().catch(() => undefined);
       }
     })();
     const checkpoint = setInterval(async () => {
@@ -214,6 +220,9 @@
   {/if}
   {#if showManuscript}
     <ManuscriptDialog onClose={() => (showManuscript = false)} />
+  {/if}
+  {#if updates.available && !dismissedUpdate}
+    <UpdateDialog onClose={() => (dismissedUpdate = true)} />
   {/if}
   {#if showRewrite && rewriteSel}
     <RewriteDialog
