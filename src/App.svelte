@@ -7,6 +7,8 @@
   import TopBar from "$lib/components/TopBar.svelte";
   import StatusBar from "$lib/components/StatusBar.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import Onboarding from "$lib/onboarding/Onboarding.svelte";
+  import { onboarding } from "$lib/onboarding/state.svelte";
   import GitPanel from "$lib/components/GitPanel.svelte";
   import ChapterList from "$lib/binder/ChapterList.svelte";
   import Corkboard from "$lib/binder/Corkboard.svelte";
@@ -36,12 +38,11 @@
   /** The Rust side adds these to the settings patch in M7; the shared
    *  AppSettings interface lives in a file this change does not own, so the
    *  two preferences are widened here until it catches up. */
-  type ModePrefs = { focusMode?: boolean; typewriter?: boolean };
 
   function persistModes(): void {
     if (!isTauri()) return;
     void api
-      .setSettings({ focusMode, typewriter } as ModePrefs as Parameters<typeof api.setSettings>[0])
+      .setSettings({ focusMode, typewriter })
       .catch(() => undefined);
   }
 
@@ -152,10 +153,13 @@
       await initLocale();
       await initTheme();
       if (isTauri()) {
+        let firstRun = false;
         try {
-          const saved = (await api.getSettings()) as ModePrefs;
+          const saved = await api.getSettings();
           focusMode = saved.focusMode ?? false;
           typewriter = saved.typewriter ?? false;
+          // Spec §14: the tour is the first run, and there is no signup.
+          firstRun = saved.onboarded === false;
         } catch {
           // Defaults are fine; a writing mode is not worth an error.
         }
@@ -165,6 +169,7 @@
         // Quiet, once, and only if the writer asked for it (spec §11). A failure
         // here must never be the first thing they see.
         void updates.checkOnStartup().catch(() => undefined);
+        if (firstRun) await onboarding.start();
       }
     })();
     const checkpoint = setInterval(async () => {
@@ -244,7 +249,10 @@
         />
         {/key}
       {:else}
-        <EmptyState onRequestNew={() => (showNewProject = true)} />
+        <EmptyState
+          onRequestNew={() => (showNewProject = true)}
+          onRequestSetup={() => void onboarding.start()}
+        />
       {/if}
     </main>
   </div>
@@ -266,6 +274,10 @@
       <span>{store.error}</span>
       <button class="v-btn" style="padding: 0 6px;" onclick={() => (store.error = null)}>✕</button>
     </div>
+  {/if}
+
+  {#if onboarding.open}
+    <Onboarding onClose={() => (onboarding.open = false)} />
   {/if}
 
   {#if showSettings}
