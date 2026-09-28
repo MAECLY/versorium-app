@@ -20,7 +20,7 @@ const MAX_CRASHES: usize = 20;
 /// Where a report is filed. Declared here rather than imported because
 /// `update`'s constants are private to that module; the test below reads its
 /// source so the two cannot drift apart unnoticed.
-const ISSUES_OWNER: &str = "maecly";
+const ISSUES_OWNER: &str = "MAECLY";
 const ISSUES_REPO: &str = "versorium-app";
 
 /// A run of this many plain words reads as a sentence, not a diagnostic.
