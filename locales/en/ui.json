@@ -131,8 +131,8 @@
     "noToken": "Paste a personal access token to create the novel remote.",
     "rollbackWord": "Restore the word under the cursor",
     "rollbackSelection": "Restore the current selection",
-    "rollbackWordShort": "↩ word",
-    "rollbackSelShort": "↩ sel",
+    "rollbackWordShort": "↩ Word",
+    "rollbackSelShort": "↩ Selection",
     "nothingToRollback": "Nothing to roll back here."
   },
   "errors": {
