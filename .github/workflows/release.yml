@@ -82,6 +82,14 @@ jobs:
             args: ''
             name: Windows
     runs-on: ${{ matrix.platform }}
+    env:
+      # ggml's build reads any GGML_* variable as a cmake define. The default
+      # x86_64 Rust target advertises no CPU features, so without this every x64
+      # build ships SSE2-baseline kernels and a modern Intel machine runs local
+      # inference far slower than its hardware allows. ON builds several
+      # microarchitecture variants and dispatches at runtime, which costs build
+      # time and binary size rather than correctness.
+      GGML_CPU_ALL_VARIANTS: ${{ (matrix.args == '--target aarch64-apple-darwin') && 'OFF' || 'ON' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -98,6 +106,8 @@ jobs:
             libxdo-dev \
             libssl-dev \
             build-essential \
+            libclang-dev \
+            cmake \
             patchelf \
             xdg-utils \
             file \

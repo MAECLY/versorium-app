@@ -27,8 +27,7 @@
     "corkboard": "Corkboard",
     "corkboardHint": "See the chapters as cards.",
     "corkboardLoading": "Reading chapters…",
-    "corkboardEmpty": "Nothing written yet.",
-    "editor": "Editor"
+    "corkboardEmpty": "Nothing written yet."
   },
   "editor": {
     "placeholder": "Start writing…",
@@ -70,6 +69,26 @@
       "safety": "Safety",
       "updates": "Updates",
       "typography": "Typography"
+    },
+    "nav": "Settings sections",
+    "backToWriting": "← Back to the manuscript",
+    "themeHint": "Folio is paper-warm, Quarry is cool grey, Needle is dark. Each one follows light, dark, or your system.",
+    "languageHint": "Changes the interface only. It never touches the language your novel is written in.",
+    "groups": {
+      "writing": "Writing",
+      "appearance": "Appearance",
+      "localAi": "Local AI",
+      "backup": "History & backup",
+      "assistants": "Assistants",
+      "app": "Application"
+    },
+    "purpose": {
+      "writing": "How the page feels while you write: the typeface and size of the manuscript itself.",
+      "appearance": "How Versorium looks, and what language its own buttons speak.",
+      "localAi": "Models that run on this machine, and which one does each job. Nothing here sends your prose anywhere.",
+      "backup": "Your novel's history on this disk, and an optional private copy on GitHub. Versorium never mixes it with its own repository.",
+      "assistants": "Outside AI tools that can reach your novel, and exactly how much each one is allowed to do.",
+      "app": "Versorium itself: the version you are running, how it updates, and what it records when it crashes."
     }
   },
   "statusbar": {
@@ -78,42 +97,41 @@
     "project": "project"
   },
   "git": {
-    "title": "Git",
-    "tab_status": "Status",
-    "tab_log": "Log",
-    "tab_diff": "Diff",
-    "tab_branches": "Branches",
+    "title": "History",
+    "tab_status": "Changes",
+    "tab_log": "Snapshots",
+    "tab_diff": "What changed",
     "ahead": "ahead",
     "behind": "behind",
-    "modified": "Modified",
-    "staged": "Staged",
-    "untracked": "Untracked",
-    "clean": "Working tree clean.",
-    "dirty": "Project has uncommitted changes",
-    "message": "Commit message",
-    "commit": "Commit",
-    "commitHint": "Commit the chapter and project files",
-    "checkpoint": "checkpoint",
+    "clean": "Everything is saved.",
+    "dirty": "There are changes not in a snapshot yet",
+    "message": "What changed",
+    "commit": "Save snapshot",
+    "commitHint": "Save a snapshot of this chapter and the project. You can come back to it.",
     "newBranch": "New branch name",
     "create": "Create",
     "remotes": "Remotes",
     "noRemotes": "No remotes configured.",
     "updatesSlot": "Updates login",
-    "novelSlot": "Novel remote login",
+    "novelSlot": "Novel backup",
     "updatesSlotHint": "Used only to read releases of maecly/versorium-app.",
-    "novelSlotHint": "Used only for your novel's private repo. Never used for updates.",
+    "novelSlotHint": "Used only for your novel's own private backup. Never for updates.",
     "token": "GitHub token",
     "connect": "Connect",
     "connected": "Connected as",
-    "repoName": "Repository name",
-    "createRepo": "Create private repo",
-    "privateDefault": "Repos are created private by default.",
-    "noToken": "Paste a personal access token to create the novel remote.",
-    "rollbackWord": "Restore the word under the cursor",
-    "rollbackSelection": "Restore the current selection",
-    "rollbackWordShort": "↩ word",
-    "rollbackSelShort": "↩ sel",
-    "nothingToRollback": "Nothing to roll back here."
+    "repoName": "Backup name",
+    "createRepo": "Create a private backup",
+    "privateDefault": "Backups are created private.",
+    "noToken": "Paste a GitHub personal access token to set up the backup.",
+    "nothingToRollback": "Nothing to roll back here.",
+    "tab_advanced": "Advanced",
+    "advancedNote": "Versorium keeps your novel's history in Git. These are Git's own controls — you never need them to write.",
+    "fileEdited": "edited",
+    "fileNew": "new",
+    "changedCount": "{count} changed",
+    "snapshotOf": "Snapshot of {when}",
+    "restore": "↩ Restore",
+    "restoreHint": "Put the selection back as it was, or the word under the cursor when nothing is selected."
   },
   "errors": {
     "generic": "Something went wrong.",
@@ -121,17 +139,17 @@
     "notFound": "Project not found.",
     "project_exists": "A project with that name already exists.",
     "empty_title": "The title is empty.",
-    "no_repo": "This folder is not a git project.",
-    "no_commits": "There are no commits yet.",
-    "nothing_to_commit": "Nothing to commit.",
+    "no_repo": "This folder is not keeping history yet.",
+    "no_commits": "No snapshots yet.",
+    "nothing_to_commit": "Nothing has changed since the last snapshot.",
     "bad_token": "GitHub rejected this token.",
     "network": "Network error while talking to GitHub.",
     "repo_failed": "GitHub could not create the repository.",
-    "bad_sha": "Unknown commit.",
-    "no_commit": "That commit does not exist.",
+    "bad_sha": "Unknown snapshot.",
+    "no_commit": "That snapshot does not exist.",
     "branch_exists": "A branch with that name already exists.",
     "bad_branch": "Invalid branch name.",
-    "empty_message": "The commit message is empty.",
+    "empty_message": "Say what changed.",
     "not_found": "Not found.",
     "io": "File system error.",
     "no_provider": "That agent is not installed.",
@@ -168,7 +186,19 @@
     "bad_update_host": "The update pointed somewhere unexpected and was refused.",
     "continuity_no_model": "No model is selected for Continuity. Pick one under Local AI.",
     "continuity_daemon_offline": "The Ollama daemon is not running, so the check could not start.",
-    "continuity_failed": "The continuity check could not finish."
+    "continuity_failed": "The continuity check could not finish.",
+    "no_runtime": "Versorium has no engine for that task yet. Dictation needs a speech model, which llama.cpp cannot run.",
+    "cancelled": "Cancelled.",
+    "ollama_offline": "Ollama is not answering. Start it and try again.",
+    "ollama_failed": "Ollama could not finish that.",
+    "llama_busy": "Versorium is already running one model. Wait for it to finish.",
+    "llama_load_failed": "That model file could not be loaded. It may be for a different purpose than writing.",
+    "llama_cancelled": "Stopped.",
+    "llama_failed": "The local model could not finish that.",
+    "model_too_large": "That model needs more memory than this machine has. Pick a smaller one.",
+    "continuity_busy": "A rewrite is running. The continuity check waits rather than competing for the model.",
+    "continuity_model_too_large": "The model chosen for Continuity needs more memory than this machine has.",
+    "hardware_gpu_pending": "starting…"
   },
   "languages": {
     "en": "English",
@@ -190,7 +220,8 @@
     "kindCli": "CLI",
     "checkpointNote": "Versorium snapshots Git before applying. You can roll back.",
     "creative": "Continue chapter",
-    "creativeSoon": "Creative mode arrives in v1.1."
+    "creativeSoon": "Creative mode arrives in v1.1.",
+    "configuredSuffix": "(configured)"
   },
   "agents": {
     "title": "Agents",
@@ -291,7 +322,20 @@
       "tooBig": "Larger than this machine can hold comfortably. You can still download it.",
       "corrupt": "The file on disk does not match its checksum. Delete it and download again.",
       "license": "License",
-      "empty": "The catalog has no models for this tab yet."
+      "empty": "The catalog has no models for this tab yet.",
+      "ladderIntro": "These all do the same work: rewriting, chat and continuity. They differ in quality, speed and memory. Pick the largest one your machine can hold.",
+      "uncensoredWhy": "Safety filter removed, for fiction a filtered model refuses to help with.",
+      "purpose": {
+        "writing": "Rewrites a passage, talks about the manuscript, checks continuity.",
+        "embeddings": "Does not write. Turns your chapters into vectors so search finds meaning, not just matching words.",
+        "dictation": "Turns speech into text."
+      },
+      "tierNote": {
+        "low": "The lightest. A fast draft on a modest machine.",
+        "mid": "The sweet spot on an ordinary laptop.",
+        "midPlus": "Noticeably better prose, and it is heavy.",
+        "high": "The best here, and it asks for a lot of memory."
+      }
     },
     "speeds": {
       "fast": "Fast",
@@ -347,6 +391,13 @@
       "embeddingsHint": "Indexing the manuscript so search understands meaning.",
       "dictation": "Dictation",
       "dictationHint": "Turning speech into text."
+    },
+    "engine": {
+      "title": "Engine",
+      "warming": "starting… (compiling GPU shaders, once per machine)",
+      "failed": "llama.cpp could not start on this machine.",
+      "cpuOnly": "CPU",
+      "noGpuBuild": "· this build has no GPU backend, so speeds are CPU speeds"
     }
   },
   "manuscript": {
@@ -403,7 +454,7 @@
     "title": "Updates",
     "intro": "Versorium checks its own releases. Nothing about your manuscript is sent.",
     "currentVersion": "Installed version",
-    "signedOut": "Sign in under Git → Updates login to check for updates. Without it Versorium does not check at all.",
+    "signedOut": "Sign in under Settings → Application to check for updates. Without it Versorium does not check at all.",
     "checkNow": "Check now",
     "checking": "Checking…",
     "upToDate": "This is the newest release.",
@@ -450,7 +501,7 @@
     "machineHint": "Nothing is downloaded here. Models are chosen in Settings, when you want them.",
     "agentsHint": "Versorium uses the AI tools you already have. Each keeps its own login — no keys are stored here.",
     "agentsNone": "No agent tools were found. Versorium works without them; you can add one later.",
-    "projectHint": "A novel is a plain folder on your disk, versioned with git from the first save.",
+    "projectHint": "A novel is a plain folder on your disk, keeping its own history from the first save.",
     "projectCreated": "Created. Your novel is on disk and under version control.",
     "templateHint": "A structure only seeds chapter titles. Versorium never writes prose you did not ask for.",
     "templateChapters": "{count} chapters",

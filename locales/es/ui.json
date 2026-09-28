@@ -24,11 +24,10 @@
       "final": "final"
     },
     "noProjects": "Aún no hay proyectos.",
-    "corkboard": "Corcho",
-    "corkboardHint": "Mira los capítulos como fichas.",
+    "corkboard": "Fichas",
+    "corkboardHint": "Mira los capítulos como fichas en un tablero.",
     "corkboardLoading": "Leyendo capítulos…",
-    "corkboardEmpty": "Todavía sin escribir.",
-    "editor": "Editor"
+    "corkboardEmpty": "Todavía sin escribir."
   },
   "editor": {
     "placeholder": "Empieza a escribir…",
@@ -70,6 +69,26 @@
       "safety": "Seguridad",
       "updates": "Actualizaciones",
       "typography": "Tipografía"
+    },
+    "nav": "Secciones de ajustes",
+    "backToWriting": "← Volver al manuscrito",
+    "themeHint": "Folio es papel cálido, Quarry es gris frío, Needle es oscuro. Cada uno sigue claro, oscuro o tu sistema.",
+    "languageHint": "Cambia solo la interfaz. Nunca toca el idioma en que escribes tu novela.",
+    "groups": {
+      "writing": "Escritura",
+      "appearance": "Apariencia",
+      "localAi": "IA local",
+      "backup": "Historial y respaldo",
+      "assistants": "Asistentes",
+      "app": "Aplicación"
+    },
+    "purpose": {
+      "writing": "Cómo se siente la página mientras escribes: la tipografía y el tamaño del manuscrito.",
+      "appearance": "Cómo se ve Versorium, y en qué idioma habla su propia interfaz.",
+      "localAi": "Modelos que corren en esta máquina, y cuál hace cada tarea. Nada de aquí envía tu prosa a ningún lado.",
+      "backup": "El historial de tu novela en este disco, y una copia privada opcional en GitHub. Versorium nunca lo mezcla con su propio repositorio.",
+      "assistants": "Herramientas de IA externas que pueden llegar a tu novela, y exactamente cuánto puede hacer cada una.",
+      "app": "Versorium misma: la versión que usas, cómo se actualiza, y qué registra cuando falla."
     }
   },
   "statusbar": {
@@ -78,42 +97,41 @@
     "project": "proyecto"
   },
   "git": {
-    "title": "Git",
-    "tab_status": "Estado",
-    "tab_log": "Registro",
-    "tab_diff": "Diferencias",
-    "tab_branches": "Ramas",
+    "title": "Historial",
+    "tab_status": "Cambios",
+    "tab_log": "Instantáneas",
+    "tab_diff": "Qué cambió",
     "ahead": "adelante",
     "behind": "atrás",
-    "modified": "Modificados",
-    "staged": "En índice",
-    "untracked": "Sin seguir",
-    "clean": "Árbol de trabajo limpio.",
-    "dirty": "El proyecto tiene cambios sin commit",
-    "message": "Mensaje de commit",
-    "commit": "Commit",
-    "commitHint": "Commit del capítulo y los archivos del proyecto",
-    "checkpoint": "checkpoint",
+    "clean": "Todo está guardado.",
+    "dirty": "Hay cambios que aún no están en ninguna instantánea",
+    "message": "Qué cambió",
+    "commit": "Guardar instantánea",
+    "commitHint": "Guarda una instantánea de este capítulo y del proyecto. Puedes volver a ella.",
     "newBranch": "Nombre de la rama",
     "create": "Crear",
     "remotes": "Remotos",
     "noRemotes": "No hay remotos configurados.",
     "updatesSlot": "Cuenta de actualizaciones",
-    "novelSlot": "Cuenta del remoto de la novela",
+    "novelSlot": "Respaldo de la novela",
     "updatesSlotHint": "Solo se usa para leer releases de maecly/versorium-app.",
-    "novelSlotHint": "Solo se usa para el repo privado de tu novela. Nunca para actualizaciones.",
+    "novelSlotHint": "Solo se usa para el respaldo privado de tu novela. Nunca para actualizaciones.",
     "token": "Token de GitHub",
     "connect": "Conectar",
     "connected": "Conectado como",
-    "repoName": "Nombre del repositorio",
-    "createRepo": "Crear repo privado",
-    "privateDefault": "Los repos se crean privados por defecto.",
-    "noToken": "Pega un token de acceso personal para crear el remoto de la novela.",
-    "rollbackWord": "Restaurar la palabra bajo el cursor",
-    "rollbackSelection": "Restaurar la selección actual",
-    "rollbackWordShort": "↩ palabra",
-    "rollbackSelShort": "↩ sel",
-    "nothingToRollback": "No hay nada que restaurar aquí."
+    "repoName": "Nombre del respaldo",
+    "createRepo": "Crear respaldo privado",
+    "privateDefault": "Los respaldos se crean privados.",
+    "noToken": "Pega un token de acceso personal de GitHub para crear el respaldo.",
+    "nothingToRollback": "No hay nada que restaurar aquí.",
+    "tab_advanced": "Avanzado",
+    "advancedNote": "Versorium guarda el historial de tu novela en Git. Estos son los controles de Git — nunca los necesitas para escribir.",
+    "fileEdited": "editado",
+    "fileNew": "nuevo",
+    "changedCount": "{count} con cambios",
+    "snapshotOf": "Instantánea del {when}",
+    "restore": "↩ Restaurar",
+    "restoreHint": "Devuelve la selección a como estaba, o la palabra bajo el cursor si no hay nada seleccionado."
   },
   "errors": {
     "generic": "Algo salió mal.",
@@ -121,17 +139,17 @@
     "notFound": "Proyecto no encontrado.",
     "project_exists": "Ya existe un proyecto con ese nombre.",
     "empty_title": "El título está vacío.",
-    "no_repo": "Esta carpeta no es un proyecto git.",
-    "no_commits": "Aún no hay commits.",
-    "nothing_to_commit": "No hay nada que commitar.",
+    "no_repo": "Esta carpeta aún no lleva historial.",
+    "no_commits": "Aún no hay instantáneas.",
+    "nothing_to_commit": "No ha cambiado nada desde la última instantánea.",
     "bad_token": "GitHub rechazó este token.",
     "network": "Error de red al hablar con GitHub.",
     "repo_failed": "GitHub no pudo crear el repositorio.",
-    "bad_sha": "Commit desconocido.",
-    "no_commit": "Ese commit no existe.",
+    "bad_sha": "Instantánea desconocida.",
+    "no_commit": "Esa instantánea no existe.",
     "branch_exists": "Ya existe una rama con ese nombre.",
     "bad_branch": "Nombre de rama inválido.",
-    "empty_message": "El mensaje de commit está vacío.",
+    "empty_message": "Escribe qué cambió.",
     "not_found": "No encontrado.",
     "io": "Error del sistema de archivos.",
     "no_provider": "Ese agente no está instalado.",
@@ -168,7 +186,19 @@
     "bad_update_host": "La actualización apuntaba a un sitio inesperado y se rechazó.",
     "continuity_no_model": "No hay modelo asignado a Continuidad. Elige uno en IA local.",
     "continuity_daemon_offline": "El daemon de Ollama no está corriendo, así que la revisión no pudo empezar.",
-    "continuity_failed": "La revisión de continuidad no pudo terminar."
+    "continuity_failed": "La revisión de continuidad no pudo terminar.",
+    "no_runtime": "Versorium aún no tiene motor para esa tarea. El dictado necesita un modelo de voz, que llama.cpp no puede ejecutar.",
+    "cancelled": "Cancelado.",
+    "ollama_offline": "Ollama no responde. Inícialo e inténtalo de nuevo.",
+    "ollama_failed": "Ollama no pudo terminar eso.",
+    "llama_busy": "Versorium ya está ejecutando un modelo. Espera a que termine.",
+    "llama_load_failed": "No se pudo cargar ese archivo de modelo. Puede que no sea para escribir.",
+    "llama_cancelled": "Detenido.",
+    "llama_failed": "El modelo local no pudo terminar eso.",
+    "model_too_large": "Ese modelo necesita más memoria de la que tiene esta máquina. Elige uno más pequeño.",
+    "continuity_busy": "Hay una reescritura en marcha. La comprobación de continuidad espera en vez de competir por el modelo.",
+    "continuity_model_too_large": "El modelo elegido para Continuidad necesita más memoria de la que tiene esta máquina.",
+    "hardware_gpu_pending": "iniciando…"
   },
   "languages": {
     "en": "English",
@@ -190,7 +220,8 @@
     "kindCli": "CLI",
     "checkpointNote": "Versorium guarda un punto de control en Git antes de aplicar. Puedes revertirlo.",
     "creative": "Continuar capítulo",
-    "creativeSoon": "El modo creativo llega en la v1.1."
+    "creativeSoon": "El modo creativo llega en la v1.1.",
+    "configuredSuffix": "(configurado)"
   },
   "agents": {
     "title": "Agentes",
@@ -291,7 +322,20 @@
       "tooBig": "Más grande de lo que esta máquina aguanta con holgura. Aun así puedes descargarlo.",
       "corrupt": "El archivo en disco no coincide con su checksum. Bórralo y descárgalo otra vez.",
       "license": "Licencia",
-      "empty": "El catálogo todavía no tiene modelos para esta pestaña."
+      "empty": "El catálogo todavía no tiene modelos para esta pestaña.",
+      "ladderIntro": "Todos hacen el mismo trabajo: reescribir, chat y continuidad. Cambian en calidad, velocidad y memoria. Elige el mayor que tu máquina aguante.",
+      "uncensoredWhy": "Sin filtro de seguridad, para ficción que un modelo filtrado se niega a ayudar a escribir.",
+      "purpose": {
+        "writing": "Reescribe un pasaje, habla del manuscrito, revisa la continuidad.",
+        "embeddings": "No escribe. Convierte tus capítulos en vectores para que la búsqueda encuentre sentido, no solo palabras iguales.",
+        "dictation": "Convierte la voz en texto."
+      },
+      "tierNote": {
+        "low": "El más ligero. Un borrador rápido en una máquina modesta.",
+        "mid": "El punto dulce en un portátil normal.",
+        "midPlus": "Prosa notablemente mejor, y ya pesa.",
+        "high": "El mejor de aquí, y pide bastante memoria."
+      }
     },
     "speeds": {
       "fast": "Rápido",
@@ -347,6 +391,13 @@
       "embeddingsHint": "Indexar el manuscrito para que la búsqueda entienda el sentido.",
       "dictation": "Dictado",
       "dictationHint": "Convertir la voz en texto."
+    },
+    "engine": {
+      "title": "Motor",
+      "warming": "iniciando… (compilando shaders de GPU, una vez por máquina)",
+      "failed": "llama.cpp no pudo iniciarse en esta máquina.",
+      "cpuOnly": "CPU",
+      "noGpuBuild": "· esta versión no trae backend de GPU, así que la velocidad es la de CPU"
     }
   },
   "manuscript": {
@@ -403,7 +454,7 @@
     "title": "Actualizaciones",
     "intro": "Versorium consulta sus propias versiones. No se envía nada de tu manuscrito.",
     "currentVersion": "Versión instalada",
-    "signedOut": "Inicia sesión en Git → Acceso para actualizaciones para poder buscarlas. Sin eso Versorium no consulta nada.",
+    "signedOut": "Inicia sesión en Ajustes → Aplicación para poder buscar actualizaciones. Sin eso Versorium no consulta nada.",
     "checkNow": "Buscar ahora",
     "checking": "Buscando…",
     "upToDate": "Esta es la versión más reciente.",
@@ -450,7 +501,7 @@
     "machineHint": "Aquí no se descarga nada. Los modelos se eligen en Ajustes, cuando los quieras.",
     "agentsHint": "Versorium usa las IAs que ya tienes. Cada una conserva su propia sesión: aquí no se guarda ninguna clave.",
     "agentsNone": "No encontramos ninguna herramienta de agente. Versorium funciona sin ellas; puedes añadir una después.",
-    "projectHint": "Una novela es una carpeta normal en tu disco, versionada con git desde el primer guardado.",
+    "projectHint": "Una novela es una carpeta normal en tu disco, con su propio historial desde el primer guardado.",
     "projectCreated": "Creada. Tu novela está en disco y bajo control de versiones.",
     "templateHint": "Una estructura solo siembra títulos de capítulo. Versorium nunca escribe prosa que no pediste.",
     "templateChapters": "{count} capítulos",

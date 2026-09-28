@@ -44,6 +44,10 @@ test("rewrite a selection: checkpoint, ops author=ai, editor updated", async ({ 
   await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
   const dialog = page.getByRole("dialog", { name: "Rewrite" });
   await expect(dialog).toBeVisible();
+  // With no slot configured the dialog opens on the local daemon, so a CLI
+  // harness has to be asked for: the passage only leaves the machine on a
+  // deliberate choice.
+  await dialog.getByLabel("Agent").selectOption({ label: "Claude Code" });
   // Privacy line (spec §2.3): the passage leaves through the CLI login.
   await expect(dialog.getByText("This call goes to Claude Code.")).toBeVisible();
   await expect(dialog.getByText("CLI", { exact: true })).toBeVisible();
@@ -75,11 +79,11 @@ test("ollama is labelled local and a failing harness keeps the dialog open", asy
   await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
   const dialog = page.getByRole("dialog", { name: "Rewrite" });
 
-  await dialog.getByLabel("Agent").selectOption("ollama");
+  // The daemon's model is named, not just "Ollama": the model is what runs.
   await expect(dialog.getByRole("option", { name: "Ollama · qwen3.8:latest" })).toBeAttached();
   await expect(dialog.getByText("Local", { exact: true })).toBeVisible();
 
-  await dialog.getByLabel("Agent").selectOption("codex");
+  await dialog.getByLabel("Agent").selectOption({ label: "Codex" });
   await dialog.getByRole("button", { name: "Rewrite", exact: true }).click();
   await expect(dialog.getByRole("alert")).toHaveText("The agent did not answer.");
   await expect(dialog.getByRole("button", { name: "Apply" })).toBeDisabled();
@@ -98,8 +102,10 @@ test("rewrite without a selection explains itself", async ({ page }) => {
 test("settings: agents cards and censorship toggle persist", async ({ page }) => {
   await page.goto("/?mock=tauri");
   await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Assistants" }).click();
   // Scoped to the Agents landmark: the MCP panel lists the same client names.
-  const agents = page.getByRole("dialog", { name: "Settings" }).getByRole("region", { name: "Agents" });
+  const agents = settings.getByRole("region", { name: "Agents" });
 
   await expect(agents.getByText("Claude Code")).toBeVisible();
   await expect(agents.getByText("Connected", { exact: true })).toHaveCount(4);
@@ -108,9 +114,9 @@ test("settings: agents cards and censorship toggle persist", async ({ page }) =>
   await agents.getByRole("button", { name: "Re-check" }).click();
   await expect(agents.getByText("OpenCode")).toBeVisible();
 
-  const censorship = page
-    .getByRole("dialog", { name: "Settings" })
-    .getByRole("checkbox", { name: "Censorship" });
+  // Censorship gates which models the catalogue shows, so it moved next to them.
+  await settings.getByRole("button", { name: "Local AI" }).click();
+  const censorship = settings.getByRole("checkbox", { name: "Censorship" });
   await expect(censorship).not.toBeChecked();
   await censorship.check();
   await expect.poll(async () => (await mockState(page)).censorship).toBe(true);
@@ -118,11 +124,109 @@ test("settings: agents cards and censorship toggle persist", async ({ page }) =>
 
 test("the whole M2 surface is translated", async ({ page }) => {
   await createProject(page, "Idioma");
-  await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
   const header = page.getByRole("banner");
   await expect(header.getByRole("button", { name: "Reescribir" })).toBeVisible();
   await page.getByRole("button", { name: "Ajustes" }).click();
-  const settings = page.getByRole("dialog", { name: "Ajustes" });
+  const settings = page.getByRole("region", { name: "Ajustes" });
+  await settings.getByRole("button", { name: "Asistentes" }).click();
   await expect(settings.getByRole("region", { name: "Agentes" }).getByText("Conectado", { exact: true }).first()).toBeVisible();
+  await settings.getByRole("button", { name: "IA local" }).click();
   await expect(settings.getByRole("checkbox", { name: "Censura" })).toBeVisible();
+});
+
+test("the rewrite names the model, and downloaded weights say they have no engine", async ({
+  page,
+}) => {
+  await createProject(page, "Which Model");
+  await typeAndSelectLine(page, "El faro seguía encendido.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const dialog = page.getByRole("dialog", { name: "Rewrite" });
+
+  // The local daemon is the default because it is the only choice that keeps
+  // the passage on this machine and can actually answer.
+  await expect(dialog.getByText("This call goes to Ollama · qwen3.8:latest.")).toBeVisible();
+  await dialog.getByRole("button", { name: "Rewrite", exact: true }).click();
+  // Attribution is the model, not the family: "ollama" alone never said which.
+  await expect(dialog.getByRole("region", { name: "Preview" })).toContainText(
+    "+ El faro seguía encendido. — rewritten by qwen3.8:latest",
+  );
+  await dialog.getByRole("button", { name: "Apply" }).click();
+  await expect(dialog).toBeHidden();
+
+  const state = await mockState(page);
+  expect(state.commits[0]).toBe("checkpoint: before ai rewrite (qwen3.8:latest)");
+  expect(state.ops.some((op) => op.author === "ai:qwen3.8:latest")).toBe(true);
+
+  // A downloaded GGUF now runs in-process instead of reporting that nothing can
+  // load it. This assertion was the inverse until the engine shipped.
+  await typeAndSelectLine(page, "Otra noche mas.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const again = page.getByRole("dialog", { name: "Rewrite" });
+  await again.getByLabel("Agent").selectOption({ label: "Gemma 3 1B" });
+  await again.getByRole("button", { name: "Rewrite", exact: true }).click();
+  await expect(again.getByRole("region", { name: "Preview" })).toContainText(
+    "rewritten by gemma3-1b-q4km",
+  );
+  await expect(again.getByRole("alert")).toHaveCount(0);
+});
+
+test("a model too large for the machine is refused before it loads", async ({ page }) => {
+  await createProject(page, "Demasiado grande");
+  // Dolphin 24B does not fit the mocked 36 GB machine with the spec's margin.
+  await page.evaluate(() => {
+    const m = window.__VERSORIUM_MOCK__.models.find((x) => x.id === "dolphin-24b-q4km");
+    if (m) m.state = "ready";
+  });
+  await typeAndSelectLine(page, "Una linea.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const dialog = page.getByRole("dialog", { name: "Rewrite" });
+  await dialog.getByLabel("Agent").selectOption({ label: "Dolphin 24B" });
+  await dialog.getByRole("button", { name: "Rewrite", exact: true }).click();
+  // Refusing beats swapping: a model that does not fit does not fail, it makes
+  // the machine unusable until the OS kills it.
+  await expect(dialog.getByRole("alert")).toContainText("more memory than this machine has");
+  await expect(dialog.getByRole("button", { name: "Apply" })).toBeDisabled();
+});
+
+test("the engine says it is starting, then names the device it will use", async ({ page }) => {
+  await page.goto("/?mock=tauri");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Local AI" }).click();
+  const localAi = settings.getByRole("region", { name: "Local AI" });
+
+  // Spec §6.2 asks for the backend on Ready. Starting is a visible state
+  // because the first init compiles GPU shaders for about fifteen seconds.
+  await expect(localAi.getByText(/compiling GPU shaders/)).toBeVisible();
+  await expect(localAi.getByText("Metal (Apple M4 Max)")).toBeVisible();
+});
+
+test("the configured Rewrite slot is what the dialog opens on", async ({ page }) => {
+  await createProject(page, "Configured Slot");
+  // Setting the slot is covered by the M4 spec; here it is only a precondition.
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.rewrite = { kind: "cli", id: "claude" };
+  });
+
+  await typeAndSelectLine(page, "Nadie contestó.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const dialog = page.getByRole("dialog", { name: "Rewrite" });
+  // The configured slot wins over the local default, and says it is the one
+  // chosen in Settings rather than leaving the writer to guess.
+  await expect(dialog.getByText("This call goes to Claude Code.")).toBeVisible();
+  await expect(
+    dialog.getByRole("option", { name: "Claude Code (configured)" }),
+  ).toBeAttached();
+
+  // A slot naming something this machine cannot run falls back rather than
+  // failing: opencode is "missing" in the mock.
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.rewrite = { kind: "cli", id: "opencode" };
+  });
+  await dialog.getByRole("button", { name: "Discard" }).click();
+  await typeAndSelectLine(page, "Nadie contestó.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const again = page.getByRole("dialog", { name: "Rewrite" });
+  await expect(again.getByText("This call goes to Ollama · qwen3.8:latest.")).toBeVisible();
 });

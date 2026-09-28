@@ -15,7 +15,7 @@
   import MarkdownEditor from "$lib/editor/MarkdownEditor.svelte";
   import NewProjectDialog from "$lib/binder/NewProjectDialog.svelte";
   import NewChapterDialog from "$lib/binder/NewChapterDialog.svelte";
-  import SettingsModal from "$lib/settings/SettingsModal.svelte";
+  import SettingsPage from "$lib/settings/SettingsPage.svelte";
   import RewriteDialog from "$lib/components/RewriteDialog.svelte";
   import ManuscriptDialog from "$lib/components/ManuscriptDialog.svelte";
   import UpdateDialog from "$lib/components/UpdateDialog.svelte";
@@ -77,7 +77,17 @@
     if (!path || store.loading) return;
     try {
       await store.flushAll();
-      await api.gitCommit(path, t("git.checkpoint"));
+      await api.gitCommit(
+        path,
+        t("git.snapshotOf", {
+          when: new Date().toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        }),
+      );
       await refreshGit();
     } catch (e) { store.error = store.codeMessagePublic(e); }
   }
@@ -123,19 +133,25 @@
     // The way out of focus mode. The chrome also returns on hover, but a writer
     // who cannot find their way back out will force-quit, so Escape is the
     // guaranteed exit — unless a dialog is open, which owns Escape itself.
+    // Restore has no bar button of its own beyond the status bar, so it needs a
+    // key: same modifier family as Rewrite, since both act on the selection.
+    if ((event.metaKey || event.ctrlKey) && event.altKey && event.key.toLowerCase() === "r") {
+      event.preventDefault();
+      doRestore();
+    }
     if (event.key === "Escape" && focusMode && !document.querySelector("dialog[open]")) {
       event.preventDefault();
       toggleFocus();
     }
   }
 
-  function doRollbackWord(): void {
-    if (!editorRef?.rollbackWord()) store.error = t("git.nothingToRollback");
+  function doRestore(): void {
+    if (!editorRef) return;
+    const sel = editorRef.getSelection();
+    const done = sel ? editorRef.rollbackSelection() : editorRef.rollbackWord();
+    if (!done) store.error = t("git.nothingToRollback");
   }
 
-  function doRollbackSelection(): void {
-    if (!editorRef?.rollbackSelection()) store.error = t("git.nothingToRollback");
-  }
 
   async function refreshGit(): Promise<void> {
     if (!store.project || !isTauri()) return;
@@ -209,22 +225,14 @@
   <div class="v-chrome flex-shrink-0">
     <TopBar
       onOpenSettings={() => (showSettings = true)}
-      onToggleGit={() => (showGit = !showGit)}
-      onCommit={doCommit}
       onRewrite={doRewrite}
       onOpenManuscript={() => (showManuscript = true)}
-      onRollbackWord={doRollbackWord}
-      onRollbackSelection={doRollbackSelection}
-      onToggleFocus={toggleFocus}
-      onToggleTypewriter={toggleTypewriter}
-      onToggleView={() => (corkboard = !corkboard)}
-      gitDirty={gitDirty}
-      focus={focusMode}
-      typewriter={typewriter}
-      corkboard={corkboard}
     />
   </div>
 
+  {#if showSettings}
+    <SettingsPage onClose={() => (showSettings = false)} />
+  {:else}
   <div class="flex min-h-0 flex-1">
     <div class="v-chrome flex-shrink-0">
       <ChapterList onRequestNewChapter={() => (showNewChapter = true)} />
@@ -256,13 +264,25 @@
       {/if}
     </main>
   </div>
+  {/if}
 
   {#if showGit}
     <GitPanel open={showGit} onClose={() => (showGit = false)} />
   {/if}
 
   <div class="v-chrome flex-shrink-0">
-    <StatusBar />
+    <StatusBar
+      onCommit={doCommit}
+      onToggleGit={() => (showGit = !showGit)}
+      onRestore={doRestore}
+      onToggleFocus={toggleFocus}
+      onToggleTypewriter={toggleTypewriter}
+      onToggleView={() => (corkboard = !corkboard)}
+      gitDirty={gitDirty}
+      focus={focusMode}
+      typewriter={typewriter}
+      corkboard={corkboard}
+    />
   </div>
 
   {#if store.error}
@@ -280,9 +300,6 @@
     <Onboarding onClose={() => (onboarding.open = false)} />
   {/if}
 
-  {#if showSettings}
-    <SettingsModal onClose={() => (showSettings = false)} />
-  {/if}
   {#if showNewProject}
     <NewProjectDialog onClose={() => (showNewProject = false)} />
   {/if}

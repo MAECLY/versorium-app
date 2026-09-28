@@ -9,6 +9,7 @@ mod crash;
 mod fonts;
 mod formats;
 mod git;
+mod llama;
 mod ops;
 mod mcp;
 mod models;
@@ -45,6 +46,12 @@ pub fn run() {
                     window.open_devtools();
                 }
             }
+            // Start llama.cpp now, not on the first rewrite. Initializing it
+            // compiles the embedded Metal shaders, measured at ~15 s on an M4
+            // Max, so paying it here makes it invisible unless somebody asks
+            // for a rewrite in the first few seconds of a session.
+            llama::warm_up();
+
             // The window starts hidden (tauri.conf.json) and the frontend shows it
             // once mounted: no white flash, and WebKit starts painting from a
             // visible state. If the frontend never reports, show it anyway.
@@ -104,6 +111,10 @@ pub fn run() {
             commands::models::models_cancel,
             commands::models::models_delete,
             commands::models::models_progress,
+            commands::llama::llama_backend,
+            commands::llama::llama_progress,
+            commands::llama::llama_cancel,
+            commands::llama::llama_unload,
             commands::models::models_set_slot,
             commands::models::ollama_pull,
             commands::models::ollama_remove,

@@ -8,7 +8,8 @@ import { expect, test, type Page } from "@playwright/test";
 async function openMcpPanel(page: Page) {
   await page.goto("/?mock=tauri");
   await page.getByRole("button", { name: "Settings" }).click();
-  const settings = page.getByRole("dialog", { name: "Settings" });
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Assistants" }).click();
   return { settings, mcp: settings.getByRole("region", { name: "MCP" }) };
 }
 
@@ -85,9 +86,10 @@ test("the tool log shows what agents did and promises to keep prose out", async 
 
 test("the MCP panel is translated", async ({ page }) => {
   await page.goto("/?mock=tauri");
-  await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
   await page.getByRole("button", { name: "Ajustes" }).click();
-  const settings = page.getByRole("dialog", { name: "Ajustes" });
+  const settings = page.getByRole("region", { name: "Ajustes" });
+  await settings.getByRole("button", { name: "Asistentes" }).click();
   await expect(settings.getByRole("button", { name: "Conectar" }).first()).toBeVisible();
   await expect(settings.getByRole("checkbox", { name: "Permitir escritura" }).first()).toBeVisible();
 });
