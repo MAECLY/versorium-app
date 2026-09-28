@@ -44,10 +44,6 @@ pub fn models_dir() -> Result<PathBuf, String> {
     crate::paths::app_data_dir().map(|dir| dir.join("models"))
 }
 
-pub fn model_path(entry: &ModelEntry) -> Result<PathBuf, String> {
-    models_dir().map(|dir| model_path_in(&dir, &entry.id))
-}
-
 pub fn model_path_in(dir: &Path, id: &str) -> PathBuf {
     dir.join(format!("{id}.gguf"))
 }
@@ -65,13 +61,6 @@ pub fn state_of_in(dir: &Path, entry: &ModelEntry) -> ModelState {
     }
     match fs::metadata(part_path_in(dir, &entry.id)) {
         Ok(meta) => ModelState::Partial { received: meta.len() },
-        Err(_) => ModelState::Missing,
-    }
-}
-
-pub fn state_of(entry: &ModelEntry) -> ModelState {
-    match models_dir() {
-        Ok(dir) => state_of_in(&dir, entry),
         Err(_) => ModelState::Missing,
     }
 }
@@ -100,14 +89,6 @@ pub fn verify_file(path: &Path, expected: &str) -> Result<(), String> {
     }
 }
 
-pub fn verify_in(dir: &Path, entry: &ModelEntry) -> Result<(), String> {
-    verify_file(&model_path_in(dir, &entry.id), &entry.sha256)
-}
-
-pub fn verify(entry: &ModelEntry) -> Result<(), String> {
-    verify_in(&models_dir()?, entry)
-}
-
 /// Removes the model and any partial download. Missing is success: the caller
 /// asked for it to be gone.
 pub fn delete_in(dir: &Path, id: &str) -> Result<(), String> {
@@ -119,10 +100,6 @@ pub fn delete_in(dir: &Path, id: &str) -> Result<(), String> {
         }
     }
     Ok(())
-}
-
-pub fn delete(id: &str) -> Result<(), String> {
-    delete_in(&models_dir()?, id)
 }
 
 pub fn disk_usage_in(dir: &Path) -> Result<u64, String> {
@@ -140,10 +117,6 @@ pub fn disk_usage_in(dir: &Path) -> Result<u64, String> {
         }
     }
     Ok(total)
-}
-
-pub fn disk_usage() -> Result<u64, String> {
-    disk_usage_in(&models_dir()?)
 }
 
 #[cfg(test)]
@@ -195,10 +168,11 @@ mod tests {
         let d = dir();
         let model = entry("qwen", "mid", 3.5);
         fs::write(model_path_in(d.path(), "qwen"), HELLO).unwrap();
-        assert!(verify_in(d.path(), &model).is_ok());
+        let weights = model_path_in(d.path(), "qwen");
+        assert!(verify_file(&weights, &model.sha256).is_ok());
 
-        fs::write(model_path_in(d.path(), "qwen"), b"tampered").unwrap();
-        assert_eq!(verify_in(d.path(), &model).unwrap_err(), "sha_mismatch");
+        fs::write(&weights, b"tampered").unwrap();
+        assert_eq!(verify_file(&weights, &model.sha256).unwrap_err(), "sha_mismatch");
     }
 
     #[test]
