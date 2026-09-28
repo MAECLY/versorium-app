@@ -187,7 +187,10 @@
     "continuity_no_model": "No hay modelo asignado a Continuidad. Elige uno en IA local.",
     "continuity_daemon_offline": "El daemon de Ollama no está corriendo, así que la revisión no pudo empezar.",
     "continuity_failed": "La revisión de continuidad no pudo terminar.",
-    "no_runtime": "Ese modelo está descargado, pero Versorium aún no tiene motor para ejecutarlo. Elige Ollama o un agente CLI."
+    "no_runtime": "Ese modelo está descargado, pero Versorium aún no tiene motor para ejecutarlo. Elige Ollama o un agente CLI.",
+    "cancelled": "Cancelado.",
+    "ollama_offline": "Ollama no responde. Inícialo e inténtalo de nuevo.",
+    "ollama_failed": "Ollama no pudo terminar eso."
   },
   "languages": {
     "en": "English",
@@ -311,7 +314,20 @@
       "tooBig": "Más grande de lo que esta máquina aguanta con holgura. Aun así puedes descargarlo.",
       "corrupt": "El archivo en disco no coincide con su checksum. Bórralo y descárgalo otra vez.",
       "license": "Licencia",
-      "empty": "El catálogo todavía no tiene modelos para esta pestaña."
+      "empty": "El catálogo todavía no tiene modelos para esta pestaña.",
+      "ladderIntro": "Todos hacen el mismo trabajo: reescribir, chat y continuidad. Cambian en calidad, velocidad y memoria. Elige el mayor que tu máquina aguante.",
+      "uncensoredWhy": "Sin filtro de seguridad, para ficción que un modelo filtrado se niega a ayudar a escribir.",
+      "purpose": {
+        "writing": "Reescribe un pasaje, habla del manuscrito, revisa la continuidad.",
+        "embeddings": "No escribe. Convierte tus capítulos en vectores para que la búsqueda encuentre sentido, no solo palabras iguales.",
+        "dictation": "Convierte la voz en texto."
+      },
+      "tierNote": {
+        "low": "El más ligero. Un borrador rápido en una máquina modesta.",
+        "mid": "El punto dulce en un portátil normal.",
+        "midPlus": "Prosa notablemente mejor, y ya pesa.",
+        "high": "El mejor de aquí, y pide bastante memoria."
+      }
     },
     "speeds": {
       "fast": "Rápido",

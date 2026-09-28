@@ -179,6 +179,10 @@
         </div>
       {/if}
 
+      <p class="v-muted m-0 mb-2" style="font-size: 12px; line-height: 1.6;">
+        {t("localAi.card.ladderIntro")}
+      </p>
+
       {#if writing.length === 0}
         <p class="v-muted m-0" style="font-size: 13px;">{t("localAi.card.empty")}</p>
       {:else}
@@ -221,8 +225,12 @@
                       </span>
                     {/if}
                   </div>
+                  <p class="m-0 mt-1" style="font-size: 12px;">
+                    {t(`localAi.card.purpose.${m.task}`)}
+                  </p>
                   <p class="v-muted m-0 mt-1" style="font-size: 12px;">
-                    {t("localAi.card.oneLiner", {
+                    {t(`localAi.card.tierNote.${m.tier}`)}
+                    · {t("localAi.card.oneLiner", {
                       speed: t(`localAi.speeds.${m.speed}`),
                       quality: t(`localAi.qualities.${m.quality}`),
                     })}
@@ -239,6 +247,9 @@
                   <p class="v-muted m-0 mt-1" style="font-size: 11px;">
                     {t("localAi.card.license")}: {m.license} · {m.repo}
                   </p>
+                  {#if m.uncensored}
+                    <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("localAi.card.uncensoredWhy")}</p>
+                  {/if}
                   {#if !m.fits}
                     <p class="m-0 mt-1" style="font-size: 12px; color: var(--warn);">{t("localAi.card.tooBig")}</p>
                   {/if}
