@@ -45,5 +45,18 @@ encoding_rs = "0.8.35"
 # backend is zbus, pure Rust.
 keyring = "4"
 
+[features]
+# GPU offload on Windows and Linux. Off by default and switched on only in the
+# release workflow for those two targets, because it needs the Vulkan SDK at
+# build time and adds roughly 42 MB to the artifact.
+#
+# macOS must never get this: Metal is already on there via llama.cpp's own APPLE
+# CMake default, and Vulkan would be a second backend nobody asked for.
+#
+# One Vulkan backend covers NVIDIA, AMD and Intel. CUDA is deliberately not
+# offered: it needs the full toolkit on every runner and ships ~390 MB of
+# redistributables, for hardware Vulkan already reaches.
+vulkan = ["llama-cpp-2/vulkan"]
+
 [dev-dependencies]
 tempfile = "3"

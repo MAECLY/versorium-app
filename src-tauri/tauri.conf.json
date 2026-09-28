@@ -39,7 +39,14 @@
     "createUpdaterArtifacts": true,
     "resources": [
       "../THIRD-PARTY-NOTICES.md"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libvulkan1"
+        ]
+      }
+    }
   },
   "plugins": {
     "updater": {

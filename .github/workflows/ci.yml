@@ -92,6 +92,54 @@ jobs:
       - name: Tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
+  # The Vulkan build is slow enough (shader compilation) that running it on every
+  # pull request would make CI something people wait on rather than trust. But
+  # leaving it unbuilt until a tag is exactly how the GGML_CPU_ALL_VARIANTS
+  # mistake reached main, so it runs on main and on demand.
+  vulkan:
+    name: GPU build (Vulkan)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            libclang-dev \
+            cmake \
+            patchelf
+
+      # LunarG's repository, not the distro packages: 22.04's Vulkan headers are
+      # too old for ggml's shader build.
+      - name: Install Vulkan SDK
+        run: |
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc > /dev/null
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list \
+            https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
+          sudo apt-get update -y
+          sudo apt-get install -y vulkan-sdk
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: vulkan
+
+      # `check` rather than `build`: the C++ and the shaders still compile, which
+      # is where a break would be, without linking a binary nothing will run.
+      - name: Check with the GPU backend
+        run: cargo check --manifest-path src-tauri/Cargo.toml --features vulkan
+
   e2e:
     name: End to end
     runs-on: ubuntu-22.04
