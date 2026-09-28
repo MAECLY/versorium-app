@@ -86,7 +86,7 @@ test("the tool log shows what agents did and promises to keep prose out", async 
 
 test("the MCP panel is translated", async ({ page }) => {
   await page.goto("/?mock=tauri");
-  await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
   await page.getByRole("button", { name: "Ajustes" }).click();
   const settings = page.getByRole("region", { name: "Ajustes" });
   await settings.getByRole("button", { name: "Asistentes" }).click();

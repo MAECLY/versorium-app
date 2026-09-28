@@ -124,17 +124,15 @@
     "createRepo": "Create a private backup",
     "privateDefault": "Backups are created private.",
     "noToken": "Paste a GitHub personal access token to set up the backup.",
-    "rollbackWord": "Restore the word under the cursor",
-    "rollbackSelection": "Restore the current selection",
-    "rollbackWordShort": "↩ Word",
-    "rollbackSelShort": "↩ Selection",
     "nothingToRollback": "Nothing to roll back here.",
     "tab_advanced": "Advanced",
     "advancedNote": "Versorium keeps your novel's history in Git. These are Git's own controls — you never need them to write.",
     "fileEdited": "edited",
     "fileNew": "new",
     "changedCount": "{count} changed",
-    "snapshotOf": "Snapshot of {when}"
+    "snapshotOf": "Snapshot of {when}",
+    "restore": "↩ Restore",
+    "restoreHint": "Put the selection back as it was, or the word under the cursor when nothing is selected."
   },
   "errors": {
     "generic": "Something went wrong.",

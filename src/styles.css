@@ -219,6 +219,23 @@ button:focus-visible {
 /* A toggle that is on has to look on. Focus mode gets away without this
    because the whole layout changes; the typewriter and corkboard toggles did
    not, so pressing them appeared to do nothing at all. */
+/* A hairline between groups of controls. Without it a destructive action, a
+   view toggle and a file action all look like the same kind of thing. */
+.v-bar-sep {
+  width: 1px;
+  height: 16px;
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+/* Status-bar scale: the bar is 32px, so its buttons cannot use the 48px-bar
+   padding without crowding the text they sit next to. */
+.v-bar-btn {
+  padding: 1px 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
 .v-btn[aria-pressed="true"] {
   background: var(--accent);
   color: var(--accent-contrast);
