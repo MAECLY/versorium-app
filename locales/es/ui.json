@@ -24,8 +24,8 @@
       "final": "final"
     },
     "noProjects": "Aún no hay proyectos.",
-    "corkboard": "Corcho",
-    "corkboardHint": "Mira los capítulos como fichas.",
+    "corkboard": "Fichas",
+    "corkboardHint": "Mira los capítulos como fichas en un tablero.",
     "corkboardLoading": "Leyendo capítulos…",
     "corkboardEmpty": "Todavía sin escribir.",
     "editor": "Editor"
@@ -131,8 +131,8 @@
     "noToken": "Pega un token de acceso personal para crear el remoto de la novela.",
     "rollbackWord": "Restaurar la palabra bajo el cursor",
     "rollbackSelection": "Restaurar la selección actual",
-    "rollbackWordShort": "↩ palabra",
-    "rollbackSelShort": "↩ sel",
+    "rollbackWordShort": "↩ Palabra",
+    "rollbackSelShort": "↩ Selección",
     "nothingToRollback": "No hay nada que restaurar aquí."
   },
   "errors": {
