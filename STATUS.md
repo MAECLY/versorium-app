@@ -1,6 +1,6 @@
 # STATUS
 
-## Current milestone: M4 — Local models, Meetily-style ✅ (DoD green)
+## Current milestone: M5 — Formats ✅ (DoD green)
 
 ## How to run
 
@@ -21,6 +21,15 @@ versorium mcp [--client <id>]   # serve MCP over stdio
 ```
 
 Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?mock=tauri`.
+
+## M5 DoD checklist
+
+- [x] Export **Markdown** (canonical, lossless round trip), **DOCX** in standard manuscript format, **EPUB 3** (passes epubcheck 5.2.1 with zero errors and zero warnings) and **PDF** (base-14 Times-Roman, nothing embedded, chapter per page, running heads)
+- [x] Import **Markdown** (tolerant of setext, CRLF, BOM, no headings, prose before the first heading), **DOCX** (H1 = chapter, across Word / Google Docs / LibreOffice / pandoc spellings), **Scrivener** best-effort (v2 and v3 layouts, binder order, synopsis, trash skipped)
+- [x] **Round trip documented** — `FORMATS.md`, per format and per direction, plus the commands to verify each output
+- [x] Losses are said out loud: an export reports what it could not carry, an import shows its losses **before** writing a project
+
+## M4 DoD checklist (done)
 
 ## M4 DoD checklist
 
@@ -48,13 +57,25 @@ Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?moc
 
 | Check | Result |
 |---|---|
-| `cargo test` | ✅ 165 unit + 4 integration passed |
-| `cargo test -- --ignored live_` | ✅ 3 passed — including a **real 84 MB download from Hugging Face, verified against its published SHA256**, plus Ollama round-trip and a rewrite through Claude Code |
+| `cargo test` | ✅ 247 unit + 4 integration passed |
+| `cargo test -- --ignored live_` | ✅ 6 passed — **epubcheck 5.2.1 reports zero errors and zero warnings**, poppler reads the PDF's prose and running head, pandoc reads the DOCX chapters back, plus the M4 model download and the M2 agent rewrites |
 | `cargo clippy` | ✅ 0 warnings |
 | `pnpm check` | ✅ 0 errors, 0 warnings |
-| `pnpm test:ui` | ✅ 33 passed |
-| `pnpm test:e2e` | ✅ 19 passed (8 new for the model panel) |
-| **Real app** | ✅ Settings → Local AI renders the shipped catalogue: Gemma 4 and Qwen 3.8 cards with licence, repo, quant, context and RAM hint; wizard recommends the tier that fits; 0 B downloaded on open |
+| `pnpm test:ui` | ✅ 44 passed |
+| `pnpm test:e2e` | ✅ 26 passed (7 new for export/import) |
+
+## How the formats were built
+
+Nothing was written from memory. A research pass built a working DOCX, EPUB and
+PDF by hand on this machine, ran epubcheck, pandoc, poppler and QuickLook
+against them, and **ablated each part to find which were genuinely required** —
+that is how we know `word/styles.xml` is not optional (without it pandoc loses
+every heading and the chapter round trip dies) while `docProps/core.xml` is. The
+Rust writers are ports of those verified builders, and the same tools run as
+`#[ignore] live_` tests.
+
+Only two new dependencies: `zip` and `quick-xml`. The PDF needs neither a crate
+nor a font file — Times-Roman is one of the base-14, so nothing is embedded.
 
 ## Catalogue provenance
 
@@ -83,60 +104,61 @@ whichever one the client opened with.
 
 ## Bugs found and fixed on the way
 
-- **The RAM hint never reached the UI.** serde's camelCase renders `ram_hint_gb`
-  as `ramHintGb`, but the catalogue file, the TypeScript types and the spec all
-  spell it `GB`. Every test passed because the E2E mock is written by hand and
-  spelled it correctly — only the real app showed `undefined`. Both structs now
-  pin the wire name and a test asserts every key the frontend reads.
-- **`tier: "embeddings"`** — my own brief was ambiguous: the embedder is a `low`
-  tier model whose `task` is embeddings, not a fifth tier.
-- **Six dead wrappers in the store** — the command layer resolves the models
-  directory once per request and uses the `_in` twins, so the convenience
-  wrappers were never called.
-- **`pnpm tauri dev` could not open the window** on a machine whose corepack
-  pnpm shim is broken. The Tauri hooks now run the local vite binary directly,
-  like the Playwright web server already did.
+- **quick-xml reports an escaped entity as its own event** rather than folding
+  it into the surrounding text. Ignoring it silently deleted every escaped
+  character — a chapter titled `Cap. 2 & "El <norte>"` came back as
+  `Cap. 2  El norte`.
+- **`<w:p/>` is a real empty paragraph**, not a non-event; skipping it shifted
+  every later paragraph index.
+- **The native save picker was never mocked**, so the export E2E waited forever
+  on a dialog that never answered.
+- **A Scrivener `Type=` attribute also appears outside the binder** — in
+  `Collections`, `ProjectTargets` and `PrintSettings` — so the walk has to gate
+  on being inside `<Binder>` rather than matching globally.
 
-## Files / structure (M4 delta)
+## Files / structure (M5 delta)
 
-- Rust `src-tauri/src/models/`: `catalog.rs` (embedded, validated on load),
-  `store.rs` (state from size, streaming hash, delete), `download.rs` (resume,
-  cancel, verify, rename), `hardware.rs` (probe + tier recommendation)
-- `src-tauri/src/commands/models.rs` (10 commands), slots in `settings.rs`,
-  Ollama list/pull/delete in `agents/mod.rs`
-- Frontend: `src/lib/models/state.svelte.ts`, `src/lib/settings/LocalAiSection.svelte`
-- `models/catalog.json` — 8 entries with verified hashes
-- Tests: `tests/e2e/m4-models.spec.ts`, mock extended
+- `src-tauri/src/formats/`: `mod.rs` (the Manuscript shape and scene splitting),
+  `markdown.rs`, `docx.rs`, `epub.rs`, `pdf.rs`, `scrivener.rs`
+- `src-tauri/src/commands/formats.rs` (4 commands), `author` on `ProjectMeta`
+- Frontend: `src/lib/formats/state.svelte.ts`,
+  `src/lib/components/ManuscriptDialog.svelte`, Manuscript button in the TopBar
+- `FORMATS.md` — the round-trip documentation
+- Tests: `tests/e2e/m5-formats.spec.ts`, mock extended with the native pickers
 
-## Architecture decisions (M4)
+## Architecture decisions (M5)
 
-1. **State from file size, never a re-hash** — the panel refreshes often and the
-   weights are gigabytes; the hash is checked once, when a download finishes.
-2. **Cancel keeps the `.part`** — that is what makes the next start a resume.
-   Only a hash failure deletes it, because a corrupt prefix can never converge.
-3. **A slot can never point at a file that is gone** — deleting a model, or
-   removing it from Ollama, releases every task that selected it.
-4. **The wizard recommends, it never forbids** — a model too large for the
-   machine says so and stays downloadable.
-5. **Tests inject their directory rather than setting an env var** — Rust runs
-   tests in parallel threads and a process-global override would race.
+1. **Formats never touch the disk layout.** They take a `Manuscript` and emit
+   bytes, or take bytes and produce chapters, so five formats stop each
+   re-deriving what a chapter or a scene is.
+2. **Losses are i18n codes, not prose** — the same convention the importers use,
+   so what a format could not carry is said in the reader's language.
+3. **Import writes nothing until confirmed.** The preview exists so the writer
+   sees the losses before a project exists, not after.
+4. **An export that would print a blank running head is refused** before a file
+   is created, rather than shipping a manuscript with an empty header.
+5. **The PDF embeds no fonts.** Base-14 Times-Roman means no licensing, no
+   bundle weight, and no font loading — at the cost of anything outside WinAnsi,
+   which is reported.
 
-## Known holes (M4)
+## Known holes (M5)
 
-- **No built-in inference runtime.** A downloaded GGUF is verified and Ready,
-  but nothing loads it yet — llama.cpp embedding is the next step, and the DoD
-  explicitly allowed "stub download + hook". Slots pointing at Ollama do run;
-  slots pointing at a built-in model are recorded but not yet executed, so the
-  rewrite path still goes through the CLI harnesses from M2.
-- Whisper/dictation packs are absent by design — the tab and the shared
-  downloader ship now, the packs land in M4.1 per spec §6.2.
-- Censorship hides uncensored cards but does not yet influence routing.
-- The Recommended badge marks a tier, so both models in the winning tier carry it.
-- Carried over: projects-list word count stale until reload, GitHub tokens
-  plaintext until M6, no HTTP/SSE MCP transport, no network git.
+- **No Scrivener export.** Spec §9 wants a round trip; the DoD asked for import
+  only, and that is what shipped.
+- **No EPUB import.** §9 marks it best-effort; the DoD does not list it.
+- Scene titles do not survive DOCX or PDF (standard manuscript format has no
+  place for them) and characters outside WinAnsi do not survive PDF. Both are
+  reported to the writer and documented in `FORMATS.md`.
+- DOCX heading detection was reasoned against generated fixtures: the research
+  pass was **blocked from reading the real .docx files on this machine** by a
+  PII classifier, so producer variants are handled generously but were not
+  observed in the wild.
+- Carried over: no built-in inference runtime, Whisper packs absent, GitHub
+  tokens plaintext until M6, no HTTP/SSE MCP transport, no network git.
 
-## Next: M5 — Formats
+## Next: M6 — Updater
 
-DoD targets: export Markdown, DOCX (standard manuscript format), EPUB 3 and PDF;
-import Markdown, DOCX (H1 = chapter) and Scrivener best-effort; round-trip
-documented.
+DoD targets: the Tauri updater plugin reading GitHub Releases of
+`maecly/versorium-app`, minisign + SHA256 verification, a Settings → Updates
+login kept separate from the novel GitHub, an Install / Later / Skip dialog, and
+a CI workflow that builds a `vX.Y.Z` tag.
