@@ -1,6 +1,10 @@
 # STATUS
 
-## Current milestone: M7 — Polish ✅ (DoD green) · **all milestones complete**
+## Current milestone: post-v1 — UI/UX pass ⏳ · M0–M7 complete
+
+Work after M7 lives on `feat/m8-inference-runtime`. It is not a milestone with a
+DoD; it is what reading the app with fresh eyes turned up, plus the largest
+known hole (no inference runtime). See "Post-v1 pass" below.
 
 ## How to run
 
@@ -10,12 +14,15 @@
 # does not ship); /opt/homebrew/bin/pnpm works.
 export PATH="$HOME/.nvm/versions/node/v20.19.1/bin:$PATH"
 
-pnpm tauri dev        # dev window (VERSORIUM_DEVTOOLS=1 opens the inspector)
-pnpm check            # svelte-check (0 errors, 0 warnings)
-pnpm test             # cargo test (120 unit + 4 integration)
-pnpm test:ui          # vitest, jsdom (21 tests)
-pnpm test:e2e         # Playwright, system Chrome, mocked IPC (11 specs)
-cargo test --manifest-path src-tauri/Cargo.toml -- --ignored live_   # real CLIs + Ollama
+# There is now a Makefile wrapping all of this: `make help` lists it, and it
+# resolves the two absolute paths this machine needs (pnpm, the real JDK).
+make dev              # dev window (make devtools opens the inspector)
+make verify           # the whole gate: check, test-ui, test, clippy, test-e2e
+make check            # svelte-check (0 errors, 0 warnings)
+make test             # cargo test
+make test-ui          # vitest, jsdom
+make test-e2e         # Playwright, system Chrome, mocked IPC
+make test-live        # the #[ignore] live_ tests (fetches epubcheck first)
 
 versorium mcp [--client <id>]   # serve MCP over stdio
 ```
@@ -81,7 +88,7 @@ Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?moc
 | Check | Result |
 |---|---|
 | `cargo test` | ✅ 305 unit + 4 integration passed |
-| `cargo clippy` | ✅ 0 warnings |
+| `cargo clippy` | ✅ 0 warnings **on shipped code**. `--all-targets` reports 6, all in test code, all predating this branch — the earlier "0 warnings" was measured without that flag and overstated the result |
 | `pnpm check` | ✅ 0 errors, 0 warnings |
 | `pnpm test:ui` | ✅ 82 passed |
 | `pnpm test:e2e` | ✅ 39 passed (6 new for polish) |
@@ -220,6 +227,88 @@ whichever one the client opened with.
 - Scene titles do not survive DOCX or PDF; characters outside WinAnsi do not
   survive PDF. Both reported to the writer and documented in `FORMATS.md`.
 - Creative Mode remains a disabled control, as the spec requires for v1.
+
+## Post-v1 pass (branch `feat/m8-inference-runtime`)
+
+Not a milestone. This is what came out of reading the app as a reader rather
+than as its author, plus the corrections that reading forced.
+
+### Defects found, all in code that was already merged and green
+
+- **The rewrite slot was never consulted.** `agents::rewrite` dispatched on a
+  bare provider string, so an `ollama` slot ran `tags.models[0]` — whatever the
+  daemon happened to list first — instead of the model chosen in Settings. A
+  `builtin` slot had no branch at all and reported "that agent is not
+  installed", which described the wrong problem. Dispatch is now on the
+  `{kind, id}` assignment.
+- **The typewriter toggle did nothing**, for two independent reasons. It was a
+  no-op on any chapter shorter than two thirds of a screen, because
+  `desiredScrollTop` clamps at zero and only the bottom was padded. And no
+  toggle in the chrome had a visible pressed state — `aria-pressed` was set, so
+  a screen reader knew, but nothing was styled for it.
+- **The history panel had no end-to-end coverage whatsoever.** Commits were only
+  ever asserted as a side effect of an AI rewrite.
+- **Three error codes had no locale key** in either language — `cancelled`,
+  `ollama_offline`, `ollama_failed` — so each reached the writer as "Something
+  went wrong."
+- **A comment in `catalog.rs` still called the catalogue a version-0 stub**,
+  which stopped being true when the eight-entry ladder landed. A subagent read
+  the comment, believed it over the data, and reported the catalogue as empty.
+- Saving a snapshot without a description stored the literal word
+  `checkpoint`, so a list of them was indistinguishable — which defeats the one
+  reason the list exists.
+- The view toggle named its destination ("Editor" while in the corkboard), which
+  contradicted the pressed state once that became visible.
+
+### Redesign
+
+- **Settings is a page, not a modal.** Nine unrelated concerns had accumulated
+  in one scrolling dialog in the order the milestones built them. Six groups
+  now, each answering one question and saying so in a line under its heading.
+  Two placements changed on purpose: the "Git" section held two credentials for
+  unrelated jobs (authorizing update downloads vs backing up the novel) and they
+  moved beside the thing each one serves; continuity and the content filter were
+  loose in the middle of the modal and moved to the models they depend on.
+- **Git's vocabulary is gone from the reader's path.** commit → snapshot, repo →
+  backup, commit message → what changed. `snapshot`/`instantánea` was already
+  this codebase's word in `ai.checkpointNote`, so it was spread rather than
+  invented. Git's three-way modified/staged/untracked split collapsed to one
+  list, because Versorium commits the whole project at once and the distinction
+  never reached a decision the writer makes. Branch, remote and the short hash
+  live behind an Advanced tab that opens by saying it is Git underneath.
+- **The bars are split by what each control is for.** Thirteen controls had
+  collected in the header, all rendered identically. The header now holds what
+  acts on the manuscript; document state and view modes moved to the status bar,
+  which is where VS Code, Scrivener and iA Writer put them, and groups are
+  divided by a hairline. The two range-restore buttons became one whose scope is
+  implied by the selection, with `Cmd/Ctrl+Alt+R`.
+- **The model cards say what a model is for.** They showed `{speed} • {quality}`
+  and nothing else. The load-bearing fact is stated once above the ladder: the
+  seven writing models do the same three jobs and differ only in size, so the
+  choice is which one the machine can hold. nomic-embed now says it does not
+  write.
+
+### Deliberate non-changes
+
+- Almost no control gets an icon. Focus, Typewriter and Corkboard have no
+  universal glyph, and the original complaint was labels that could not be
+  understood — an icon there worsens exactly that. Only glyphs already carrying
+  meaning stay (the `↩` prefix, the dirty dot).
+- Focus and Typewriter are not added to Settings → Writing. They are modes, not
+  preferences, and they now live in the status bar with visible state; a second
+  copy in Settings would be the same control in two places.
+
+### Still open on this branch
+
+- The inference runtime itself. The approach is decided (llama.cpp in-process
+  via `llama-cpp-2`) and the constraints are measured, but it is not built.
+- A backup destination that is not GitHub — iCloud Drive, OneDrive, or a chosen
+  folder — with GitHub demoted to an advanced option. Note that a live `.git`
+  must not sit inside a synced folder: these services sync per file without
+  git's ordering or atomicity and evict files to placeholders, which corrupts
+  repositories. `git2` 0.19 cannot write a bundle (libgit2 has no bundle
+  support), so the artifact should be a single timestamped archive — the `zip`
+  crate is already a dependency for DOCX.
 
 ## Next
 
