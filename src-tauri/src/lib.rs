@@ -100,6 +100,10 @@ pub fn run() {
             commands::models::ollama_remove,
             commands::models::studio_test,
             commands::models::studio_save,
+            commands::formats::export_manuscript,
+            commands::formats::import_preview,
+            commands::formats::import_apply,
+            commands::formats::set_author,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Versorium");
