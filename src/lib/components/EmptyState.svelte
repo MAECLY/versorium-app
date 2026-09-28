@@ -3,7 +3,10 @@
   import { t } from "$lib/i18n";
   import { isTauri } from "$lib/tauri";
 
-  let { onRequestNew }: { onRequestNew: () => void } = $props();
+  let { onRequestNew, onRequestSetup }: {
+    onRequestNew: () => void;
+    onRequestSetup?: () => void;
+  } = $props();
 </script>
 
 <div
@@ -21,5 +24,15 @@
   </p>
   {#if isTauri()}
     <button class="v-btn v-btn-primary" onclick={onRequestNew}>{t("empty.cta")}</button>
+    {#if onRequestSetup}
+      <!-- A quiet way back for anyone who skipped the first run. -->
+      <button
+        class="v-btn"
+        style="background: transparent; border-color: transparent; font-size: 12px;"
+        onclick={onRequestSetup}
+      >
+        {t("empty.setup")}
+      </button>
+    {/if}
   {/if}
 </div>
