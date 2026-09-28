@@ -48,6 +48,8 @@ interface ProjectState {
   chapters: Chapter[];
   commits: Commit[];
   dirty: Set<string>;
+  /** Paths that have been in at least one snapshot; the rest read as new. */
+  tracked: Set<string>;
   ops: Record<string, Op[]>;
   seq: Record<string, number>;
   branches: string[];
@@ -282,6 +284,7 @@ function commit(p: ProjectState, message: string): string {
   if (p.dirty.size === 0 && p.commits.length > 0) throw "nothing_to_commit";
   const id = sha();
   p.commits.unshift({ sha: id, short: id.slice(0, 7), author: "Versorium", time: now(), message });
+  for (const f of p.dirty) p.tracked.add(f);
   p.dirty.clear();
   return id;
 }
@@ -334,6 +337,7 @@ const commands: Record<string, (args: Args) => unknown> = {
       chapters: [newChapter(1, clean)],
       commits: [],
       dirty: new Set(),
+      tracked: new Set(),
       ops: {},
       seq: {},
       branches: ["main"],
@@ -384,7 +388,15 @@ const commands: Record<string, (args: Args) => unknown> = {
 
   git_status: ({ path }) => {
     const p = project(path);
-    return { branch: "main", modified: [...p.dirty], staged: [], untracked: [], ahead: 0, behind: 0 };
+    const dirty = [...p.dirty];
+    return {
+      branch: "main",
+      modified: dirty.filter((f) => p.tracked.has(f)),
+      staged: [],
+      untracked: dirty.filter((f) => !p.tracked.has(f)),
+      ahead: 0,
+      behind: 0,
+    };
   },
   git_log: ({ path, limit }) => project(path).commits.slice(0, Number(limit ?? 50)),
   git_diff: ({ path }) => [...project(path).dirty].map((f) => `--- a/${f}\n+++ b/${f}\n`).join(""),
