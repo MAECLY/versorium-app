@@ -187,7 +187,10 @@
     "continuity_no_model": "No model is selected for Continuity. Pick one under Local AI.",
     "continuity_daemon_offline": "The Ollama daemon is not running, so the check could not start.",
     "continuity_failed": "The continuity check could not finish.",
-    "no_runtime": "That model is downloaded, but Versorium has no engine to run it yet. Pick Ollama or a CLI agent."
+    "no_runtime": "That model is downloaded, but Versorium has no engine to run it yet. Pick Ollama or a CLI agent.",
+    "cancelled": "Cancelled.",
+    "ollama_offline": "Ollama is not answering. Start it and try again.",
+    "ollama_failed": "Ollama could not finish that."
   },
   "languages": {
     "en": "English",
@@ -311,7 +314,20 @@
       "tooBig": "Larger than this machine can hold comfortably. You can still download it.",
       "corrupt": "The file on disk does not match its checksum. Delete it and download again.",
       "license": "License",
-      "empty": "The catalog has no models for this tab yet."
+      "empty": "The catalog has no models for this tab yet.",
+      "ladderIntro": "These all do the same work: rewriting, chat and continuity. They differ in quality, speed and memory. Pick the largest one your machine can hold.",
+      "uncensoredWhy": "Safety filter removed, for fiction a filtered model refuses to help with.",
+      "purpose": {
+        "writing": "Rewrites a passage, talks about the manuscript, checks continuity.",
+        "embeddings": "Does not write. Turns your chapters into vectors so search finds meaning, not just matching words.",
+        "dictation": "Turns speech into text."
+      },
+      "tierNote": {
+        "low": "The lightest. A fast draft on a modest machine.",
+        "mid": "The sweet spot on an ordinary laptop.",
+        "midPlus": "Noticeably better prose, and it is heavy.",
+        "high": "The best here, and it asks for a lot of memory."
+      }
     },
     "speeds": {
       "fast": "Fast",
