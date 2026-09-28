@@ -298,10 +298,56 @@ than as its author, plus the corrections that reading forced.
   preferences, and they now live in the status bar with visible state; a second
   copy in Settings would be the same control in two places.
 
+### The inference runtime (the largest hole, now closed — with limits)
+
+llama.cpp runs in-process via `llama-cpp-2`, pinned to `=0.1.157`. A `builtin`
+slot executes; continuity no longer skips one. Four candidates were investigated
+and adversarially challenged first — Ollama-as-runtime was rejected because
+`Ollama.app` requires macOS 14 while Versorium ships an Intel `.dmg` with no
+minimum, so exactly the low-RAM Intel Macs needing the `low` tier could install
+Versorium and never its runtime; pure-Rust candle loads one of eight catalogue
+entries, verified by running it.
+
+**Verified on this machine** against a real 3B GGUF: it answers, a concurrent
+call is refused rather than queued, and a CLIP vision encoder fed to it fails as
+`llama_load_failed` instead of crashing.
+
+Three things that came from reading the crate rather than assuming it:
+
+- `token_to_str` is deprecated and builds a fresh decoder per call, so an
+  accented character split across two tokens loses its accent. One `encoding_rs`
+  decoder now lives for the whole loop via `token_to_piece`. For a Spanish-first
+  tool that was the difference between working and quietly corrupting output.
+- `llama_sampler_sample` accepts the token internally. The upstream example
+  accepts again — harmless with `dist`, corrupting the moment a penalty or
+  grammar sampler is added — so this does not.
+- llama.cpp defaults to 512 tokens of context and 4 threads regardless of
+  machine. 512 would cut a selected passage in half.
+
+**Limits, stated rather than discovered later:**
+
+- **Metal and CPU only. No CUDA, no Vulkan** from the current release matrix,
+  so §6.2 is half-delivered knowingly: an NVIDIA or AMD owner gets CPU speeds
+  from a `builtin` slot, and the UI says so rather than letting it read as a
+  fault. The additive follow-up is the crate's `dynamic-backends` feature.
+- **In-process means a ggml assertion kills the editor.** `ggml_abort()` calls
+  `abort()` even with a callback installed. This is what a sidecar would have
+  bought and it is a conscious trade; it is bounded because a malformed GGUF is
+  caught gracefully, the editor autosaves, and every AI write is preceded by a
+  git snapshot, so the worst case is a lost session window, not lost prose.
+- **First-run Metal compile: 14.9 s measured on an M4 Max**, plausibly longer on
+  an M1 Air (not measured). A background warm-up thread hides it, but the OS
+  shader cache is shared across every Metal app on the account and rotates, so
+  it can recur. Shipping an ahead-of-time `default.metallib` would fix it and is
+  blocked by the Metal Toolchain being a stub in Xcode 27.
+- **Dictation is still unsolved and now says so.** llama.cpp cannot load Whisper
+  and the catalogue has no speech entry, so the slot keeps refusing.
+- **CI cannot smoke-test inference** without hosting a small GGUF fixture. The
+  path ships with unit coverage plus a `live_` test gated on
+  `VERSORIUM_TEST_GGUF`.
+
 ### Still open on this branch
 
-- The inference runtime itself. The approach is decided (llama.cpp in-process
-  via `llama-cpp-2`) and the constraints are measured, but it is not built.
 - A backup destination that is not GitHub — iCloud Drive, OneDrive, or a chosen
   folder — with GitHub demoted to an advanced option. Note that a live `.git`
   must not sit inside a synced folder: these services sync per file without
