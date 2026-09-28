@@ -60,8 +60,8 @@
     try {
       const [view, agents] = await Promise.all([api.modelsView(), detectAgents()]);
       const configured = view.slots.rewrite;
-      const isConfigured = (kind: SlotKind, id: string) =>
-        configured.kind === kind && configured.id === id;
+      const isConfigured = (k: SlotKind, id: string) =>
+        configured.kind === k && configured.id === id;
 
       const builtin: Choice[] = view.models
         .filter((m) => m.task === "writing" && m.state === "ready")
