@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod chapters;
+pub mod formats;
 pub mod git;
 pub mod mcp;
 pub mod models;
