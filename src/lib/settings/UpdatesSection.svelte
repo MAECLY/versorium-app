@@ -1,0 +1,93 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { t } from "$lib/i18n";
+  import { isTauri } from "$lib/tauri";
+  import { updates } from "$lib/update/state.svelte";
+
+  const CHANNELS = ["stable", "beta"] as const;
+
+  let status = $derived(updates.status);
+  let available = $derived(updates.available);
+
+  onMount(() => {
+    // Reading the stored state costs nothing; checking the network does not
+    // happen here, only behind the button or the startup rule (spec §11).
+    if (isTauri()) void updates.load();
+  });
+</script>
+
+<section class="mb-6" aria-label={t("updates.title")}>
+  <h3 class="v-section-title mb-2">{t("updates.title")}</h3>
+  <p class="v-muted m-0 mb-3" style="font-size: 12px;">{t("updates.intro")}</p>
+
+  {#if !isTauri()}
+    <p class="v-muted m-0" style="font-size: 13px;">{t("updates.none")}</p>
+  {:else}
+    <div class="v-card p-3">
+      <div class="v-row" style="justify-content: space-between; gap: 8px;">
+        <span style="font-size: 13px;">
+          {t("updates.currentVersion")}:
+          <b style="font-family: var(--font-mono, ui-monospace, monospace);">
+            {status?.currentVersion ?? "—"}
+          </b>
+        </span>
+        <button
+          class="v-btn"
+          style="padding: 2px 10px; font-size: 12px;"
+          disabled={updates.busy || !updates.signedIn}
+          onclick={() => void updates.check()}
+        >
+          {updates.busy ? t("updates.checking") : t("updates.checkNow")}
+        </button>
+      </div>
+
+      <p class="m-0 mt-2" style="font-size: 12.5px;" aria-live="polite">
+        {#if !updates.signedIn}
+          <span style="color: var(--warn);">{t("updates.signedOut")}</span>
+        {:else if available}
+          <span style="color: var(--accent);">
+            {t("updates.availableShort", { version: available.version })}
+          </span>
+        {:else if status}
+          <span class="v-muted">{t("updates.upToDate")}</span>
+        {:else}
+          <span class="v-muted">{t("updates.never")}</span>
+        {/if}
+      </p>
+
+      {#if updates.error}
+        <p role="alert" class="m-0 mt-2" style="font-size: 12px; color: var(--warn);">
+          {updates.error}
+        </p>
+        <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("updates.offlineHint")}</p>
+      {/if}
+    </div>
+
+    <label class="v-row mt-3" style="gap: 8px; font-size: 13px;">
+      <input
+        type="checkbox"
+        checked={status?.automatic ?? true}
+        disabled={updates.busy}
+        onchange={(e) => void updates.setAutomatic(e.currentTarget.checked)}
+      />
+      {t("updates.automatic")}
+    </label>
+    <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("updates.automaticHint")}</p>
+
+    <label class="v-row mt-3" style="gap: 8px; font-size: 13px;">
+      {t("updates.channel")}
+      <select
+        value={status?.channel ?? "stable"}
+        disabled={updates.busy}
+        onchange={(e) => void updates.setChannel(e.currentTarget.value as "stable" | "beta")}
+      >
+        {#each CHANNELS as channel (channel)}
+          <option value={channel}>{t(`updates.channels.${channel}`)}</option>
+        {/each}
+      </select>
+    </label>
+    <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("updates.channelHint")}</p>
+
+    <p class="v-muted m-0 mt-3" style="font-size: 11px;">{t("updates.gatekeeper")}</p>
+  {/if}
+</section>

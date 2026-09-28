@@ -15,10 +15,11 @@
   import { mcp } from "$lib/mcp/state.svelte";
   import Modal from "$lib/components/Modal.svelte";
   import LocalAiSection from "$lib/settings/LocalAiSection.svelte";
+  import UpdatesSection from "$lib/settings/UpdatesSection.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
 
-  const placeholderSections: string[] = ["updates", "typography"];
+  const placeholderSections: string[] = ["typography"];
 
   // --- Agents (M2): harnesses keep their own login; we only detect ---
   let agents = $state<AgentInfo[]>([]);
@@ -451,6 +452,8 @@
         <p class="m-0" style="font-size: 12px; color: var(--accent);">{gitNotice}</p>
       {/if}
     </section>
+
+    <UpdatesSection />
 
     <!-- Placeholder sections (filled in M3–M7) -->
     {#each placeholderSections as s (s)}

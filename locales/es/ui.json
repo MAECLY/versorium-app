@@ -152,7 +152,10 @@
     "import_images_dropped": "Las imágenes no se trajeron.",
     "empty_document": "Ese archivo no tiene texto que importar.",
     "export_pdf_characters_replaced": "Algunos caracteres no se pueden imprimir en un PDF y se reemplazaron.",
-    "export_docx_scene_titles_dropped": "Los títulos de escena no existen en el formato de manuscrito; los cortes de escena sí quedan."
+    "export_docx_scene_titles_dropped": "Los títulos de escena no existen en el formato de manuscrito; los cortes de escena sí quedan.",
+    "no_release": "Ninguna versión coincide con este canal.",
+    "no_manifest": "Esa versión no trae el manifiesto de actualización.",
+    "bad_update_host": "La actualización apuntaba a un sitio inesperado y se rechazó."
   },
   "languages": {
     "en": "English",
@@ -381,6 +384,41 @@
       "warningsTitle": "Lo que esta importación no puede traer",
       "action": "Crear proyecto",
       "cancel": "Descartar"
+    }
+  },
+  "updates": {
+    "title": "Actualizaciones",
+    "intro": "Versorium consulta sus propias versiones. No se envía nada de tu manuscrito.",
+    "currentVersion": "Versión instalada",
+    "signedOut": "Inicia sesión en Git → Acceso para actualizaciones para poder buscarlas. Sin eso Versorium no consulta nada.",
+    "checkNow": "Buscar ahora",
+    "checking": "Buscando…",
+    "upToDate": "Esta es la versión más reciente.",
+    "availableShort": "La versión {version} está disponible.",
+    "never": "Todavía no se ha buscado.",
+    "automatic": "Actualizaciones automáticas",
+    "automaticHint": "Busca una vez al abrir. Activado por defecto en el canal estable.",
+    "channel": "Canal",
+    "channels": {
+      "stable": "Estable",
+      "beta": "Beta"
+    },
+    "channelHint": "Beta es opcional y trae trabajo sin terminar.",
+    "offlineHint": "Un problema de red se deja pasar: ni aviso ni reintentos.",
+    "gatekeeper": "Las versiones van firmadas con minisign, pero todavía sin notarizar por Apple ni Microsoft, así que el primer arranque puede avisarte.",
+    "none": "Las actualizaciones las gestiona la app de escritorio.",
+    "dialog": {
+      "title": "Una nueva versión de Versorium",
+      "heading": "La versión {version} está lista",
+      "from": "Tienes la {version}.",
+      "released": "Publicada el {date}",
+      "notes": "Qué cambió",
+      "noNotes": "Esta versión llegó sin notas.",
+      "verified": "Versorium comprueba la firma y la suma de verificación antes de reemplazar nada. Si alguna falla, no se instala.",
+      "install": "Descargar e instalar",
+      "installing": "Instalando…",
+      "later": "Más tarde",
+      "skip": "Omitir esta versión"
     }
   }
 }
