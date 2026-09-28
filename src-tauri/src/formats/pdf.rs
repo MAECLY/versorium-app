@@ -555,3 +555,62 @@ mod tests {
         assert!(text.contains("nadie había llamado"), "prose missing");
     }
 }
+
+/// Characters this encoding cannot carry, named before the export runs.
+///
+/// Times-Roman with WinAnsiEncoding covers Latin-1 and the typographic marks a
+/// Spanish manuscript needs, but not an emoji. Replacing one silently would be
+/// exactly the quiet loss importers already refuse to commit.
+pub const WARN_CHARACTERS_REPLACED: &str = "export_pdf_characters_replaced";
+
+pub fn export_warnings(manuscript: &super::Manuscript) -> Vec<String> {
+    let representable = |text: &str| !encode(text).1;
+    let everything_fits = manuscript.chapters.iter().all(|chapter| {
+        representable(&chapter.title)
+            && chapter.scenes.iter().all(|scene| {
+                scene.heading.as_deref().is_none_or(representable)
+                    && scene.paragraphs.iter().all(|p| representable(p))
+            })
+    });
+    if everything_fits {
+        Vec::new()
+    } else {
+        vec![WARN_CHARACTERS_REPLACED.to_string()]
+    }
+}
+
+#[cfg(test)]
+mod warning_tests {
+    use super::*;
+    use crate::formats::{Chapter, Manuscript, Scene};
+
+    fn book(text: &str) -> Manuscript {
+        Manuscript {
+            title: "T".into(),
+            author: "A B".into(),
+            language: "es".into(),
+            chapters: vec![Chapter {
+                id: "ch-01".into(),
+                title: "Uno".into(),
+                scenes: vec![Scene { heading: None, paragraphs: vec![text.into()] }],
+            }],
+        }
+    }
+
+    #[test]
+    fn spanish_prose_raises_nothing() {
+        assert!(export_warnings(&book("¿Quién anda ahí? —Nadie— dijo «ella».")).is_empty());
+    }
+
+    #[test]
+    fn a_character_the_encoding_cannot_carry_is_announced() {
+        assert_eq!(export_warnings(&book("Se fue 🌙")), vec![WARN_CHARACTERS_REPLACED]);
+    }
+
+    #[test]
+    fn a_chapter_title_is_checked_too() {
+        let mut m = book("fine");
+        m.chapters[0].title = "Luna 🌙".into();
+        assert_eq!(export_warnings(&m), vec![WARN_CHARACTERS_REPLACED]);
+    }
+}

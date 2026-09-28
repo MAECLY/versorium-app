@@ -15,6 +15,9 @@ pub struct ExportResult {
     pub path: String,
     pub bytes: u64,
     pub format: String,
+    /// What this format could not carry, as i18n codes. An export that quietly
+    /// mangles a character is the same failure an import would warn about.
+    pub warnings: Vec<String>,
 }
 
 /// Formats that need a running head, and therefore an author (spec §9).
@@ -29,19 +32,27 @@ pub fn export_manuscript(path: PathBuf, format: String, dest: PathBuf) -> Result
     if NEEDS_AUTHOR.contains(&format.as_str()) && manuscript.author.trim().is_empty() {
         return Err("no_author".into());
     }
-    let bytes = match format.as_str() {
-        "md" => formats::markdown::export_to(&manuscript, &dest),
-        "docx" => formats::docx::export_to(&manuscript, &dest),
-        "epub" => formats::epub::export_to(&manuscript, &dest),
-        "pdf" => formats::pdf::export_to(&manuscript, &dest),
-        _ => Err("bad_format".into()),
-    }?;
-    Ok(ExportResult { path: dest.to_string_lossy().into_owned(), bytes, format })
+    let (bytes, warnings) = match format.as_str() {
+        "md" => (formats::markdown::export_to(&manuscript, &dest)?, Vec::new()),
+        "docx" => (
+            formats::docx::export_to(&manuscript, &dest)?,
+            formats::docx::export_warnings(&manuscript),
+        ),
+        "epub" => (formats::epub::export_to(&manuscript, &dest)?, Vec::new()),
+        "pdf" => (
+            formats::pdf::export_to(&manuscript, &dest)?,
+            formats::pdf::export_warnings(&manuscript),
+        ),
+        _ => return Err("bad_format".into()),
+    };
+    Ok(ExportResult { path: dest.to_string_lossy().into_owned(), bytes, format, warnings })
 }
+
+type Importer = fn(&Path) -> Result<Imported, String>;
 
 /// Which importer a source belongs to. A Scrivener project is a bundle
 /// directory, so the extension is on the folder rather than a file.
-fn importer_for(source: &Path) -> Option<fn(&Path) -> Result<Imported, String>> {
+fn importer_for(source: &Path) -> Option<Importer> {
     let ext = source.extension()?.to_str()?.to_ascii_lowercase();
     match ext.as_str() {
         "md" | "markdown" | "txt" => Some(formats::markdown::import_file),

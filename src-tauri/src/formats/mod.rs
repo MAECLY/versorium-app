@@ -32,15 +32,6 @@ pub struct Chapter {
     pub scenes: Vec<Scene>,
 }
 
-impl Chapter {
-    pub fn words(&self) -> usize {
-        self.scenes
-            .iter()
-            .flat_map(|s| s.paragraphs.iter())
-            .map(|p| p.split_whitespace().count())
-            .sum()
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,10 +43,6 @@ pub struct Manuscript {
 }
 
 impl Manuscript {
-    pub fn words(&self) -> usize {
-        self.chapters.iter().map(Chapter::words).sum()
-    }
-
     /// What Standard Manuscript Format puts in the running head. The surname is
     /// the last whitespace-separated word; an author with one name gives that.
     pub fn surname(&self) -> &str {
@@ -186,13 +173,4 @@ mod tests {
         assert_eq!(one("").surname(), "");
     }
 
-    #[test]
-    fn words_count_across_scenes_and_chapters() {
-        let chapter = Chapter {
-            id: "ch-01".into(),
-            title: "One".into(),
-            scenes: scenes_of("Uno dos tres.\n\n## Escena\n\nCuatro cinco."),
-        };
-        assert_eq!(chapter.words(), 5);
-    }
 }
