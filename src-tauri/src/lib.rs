@@ -7,6 +7,7 @@ mod commands;
 mod git;
 mod ops;
 mod mcp;
+mod models;
 pub mod paths;
 mod storage;
 mod text;
