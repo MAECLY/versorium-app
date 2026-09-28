@@ -76,10 +76,10 @@ jobs:
             args: '--target x86_64-apple-darwin'
             name: macOS (Intel)
           - platform: ubuntu-22.04
-            args: ''
+            args: '--features vulkan'
             name: Linux
           - platform: windows-latest
-            args: ''
+            args: '--features vulkan'
             name: Windows
     runs-on: ${{ matrix.platform }}
     env:
@@ -131,6 +131,31 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+
+      # Vulkan gives NVIDIA, AMD and Intel one GPU backend. Needed at build time
+      # only as headers, the loader import library and glslc — no GPU and no
+      # vendor toolchain on the runner. Neither runner image ships it.
+      #
+      # Linux uses LunarG's jammy repository rather than the distro packages:
+      # 22.04's own Vulkan headers are too old for ggml's shader build.
+      - name: Install Vulkan SDK (Linux)
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc > /dev/null
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list \
+            https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
+          sudo apt-get update -y
+          sudo apt-get install -y vulkan-sdk
+
+      # llama-cpp-sys-2's build script panics outright without VULKAN_SDK set,
+      # which this action does.
+      - name: Install Vulkan SDK (Windows)
+        if: startsWith(matrix.platform, 'windows')
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          install_runtime: true
+          cache: true
 
       - uses: dtolnay/rust-toolchain@stable
         with:
