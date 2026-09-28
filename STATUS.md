@@ -1,6 +1,6 @@
 # STATUS
 
-## Current milestone: M3 — MCP server (read default) ✅ (DoD green)
+## Current milestone: M4 — Local models, Meetily-style ✅ (DoD green)
 
 ## How to run
 
@@ -22,7 +22,18 @@ versorium mcp [--client <id>]   # serve MCP over stdio
 
 Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?mock=tauri`.
 
-## M3 DoD checklist
+## M4 DoD checklist
+
+- [x] Settings → Local AI cards moving **Download → % + Cancel → Ready → Selected**, with the weight icon, one-liner, badge, size/quality/quant/context/RAM meta, licence and repo the spec's card bullet list asks for
+- [x] `models/catalog.json` with the LOW → MID → MID+ → HIGH ladder plus an embeddings pack; **nothing downloads on its own**, HIGH least of all
+- [x] Ollama tab: daemon state, the pulled models, pull by name, remove with confirmation, install hint when it is not there
+- [x] Slots for Rewrite, Chat, Continuity, Embeddings — and Dictation — each picking its own model instead of one global choice
+- [x] Hardware wizard: memory, cores, platform, graphics, and the largest tier that fits with 20% headroom, stated in a sentence
+- [x] Real downloads: streamed, resumable from a `.part`, one at a time, SHA256-verified, destroyed on mismatch
+- [x] Studio tab (LM Studio / llama-server) with a connection test; Dictation is the UI hole the spec asks for until the Whisper packs land
+- [x] i18n EN + ES (81 `localAi.*` keys)
+
+## M3 DoD checklist (done)
 
 - [x] `versorium mcp` serves stdio from the same binary — `--client <id>` comes from the config the user approved, not from the wire, so a client cannot claim another's permission
 - [x] Read tools: `list_projects`, `read_document`, `search`, `assemble_context`, `history_list` — plus `get_app_state`, `open_project`, `list_documents`, `history_blame`, `diff`, `git_status`, `git_log`, `get_style`, `codex_search`, `codex_get` (15 total)
@@ -37,12 +48,27 @@ Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?moc
 
 | Check | Result |
 |---|---|
-| `cargo test` | ✅ 120 unit passed (protocol eras, permission gate, write pipeline, query layer, config writer, prose-free log) |
-| `cargo test --test mcp_stdio` | ✅ 4 passed — spawns the shipped binary, speaks JSON-RPC to it, asserts stdout carries only MCP frames and the read-only default survives into the real process |
+| `cargo test` | ✅ 165 unit + 4 integration passed |
+| `cargo test -- --ignored live_` | ✅ 3 passed — including a **real 84 MB download from Hugging Face, verified against its published SHA256**, plus Ollama round-trip and a rewrite through Claude Code |
+| `cargo clippy` | ✅ 0 warnings |
 | `pnpm check` | ✅ 0 errors, 0 warnings |
-| `pnpm test:ui` | ✅ 21 passed |
-| `pnpm test:e2e` | ✅ 11 passed (6 new: read-only default, connect, unwritable config, per-client grants, tool log, ES) |
-| **Real client end-to-end** | ✅ Claude Code 2.1.283 registered against the real binary: `open_project` → `search` (1 hit) → `assemble_context` → `history_blame` (span attributed `ai:claude`, from the M2 rewrite) all succeeded, and `write_document` was refused with `write_not_allowed` |
+| `pnpm test:ui` | ✅ 33 passed |
+| `pnpm test:e2e` | ✅ 19 passed (8 new for the model panel) |
+| **Real app** | ✅ Settings → Local AI renders the shipped catalogue: Gemma 4 and Qwen 3.8 cards with licence, repo, quant, context and RAM hint; wizard recommends the tier that fits; 0 B downloaded on open |
+
+## Catalogue provenance
+
+Every `sha256` was read from Hugging Face's LFS `oid`, never guessed, and every
+`sizeBytes` confirmed with a HEAD request. The method itself was proven by
+downloading the 84 MB embedder in full and comparing `shasum -a 256` against the
+published oid. Nothing in the catalogue is gated, so the downloader needs no
+credentials. Sidecar `mmproj`/`mtp` blobs are deliberately absent — the main
+GGUF loads standalone and the extras would double the download for nothing.
+
+The spec's example models are a generation behind: Gemma 4 and Qwen 3.8 are
+current, and Gemma 4 ships `apache-2.0` and ungated where Gemma 3 was neither.
+`Qwen3-4B-Instruct-2507` stays as a mid entry because it is the only candidate
+inside the 2.3–2.6 GB band the spec names.
 
 ## How the wire shapes were settled
 
@@ -57,38 +83,60 @@ whichever one the client opened with.
 
 ## Bugs found and fixed on the way
 
-- **`server/discover` was wrong in three ways** — the field is `supportedVersions` not `supported`, `serverInfo` belongs in `result._meta`, and `resultType`/`ttlMs`/`cacheScope` are required on modern cacheable results.
-- **`structuredContent` as a bare array** — a real Claude Code session rejected `search` outright with `expected: "record"`. List results are now wrapped in an object.
-- **`write_not_allowed: Something went wrong.`** — the refusal had no copy and read like a crash. Every code a tool can return now says what to do about it, in EN and ES, with a test pinning the list.
-- **The tool log was not hermetic** — `log::append` resolved the real app-data path, so tests wrote into the user's log and read each other's entries. The path is now derived from the session's settings file.
-- **`atomic_write` widened private files** — it created its temp at the umask default, so rewriting a 0600 agent config published its cleartext API keys at 0644 until the mode was restored. Now set before any content is written.
-- **We advertised `2025-03-26`** — the one revision that requires accepting JSON-RPC batch arrays, which the transport rejects.
-- **"Claude Code" named two different cards** in Settings (Agents and MCP), ambiguous to a screen reader and to any query by name. Each section is now a labelled landmark.
+- **The RAM hint never reached the UI.** serde's camelCase renders `ram_hint_gb`
+  as `ramHintGb`, but the catalogue file, the TypeScript types and the spec all
+  spell it `GB`. Every test passed because the E2E mock is written by hand and
+  spelled it correctly — only the real app showed `undefined`. Both structs now
+  pin the wire name and a test asserts every key the frontend reads.
+- **`tier: "embeddings"`** — my own brief was ambiguous: the embedder is a `low`
+  tier model whose `task` is embeddings, not a fifth tier.
+- **Six dead wrappers in the store** — the command layer resolves the models
+  directory once per request and uses the `_in` twins, so the convenience
+  wrappers were never called.
+- **`pnpm tauri dev` could not open the window** on a machine whose corepack
+  pnpm shim is broken. The Tauri hooks now run the local vite binary directly,
+  like the Playwright web server already did.
 
-## Files / structure (M3 delta)
+## Files / structure (M4 delta)
 
-- Rust `src-tauri/src/mcp/`: `mod.rs` (CLI), `server.rs` (stdio JSON-RPC framing), `dispatch.rs` (both eras), `tools.rs` (23 tools), `write.rs` (checkpoint-first pipeline), `query.rs` (search / context / blame), `session.rs` (permission gate + era latch), `clients.rs` (config writer), `log.rs`
-- `src-tauri/src/`: `paths.rs` (app-data shared by both processes), `commands/mcp.rs`, `storage.rs` (mode-preserving atomic write), `i18n.rs`
-- Frontend: `src/lib/mcp/state.svelte.ts`, Settings → MCP section, `src/lib/i18n/errors.ts`
-- Tests: `src-tauri/tests/mcp_stdio.rs`, `tests/e2e/m3-mcp.spec.ts`, mock extended
+- Rust `src-tauri/src/models/`: `catalog.rs` (embedded, validated on load),
+  `store.rs` (state from size, streaming hash, delete), `download.rs` (resume,
+  cancel, verify, rename), `hardware.rs` (probe + tier recommendation)
+- `src-tauri/src/commands/models.rs` (10 commands), slots in `settings.rs`,
+  Ollama list/pull/delete in `agents/mod.rs`
+- Frontend: `src/lib/models/state.svelte.ts`, `src/lib/settings/LocalAiSection.svelte`
+- `models/catalog.json` — 8 entries with verified hashes
+- Tests: `tests/e2e/m4-models.spec.ts`, mock extended
 
-## Architecture decisions (M3)
+## Architecture decisions (M4)
 
-1. **Identity from the config, not the wire** — `--client <id>` is written into the client's own config by Versorium, so a write grant cannot be borrowed by renaming.
-2. **The grant is re-read on every call** — revoking write in the GUI bites immediately; the writer never has to restart an agent to take permission back.
-3. **Two-phase writes** — a write tool without `confirm: true` returns a diff and touches nothing. That is the MCP-shaped equivalent of the preview the spec requires, with no GUI round-trip.
-4. **Config writing prefers each client's own CLI** — `~/.claude.json` is live session state a running client rewrites, and a duplicate TOML table would make Codex's whole config unparseable. Only the two clients without a usable CLI are hand-edited.
-5. **A tool that runs and refuses is `isError`, not a JSON-RPC error** — the call succeeded, the operation did not, and the model needs to read why to recover.
+1. **State from file size, never a re-hash** — the panel refreshes often and the
+   weights are gigabytes; the hash is checked once, when a download finishes.
+2. **Cancel keeps the `.part`** — that is what makes the next start a resume.
+   Only a hash failure deletes it, because a corrupt prefix can never converge.
+3. **A slot can never point at a file that is gone** — deleting a model, or
+   removing it from Ollama, releases every task that selected it.
+4. **The wizard recommends, it never forbids** — a model too large for the
+   machine says so and stays downloadable.
+5. **Tests inject their directory rather than setting an env var** — Rust runs
+   tests in parallel threads and a process-global override would race.
 
-## Known holes (M3)
+## Known holes (M4)
 
-- HTTP/SSE on `127.0.0.1` is not implemented; the DoD's "stdio **or** localhost" is met by stdio, and the spec marks HTTP opt-in.
-- `continuity_check` is not exposed — it needs a local model (M4). `git_push`/`git_pull` are not exposed either: network git is still unwired (an M1 hole).
-- `apply_edit_set`, `rename_document` and `move_document` from the §7 list are not implemented.
-- Codex project scope (`.codex/config.toml`) is untouched — documented but unverifiable here, so only user scope is written.
-- Windows and Linux config paths come from docs only; this machine is macOS.
-- Projects-list word count is still stale until reload; Ollama still uses its first served model; GitHub tokens still plaintext until M6.
+- **No built-in inference runtime.** A downloaded GGUF is verified and Ready,
+  but nothing loads it yet — llama.cpp embedding is the next step, and the DoD
+  explicitly allowed "stub download + hook". Slots pointing at Ollama do run;
+  slots pointing at a built-in model are recorded but not yet executed, so the
+  rewrite path still goes through the CLI harnesses from M2.
+- Whisper/dictation packs are absent by design — the tab and the shared
+  downloader ship now, the packs land in M4.1 per spec §6.2.
+- Censorship hides uncensored cards but does not yet influence routing.
+- The Recommended badge marks a tier, so both models in the winning tier carry it.
+- Carried over: projects-list word count stale until reload, GitHub tokens
+  plaintext until M6, no HTTP/SSE MCP transport, no network git.
 
-## Next: M4 — Local models, Meetily-style
+## Next: M5 — Formats
 
-DoD targets: Settings cards with Download / Ready / Selected; `models/catalog.json` with LOW/MID packs (never auto-download HIGH); an Ollama tab listing local models when the daemon is up; slots for Rewrite, Chat, Continuity and Embeddings; a hardware wizard that recommends a tier; and a real download path for one MID GGUF.
+DoD targets: export Markdown, DOCX (standard manuscript format), EPUB 3 and PDF;
+import Markdown, DOCX (H1 = chapter) and Scrivener best-effort; round-trip
+documented.
