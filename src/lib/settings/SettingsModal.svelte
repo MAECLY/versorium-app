@@ -9,7 +9,15 @@
     getTheme,
     getThemeMode,
   } from "$lib/themes";
-  import { api, isTauri, type AgentInfo, type McpClient, type McpLogEntry } from "$lib/tauri";
+  import {
+    api,
+    isTauri,
+    type AgentInfo,
+    type ContinuityReport,
+    type McpClient,
+    type McpLogEntry,
+  } from "$lib/tauri";
+  import { errorMessage, warningMessage } from "$lib/i18n/errors";
   import { store } from "$lib/binder/store.svelte";
   import { updates } from "$lib/update/state.svelte";
   import { detectAgents } from "$lib/ai/agents";
@@ -17,10 +25,10 @@
   import Modal from "$lib/components/Modal.svelte";
   import LocalAiSection from "$lib/settings/LocalAiSection.svelte";
   import UpdatesSection from "$lib/settings/UpdatesSection.svelte";
+  import TypographySection from "$lib/settings/TypographySection.svelte";
+  import SafetySectionCrash from "$lib/settings/SafetySectionCrash.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
-
-  const placeholderSections: string[] = ["typography"];
 
   // --- Agents (M2): harnesses keep their own login; we only detect ---
   let agents = $state<AgentInfo[]>([]);
@@ -45,6 +53,25 @@
     detected: "var(--warn)",
     missing: "var(--text-mute)",
   };
+
+  // --- Continuity (M7): a stub; it only runs when a local model is selected ---
+  let continuityReport = $state<ContinuityReport | null>(null);
+  let continuityBusy = $state(false);
+  let continuityError = $state<string | null>(null);
+
+  async function runContinuity(): Promise<void> {
+    const path = store.project?.path;
+    if (!path || continuityBusy) return;
+    continuityBusy = true;
+    continuityError = null;
+    try {
+      continuityReport = await api.continuityCheck(path);
+    } catch (e) {
+      continuityError = errorMessage(e);
+    } finally {
+      continuityBusy = false;
+    }
+  }
 
   // --- Safety (M2): the toggle exists; routing by it arrives with Local AI ---
   let censorship = $state(false);
@@ -251,6 +278,56 @@
 
     <!-- Local AI (live in M4): built-in GGUF ladder, Ollama, Studio, slots -->
     <LocalAiSection />
+
+    <!-- Continuity (M7): a stub that only runs when a local model is selected -->
+    <section class="mb-6" aria-label={t("continuity.title")}>
+      <div class="v-row mb-2" style="justify-content: space-between;">
+        <h3 class="v-section-title m-0">{t("continuity.title")}</h3>
+        {#if isTauri()}
+          <button
+            class="v-btn"
+            style="padding: 2px 10px; font-size: 12px;"
+            disabled={continuityBusy || !store.project}
+            onclick={() => void runContinuity()}
+          >
+            {continuityBusy ? t("continuity.running") : t("continuity.run")}
+          </button>
+        {/if}
+      </div>
+      <p class="v-muted m-0 mb-2" style="font-size: 12px;">{t("continuity.hint")}</p>
+
+      {#if !isTauri()}
+        <p class="v-muted m-0" style="font-size: 13px;">{t("continuity.none")}</p>
+      {:else if !store.project}
+        <p class="v-muted m-0" style="font-size: 13px;">{t("continuity.noProject")}</p>
+      {:else if continuityReport}
+        {#if !continuityReport.ran}
+          <p class="m-0" style="font-size: 12.5px; color: var(--warn);">
+            {warningMessage(continuityReport.reason ?? "continuity_failed")}
+          </p>
+        {:else if continuityReport.findings.length === 0}
+          <p class="v-muted m-0" style="font-size: 13px;">{t("continuity.clean")}</p>
+        {:else}
+          <ul class="m-0 flex list-none flex-col gap-1 p-0">
+            {#each continuityReport.findings as finding, index (index)}
+              <li class="v-card p-2" style="font-size: 12.5px;">
+                <b>{finding.kind}</b>
+                {#if finding.chapter}
+                  <span class="v-muted" style="font-size: 11px;"> — {finding.chapter}</span>
+                {/if}
+                <p class="m-0 mt-1">{finding.detail}</p>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {/if}
+
+      {#if continuityError}
+        <p role="alert" class="m-0 mt-2" style="font-size: 12px; color: var(--warn);">
+          {continuityError}
+        </p>
+      {/if}
+    </section>
 
     <!-- Safety (M2): censorship toggle; routing arrives with Local AI -->
     <section class="mb-6" aria-label={t("safety.title")}>
@@ -460,12 +537,8 @@
 
     <UpdatesSection />
 
-    <!-- Placeholder sections (filled in M3–M7) -->
-    {#each placeholderSections as s (s)}
-      <section class="mb-4" aria-label={t(`settings.sections.${s}`)}>
-        <h3 class="v-section-title mb-1">{t(`settings.sections.${s}`)}</h3>
-        <p class="v-muted m-0" style="font-size: 13px;">{t("settings.comingSoon")}</p>
-      </section>
-    {/each}
+    <TypographySection />
+
+    <SafetySectionCrash />
   </div>
 </Modal>
