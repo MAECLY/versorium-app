@@ -10,7 +10,16 @@ use super::catalog;
 use serde::Serialize;
 
 /// Leave a fifth of memory for the OS, the editor and the webview.
-const HEADROOM: f32 = 1.2;
+pub const HEADROOM: f32 = 1.2;
+
+/// Enough RAM for a model plus the spec's margin.
+///
+/// The one place this rule lives. It used to be written out here and copied into
+/// `commands/models.rs` with its own constant, which meant the card's "fits"
+/// badge and the wizard's recommendation could drift apart silently.
+pub fn fits(ram_hint_gb: f32, total_ram_gb: f32) -> bool {
+    ram_hint_gb * HEADROOM <= total_ram_gb
+}
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -24,14 +33,25 @@ pub struct Hardware {
     pub recommended_tier: String,
 }
 
+/// Shown in the wizard. Comes from the engine once it has started, so the
+/// wizard and the Ready badge cannot disagree.
+///
+/// This used to be a hardcoded string — `"Apple Silicon — Metal, unified
+/// memory"` on any aarch64 Mac and `"unknown"` everywhere else — which was a
+/// guess presented as a measurement. It said Metal on machines where llama.cpp
+/// had not been built with it, and `unknown` on every Windows and Linux machine
+/// including ones with a real GPU.
 fn gpu_description() -> String {
-    // Cheap and honest: no vendor tools shelled out just to draw a label.
-    if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-        "Apple Silicon — Metal, unified memory".to_string()
-    } else {
-        "unknown".to_string()
+    match crate::llama::runtime::device_info() {
+        Some(device) => device.label,
+        // Before the backend finishes starting there is nothing measured to
+        // report. The caller shows this until the engine is warm.
+        None => PENDING.to_string(),
     }
 }
+
+/// An i18n code, not prose: the wizard translates it.
+pub const PENDING: &str = "hardware_gpu_pending";
 
 pub fn probe() -> Hardware {
     let mut system = sysinfo::System::new();
@@ -72,7 +92,7 @@ fn largest_fitting(needs: [Option<f32>; 4], total_ram_gb: f32) -> &'static str {
     let mut best = catalog::TIERS[0];
     for (index, need) in needs.iter().enumerate() {
         if let Some(need) = need {
-            if need * HEADROOM <= total_ram_gb {
+            if fits(*need, total_ram_gb) {
                 best = catalog::TIERS[index];
             }
         }
