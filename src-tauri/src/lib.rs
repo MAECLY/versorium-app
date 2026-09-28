@@ -12,6 +12,7 @@ mod models;
 pub mod paths;
 mod storage;
 mod text;
+mod update;
 mod agents;
 pub mod i18n;
 
@@ -24,6 +25,7 @@ pub fn run() {
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // paths::settings_path() so the `versorium mcp` process reads the same file.
             let store = commands::settings::SettingsStore::load(paths::settings_path()?);
@@ -104,6 +106,12 @@ pub fn run() {
             commands::formats::import_preview,
             commands::formats::import_apply,
             commands::formats::set_author,
+            commands::update::update_status,
+            commands::update::update_check,
+            commands::update::update_install,
+            commands::update::update_skip,
+            commands::update::update_set_channel,
+            commands::update::update_set_automatic,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Versorium");

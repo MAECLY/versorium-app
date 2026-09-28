@@ -7,3 +7,4 @@ pub mod models;
 pub mod ops;
 pub mod project;
 pub mod settings;
+pub mod update;
