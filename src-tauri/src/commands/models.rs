@@ -24,6 +24,9 @@ pub struct ModelCard {
     pub params: String,
     pub quant: String,
     pub size_bytes: u64,
+    /// Spelled `ramHintGB` on the wire: camelCase would give `ramHintGb`,
+    /// and the catalog file, the TypeScript types and the spec all say GB.
+    #[serde(rename = "ramHintGB")]
     pub ram_hint_gb: f32,
     pub ctx: u32,
     pub speed: String,
@@ -338,6 +341,43 @@ fn set_slot_in(
 
 #[cfg(test)]
 mod tests {
+
+    /// The frontend reads these keys by name. serde's camelCase is not always
+    /// what a human would write — `ram_hint_gb` becomes `ramHintGb`, not
+    /// `ramHintGB` — and the E2E mock hides the mismatch because it is written
+    /// by hand. Pin the wire names here so drift fails a test, not a user.
+    #[test]
+    fn the_wire_names_are_the_ones_the_frontend_declares() {
+        let entry = catalog::ModelEntry {
+            id: "m".into(), family: "F".into(), label: "L".into(), task: "writing".into(),
+            tier: "mid".into(), params: "4B".into(), quant: "Q4_K_M".into(), size_bytes: 1,
+            ram_hint_gb: 3.5, ctx: 32768, speed: "balanced".into(), quality: "good".into(),
+            badge: None, uncensored: false, sha256: "0".repeat(64),
+            url: "https://example.test/m.gguf".into(), license: "apache-2.0".into(),
+            repo: "r".into(),
+        };
+        let card = serde_json::to_value(card(&entry, store::ModelState::Ready, 16.0)).unwrap();
+        for key in ["id", "family", "label", "task", "tier", "params", "quant", "sizeBytes",
+                    "ramHintGB", "ctx", "speed", "quality", "badge", "uncensored", "license",
+                    "repo", "state", "receivedBytes", "fits"] {
+            assert!(card.get(key).is_some(), "ModelCard is missing `{key}`");
+        }
+        assert_eq!(card.as_object().unwrap().len(), 19, "ModelCard gained or lost a field");
+
+        let hardware = serde_json::to_value(crate::models::hardware::probe()).unwrap();
+        for key in ["totalRamGb", "availableRamGb", "cpuCores", "arch", "os", "gpu",
+                    "recommendedTier"] {
+            assert!(hardware.get(key).is_some(), "Hardware is missing `{key}`");
+        }
+
+        let progress = serde_json::to_value(crate::models::download::Progress {
+            id: "m".into(), received: 1, total: 2, done: false,
+        })
+        .unwrap();
+        for key in ["id", "received", "total", "done"] {
+            assert!(progress.get(key).is_some(), "Progress is missing `{key}`");
+        }
+    }
     use super::*;
 
     fn store_at(dir: &Path) -> SettingsStore {

@@ -31,6 +31,9 @@ pub struct ModelEntry {
     pub params: String,
     pub quant: String,
     pub size_bytes: u64,
+    /// Spelled `ramHintGB` on the wire: camelCase would give `ramHintGb`,
+    /// and the catalog file, the TypeScript types and the spec all say GB.
+    #[serde(rename = "ramHintGB")]
     pub ram_hint_gb: f32,
     pub ctx: u32,
     /// `fast` | `balanced` | `slow` — the card picks its weight icon from this.
