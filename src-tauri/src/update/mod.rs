@@ -13,10 +13,11 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-/// Spec §11 names this repository as the source of app updates. The current git
-/// remote is a personal fork, so these constants are the spec's target rather
-/// than today's remote — moving them is a human decision, not a config toggle.
-const UPDATE_OWNER: &str = "maecly";
+/// Spec §11 names this repository as the source of app updates, and the repo now
+/// lives there: it was transferred from a personal account to the MAECLY org on
+/// 2026-09-28, still private. Compiled in on purpose — an updater whose owner can
+/// be steered by a setting is a code-execution vector wearing a helpful face.
+const UPDATE_OWNER: &str = "MAECLY";
 const UPDATE_REPO: &str = "versorium-app";
 const GITHUB_API: &str = "https://api.github.com";
 
@@ -248,9 +249,9 @@ mod tests {
             "prerelease": prerelease,
             "assets": [
                 { "id": 1, "name": MANIFEST_ASSET,
-                  "url": format!("https://api.github.com/repos/maecly/versorium-app/releases/assets/1") },
+                  "url": format!("https://api.github.com/repos/MAECLY/versorium-app/releases/assets/1") },
                 { "id": 2, "name": CHECKSUMS_ASSET,
-                  "url": "https://api.github.com/repos/maecly/versorium-app/releases/assets/2" }
+                  "url": "https://api.github.com/repos/MAECLY/versorium-app/releases/assets/2" }
             ]
         })
     }
@@ -259,12 +260,12 @@ mod tests {
     fn the_update_source_is_compiled_in() {
         // No setting, env var or argument feeds these. If this test has to
         // change, someone moved the release home on purpose.
-        assert_eq!(UPDATE_OWNER, "maecly");
+        assert_eq!(UPDATE_OWNER, "MAECLY");
         assert_eq!(UPDATE_REPO, "versorium-app");
         assert_eq!(GITHUB_API, "https://api.github.com");
         assert_eq!(
             releases_url(),
-            "https://api.github.com/repos/maecly/versorium-app/releases"
+            "https://api.github.com/repos/MAECLY/versorium-app/releases"
         );
     }
 
@@ -273,18 +274,18 @@ mod tests {
         // A spoofed or compromised API response must not be able to say
         // "download your next executable from here instead".
         for hostile in [
-            "https://evil.example.com/repos/maecly/versorium-app/releases/assets/1",
+            "https://evil.example.com/repos/MAECLY/versorium-app/releases/assets/1",
             "https://api.github.com.evil.example.com/releases/assets/1",
             "http://api.github.com/releases/assets/1",
             "file:///etc/passwd",
-            "https://raw.githubusercontent.com/maecly/versorium-app/main/latest.json",
+            "https://raw.githubusercontent.com/MAECLY/versorium-app/main/latest.json",
             "not a url at all",
             // tauri-action's own output shape. It 404s on a private repo even
             // with a valid token — only the API asset endpoint serves bytes —
             // so the release workflow rewrites every platform URL. If one ever
             // reaches us un-rewritten, refusing it names the problem instead of
             // failing later on an empty download.
-            "https://github.com/maecly/versorium-app/releases/download/v1.2.0/Versorium.dmg",
+            "https://github.com/MAECLY/versorium-app/releases/download/v1.2.0/Versorium.dmg",
         ] {
             assert_eq!(
                 manifest_url_for(hostile).unwrap_err(),
@@ -298,7 +299,7 @@ mod tests {
     fn the_real_asset_host_is_accepted() {
         // The shape the release workflow rewrites every platform URL into.
         // This is the expected form on a private repo, not an anomaly.
-        let ok = "https://api.github.com/repos/maecly/versorium-app/releases/assets/7";
+        let ok = "https://api.github.com/repos/MAECLY/versorium-app/releases/assets/7";
         assert_eq!(manifest_url_for(ok).unwrap(), ok);
     }
 
@@ -344,7 +345,7 @@ mod tests {
         let body = json!([{
             "draft": false, "prerelease": false,
             "assets": [{ "id": 9, "name": "versorium.dmg",
-                         "url": "https://api.github.com/repos/maecly/versorium-app/releases/assets/9" }]
+                         "url": "https://api.github.com/repos/MAECLY/versorium-app/releases/assets/9" }]
         }]);
         let assets = select_release(&body, "stable").unwrap();
         assert_eq!(manifest_of(&assets).unwrap_err(), "no_manifest");
@@ -357,7 +358,7 @@ mod tests {
             "assets": [
                 { "name": "no-id.json", "url": "https://api.github.com/x" },
                 { "id": 4, "name": MANIFEST_ASSET,
-                  "url": "https://api.github.com/repos/maecly/versorium-app/releases/assets/4" }
+                  "url": "https://api.github.com/repos/MAECLY/versorium-app/releases/assets/4" }
             ]
         }]);
         let assets = select_release(&body, "stable").unwrap();
