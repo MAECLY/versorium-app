@@ -12,6 +12,11 @@ use std::path::{Path, PathBuf};
 pub struct ProjectMeta {
     pub schema: u32,
     pub title: String,
+    /// Standard Manuscript Format puts the surname in every running head, so
+    /// the author belongs to the project rather than to the app. Defaulted so a
+    /// project created before this field still loads.
+    #[serde(default)]
+    pub author: String,
     pub language: String,
     pub ui_language: String,
     pub default_chapter_pattern: String,
@@ -125,6 +130,7 @@ pub fn create_project(args: CreateProjectArgs) -> Result<Project, String> {
     let meta = ProjectMeta {
         schema: 1,
         title: title.clone(),
+        author: String::new(),
         language: args.language,
         ui_language: "en".into(),
         default_chapter_pattern: "ch-{n}-{slug}.md".into(),
@@ -320,6 +326,7 @@ mod tests {
         let meta = ProjectMeta {
             schema: 1,
             title: "T".into(),
+            author: String::new(),
             language: "en".into(),
             ui_language: "en".into(),
             default_chapter_pattern: "ch-{n}-{slug}.md".into(),
@@ -383,6 +390,7 @@ mod tests {
         let meta = ProjectMeta {
             schema: 1,
             title: title.into(),
+            author: String::new(),
             language: "es".into(),
             ui_language: "en".into(),
             default_chapter_pattern: "ch-{n}-{slug}.md".into(),

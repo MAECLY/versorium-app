@@ -14,6 +14,7 @@
   import NewChapterDialog from "$lib/binder/NewChapterDialog.svelte";
   import SettingsModal from "$lib/settings/SettingsModal.svelte";
   import RewriteDialog from "$lib/components/RewriteDialog.svelte";
+  import ManuscriptDialog from "$lib/components/ManuscriptDialog.svelte";
   import { detectAgents } from "$lib/ai/agents";
 
   let showSettings = $state(false);
@@ -22,6 +23,7 @@
   let showGit = $state(false);
   let gitDirty = $state(false);
   let showRewrite = $state(false);
+  let showManuscript = $state(false);
   let rewriteSel = $state<{ from: number; to: number; text: string } | null>(null);
 
   let editorRef: {
@@ -155,6 +157,7 @@
     onToggleGit={() => (showGit = !showGit)}
     onCommit={doCommit}
     onRewrite={doRewrite}
+    onOpenManuscript={() => (showManuscript = true)}
     onRollbackWord={doRollbackWord}
     onRollbackSelection={doRollbackSelection}
     gitDirty={gitDirty}
@@ -208,6 +211,9 @@
   {/if}
   {#if showNewChapter}
     <NewChapterDialog onClose={() => (showNewChapter = false)} />
+  {/if}
+  {#if showManuscript}
+    <ManuscriptDialog onClose={() => (showManuscript = false)} />
   {/if}
   {#if showRewrite && rewriteSel}
     <RewriteDialog

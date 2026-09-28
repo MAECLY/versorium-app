@@ -8,6 +8,7 @@
     onToggleGit,
     onCommit,
     onRewrite,
+    onOpenManuscript,
     onRollbackWord,
     onRollbackSelection,
     gitDirty,
@@ -16,6 +17,7 @@
     onToggleGit: () => void;
     onCommit: () => void;
     onRewrite: () => void;
+    onOpenManuscript: () => void;
     onRollbackWord: () => void;
     onRollbackSelection: () => void;
     gitDirty: boolean;
@@ -75,6 +77,9 @@
         {t("git.rollbackWordShort")}
       </button>
       <button class="v-btn" onclick={onToggleGit} title={t("git.title")}>{t("git.title")}</button>
+      <button class="v-btn" onclick={onOpenManuscript} title={t("manuscript.title")}>
+        {t("manuscript.open")}
+      </button>
     {/if}
     <button class="v-btn" onclick={openProject}>{t("app.openProject")}</button>
     <button class="v-btn" onclick={toggleLocale} title="EN / ES">
