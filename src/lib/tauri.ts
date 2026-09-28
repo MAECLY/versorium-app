@@ -49,6 +49,9 @@ export interface AppSettings {
   typewriter: boolean;
   /** False until the first run is done or skipped. */
   onboarded: boolean;
+  /** Folder archives are written to; null means backups are off. */
+  backupDir: string | null;
+  backupKeep: number;
 }
 
 export interface ChapterDoc {
@@ -232,6 +235,31 @@ export interface StudioView {
   host: string;
   port: number;
   enabled: boolean;
+}
+
+export type SecretSlot = "updates" | "novel";
+
+/** Which credentials exist. Never their values: the token only travels inward. */
+export interface SecretsStatus {
+  store: { usable: boolean; reason: string | null };
+  updates: boolean;
+  novel: boolean;
+}
+
+export interface BackupDestination {
+  /** `icloud` | `onedrive` | `nextcloud` | `dropbox` | `folder` */
+  kind: string;
+  path: string;
+  /** The folder is there right now; an absent one is still offered, and says so. */
+  available: boolean;
+}
+
+export interface BackupArchive {
+  path: string;
+  name: string;
+  bytes: number;
+  /** Unix seconds. */
+  modified: number;
 }
 
 /** How far along an install is. The phases are the real steps, not an
@@ -446,6 +474,26 @@ export const api = {
 
   updateProgress: () => invoke<InstallProgress | null>("update_progress"),
   updateRelaunch: () => invoke<void>("update_relaunch"),
+
+  // --- credentials, kept in the OS store; the token never comes back out ---
+  secretsStatus: () => invoke<SecretsStatus>("secrets_status"),
+  secretsConnect: (slot: SecretSlot, token: string) =>
+    invoke<string>("secrets_connect", { slot, token }),
+  secretsForget: (slot: SecretSlot) => invoke<void>("secrets_forget", { slot }),
+
+  // --- backup to a synced folder ---
+  backupDestinations: () => invoke<BackupDestination[]>("backup_destinations"),
+  backupConfigure: (path: string, keep: number) =>
+    invoke<void>("backup_configure", { path, keep }),
+  backupNow: (path: string) => invoke<BackupArchive>("backup_now", { path }),
+  backupList: (path: string) => invoke<BackupArchive[]>("backup_list", { path }),
+  backupRestore: (archive: string, project: string, label: string) =>
+    invoke<string>("backup_restore", { archive, project, label }),
+
+  // --- network git ---
+  gitPush: (path: string, remote?: string) => invoke<string>("git_push", { path, remote }),
+  gitPull: (path: string, remote?: string) =>
+    invoke<{ branch: string; changed: boolean }>("git_pull", { path, remote }),
 
   // --- the in-process engine ---
   llamaBackend: () => invoke<LlamaBackendState>("llama_backend"),

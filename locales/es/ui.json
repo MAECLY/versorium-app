@@ -131,7 +131,15 @@
     "changedCount": "{count} con cambios",
     "snapshotOf": "Instantánea del {when}",
     "restore": "↩ Restaurar",
-    "restoreHint": "Devuelve la selección a como estaba, o la palabra bajo el cursor si no hay nada seleccionado."
+    "restoreHint": "Devuelve la selección a como estaba, o la palabra bajo el cursor si no hay nada seleccionado.",
+    "stored": "Conectado.",
+    "forget": "Olvidar",
+    "push": "Enviar a GitHub",
+    "pull": "Traer de GitHub",
+    "pushed": "Enviado {branch} a GitHub.",
+    "pulled": "Traídos los últimos cambios.",
+    "alreadyCurrent": "Ya está al día.",
+    "storedWhere": "Se guarda en el almacén de credenciales de tu sistema, nunca en un archivo."
   },
   "errors": {
     "generic": "Algo salió mal.",
@@ -597,5 +605,34 @@
     "clean": "No se encontró nada contradictorio.",
     "noProject": "Abre una novela primero.",
     "none": "La revisión de continuidad corre dentro de la app de escritorio."
+  },
+  "backup": {
+    "title": "Respaldo",
+    "intro": "Un archivo con fecha de toda la novela, historial incluido, escrito en una carpeta que tu sistema ya sincroniza. Sin cuenta, sin token, funciona sin conexión. La novela se queda donde está — un repositorio vivo dentro de una carpeta sincronizada se corrompe.",
+    "none": "Los respaldos necesitan la app de escritorio.",
+    "kinds": {
+      "icloud": "iCloud Drive",
+      "onedrive": "OneDrive",
+      "nextcloud": "Nextcloud",
+      "dropbox": "Dropbox",
+      "folder": "Carpeta"
+    },
+    "notFound": "no está en esta máquina",
+    "choose": "Usar esta",
+    "chosenLabel": "En uso",
+    "chosen": "Los respaldos irán aquí.",
+    "pickFolder": "Elegir carpeta…",
+    "turnOff": "Desactivar respaldos",
+    "turnedOff": "Respaldos desactivados.",
+    "keep": "Conservar los más recientes",
+    "now": "Respaldar ahora",
+    "working": "Trabajando…",
+    "written": "Guardado, {size}.",
+    "stored": "Respaldos guardados",
+    "restore": "Restaurar",
+    "restoreHint": "Restaurar extrae una copia al lado de esta novela. No se sobrescribe nada de lo que tienes.",
+    "restored": "Restaurado en {path}",
+    "restoredSuffix": "restaurado",
+    "advanced": "Respaldo en GitHub (avanzado)"
   }
 }
