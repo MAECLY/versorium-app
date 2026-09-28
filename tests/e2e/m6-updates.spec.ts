@@ -101,3 +101,32 @@ test("the Updates panel is translated", async ({ page }) => {
   const updates = settings.getByRole("region", { name: "Actualizaciones" });
   await expect(updates.getByRole("button", { name: "Buscar ahora" })).toBeVisible();
 });
+
+test("the install shows what it is doing, then asks for a restart", async ({ page }) => {
+  const { settings, updates } = await openUpdates(page);
+  await signIn(page, settings);
+  await updates.getByRole("button", { name: "Check now" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "A new version of Versorium" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Download & Install" }).click();
+
+  // The five phases are the real steps, not an animation. Downloading carries
+  // byte counts; before this the dialog showed nothing between the click and
+  // either a relaunch or an error.
+  await expect(dialog.getByText("Downloading…")).toBeVisible();
+  await expect(dialog.getByText(/of \d+\.\d MB/)).toBeVisible();
+  await expect(dialog.getByRole("progressbar")).toBeVisible();
+  await expect(dialog.getByText("Checking the signature…")).toBeVisible();
+  await expect(dialog.getByText("Installing…")).toBeVisible();
+
+  // Installed. Offering "skip" or "later" now would be a lie: the new version
+  // is on disk either way, so the only remaining action is restarting.
+  await expect(dialog.getByText("Installed")).toBeVisible();
+  await expect(dialog.getByText("Restart to open the new version.")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Skip this version" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Later" })).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: "Restart now" }).click();
+  await expect.poll(() => page.evaluate(() => window.__VERSORIUM_MOCK__.relaunched)).toBe(true);
+});

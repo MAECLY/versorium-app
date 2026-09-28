@@ -228,6 +228,10 @@ const mcpLog: McpLogEntry[] = [
 
 /** The in-process engine's state. `warming` for the first call only, so a test
  *  can see the "starting" copy the real app shows while Metal shaders compile. */
+/** Queued install phases, drained one per poll. */
+let installPhases: { phase: string; received: number; total: number | null; error: string | null }[] = [];
+let relaunched = false;
+
 let llamaWarmCalls = 0;
 let llamaBusy = false;
 
@@ -490,7 +494,32 @@ const commands: Record<string, (args: Args) => unknown> = {
     update.lastError = null;
     return { ...update };
   },
-  update_install: () => undefined,
+  update_install: () => {
+    const MB = 1024 * 1024;
+    installPhases = [
+      ...[2, 5, 8, 11].map((mb) => ({
+        phase: "downloading",
+        received: mb * MB,
+        total: 12 * MB,
+        error: null,
+      })),
+      { phase: "verifying", received: 12 * MB, total: 12 * MB, error: null },
+      { phase: "installing", received: 12 * MB, total: 12 * MB, error: null },
+      { phase: "ready", received: 12 * MB, total: 12 * MB, error: null },
+    ];
+    return new Promise((resolve) => setTimeout(resolve, 2600));
+  },
+  // Each poll advances one phase and the last one sticks, so a test can watch
+  // the sequence without racing a timer.
+  update_progress: () => {
+    if (installPhases.length === 0) return null;
+    const next = installPhases.length > 1 ? installPhases.shift()! : installPhases[0];
+    return next;
+  },
+  update_relaunch: () => {
+    relaunched = true;
+    return undefined;
+  },
   update_skip: ({ version }) => {
     if (update.available?.version === version) update.available = null;
     return { ...update };
@@ -768,6 +797,8 @@ declare global {
       lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null;
       update: UpdateStatus;
       crashes: CrashEntry[];
+      /** True once the app was asked to restart into the new version. */
+      relaunched: boolean;
     };
   }
 }
@@ -777,6 +808,9 @@ window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined 
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
     projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update, crashes,
+    get relaunched() {
+      return relaunched;
+    },
     get lastExport() {
       return lastExport;
     },

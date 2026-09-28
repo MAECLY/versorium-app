@@ -127,6 +127,8 @@ pub fn run() {
             commands::update::update_status,
             commands::update::update_check,
             commands::update::update_install,
+            commands::update::update_progress,
+            commands::update::update_relaunch,
             commands::update::update_skip,
             commands::update::update_set_channel,
             commands::update::update_set_automatic,
