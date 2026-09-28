@@ -1,4 +1,4 @@
-import { api, type ChapterMeta, type Project } from "$lib/tauri";
+import { api, isTauri, type ChapterMeta, type Project } from "$lib/tauri";
 import { t } from "$lib/i18n";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
@@ -108,6 +108,17 @@ export class BinderStore {
     this.chapterBody = doc?.body ?? "";
     this.savedBody = this.chapterBody;
     this.saveState = "idle";
+    this.notifyMcp(project.path);
+  }
+
+  /**
+   * `versorium mcp` is a separate process and learns which manuscript is open
+   * only from what the app records. Fire-and-forget: failing to notify it is
+   * never a reason to stop the writer from moving around.
+   */
+  private notifyMcp(path: string | null): void {
+    if (!isTauri()) return;
+    void api.mcpSetActiveProject(path).catch(() => undefined);
   }
 
   async createProject(title: string, language: string): Promise<void> {
@@ -153,6 +164,7 @@ export class BinderStore {
       this.chapterBody = "";
       this.savedBody = "";
       this.saveState = "idle";
+      this.notifyMcp(null);
     });
   }
 

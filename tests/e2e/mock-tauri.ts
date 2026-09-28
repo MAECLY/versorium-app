@@ -53,6 +53,24 @@ interface ProjectState {
   remotes: { name: string; url: string }[];
 }
 
+interface McpClient {
+  id: string;
+  name: string;
+  configPath: string;
+  detected: boolean;
+  installed: boolean;
+  writeAllowed: boolean;
+}
+
+interface McpLogEntry {
+  ts: number;
+  client: string;
+  tool: string;
+  scope: "read" | "write";
+  outcome: "ok" | "denied" | "error";
+  detail: string;
+}
+
 interface AgentInfo {
   id: string;
   name: string;
@@ -75,6 +93,18 @@ const settings = {
 
 const projects = new Map<string, ProjectState>();
 const calls: { cmd: string; args: Args }[] = [];
+
+const mcpClients: McpClient[] = [
+  { id: "claude-code", name: "Claude Code", configPath: "/mock/project/.mcp.json", detected: true, installed: false, writeAllowed: false },
+  { id: "claude-desktop", name: "Claude Desktop", configPath: "/mock/Library/Claude/claude_desktop_config.json", detected: true, installed: false, writeAllowed: false },
+  { id: "codex", name: "Codex", configPath: "/mock/.codex/config.toml", detected: true, installed: false, writeAllowed: false },
+  { id: "opencode", name: "OpenCode", configPath: "/mock/.config/opencode/opencode.json", detected: false, installed: false, writeAllowed: false },
+];
+
+const mcpLog: McpLogEntry[] = [
+  { ts: 1_759_000_000_000, client: "claude-code", tool: "read_document", scope: "read", outcome: "ok", detail: "manuscript/ch-01-the-long-winter.md" },
+  { ts: 1_759_000_060_000, client: "codex", tool: "write_document", scope: "write", outcome: "denied", detail: "write not allowed for codex" },
+];
 
 const agents: AgentInfo[] = [
   { id: "claude", name: "Claude Code", path: "/mock/bin/claude", version: "2.1.0", state: "connected", models: null },
@@ -287,6 +317,37 @@ const commands: Record<string, (args: Args) => unknown> = {
 
   agents_detect: () => agents.map((a) => ({ ...a, models: a.models ? [...a.models] : null })),
 
+  // --- M3: MCP ---
+  mcp_status: () => ({
+    command: "/mock/bin/versorium",
+    args: ["mcp"],
+    logPath: "/mock/Library/versorium/mcp-log.jsonl",
+    clients: mcpClients.map((c) => ({ ...c })),
+  }),
+  mcp_set_write: ({ client, allowed }) => {
+    const c = mcpClients.find((c) => c.id === client);
+    if (!c) throw "mcp_client_unknown";
+    c.writeAllowed = Boolean(allowed);
+    return commands.mcp_status({});
+  },
+  mcp_install_client: ({ client }) => {
+    const c = mcpClients.find((c) => c.id === client);
+    if (!c) throw "mcp_client_unknown";
+    // OpenCode stands in for a client whose config cannot be written.
+    if (c.id === "opencode") throw "mcp_config_failed";
+    c.installed = true;
+    return commands.mcp_status({});
+  },
+  mcp_uninstall_client: ({ client }) => {
+    const c = mcpClients.find((c) => c.id === client);
+    if (!c) throw "mcp_client_unknown";
+    c.installed = false;
+    c.writeAllowed = false;
+    return commands.mcp_status({});
+  },
+  mcp_log: ({ limit }) => mcpLog.slice(-Number(limit ?? 50)).reverse(),
+  mcp_set_active_project: () => undefined,
+
   ai_rewrite: ({ provider, text }) => {
     const passage = String(text).trim();
     if (!passage) throw "ai_empty";
@@ -374,12 +435,14 @@ declare global {
       settings: typeof settings;
       calls: typeof calls;
       agents: AgentInfo[];
+      mcpClients: McpClient[];
+      mcpLog: McpLogEntry[];
     };
   }
 }
 
 window.__TAURI_INTERNALS__ = internals;
 window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
-window.__VERSORIUM_MOCK__ = { projects, settings, calls, agents };
+window.__VERSORIUM_MOCK__ = { projects, settings, calls, agents, mcpClients, mcpLog };
 
 export {};

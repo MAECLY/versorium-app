@@ -128,7 +128,10 @@
     "ai_failed": "El agente no respondió.",
     "ai_empty": "El agente no devolvió nada.",
     "bad_range": "Ese pasaje está fuera del capítulo.",
-    "stale_selection": "El pasaje cambió desde que lo seleccionaste. Selecciónalo de nuevo."
+    "stale_selection": "El pasaje cambió desde que lo seleccionaste. Selecciónalo de nuevo.",
+    "mcp_config_failed": "Versorium no pudo escribir el archivo de configuración de ese cliente.",
+    "mcp_client_unknown": "Cliente MCP desconocido.",
+    "no_home": "No se pudo localizar tu carpeta personal."
   },
   "languages": {
     "en": "English",
@@ -172,5 +175,38 @@
     "censorshipHint": "Activada oculta los modelos locales sin censura y pide a los agentes en la nube que mantengan el texto limpio. Desactivada prefiere rutas sin censura. El enrutado llega con IA local.",
     "on": "Activada",
     "off": "Desactivada"
+  },
+  "mcp": {
+    "title": "MCP",
+    "intro": "Un servidor local en esta máquina (stdio). Los agentes se conectan para leer tu manuscrito. Solo lectura hasta que permitas escritura.",
+    "command": "Comando",
+    "commandHint": "Los clientes conectados lo ejecutan. Nada queda a la escucha en la red.",
+    "connect": "Conectar",
+    "disconnect": "Desconectar",
+    "connected": "Conectado",
+    "notConnected": "Sin conectar",
+    "detected": "Instalado en esta máquina",
+    "notDetected": "No encontrado en esta máquina",
+    "configPath": "Configuración",
+    "allowWrite": "Permitir escritura",
+    "writeWarning": "La escritura deja que la IA cambie tu manuscrito. Versorium hará antes una instantánea en Git y podrás revertirla. Aun así, el modelo puede borrar texto si autorizas la edición.",
+    "readOnly": "Solo lectura",
+    "log": "Registro de herramientas",
+    "logEmpty": "Aún no hay llamadas a herramientas.",
+    "logHint": "Registra nombres de herramientas, clientes y rutas. Nunca el texto de tu manuscrito.",
+    "refresh": "Actualizar",
+    "scopeRead": "lectura",
+    "scopeWrite": "escritura",
+    "outcomeOk": "ok",
+    "outcomeDenied": "denegada",
+    "outcomeError": "error",
+    "restartHint": "Reinicia {client} para que el cambio surta efecto.",
+    "none": "El servidor MCP se ejecuta dentro de la app de escritorio.",
+    "clients": {
+      "claude-code": "Claude Code",
+      "claude-desktop": "Claude Desktop",
+      "codex": "Codex",
+      "opencode": "OpenCode"
+    }
   }
 }
