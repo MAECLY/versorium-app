@@ -15,3 +15,8 @@ playwright-report/
 # pnpm 12 regenerates this with an unanswered allowBuilds placeholder;
 # CI pins pnpm 10, which does not need it.
 pnpm-workspace.yaml
+
+# The original drop folder. Three of its files are byte-identical copies of
+# the specs tracked at the repo root, and the fourth is the draft AGENTS.md
+# itself calls obsolete. It was committed by accident.
+versorium-init/
