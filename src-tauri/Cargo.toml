@@ -28,6 +28,17 @@ zip = "^5"
 quick-xml = "0.42.0"
 tauri-plugin-updater = { version = "^2", default-features = false, features = ["rustls-tls"] }
 tauri-plugin-opener = "2.6.0"
+# In-process llama.cpp. Pinned exactly: upstream declares no MSRV, publishes
+# roughly weekly, and every bump repays the full cmake cost on all four release
+# legs. `default-features = false` drops `openmp`, whose build script emits
+# `cargo:rustc-link-lib=gomp` on *-gnu targets — a libgomp.so.1 dependency the
+# .deb bundler does not declare. `common` is kept for `fit_params`; chat
+# templates are unconditional and need no feature.
+llama-cpp-2 = { version = "=0.1.157", default-features = false, features = ["common"] }
+# Needed to hold a decoder across the generation loop: `token_to_piece` takes
+# one so an accented character split across two tokens survives. The deprecated
+# `token_to_str` makes a fresh decoder per call and loses exactly that.
+encoding_rs = "0.8.35"
 
 [dev-dependencies]
 tempfile = "3"
