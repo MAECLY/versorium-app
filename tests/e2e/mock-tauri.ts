@@ -48,6 +48,8 @@ interface ProjectState {
   chapters: Chapter[];
   commits: Commit[];
   dirty: Set<string>;
+  /** Paths that have been in at least one snapshot; the rest read as new. */
+  tracked: Set<string>;
   ops: Record<string, Op[]>;
   seq: Record<string, number>;
   branches: string[];
@@ -224,6 +226,14 @@ const mcpLog: McpLogEntry[] = [
   { ts: 1_759_000_060_000, client: "codex", tool: "write_document", scope: "write", outcome: "denied", detail: "write not allowed for codex" },
 ];
 
+/** The in-process engine's state. `warming` for the first call only, so a test
+ *  can see the "starting" copy the real app shows while Metal shaders compile. */
+let llamaWarmCalls = 0;
+let llamaBusy = false;
+
+/// Mirrors settings::SLOT_KINDS; Rust rejects anything else as `bad_args`.
+const SLOT_KINDS = ["none", "builtin", "ollama", "cli"];
+
 const agents: AgentInfo[] = [
   { id: "claude", name: "Claude Code", path: "/mock/bin/claude", version: "2.1.0", state: "connected", models: null },
   { id: "codex", name: "Codex", path: "/mock/bin/codex", version: "0.9.0", state: "connected", models: null },
@@ -279,6 +289,7 @@ function commit(p: ProjectState, message: string): string {
   if (p.dirty.size === 0 && p.commits.length > 0) throw "nothing_to_commit";
   const id = sha();
   p.commits.unshift({ sha: id, short: id.slice(0, 7), author: "Versorium", time: now(), message });
+  for (const f of p.dirty) p.tracked.add(f);
   p.dirty.clear();
   return id;
 }
@@ -331,6 +342,7 @@ const commands: Record<string, (args: Args) => unknown> = {
       chapters: [newChapter(1, clean)],
       commits: [],
       dirty: new Set(),
+      tracked: new Set(),
       ops: {},
       seq: {},
       branches: ["main"],
@@ -381,7 +393,15 @@ const commands: Record<string, (args: Args) => unknown> = {
 
   git_status: ({ path }) => {
     const p = project(path);
-    return { branch: "main", modified: [...p.dirty], staged: [], untracked: [], ahead: 0, behind: 0 };
+    const dirty = [...p.dirty];
+    return {
+      branch: "main",
+      modified: dirty.filter((f) => p.tracked.has(f)),
+      staged: [],
+      untracked: dirty.filter((f) => !p.tracked.has(f)),
+      ahead: 0,
+      behind: 0,
+    };
   },
   git_log: ({ path, limit }) => project(path).commits.slice(0, Number(limit ?? 50)),
   git_diff: ({ path }) => [...project(path).dirty].map((f) => `--- a/${f}\n+++ b/${f}\n`).join(""),
@@ -554,6 +574,21 @@ const commands: Record<string, (args: Args) => unknown> = {
     slots[name] = kind === "none" ? { kind: "none", id: "" } : { kind: String(kind), id: String(id) };
     return { ...slots };
   },
+  llama_backend: () => {
+    // The real backend reports `warming` while it compiles Metal shaders; the
+    // first call here does too so the UI state is reachable in a test.
+    llamaWarmCalls += 1;
+    if (llamaWarmCalls === 1) return { state: "warming", device: null, gpuOffload: false };
+    return {
+      state: "ready",
+      device: { label: "Metal (Apple M4 Max)", deviceType: "gpu", memFreeMb: 53_083, memTotalMb: 55_662 },
+      gpuOffload: true,
+    };
+  },
+  llama_progress: () => null,
+  llama_cancel: () => undefined,
+  llama_unload: () => undefined,
+
   ollama_pull: () => undefined,
   ollama_remove: () => undefined,
   studio_test: ({ port }) => Number(port) === 1234,
@@ -595,13 +630,43 @@ const commands: Record<string, (args: Args) => unknown> = {
   mcp_log: ({ limit }) => mcpLog.slice(-Number(limit ?? 50)).reverse(),
   mcp_set_active_project: () => undefined,
 
-  ai_rewrite: ({ provider, text }) => {
+  // Mirrors agents::rewrite: dispatch on the assignment, never on `kind` alone.
+  ai_rewrite: ({ kind, id, text }) => {
     const passage = String(text).trim();
     if (!passage) throw "ai_empty";
-    if (!agents.some((a) => a.id === provider && a.state !== "missing")) throw "no_provider";
-    // Codex stands in for a failing harness so the error path is testable.
-    if (provider === "codex") throw "ai_failed";
-    return `${passage} — rewritten by ${provider}`;
+    if (!SLOT_KINDS.includes(String(kind))) throw "bad_args";
+    const model = String(id ?? "").trim();
+    if (!model) throw "no_provider";
+    switch (kind) {
+      case "cli": {
+        // `gh` is in `agents` but is a git tool: Rust only accepts the three
+        // prose harnesses, so the mock must refuse it the same way.
+        if (!["claude", "codex", "opencode"].includes(model)) throw "no_provider";
+        if (!agents.some((a) => a.id === model && a.state !== "missing")) throw "no_provider";
+        // Codex stands in for a failing harness so the error path is testable.
+        if (model === "codex") throw "ai_failed";
+        break;
+      }
+      case "ollama": {
+        const daemon = agents.find((a) => a.id === "ollama");
+        if (daemon?.state !== "connected") throw "ollama_offline";
+        // A slot can outlive the model it names; no substituting another.
+        if (!daemon.models?.includes(model)) throw "no_provider";
+        break;
+      }
+      case "builtin": {
+        const card = models.find((m) => m.id === model);
+        if (!card) throw "not_found";
+        if (card.state !== "ready") throw "not_ready";
+        // The engine refuses before loading rather than swapping the machine.
+        if (!card.fits) throw "model_too_large";
+        if (llamaBusy) throw "llama_busy";
+        break;
+      }
+      default:
+        throw "no_provider";
+    }
+    return `${passage} — rewritten by ${model}`;
   },
 
   ai_apply_rewrite: ({ args }) => {

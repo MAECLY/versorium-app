@@ -51,6 +51,10 @@ impl ContinuityReport {
 pub const NO_MODEL: &str = "continuity_no_model";
 pub const DAEMON_OFFLINE: &str = "continuity_daemon_offline";
 pub const FAILED: &str = "continuity_failed";
+/// The engine is running a rewrite. A background pass yields to the writer.
+pub const BUSY: &str = "continuity_busy";
+/// The assigned model does not fit this machine.
+pub const TOO_LARGE: &str = "continuity_model_too_large";
 
 /// The skeleton of a project: what a continuity pass actually reasons over.
 pub fn summarize(root: &Path) -> Result<String, String> {
@@ -142,14 +146,16 @@ fn chapter_hint(detail: &str) -> Option<String> {
 
 /// Run a continuity pass, or explain why it did not.
 pub async fn check(root: &Path, slot: &SlotAssignment) -> Result<ContinuityReport, String> {
+    let id = slot.id.trim();
     match slot.kind.as_str() {
-        // Nothing selected, or a downloaded GGUF with no runtime to load it.
-        // Saying so beats an empty report that looks like "no problems found".
-        "none" | "builtin" | "cli" => return Ok(ContinuityReport::skipped(NO_MODEL)),
+        // A CLI harness could run this, but it is not wired; saying so beats an
+        // empty report that reads as "no problems found".
+        "none" | "cli" => return Ok(ContinuityReport::skipped(NO_MODEL)),
+        "builtin" if !id.is_empty() => return builtin_check(root, id).await,
         "ollama" => {}
         _ => return Ok(ContinuityReport::skipped(NO_MODEL)),
     }
-    if slot.id.trim().is_empty() {
+    if id.is_empty() {
         return Ok(ContinuityReport::skipped(NO_MODEL));
     }
 
@@ -169,19 +175,42 @@ pub async fn check(root: &Path, slot: &SlotAssignment) -> Result<ContinuityRepor
     }
 }
 
+/// A whole-novel summary is not a paragraph, so this waits far longer than a
+/// rewrite does.
+const CONTINUITY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
+/// A continuity pass through the in-process engine.
+///
+/// Refuses instead of waiting: this runs in the background over the whole novel
+/// and must never sit in front of the rewrite a writer is waiting on.
+async fn builtin_check(root: &Path, id: &str) -> Result<ContinuityReport, String> {
+    if crate::llama::is_busy() {
+        return Ok(ContinuityReport::skipped(BUSY));
+    }
+    let summary = summarize(root)?;
+    let prompt = prompt_for(&summary);
+    let model = id.to_string();
+    let answer = tauri::async_runtime::spawn_blocking(move || {
+        crate::llama::generate_if_free(&model, &prompt)
+    })
+    .await
+    .map_err(|_| FAILED.to_string())?;
+    match answer {
+        Ok(text) => Ok(ContinuityReport { ran: true, reason: None, findings: parse_findings(&text) }),
+        // The engine's own codes do not start with `continuity_`, and the UI
+        // reads these as continuity reasons, so they are mapped rather than
+        // passed through.
+        Err(e) if e == crate::llama::runtime::BUSY => Ok(ContinuityReport::skipped(BUSY)),
+        Err(e) if e == "not_ready" || e == "not_found" => Ok(ContinuityReport::skipped(NO_MODEL)),
+        Err(e) if e == "model_too_large" => Ok(ContinuityReport::skipped(TOO_LARGE)),
+        Err(_) => Ok(ContinuityReport::skipped(FAILED)),
+    }
+}
+
 async fn generate(model: &str, prompt: &str) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(300))
-        .build()
-        .map_err(|_| FAILED.to_string())?;
-    let response = client
-        .post("http://127.0.0.1:11434/api/generate")
-        .json(&serde_json::json!({ "model": model, "prompt": prompt, "stream": false }))
-        .send()
+    crate::agents::ollama_generate(model, prompt, CONTINUITY_TIMEOUT)
         .await
-        .map_err(|_| FAILED.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|_| FAILED.to_string())?;
-    Ok(body["response"].as_str().unwrap_or("").trim().to_string())
+        .map_err(|_| FAILED.to_string())
 }
 
 #[cfg(test)]
@@ -202,7 +231,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         // The dangerous failure would be ran:true with no findings, which reads
         // as "your novel is consistent" when nothing actually ran.
-        for assignment in [slot("none", ""), slot("builtin", "qwen35-4b-q4km"), slot("cli", "claude")] {
+        // `builtin` with an empty id still has nothing to run; a real id now
+        // reaches the engine and is covered by the test below.
+        for assignment in [slot("none", ""), slot("builtin", ""), slot("cli", "claude")] {
             let report = block_on(check(dir.path(), &assignment)).unwrap();
             assert!(!report.ran);
             assert_eq!(report.reason.as_deref(), Some(NO_MODEL));

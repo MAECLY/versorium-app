@@ -7,18 +7,16 @@ import { expect, test, type Page } from "@playwright/test";
 async function openUpdates(page: Page) {
   await page.goto("/?mock=tauri");
   await page.getByRole("button", { name: "Settings" }).click();
-  const settings = page.getByRole("dialog", { name: "Settings" });
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Application" }).click();
   return { settings, updates: settings.getByRole("region", { name: "Updates" }) };
 }
 
 /** Saving a token in the Updates slot is what signs the updater in. */
 async function signIn(page: Page, settings: ReturnType<Page["getByRole"]>) {
-  // The slot is a card, not a list item, and the Git section holds two of them
-  // — the novel one must not be touched.
-  const slot = settings
-    .getByRole("region", { name: "Git" })
-    .locator(".v-card")
-    .filter({ hasText: "Updates login" });
+  // No filtering needed any more: the novel's credential lives in another
+  // group entirely, so there is only one card here to confuse it with.
+  const slot = settings.getByRole("region", { name: "Updates login" });
   await slot.getByPlaceholder("GitHub token").fill("ghp_updates_token");
   await slot.getByRole("button", { name: "Connect" }).click();
   await expect.poll(async () => page.evaluate(() => window.__VERSORIUM_MOCK__.update.signedIn)).toBe(true);
@@ -96,8 +94,10 @@ test("the dialog offers install, later and skip, and promises verification", asy
 
 test("the Updates panel is translated", async ({ page }) => {
   await page.goto("/?mock=tauri");
-  await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
   await page.getByRole("button", { name: "Ajustes" }).click();
-  const updates = page.getByRole("dialog", { name: "Ajustes" }).getByRole("region", { name: "Actualizaciones" });
+  const settings = page.getByRole("region", { name: "Ajustes" });
+  await settings.getByRole("button", { name: "Aplicación" }).click();
+  const updates = settings.getByRole("region", { name: "Actualizaciones" });
   await expect(updates.getByRole("button", { name: "Buscar ahora" })).toBeVisible();
 });

@@ -102,7 +102,7 @@ test("the Manuscript dialog is translated", async ({ page }) => {
   const dialog = await openManuscript(page);
   await dialog.getByRole("button", { name: "Discard" }).or(page.locator("body")).first().click({ force: true }).catch(() => {});
   await page.keyboard.press("Escape");
-  await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
   await page.getByRole("banner").getByRole("button", { name: "Manuscrito" }).click();
   const es = page.getByRole("dialog", { name: "Manuscrito" });
   await expect(es.getByRole("tab", { name: "Exportar" })).toBeVisible();

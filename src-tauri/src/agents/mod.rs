@@ -8,6 +8,7 @@
 //! Detection is best-effort: a binary on PATH is "connected" (the harness manages
 //! its own auth); the Ollama daemon is checked over its local API.
 
+use crate::commands::settings::SlotAssignment;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -20,6 +21,9 @@ const CLI_TIMEOUT: Duration = Duration::from_secs(120);
 const VERSION_TIMEOUT: Duration = Duration::from_secs(5);
 /// Cap for a question to a daemon that is already running locally.
 const OLLAMA_API_TIMEOUT: Duration = Duration::from_secs(10);
+/// Cap for a rewrite through the local daemon — slower than a CLI harness on
+/// a cold model, because the weights have to be paged in first.
+const OLLAMA_GENERATE_TIMEOUT: Duration = Duration::from_secs(180);
 /// Ollama daemon address (local only, per spec §6.2).
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 
@@ -385,15 +389,30 @@ pub fn rewrite_prompt(text: &str) -> String {
     )
 }
 
-/// Rewrite `text` with the given provider. Errors are stable codes:
-/// `no_provider` (binary missing / unknown id), `ai_failed` (spawn, timeout
-/// or daemon failure), `ai_empty` (empty result).
-pub async fn rewrite(provider: &str, text: &str) -> Result<String, String> {
-    match provider {
-        "claude" => cli_rewrite("claude", &["-p"], text).await,
-        "codex" => cli_rewrite("codex", &["exec"], text).await,
-        "opencode" => cli_rewrite("opencode", &["run"], text).await,
-        "ollama" => ollama_rewrite(text).await,
+/// The CLI harnesses that can rewrite prose, and the flag that makes each one
+/// answer a single prompt and exit. `gh` is not here: it is for git, not prose.
+const CLI_HARNESSES: [(&str, &[&str]); 3] =
+    [("claude", &["-p"]), ("codex", &["exec"]), ("opencode", &["run"])];
+
+/// Rewrite `text` with the model assigned to a slot. Errors are stable codes:
+/// `no_provider` (nothing assigned, or a harness that is not installed),
+/// `not_ready` (a `builtin` slot whose weights are not fully downloaded),
+/// `model_too_large` (the machine cannot hold it), `llama_busy`,
+/// `ollama_offline`, `ai_failed` (spawn, timeout or daemon failure),
+/// `ai_empty` (empty result).
+///
+/// Dispatch is on the assignment rather than on a bare provider name, because
+/// a name cannot say *which* model: "ollama" alone left this picking whatever
+/// the daemon happened to list first, which is not what the writer chose.
+pub async fn rewrite(slot: &SlotAssignment, text: &str) -> Result<String, String> {
+    let id = slot.id.trim();
+    match slot.kind.as_str() {
+        "cli" => match CLI_HARNESSES.iter().find(|(bin, _)| *bin == id) {
+            Some((bin, args)) => cli_rewrite(bin, args, text).await,
+            None => Err("no_provider".to_string()),
+        },
+        "ollama" if !id.is_empty() => ollama_rewrite(id, text).await,
+        "builtin" if !id.is_empty() => builtin_rewrite(id, text).await,
         _ => Err("no_provider".to_string()),
     }
 }
@@ -410,42 +429,57 @@ async fn cli_rewrite(bin: &str, args: &[&str], text: &str) -> Result<String, Str
     Ok(out)
 }
 
-async fn ollama_rewrite(text: &str) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(180))
-        .build()
-        .map_err(|_| "ai_failed".to_string())?;
-    // First model the daemon serves (model picker is M4).
-    let tags: serde_json::Value = client
-        .get(format!("{OLLAMA_URL}/api/tags"))
-        .send()
+/// Rewrite through the in-process engine.
+///
+/// Blocking work, so it goes to a blocking thread exactly like a CLI harness
+/// does; the engine has its own worker thread behind that.
+async fn builtin_rewrite(id: &str, text: &str) -> Result<String, String> {
+    let prompt = rewrite_prompt(text);
+    let id = id.to_string();
+    tauri::async_runtime::spawn_blocking(move || crate::llama::generate(&id, &prompt))
         .await
-        .map_err(|_| "ai_failed".to_string())?
-        .json()
-        .await
-        .map_err(|_| "ai_failed".to_string())?;
-    let model = tags["models"]
-        .as_array()
-        .and_then(|a| a.first())
-        .and_then(|m| m["name"].as_str())
-        .unwrap_or("llama3.1")
-        .to_string();
-    let resp = client
-        .post(format!("{OLLAMA_URL}/api/generate"))
-        .json(&serde_json::json!({
-            "model": model,
-            "prompt": rewrite_prompt(text),
-            "stream": false,
-        }))
-        .send()
-        .await
-        .map_err(|_| "ai_failed".to_string())?;
-    let v: serde_json::Value = resp.json().await.map_err(|_| "ai_failed".to_string())?;
-    let out = v["response"].as_str().unwrap_or("").trim().to_string();
+        .map_err(|_| "io".to_string())?
+}
+
+async fn ollama_rewrite(model: &str, text: &str) -> Result<String, String> {
+    let (online, served) = ollama_status().await;
+    if !online {
+        return Err("ollama_offline".to_string());
+    }
+    // A slot can outlive the model it names — `ollama rm` happens outside the
+    // app. Rewriting with a substitute would be worse than refusing.
+    if !served.iter().any(|m| m == model) {
+        return Err("no_provider".to_string());
+    }
+    let out = ollama_generate(model, &rewrite_prompt(text), OLLAMA_GENERATE_TIMEOUT).await?;
     if out.is_empty() {
         return Err("ai_empty".to_string());
     }
     Ok(out)
+}
+
+/// One non-streaming completion from the local daemon, trimmed.
+///
+/// Shared with the continuity pass, which wants the same call with a longer
+/// deadline: a whole-novel summary is not a paragraph.
+pub async fn ollama_generate(
+    model: &str,
+    prompt: &str,
+    timeout: Duration,
+) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(timeout)
+        .build()
+        .map_err(|_| "ai_failed".to_string())?;
+    let response = client
+        .post(format!("{OLLAMA_URL}/api/generate"))
+        .json(&serde_json::json!({ "model": model, "prompt": prompt, "stream": false }))
+        .send()
+        .await
+        .map_err(|_| "ai_failed".to_string())?;
+    let body: serde_json::Value =
+        response.json().await.map_err(|_| "ai_failed".to_string())?;
+    Ok(body["response"].as_str().unwrap_or("").trim().to_string())
 }
 
 #[cfg(test)]
@@ -464,19 +498,74 @@ mod tests {
         eprintln!("ollama daemon online={online} models={models:?}");
 
         let passage = "La niña esperó junto a la ventana toda la noche, pero nadie vino.";
-        for provider in ["ollama", "claude"] {
-            let usable = agents.iter().any(|a| a.id == provider && a.state != "missing")
-                && (provider != "ollama" || online);
+        let mut slots = vec![slot("cli", "claude")];
+        // Name a model the daemon really serves, so this exercises the path a
+        // configured slot takes rather than a default.
+        if online {
+            if let Some(model) = models.first() {
+                slots.push(slot("ollama", model));
+            }
+        }
+        for assignment in &slots {
+            let installed = |id: &str| agents.iter().any(|a| a.id == id && a.state != "missing");
+            let usable = match assignment.kind.as_str() {
+                "cli" => installed(&assignment.id),
+                "ollama" => online,
+                _ => false,
+            };
             if !usable {
-                eprintln!("{provider}: skipped (not usable here)");
+                eprintln!("{assignment:?}: skipped (not usable here)");
                 continue;
             }
-            let out = tauri::async_runtime::block_on(rewrite(provider, passage))
-                .unwrap_or_else(|e| panic!("{provider} rewrite failed: {e}"));
-            eprintln!("{provider} → {out}");
-            assert!(!out.trim().is_empty(), "{provider} returned nothing");
-            assert_ne!(out.trim(), passage, "{provider} returned the passage unchanged");
+            let out = tauri::async_runtime::block_on(rewrite(assignment, passage))
+                .unwrap_or_else(|e| panic!("{assignment:?} rewrite failed: {e}"));
+            eprintln!("{assignment:?} → {out}");
+            assert!(!out.trim().is_empty(), "{assignment:?} returned nothing");
+            assert_ne!(out.trim(), passage, "{assignment:?} returned the passage unchanged");
         }
+
+        // An Ollama slot naming a model the daemon does not serve must refuse
+        // rather than substitute one.
+        if online {
+            assert_eq!(
+                tauri::async_runtime::block_on(rewrite(
+                    &slot("ollama", "versorium-not-a-model:1b"),
+                    passage
+                ))
+                .unwrap_err(),
+                "no_provider"
+            );
+        }
+    }
+
+    fn slot(kind: &str, id: &str) -> SlotAssignment {
+        SlotAssignment { kind: kind.into(), id: id.into() }
+    }
+
+    #[test]
+    fn a_rewrite_slot_that_names_nothing_usable_is_refused_before_any_work() {
+        let refused = |kind: &str, id: &str| {
+            tauri::async_runtime::block_on(rewrite(&slot(kind, id), "Some prose.")).unwrap_err()
+        };
+        // Nothing assigned, and the empty-id cases: an assignment with no model
+        // must not fall through to a default.
+        assert_eq!(refused("none", ""), "no_provider");
+        assert_eq!(refused("ollama", "  "), "no_provider");
+        assert_eq!(refused("builtin", ""), "no_provider");
+        assert_eq!(refused("cli", ""), "no_provider");
+        // `gh` is a git tool, not an editor, and must never be offered prose.
+        assert_eq!(refused("cli", "gh"), "no_provider");
+        assert_eq!(refused("cli", "not-a-harness"), "no_provider");
+        // A `builtin` slot now reaches the engine, so the refusal it earns
+        // depends on the machine rather than on there being no engine: an id the
+        // catalog does not know is `not_found`, and a real id nobody downloaded
+        // is `not_ready`. Either way it is never `no_provider`.
+        let real = refused("builtin", "qwen35-4b-q4km");
+        assert!(
+            real == "not_ready" || real == "model_too_large" || real == "ai_empty" || real == "llama_load_failed",
+            "unexpected refusal for a real catalog id: {real}"
+        );
+        assert_eq!(refused("builtin", "no-such-model"), "not_found");
     }
 
     #[test]

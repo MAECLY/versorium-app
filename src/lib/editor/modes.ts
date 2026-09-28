@@ -38,7 +38,18 @@ export function shouldScroll(current: number, desired: number, tolerance = 2): b
  * document ends before two thirds of the viewport and the final paragraphs
  * refuse to lift.
  */
-const TYPEWRITER_TAIL = `${Math.round(TYPEWRITER_ANCHOR * 100)}vh`;
+export const TYPEWRITER_TAIL = `${Math.round(TYPEWRITER_ANCHOR * 100)}vh`;
+
+/**
+ * Room *above* the first line, for the same reason in the other direction.
+ *
+ * Without it the mode was a no-op on any chapter shorter than two thirds of a
+ * screen: `desiredScrollTop` clamps at zero, so an early line's target scroll
+ * is zero and nothing moves. A writer opening a fresh chapter, toggling
+ * typewriter and seeing the caret stay exactly where it was concluded the
+ * button was dead -- and was right to.
+ */
+export const TYPEWRITER_HEAD = TYPEWRITER_TAIL;
 
 function typewriterScroller(): Extension {
   return EditorView.updateListener.of((update) => {
@@ -62,7 +73,9 @@ function typewriterScroller(): Extension {
 export function typewriterMode(): Extension {
   return [
     typewriterScroller(),
-    EditorView.theme({ ".cm-content": { paddingBottom: TYPEWRITER_TAIL } }),
+    EditorView.theme({
+      ".cm-content": { paddingTop: TYPEWRITER_HEAD, paddingBottom: TYPEWRITER_TAIL },
+    }),
   ];
 }
 

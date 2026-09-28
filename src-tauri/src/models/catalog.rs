@@ -193,10 +193,10 @@ mod tests {
     /// downloadable. A wrong hash or a non-https URL here would fail on every
     /// user's machine, so this runs against the real embedded file.
     ///
-    /// It deliberately does not require entries to EXIST. `models/catalog.json`
-    /// still holds the version-0 stub, which `catalog()` rejects as
-    /// `bad_catalog` — the right behaviour, since an empty catalog has nothing
-    /// to offer. Filling the ladder is tracked as its own M4 deliverable.
+    /// It deliberately does not require entries to EXIST: an empty catalog is
+    /// rejected as `bad_catalog`, which is the right behaviour, and the
+    /// assertion below still holds if the ladder is ever emptied again. The
+    /// shipped file is version 1 with the eight-entry ladder filled in.
     #[test]
     fn no_entry_in_the_shipped_catalog_would_break_its_download() {
         let raw: Catalog = serde_json::from_str(EMBEDDED)

@@ -1,38 +1,23 @@
 <script lang="ts">
-  import { t, toggleLocale, getLocale } from "$lib/i18n";
+  import { t } from "$lib/i18n";
   import { api, isTauri } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
 
+  /**
+   * The top bar carries what acts on the *manuscript*: the creative action, the
+   * export, and getting to another project or to settings. Document state, view
+   * modes and the editing-history controls moved to the status bar, where the
+   * industry has put them for years (VS Code, Scrivener, iA Writer) and where
+   * they stop competing with the one button a writer came here to press.
+   */
   let {
     onOpenSettings,
-    onToggleGit,
-    onCommit,
     onRewrite,
     onOpenManuscript,
-    onRollbackWord,
-    onRollbackSelection,
-    onToggleFocus,
-    onToggleTypewriter,
-    onToggleView,
-    gitDirty,
-    focus,
-    typewriter,
-    corkboard,
   }: {
     onOpenSettings: () => void;
-    onToggleGit: () => void;
-    onCommit: () => void;
     onRewrite: () => void;
     onOpenManuscript: () => void;
-    onRollbackWord: () => void;
-    onRollbackSelection: () => void;
-    onToggleFocus: () => void;
-    onToggleTypewriter: () => void;
-    onToggleView: () => void;
-    gitDirty: boolean;
-    focus: boolean;
-    typewriter: boolean;
-    corkboard: boolean;
   } = $props();
 
   let version = $state("");
@@ -71,56 +56,22 @@
 
   <div class="v-row" style="margin-left: auto; gap: 8px;">
     {#if hasProject}
-      <span
-        aria-hidden="true"
-        title={gitDirty ? t("git.dirty") : t("git.clean")}
-        style="width: 8px; height: 8px; border-radius: 50%; background: {gitDirty ? "var(--warn)" : "var(--text-mute)"}; opacity: {gitDirty ? 1 : 0.4};"
-      ></span>
-      <button class="v-btn" onclick={onCommit} title={t("git.commitHint")}>{t("git.commit")}</button>
-      <button class="v-btn" onclick={onRewrite} title={t("ai.rewrite")}>{t("ai.rewrite")}</button>
+      <!-- The reason to open the app. Primary weight, and alone in its group. -->
+      <button class="v-btn v-btn-primary" onclick={onRewrite} title={t("ai.rewrite")}>
+        {t("ai.rewrite")}
+      </button>
       <!-- Creative Mode: visible, disabled, tooltip (spec §5). No engine in v1. -->
       <button class="v-btn" disabled aria-disabled="true" title={t("ai.creativeSoon")}>
         {t("ai.creative")}
       </button>
-      <button class="v-btn" onclick={onRollbackSelection} title={t("git.rollbackSelection")}>
-        {t("git.rollbackSelShort")}
-      </button>
-      <button class="v-btn" onclick={onRollbackWord} title={t("git.rollbackWord")}>
-        {t("git.rollbackWordShort")}
-      </button>
-      <button
-        class="v-btn"
-        onclick={onToggleView}
-        aria-pressed={corkboard}
-        title={t("binder.corkboardHint")}
-      >
-        {corkboard ? t("binder.editor") : t("binder.corkboard")}
-      </button>
-      <button
-        class="v-btn"
-        onclick={onToggleFocus}
-        aria-pressed={focus}
-        title={t("editor.focusHint")}
-      >
-        {t("editor.focus")}
-      </button>
-      <button
-        class="v-btn"
-        onclick={onToggleTypewriter}
-        aria-pressed={typewriter}
-        title={t("editor.typewriterHint")}
-      >
-        {t("editor.typewriter")}
-      </button>
-      <button class="v-btn" onclick={onToggleGit} title={t("git.title")}>{t("git.title")}</button>
+
+      <span class="v-bar-sep" aria-hidden="true"></span>
+
       <button class="v-btn" onclick={onOpenManuscript} title={t("manuscript.title")}>
         {t("manuscript.open")}
       </button>
     {/if}
     <button class="v-btn" onclick={openProject}>{t("app.openProject")}</button>
-    <button class="v-btn" onclick={toggleLocale} title="EN / ES">
-      {getLocale() === "en" ? "ES" : "EN"}
-    </button>
     <button class="v-btn" onclick={onOpenSettings}>{t("settings.title")}</button>
   </div>
 </header>
