@@ -15,7 +15,7 @@
   import MarkdownEditor from "$lib/editor/MarkdownEditor.svelte";
   import NewProjectDialog from "$lib/binder/NewProjectDialog.svelte";
   import NewChapterDialog from "$lib/binder/NewChapterDialog.svelte";
-  import SettingsModal from "$lib/settings/SettingsModal.svelte";
+  import SettingsPage from "$lib/settings/SettingsPage.svelte";
   import RewriteDialog from "$lib/components/RewriteDialog.svelte";
   import ManuscriptDialog from "$lib/components/ManuscriptDialog.svelte";
   import UpdateDialog from "$lib/components/UpdateDialog.svelte";
@@ -225,6 +225,9 @@
     />
   </div>
 
+  {#if showSettings}
+    <SettingsPage onClose={() => (showSettings = false)} />
+  {:else}
   <div class="flex min-h-0 flex-1">
     <div class="v-chrome flex-shrink-0">
       <ChapterList onRequestNewChapter={() => (showNewChapter = true)} />
@@ -256,6 +259,7 @@
       {/if}
     </main>
   </div>
+  {/if}
 
   {#if showGit}
     <GitPanel open={showGit} onClose={() => (showGit = false)} />
@@ -280,9 +284,6 @@
     <Onboarding onClose={() => (onboarding.open = false)} />
   {/if}
 
-  {#if showSettings}
-    <SettingsModal onClose={() => (showSettings = false)} />
-  {/if}
   {#if showNewProject}
     <NewProjectDialog onClose={() => (showNewProject = false)} />
   {/if}

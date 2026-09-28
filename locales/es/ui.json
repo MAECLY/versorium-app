@@ -70,6 +70,26 @@
       "safety": "Seguridad",
       "updates": "Actualizaciones",
       "typography": "Tipografía"
+    },
+    "nav": "Secciones de ajustes",
+    "backToWriting": "← Volver al manuscrito",
+    "themeHint": "Folio es papel cálido, Quarry es gris frío, Needle es oscuro. Cada uno sigue claro, oscuro o tu sistema.",
+    "languageHint": "Cambia solo la interfaz. Nunca toca el idioma en que escribes tu novela.",
+    "groups": {
+      "writing": "Escritura",
+      "appearance": "Apariencia",
+      "localAi": "IA local",
+      "backup": "Historial y respaldo",
+      "assistants": "Asistentes",
+      "app": "Aplicación"
+    },
+    "purpose": {
+      "writing": "Cómo se siente la página mientras escribes: la tipografía y el tamaño del manuscrito.",
+      "appearance": "Cómo se ve Versorium, y en qué idioma habla su propia interfaz.",
+      "localAi": "Modelos que corren en esta máquina, y cuál hace cada tarea. Nada de aquí envía tu prosa a ningún lado.",
+      "backup": "El historial de tu novela en este disco, y una copia privada opcional en GitHub. Versorium nunca lo mezcla con su propio repositorio.",
+      "assistants": "Herramientas de IA externas que pueden llegar a tu novela, y exactamente cuánto puede hacer cada una.",
+      "app": "Versorium misma: la versión que usas, cómo se actualiza, y qué registra cuando falla."
     }
   },
   "statusbar": {

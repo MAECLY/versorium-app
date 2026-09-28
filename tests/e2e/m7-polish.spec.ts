@@ -13,9 +13,12 @@ async function withProject(page: Page, title = "El largo invierno") {
   await expect(page.locator(".cm-content")).toBeVisible();
 }
 
-async function openSettings(page: Page) {
+/** `group` is a rail entry: a group's controls exist only while it is current. */
+async function openSettings(page: Page, group = "Writing") {
   await page.getByRole("button", { name: "Settings" }).click();
-  return page.getByRole("dialog", { name: "Settings" });
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: group }).click();
+  return settings;
 }
 
 test("focus and typewriter toggle without losing the text", async ({ page }) => {
@@ -57,7 +60,7 @@ test("the corkboard shows a card per chapter and opens one", async ({ page }) =>
 
 test("a crash report carries no manuscript and is not sent on its own", async ({ page }) => {
   await withProject(page);
-  const settings = await openSettings(page);
+  const settings = await openSettings(page, "Application");
   const crash = settings.getByRole("region", { name: "Crash reports" });
 
   await expect(crash.getByText(/carry no manuscript text/)).toBeVisible();
@@ -70,7 +73,8 @@ test("a crash report carries no manuscript and is not sent on its own", async ({
 
 test("the continuity check says it did not run rather than reporting nothing", async ({ page }) => {
   await withProject(page);
-  const settings = await openSettings(page);
+  // Continuity only runs from a local model, so it sits with the models.
+  const settings = await openSettings(page, "Local AI");
   const continuity = settings.getByRole("region", { name: "Continuity check" });
 
   await expect(continuity.getByText(/needs a local model selected/)).toBeVisible();

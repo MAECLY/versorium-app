@@ -102,8 +102,10 @@ test("rewrite without a selection explains itself", async ({ page }) => {
 test("settings: agents cards and censorship toggle persist", async ({ page }) => {
   await page.goto("/?mock=tauri");
   await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Assistants" }).click();
   // Scoped to the Agents landmark: the MCP panel lists the same client names.
-  const agents = page.getByRole("dialog", { name: "Settings" }).getByRole("region", { name: "Agents" });
+  const agents = settings.getByRole("region", { name: "Agents" });
 
   await expect(agents.getByText("Claude Code")).toBeVisible();
   await expect(agents.getByText("Connected", { exact: true })).toHaveCount(4);
@@ -112,9 +114,9 @@ test("settings: agents cards and censorship toggle persist", async ({ page }) =>
   await agents.getByRole("button", { name: "Re-check" }).click();
   await expect(agents.getByText("OpenCode")).toBeVisible();
 
-  const censorship = page
-    .getByRole("dialog", { name: "Settings" })
-    .getByRole("checkbox", { name: "Censorship" });
+  // Censorship gates which models the catalogue shows, so it moved next to them.
+  await settings.getByRole("button", { name: "Local AI" }).click();
+  const censorship = settings.getByRole("checkbox", { name: "Censorship" });
   await expect(censorship).not.toBeChecked();
   await censorship.check();
   await expect.poll(async () => (await mockState(page)).censorship).toBe(true);
@@ -126,8 +128,10 @@ test("the whole M2 surface is translated", async ({ page }) => {
   const header = page.getByRole("banner");
   await expect(header.getByRole("button", { name: "Reescribir" })).toBeVisible();
   await page.getByRole("button", { name: "Ajustes" }).click();
-  const settings = page.getByRole("dialog", { name: "Ajustes" });
+  const settings = page.getByRole("region", { name: "Ajustes" });
+  await settings.getByRole("button", { name: "Asistentes" }).click();
   await expect(settings.getByRole("region", { name: "Agentes" }).getByText("Conectado", { exact: true }).first()).toBeVisible();
+  await settings.getByRole("button", { name: "IA local" }).click();
   await expect(settings.getByRole("checkbox", { name: "Censura" })).toBeVisible();
 });
 
