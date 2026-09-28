@@ -54,6 +54,11 @@ interface ProjectState {
   remotes: { name: string; url: string }[];
 }
 
+interface CrashEntry {
+  id: string; ts: number; version: string; os: string; arch: string;
+  kind: string; message: string; stack: string[];
+}
+
 interface AvailableUpdate { version: string; notes: string; date: string | null }
 interface UpdateStatus {
   currentVersion: string;
@@ -113,6 +118,12 @@ const settings = {
   censorship: false,
   githubUpdatesToken: null as string | null,
   githubNovelToken: null as string | null,
+  editorFont: "system-serif",
+  focusMode: false,
+  typewriter: false,
+  // Already onboarded, so the tour does not sit on top of every other spec.
+  // `?mock=tauri&fresh=1` simulates a first run instead.
+  onboarded: !new URLSearchParams(location.search).has("fresh"),
 };
 
 const projects = new Map<string, ProjectState>();
@@ -130,6 +141,25 @@ const importPreview: Imported = {
   warnings: [
     "Scrivener labels and status flags are not imported.",
     "Comments and footnotes in 2 documents were dropped.",
+  ],
+};
+
+// Already scrubbed by Rust: no prose, no paths, no tokens.
+const crashes: CrashEntry[] = [
+  { id: "a1", ts: 1_759_000_000_000, version: "0.1.0", os: "macos", arch: "aarch64",
+    kind: "panic", message: "<redacted> 3 but the index is 5", stack: ["src/ops/mod.rs:142"] },
+];
+
+const fonts = {
+  version: 1,
+  fonts: [
+    { id: "system-serif", family: "System serif", role: "body",
+      stack: '"Iowan Old Style", Palatino, "Times New Roman", serif',
+      license: "system", bundled: false },
+    { id: "system-ui", family: "System UI", role: "ui", stack: "system-ui, sans-serif",
+      license: "system", bundled: false },
+    { id: "source-serif-4", family: "Source Serif 4", role: "body",
+      stack: '"Source Serif 4", serif', license: "OFL-1.1", bundled: false },
   ],
 };
 
@@ -408,6 +438,30 @@ const commands: Record<string, (args: Args) => unknown> = {
 
   agents_detect: () => agents.map((a) => ({ ...a, models: a.models ? [...a.models] : null })),
 
+  // --- M7: polish ---
+  crash_list: ({ limit }) => crashes.slice(0, Number(limit ?? 20)),
+  crash_report_url: ({ id }) => {
+    if (!crashes.some((c) => c.id === id)) throw "not_found";
+    return `https://github.com/mock/versorium-app/issues/new?title=crash&body=redacted`;
+  },
+  crash_clear: () => {
+    crashes.length = 0;
+  },
+  continuity_check: () => {
+    // No model is selected for Continuity, so it refuses to pretend it ran.
+    const slot = slots.continuity;
+    if (slot.kind !== "ollama") return { ran: false, reason: "continuity_no_model", findings: [] };
+    return { ran: true, reason: null,
+             findings: [{ kind: "contradiction", detail: "Ana's eyes change colour.", chapter: "ch-02" }] };
+  },
+  fonts_catalog: () => JSON.parse(JSON.stringify(fonts)),
+  editor_font: () => settings.editorFont ?? "system-serif",
+  set_editor_font: ({ id }) => {
+    if (!fonts.fonts.some((f) => f.id === id)) throw "bad_args";
+    settings.editorFont = String(id);
+    return settings.editorFont;
+  },
+
   // --- M6: updates ---
   update_status: () => ({ ...update }),
   update_check: () => {
@@ -648,6 +702,7 @@ declare global {
       slots: Record<string, SlotAssignment>;
       lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null;
       update: UpdateStatus;
+      crashes: CrashEntry[];
     };
   }
 }
@@ -656,7 +711,7 @@ window.__TAURI_INTERNALS__ = internals;
 window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
-    projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update,
+    projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update, crashes,
     get lastExport() {
       return lastExport;
     },

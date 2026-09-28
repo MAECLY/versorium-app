@@ -9,7 +9,8 @@
   "empty": {
     "title": "A quiet desk, a sharp needle.",
     "body": "Create a project to start writing. Everything stays on this machine.",
-    "cta": "Create your first project"
+    "cta": "Create your first project",
+    "setup": "Set up Versorium"
   },
   "binder": {
     "projects": "Projects",
@@ -22,14 +23,23 @@
       "revised": "revised",
       "final": "final"
     },
-    "noProjects": "No projects yet."
+    "noProjects": "No projects yet.",
+    "corkboard": "Corkboard",
+    "corkboardHint": "See the chapters as cards.",
+    "corkboardLoading": "Reading chapters…",
+    "corkboardEmpty": "Nothing written yet.",
+    "editor": "Editor"
   },
   "editor": {
     "placeholder": "Start writing…",
     "saved": "Saved",
     "saving": "Saving…",
     "unsaved": "Unsaved changes",
-    "error": "Could not save: {error}"
+    "error": "Could not save: {error}",
+    "focus": "Focus",
+    "focusHint": "Fade everything but the page. Escape or reach for the edge to come back.",
+    "typewriter": "Typewriter",
+    "typewriterHint": "Keep the line you are writing at the lower third."
   },
   "dialog": {
     "newProject": "New project",
@@ -155,7 +165,10 @@
     "export_docx_scene_titles_dropped": "Scene titles are not part of manuscript format; the scene breaks remain.",
     "no_release": "No release matched this channel.",
     "no_manifest": "That release has no update manifest attached.",
-    "bad_update_host": "The update pointed somewhere unexpected and was refused."
+    "bad_update_host": "The update pointed somewhere unexpected and was refused.",
+    "continuity_no_model": "No model is selected for Continuity. Pick one under Local AI.",
+    "continuity_daemon_offline": "The Ollama daemon is not running, so the check could not start.",
+    "continuity_failed": "The continuity check could not finish."
   },
   "languages": {
     "en": "English",
@@ -420,5 +433,102 @@
       "later": "Later",
       "skip": "Skip this version"
     }
+  },
+  "onboarding": {
+    "title": "Welcome to Versorium",
+    "steps": "Setup steps",
+    "stepOf": "Step {step} of {total}",
+    "step": {
+      "machine": "This machine",
+      "agents": "What we found",
+      "project": "Your novel",
+      "template": "A shape to start from",
+      "firstScene": "The first scene"
+    },
+    "machineSummary": "{ram} of memory and {cores} cores. The {tier} pack is the largest that fits comfortably.",
+    "machineUnknown": "Versorium could not read this machine's memory. You can still pick a model later.",
+    "machineHint": "Nothing is downloaded here. Models are chosen in Settings, when you want them.",
+    "agentsHint": "Versorium uses the AI tools you already have. Each keeps its own login — no keys are stored here.",
+    "agentsNone": "No agent tools were found. Versorium works without them; you can add one later.",
+    "projectHint": "A novel is a plain folder on your disk, versioned with git from the first save.",
+    "projectCreated": "Created. Your novel is on disk and under version control.",
+    "templateHint": "A structure only seeds chapter titles. Versorium never writes prose you did not ask for.",
+    "templateChapters": "{count} chapters",
+    "templatePreview": "Chapters",
+    "templates": {
+      "blank": {
+        "name": "Blank"
+      },
+      "threeAct": {
+        "name": "Three acts",
+        "1": "Act One — Setup",
+        "2": "Act Two — Confrontation",
+        "3": "Act Three — Resolution"
+      },
+      "saveTheCat": {
+        "name": "Save the Cat",
+        "1": "Opening Image",
+        "2": "Theme Stated",
+        "3": "Set-Up",
+        "4": "Catalyst",
+        "5": "Debate",
+        "6": "Break into Two",
+        "7": "B Story",
+        "8": "Fun and Games",
+        "9": "Midpoint",
+        "10": "Bad Guys Close In",
+        "11": "All Is Lost",
+        "12": "Dark Night of the Soul",
+        "13": "Break into Three",
+        "14": "Finale",
+        "15": "Final Image"
+      },
+      "kishotenketsu": {
+        "name": "Kishōtenketsu",
+        "1": "Ki — Introduction",
+        "2": "Shō — Development",
+        "3": "Ten — Turn",
+        "4": "Ketsu — Conclusion"
+      }
+    },
+    "firstSceneBody": "That is everything. Your manuscript is Markdown on your disk, and it never leaves this machine unless you send it somewhere.",
+    "rewriteHint": "Select a passage and press Rewrite to hand it to an agent. You see the diff before anything changes.",
+    "createProject": "Create it",
+    "useTemplate": "Use this",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip setup",
+    "start": "Start writing",
+    "working": "Working…",
+    "none": "Setup runs inside the desktop app."
+  },
+  "typography": {
+    "intro": "What the editor renders your prose in.",
+    "sample": "El invierno fue largo, y la niña esperaba junto a la ventana.",
+    "systemFace": "already on this machine",
+    "downloadLater": "Downloadable families arrive with the font downloader in a later release. Nothing here needs fetching.",
+    "none": "Typography is handled by the desktop app."
+  },
+  "crash": {
+    "title": "Crash reports",
+    "privacy": "Crash files stay on this machine and carry no manuscript text — only the version, the platform and where the code stopped. Nothing is sent unless you press Report.",
+    "empty": "No crashes recorded. Good.",
+    "none": "Crash reports are handled by the desktop app.",
+    "build": "{version} · {os} {arch}",
+    "report": "Report",
+    "openIssue": "Open an issue",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "reviewHint": "The issue opens prefilled. Read it before you post — you can cut anything you would rather not share.",
+    "clear": "Clear"
+  },
+  "continuity": {
+    "title": "Continuity check",
+    "hint": "Reads the manuscript against itself for contradictions. A stub: it needs a local model selected for the Continuity task.",
+    "run": "Run check",
+    "running": "Reading…",
+    "clean": "Nothing contradictory found.",
+    "noProject": "Open a novel first.",
+    "none": "The continuity check runs inside the desktop app."
   }
 }

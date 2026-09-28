@@ -1,18 +1,47 @@
 {
-  "$schema": "./fonts/catalog-schema.md",
-  "version": 0,
-  "note": "Stub (M0). Filled in M4/M7. Entries: id, family, role (body|ui|mono), license, weightAxis, url, sha256, sizeBytes.",
-  "bundled": [
+  "version": 1,
+  "note": "Fonts the app can offer today. Everything here resolves to families already on the machine, so nothing downloads and nothing is bundled. The downloadable OFL catalogue from DESIGN-VERSORIUM.md arrives with the font downloader in a later milestone; until then an entry that is not installable is marked available:false rather than given a URL it cannot honour.",
+  "defaultBody": "system-serif",
+  "fonts": [
+    {
+      "id": "system-serif",
+      "family": "System serif",
+      "role": "body",
+      "stack": "\"Iowan Old Style\", \"Palatino Linotype\", Palatino, \"Liberation Serif\", \"Times New Roman\", serif",
+      "license": "system",
+      "bundled": false,
+      "available": true,
+      "note": "The zero-download fallback named in DESIGN-VERSORIUM.md."
+    },
+    {
+      "id": "system-ui",
+      "family": "System interface",
+      "role": "ui",
+      "stack": "system-ui, \"Segoe UI Variable\", \"Segoe UI\", \"SF Pro Text\", -apple-system, \"Noto Sans\", sans-serif",
+      "license": "system",
+      "bundled": false,
+      "available": true,
+      "note": "What the chrome already uses; offered for writers who prefer a sans page."
+    },
+    {
+      "id": "system-mono",
+      "family": "System monospace",
+      "role": "mono",
+      "stack": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "license": "system",
+      "bundled": false,
+      "available": true,
+      "note": "Tabular figures for word counts and git blame."
+    },
     {
       "id": "source-serif-4",
       "family": "Source Serif 4",
       "role": "body",
+      "stack": "\"Source Serif 4\", \"Iowan Old Style\", Palatino, \"Times New Roman\", serif",
       "license": "OFL-1.1",
-      "weightAxis": "200-900",
-      "url": null,
-      "sha256": null,
-      "sizeBytes": 0
+      "bundled": false,
+      "available": false,
+      "note": "The design default. Renders only where the writer already has it installed; it is not bundled and there is no downloader yet, so it is offered but marked unavailable rather than pretending to fetch."
     }
-  ],
-  "catalog": []
+  ]
 }

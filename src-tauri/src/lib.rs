@@ -4,6 +4,9 @@
 //! The frontend talks to these modules through Tauri commands.
 
 mod commands;
+mod continuity;
+mod crash;
+mod fonts;
 mod formats;
 mod git;
 mod ops;
@@ -19,6 +22,9 @@ pub mod i18n;
 use tauri::Manager;
 
 pub fn run() {
+    // Records a scrubbed crash file locally. Nothing is sent: spec §12.
+    crash::install_panic_hook();
+
     // `versorium mcp` serves stdio instead of opening a window (spec §7/§13).
     if let Some(options) = mcp::parse_cli(std::env::args()) {
         std::process::exit(mcp::serve_stdio(options));
@@ -26,6 +32,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // paths::settings_path() so the `versorium mcp` process reads the same file.
             let store = commands::settings::SettingsStore::load(paths::settings_path()?);
@@ -112,6 +119,13 @@ pub fn run() {
             commands::update::update_skip,
             commands::update::update_set_channel,
             commands::update::update_set_automatic,
+            commands::polish::crash_list,
+            commands::polish::crash_report_url,
+            commands::polish::crash_clear,
+            commands::polish::continuity_check,
+            commands::polish::fonts_catalog,
+            commands::polish::editor_font,
+            commands::polish::set_editor_font,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Versorium");
