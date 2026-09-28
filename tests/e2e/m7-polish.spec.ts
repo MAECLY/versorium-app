@@ -54,7 +54,7 @@ test("the corkboard shows a card per chapter and opens one", async ({ page }) =>
   await expect(board.getByRole("listitem").first()).toBeVisible();
   await expect(page.getByText("Primera escena del capítulo.")).toBeVisible();
 
-  await page.getByRole("contentinfo").getByRole("button", { name: "Editor" }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "Corkboard" }).click();
   await expect(page.locator(".cm-content")).toBeVisible();
 });
 
