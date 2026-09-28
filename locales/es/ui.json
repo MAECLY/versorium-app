@@ -136,7 +136,21 @@
     "sha_mismatch": "La descarga no coincidió con su checksum, así que se borró. Inténtalo otra vez.",
     "not_ready": "Descarga ese modelo antes de seleccionarlo.",
     "bad_catalog": "No se pudo leer el catálogo de modelos.",
-    "bad_args": "Ese valor no es uno de los que Versorium acepta."
+    "bad_args": "Ese valor no es uno de los que Versorium acepta.",
+    "bad_format": "Versorium no conoce ese formato.",
+    "unsupported_source": "Versorium no puede leer ese tipo de archivo.",
+    "empty_manuscript": "Todavía no hay nada que exportar.",
+    "no_author": "Este formato necesita una autoría para sus cabeceras.",
+    "import_prose_before_first_chapter": "El texto anterior al primer capítulo se guardó como capítulo inicial.",
+    "import_no_chapter_headings": "No se encontraron títulos de capítulo, así que el documento entero pasó a ser un capítulo.",
+    "import_title_guessed": "El título se tomó del primer encabezado.",
+    "import_not_utf8": "Algunos caracteres no se pudieron decodificar y se reemplazaron.",
+    "import_scrivener_labels_dropped": "Las etiquetas y los estados de Scrivener no se trajeron.",
+    "import_scrivener_notes_dropped": "Las notas de documento de Scrivener no se trajeron.",
+    "import_docx_formatting_dropped": "La negrita, la cursiva y el resto del formato no se trajeron.",
+    "import_docx_no_headings": "No se encontró ningún Título 1, así que el documento entero pasó a ser un capítulo.",
+    "import_images_dropped": "Las imágenes no se trajeron.",
+    "empty_document": "Ese archivo no tiene texto que importar."
   },
   "languages": {
     "en": "English",
@@ -315,6 +329,55 @@
       "embeddingsHint": "Indexar el manuscrito para que la búsqueda entienda el sentido.",
       "dictation": "Dictado",
       "dictationHint": "Convertir la voz en texto."
+    }
+  },
+  "manuscript": {
+    "title": "Manuscrito",
+    "open": "Manuscrito",
+    "close": "Cerrar",
+    "tabs": {
+      "export": "Exportar",
+      "import": "Importar"
+    },
+    "export": {
+      "title": "Exportar",
+      "intro": "Escribe el manuscrito entero en un solo archivo.",
+      "format": "Formato",
+      "formats": {
+        "md": "El formato canónico. No se pierde nada.",
+        "docx": "Formato de manuscrito estándar: serif de 12pt, doble espacio, márgenes de una pulgada y apellido / título / página en la cabecera.",
+        "epub": "Un ebook que los lectores aceptan.",
+        "pdf": "Vista de impresión, con aperturas de capítulo y cabeceras."
+      },
+      "formatNames": {
+        "md": "Markdown",
+        "docx": "Word (DOCX)",
+        "epub": "EPUB 3",
+        "pdf": "PDF"
+      },
+      "author": "Autoría",
+      "authorPlaceholder": "Ursula K. Le Guin",
+      "authorHint": "DOCX y PDF imprimen el apellido en cada cabecera, así que lo necesitan.",
+      "authorMissing": "Añade la autoría para exportar en este formato.",
+      "action": "Exportar",
+      "busy": "Exportando…",
+      "done": "Escribí {size} en {path}"
+    },
+    "import": {
+      "title": "Importar",
+      "intro": "Lee un manuscrito en un proyecto nuevo. No se escribe nada hasta que confirmes.",
+      "chooseFile": "Elegir un archivo",
+      "chooseProject": "Elegir un proyecto de Scrivener",
+      "fileHint": "Markdown o Word.",
+      "projectHint": "Un paquete .scriv.",
+      "busy": "Leyendo…",
+      "previewTitle": "Título del proyecto",
+      "chapters": "Capítulos",
+      "chapterWords": "{words} palabras",
+      "noChapters": "Esta fuente no tiene capítulos.",
+      "warningsTitle": "Lo que esta importación no puede traer",
+      "action": "Crear proyecto",
+      "cancel": "Descartar"
     }
   }
 }
