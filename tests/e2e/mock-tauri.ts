@@ -122,7 +122,7 @@ const importPreview: Imported = {
   ],
 };
 
-let lastExport: { path: string; bytes: number; format: string } | null = null;
+let lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null = null;
 
 const models: ModelCard[] = [
   { id: "gemma3-1b-q4km", family: "Gemma", label: "Gemma 3 1B", task: "writing", tier: "low",
@@ -389,7 +389,10 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (!project) throw "not_found";
     if (!["md", "docx", "epub", "pdf"].includes(String(format))) throw "bad_format";
     if (!project.chapters.some((c) => c.body.trim())) throw "empty_manuscript";
-    lastExport = { path: String(dest), bytes: 48_231, format: String(format) };
+    // PDF cannot carry every character, and the UI has to say so.
+    const warnings = format === "pdf" ? ["export_pdf_characters_replaced"]
+                   : format === "docx" ? ["export_docx_scene_titles_dropped"] : [];
+    lastExport = { path: String(dest), bytes: 48_231, format: String(format), warnings };
     return { ...lastExport };
   },
   import_preview: ({ source }) => {
@@ -521,7 +524,21 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   // Plugins used by the UI. The dialog returns the first project so "Open project" works.
-  "plugin:dialog|open": () => projects.keys().next().value ?? null,
+  // The native pickers. `open` returns a project folder for "Open project" and
+  // an importable file for the Manuscript dialog; the two are told apart by the
+  // filters the caller passes.
+  "plugin:dialog|open": ({ options }) => {
+    const o = (options ?? {}) as { directory?: boolean; filters?: { extensions: string[] }[] };
+    const extensions = o.filters?.flatMap((f) => f.extensions) ?? [];
+    if (extensions.includes("scriv")) return "/mock/Documents/The Salt Road.scriv";
+    if (extensions.length) return `/mock/Documents/import.${extensions[0]}`;
+    return projects.keys().next().value ?? null;
+  },
+  "plugin:dialog|save": ({ options }) => {
+    const o = (options ?? {}) as { defaultPath?: string; filters?: { extensions: string[] }[] };
+    const extension = o.filters?.[0]?.extensions?.[0] ?? "out";
+    return o.defaultPath ?? `/mock/Documents/novel.${extension}`;
+  },
   "plugin:event|listen": () => Math.floor(Math.random() * 1e9),
   "plugin:event|unlisten": () => undefined,
   "plugin:window|destroy": () => undefined,
@@ -580,7 +597,7 @@ declare global {
       mcpLog: McpLogEntry[];
       models: ModelCard[];
       slots: Record<string, SlotAssignment>;
-      lastExport: { path: string; bytes: number; format: string } | null;
+      lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null;
     };
   }
 }
