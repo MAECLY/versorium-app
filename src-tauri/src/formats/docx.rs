@@ -878,3 +878,53 @@ mod tests {
         assert!(markdown.contains("🌙"), "an emoji survives the trip through Word's format");
     }
 }
+
+/// Standard manuscript format has no place for a scene title: a break is a
+/// centred `#`. Chapters and prose survive; a named scene does not, and the
+/// writer should hear that before they send the file to an editor.
+pub const WARN_SCENE_TITLES_DROPPED: &str = "export_docx_scene_titles_dropped";
+
+pub fn export_warnings(manuscript: &super::Manuscript) -> Vec<String> {
+    let named = manuscript
+        .chapters
+        .iter()
+        .flat_map(|c| c.scenes.iter())
+        .any(|s| s.heading.is_some());
+    if named {
+        vec![WARN_SCENE_TITLES_DROPPED.to_string()]
+    } else {
+        Vec::new()
+    }
+}
+
+#[cfg(test)]
+mod warning_tests {
+    use super::*;
+    use crate::formats::{Chapter, Manuscript, Scene};
+
+    fn book(heading: Option<&str>) -> Manuscript {
+        Manuscript {
+            title: "T".into(),
+            author: "A B".into(),
+            language: "es".into(),
+            chapters: vec![Chapter {
+                id: "ch-01".into(),
+                title: "Uno".into(),
+                scenes: vec![Scene {
+                    heading: heading.map(str::to_string),
+                    paragraphs: vec!["Texto.".into()],
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn an_unnamed_scene_break_loses_nothing() {
+        assert!(export_warnings(&book(None)).is_empty());
+    }
+
+    #[test]
+    fn a_named_scene_is_announced_as_a_loss() {
+        assert_eq!(export_warnings(&book(Some("Morning"))), vec![WARN_SCENE_TITLES_DROPPED]);
+    }
+}
