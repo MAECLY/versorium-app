@@ -11,6 +11,7 @@
   } from "$lib/themes";
   import { api, isTauri, type AgentInfo, type McpClient, type McpLogEntry } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
+  import { updates } from "$lib/update/state.svelte";
   import { detectAgents } from "$lib/ai/agents";
   import { mcp } from "$lib/mcp/state.svelte";
   import Modal from "$lib/components/Modal.svelte";
@@ -118,6 +119,10 @@
           : { githubNovelToken: token },
       );
       gitNotice = t("git.connected") + ` @${login}`;
+      // The Updates panel decides whether it may check from this token, and it
+      // lives in another section — without this it keeps saying "signed out"
+      // until Settings is reopened.
+      if (slot === "updates") await updates.load();
     } catch (e) {
       gitNotice = store.codeMessagePublic(e);
     }
