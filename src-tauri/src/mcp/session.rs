@@ -10,6 +10,18 @@
 use crate::commands::settings::Settings;
 use std::path::{Path, PathBuf};
 
+/// Which protocol revision family the client opened with. Latched on the first
+/// era-determining message and kept for the process: `2026-07-28` removed the
+/// handshake and made every result carry `resultType`, so the same reply has to
+/// be serialized differently depending on who asked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Era {
+    /// `initialize` handshake, 2025-11-25 and earlier.
+    Legacy,
+    /// Per-request `_meta`, 2026-07-28 and later.
+    Modern,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scope {
     Read,
@@ -31,15 +43,25 @@ pub struct Session {
     /// Project chosen with `open_project` this session; falls back to whatever
     /// the GUI has open. Kept in memory so an agent cannot repoint the app.
     opened: Option<PathBuf>,
+    era: Option<Era>,
 }
 
 impl Session {
     pub fn new(client: String, settings_path: PathBuf) -> Self {
-        Self { client, settings_path, opened: None }
+        Self { client, settings_path, opened: None, era: None }
     }
 
     pub fn client(&self) -> &str {
         &self.client
+    }
+
+    pub fn era(&self) -> Option<Era> {
+        self.era
+    }
+
+    /// First era-determining message wins; later messages cannot switch it.
+    pub fn latch_era(&mut self, era: Era) -> Era {
+        *self.era.get_or_insert(era)
     }
 
     /// Sibling of the settings file, so a session pointed at a scratch settings
@@ -105,6 +127,17 @@ mod tests {
 
     fn session(dir: &Path, client: &str) -> Session {
         Session::new(client.into(), dir.join("settings.json"))
+    }
+
+    #[test]
+    fn the_era_is_decided_once_and_then_held() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = session(dir.path(), "codex");
+        assert_eq!(s.era(), None);
+        assert_eq!(s.latch_era(Era::Legacy), Era::Legacy);
+        // A later modern-looking message cannot flip a client mid-stream.
+        assert_eq!(s.latch_era(Era::Modern), Era::Legacy);
+        assert_eq!(s.era(), Some(Era::Legacy));
     }
 
     #[test]
