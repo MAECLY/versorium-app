@@ -232,6 +232,17 @@ const mcpLog: McpLogEntry[] = [
 let installPhases: { phase: string; received: number; total: number | null; error: string | null }[] = [];
 let relaunched = false;
 
+/** Which credentials exist. Never their values, matching the real command. */
+const storedSecrets = new Set<string>();
+
+const backupDestinations = [
+  { kind: "icloud", path: "/mock/Library/Mobile Documents/com~apple~CloudDocs", available: true },
+  { kind: "dropbox", path: "/mock/Dropbox", available: false },
+];
+let backupDir: string | null = null;
+let backupKeep = 10;
+let backupArchives: { path: string; name: string; bytes: number; modified: number }[] = [];
+
 let llamaWarmCalls = 0;
 let llamaBusy = false;
 
@@ -387,7 +398,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     return publicChapter(c);
   },
 
-  get_settings: () => ({ ...settings }),
+  get_settings: () => ({ ...settings, backupDir, backupKeep }),
   set_settings: ({ patch }) => {
     Object.assign(settings, patch as Partial<typeof settings>);
     // Saving the Updates token is what signs the updater in.
@@ -603,6 +614,68 @@ const commands: Record<string, (args: Args) => unknown> = {
     slots[name] = kind === "none" ? { kind: "none", id: "" } : { kind: String(kind), id: String(id) };
     return { ...slots };
   },
+  // Credentials live in the OS store; the mock keeps presence only, because the
+  // whole point is that the value never comes back to the frontend.
+  secrets_status: () => ({
+    store: { usable: true, reason: null },
+    updates: storedSecrets.has("updates"),
+    novel: storedSecrets.has("novel"),
+  }),
+  secrets_connect: ({ slot, token }) => {
+    const name = String(slot);
+    if (!["updates", "novel"].includes(name)) throw "bad_args";
+    if (!String(token ?? "").trim()) throw "bad_args";
+    storedSecrets.add(name);
+    // The updater reads the same store, so signing in here signs it in too.
+    if (name === "updates") update.signedIn = true;
+    return "versorium-writer";
+  },
+  secrets_forget: ({ slot }) => {
+    const name = String(slot);
+    if (!["updates", "novel"].includes(name)) throw "bad_args";
+    storedSecrets.delete(name);
+    if (name === "updates") update.signedIn = false;
+    return undefined;
+  },
+
+  backup_destinations: () => backupDestinations.map((d) => ({ ...d })),
+  backup_configure: ({ path, keep }) => {
+    const dir = String(path ?? "").trim();
+    if (!dir) {
+      backupDir = null;
+      return undefined;
+    }
+    if (!backupDestinations.some((d) => d.path === dir && d.available)) throw "backup_dest_missing";
+    backupDir = dir;
+    backupKeep = Math.min(200, Math.max(1, Number(keep ?? 10)));
+    return undefined;
+  },
+  backup_now: () => {
+    if (!backupDir) throw "backup_not_configured";
+    const archive = {
+      path: `${backupDir}/versorium-backup-el-largo-invierno-2026-09-28-0100${backupArchives.length}.zip`,
+      name: `versorium-backup-el-largo-invierno-2026-09-28-0100${backupArchives.length}.zip`,
+      bytes: 1_240_000,
+      modified: 1_790_553_600 + backupArchives.length,
+    };
+    backupArchives.unshift(archive);
+    backupArchives = backupArchives.slice(0, backupKeep);
+    return { ...archive };
+  },
+  backup_list: () => (backupDir ? backupArchives.map((a) => ({ ...a })) : []),
+  backup_restore: ({ project, label }) => `${String(project)}-${String(label)}`,
+
+  git_push: ({ path }) => {
+    if (!storedSecrets.has("novel")) throw "not_signed_in";
+    if (!project(String(path)).remotes.length) throw "no_remote";
+    return "main";
+  },
+  git_pull: ({ path }) => {
+    if (!storedSecrets.has("novel")) throw "not_signed_in";
+    if (!project(String(path)).remotes.length) throw "no_remote";
+    return { branch: "main", changed: false };
+  },
+
   llama_backend: () => {
     // The real backend reports `warming` while it compiles Metal shaders; the
     // first call here does too so the UI state is reachable in a test.

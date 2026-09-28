@@ -131,7 +131,15 @@
     "changedCount": "{count} changed",
     "snapshotOf": "Snapshot of {when}",
     "restore": "↩ Restore",
-    "restoreHint": "Put the selection back as it was, or the word under the cursor when nothing is selected."
+    "restoreHint": "Put the selection back as it was, or the word under the cursor when nothing is selected.",
+    "stored": "Connected.",
+    "forget": "Forget",
+    "push": "Send to GitHub",
+    "pull": "Bring from GitHub",
+    "pushed": "Sent {branch} to GitHub.",
+    "pulled": "Brought the latest changes.",
+    "alreadyCurrent": "Already up to date.",
+    "storedWhere": "Stored in your system's credential store, never in a file."
   },
   "errors": {
     "generic": "Something went wrong.",
@@ -597,5 +605,34 @@
     "clean": "Nothing contradictory found.",
     "noProject": "Open a novel first.",
     "none": "The continuity check runs inside the desktop app."
+  },
+  "backup": {
+    "title": "Backup",
+    "intro": "A dated archive of the whole novel, history included, written into a folder your system already syncs. No account, no token, works offline. The novel itself stays where it is — a live repository inside a synced folder gets corrupted.",
+    "none": "Backups need the desktop app.",
+    "kinds": {
+      "icloud": "iCloud Drive",
+      "onedrive": "OneDrive",
+      "nextcloud": "Nextcloud",
+      "dropbox": "Dropbox",
+      "folder": "Folder"
+    },
+    "notFound": "not found on this machine",
+    "choose": "Use this",
+    "chosenLabel": "In use",
+    "chosen": "Backups will go here.",
+    "pickFolder": "Choose a folder…",
+    "turnOff": "Turn backups off",
+    "turnedOff": "Backups are off.",
+    "keep": "Keep the newest",
+    "now": "Back up now",
+    "working": "Working…",
+    "written": "Saved, {size}.",
+    "stored": "Stored backups",
+    "restore": "Restore",
+    "restoreHint": "Restoring extracts a copy beside this novel. Nothing you have now is overwritten.",
+    "restored": "Restored to {path}",
+    "restoredSuffix": "restored",
+    "advanced": "GitHub backup (advanced)"
   }
 }
