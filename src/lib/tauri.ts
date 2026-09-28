@@ -43,6 +43,12 @@ export interface AppSettings {
   censorship: boolean;
   githubUpdatesToken: string | null;
   githubNovelToken: string | null;
+  /** Id of the catalogue entry the editor renders in. */
+  editorFont: string;
+  focusMode: boolean;
+  typewriter: boolean;
+  /** False until the first run is done or skipped. */
+  onboarded: boolean;
 }
 
 export interface ChapterDoc {
@@ -288,6 +294,51 @@ export interface UpdateStatus {
   lastError: string | null;
 }
 
+// --- M7: polish ---
+
+/**
+ * A recorded panic. Rust scrubs every field before it reaches disk, so nothing
+ * here carries manuscript text or a project path (spec §12).
+ */
+export interface CrashEntry {
+  id: string;
+  ts: number;
+  version: string;
+  os: string;
+  arch: string;
+  kind: string;
+  message: string;
+  stack: string[];
+}
+
+export interface ContinuityFinding {
+  kind: string;
+  detail: string;
+  chapter: string | null;
+}
+
+export interface ContinuityReport {
+  ran: boolean;
+  /** An i18n code explaining why it did not run. */
+  reason: string | null;
+  findings: ContinuityFinding[];
+}
+
+export interface FontEntry {
+  id: string;
+  family: string;
+  role: "body" | "ui" | "mono";
+  /** The CSS font-family list to render in. */
+  stack: string;
+  license: string;
+  bundled: boolean;
+}
+
+export interface FontCatalog {
+  version: number;
+  fonts: FontEntry[];
+}
+
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   uiReady: () => invoke<void>("ui_ready"),
@@ -379,6 +430,15 @@ export const api = {
     invoke<UpdateStatus>("update_set_channel", { channel }),
   updateSetAutomatic: (automatic: boolean) =>
     invoke<UpdateStatus>("update_set_automatic", { automatic }),
+
+  // --- M7: polish ---
+  crashList: (limit?: number) => invoke<CrashEntry[]>("crash_list", { limit }),
+  crashReportUrl: (id: string) => invoke<string>("crash_report_url", { id }),
+  crashClear: () => invoke<void>("crash_clear"),
+  continuityCheck: (path: string) => invoke<ContinuityReport>("continuity_check", { path }),
+  fontsCatalog: () => invoke<FontCatalog>("fonts_catalog"),
+  editorFont: () => invoke<string>("editor_font"),
+  setEditorFont: (id: string) => invoke<string>("set_editor_font", { id }),
 
   /** Where to write an export. Returns null when the user backs out. */
   pickExportTarget: (defaultPath: string, name: string, extension: string) =>

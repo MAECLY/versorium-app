@@ -1,6 +1,6 @@
 # STATUS
 
-## Current milestone: M6 — Updater ✅ (DoD green)
+## Current milestone: M7 — Polish ✅ (DoD green) · **all milestones complete**
 
 ## How to run
 
@@ -21,6 +21,17 @@ versorium mcp [--client <id>]   # serve MCP over stdio
 ```
 
 Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?mock=tauri`.
+
+## M7 DoD checklist
+
+- [x] **Onboarding with no signup** — spec §14's five steps, every one skippable, a Skip that always works, and nothing created until the project step is confirmed
+- [x] **Corkboard** — a card per chapter with title, words, status and a preview, opening the chapter on click
+- [x] **Continuity check stub** — runs through a selected Ollama model, and returns `ran: false` with a reason rather than an empty report when there is none
+- [x] **Crash log local + Report** — scrubbed entries on disk, an issue URL prefilled from the scrubbed entry, and nothing sent unless the writer presses Report
+- [x] **Focus mode + typewriter** — both through CodeMirror compartments, so toggling never rebuilds the editor
+- [x] **Font catalogue stub** — the faces already on the machine, with Source Serif 4 listed as unavailable rather than offered with a dead URL
+
+## M6 DoD checklist (done)
 
 ## M6 DoD checklist
 
@@ -69,16 +80,32 @@ Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?moc
 
 | Check | Result |
 |---|---|
-| `cargo test` | ✅ 269 unit + 4 integration passed |
+| `cargo test` | ✅ 305 unit + 4 integration passed |
 | `cargo clippy` | ✅ 0 warnings |
 | `pnpm check` | ✅ 0 errors, 0 warnings |
-| `pnpm test:ui` | ✅ 57 passed |
-| `pnpm test:e2e` | ✅ 33 passed (7 new for updates) |
-| `cargo test -- --ignored live_` | ✅ carried from M5: epubcheck 0/0, poppler, pandoc, a real model download, Ollama, Claude Code |
+| `pnpm test:ui` | ✅ 82 passed |
+| `pnpm test:e2e` | ✅ 39 passed (6 new for polish) |
+| Real app | ✅ launches with every M7 control present, editor, project switching and the Git panel working |
 
-**Not verified end to end:** no release has been cut, so the workflow has never
-run and no client has ever been offered a real update. The pieces are tested in
-isolation; the first `v0.1.1` tag is what proves the whole chain.
+**Honest limit on the real-app pass**: the corkboard and focus mode were driven
+through the browser end-to-end suite, which exercises the same components via
+the same TopBar buttons, but coordinate-driven clicks in the desktop window kept
+landing on the wrong control, so they were not clicked in the real app.
+
+## How the crash log is kept from carrying a manuscript
+
+Spec §12 says zero prose, and a panic payload is whatever someone passed to
+`panic!`, so the scrubber removes rather than trusts: absolute paths collapse to
+an extension, emails and credential-shaped tokens go, and any run of six plain
+words goes with them — chapter filenames are slugified titles, so a path is
+prose too. Proved gone in tests: Spanish prose, chapter paths, `ghp_` tokens,
+sha256 hex, emails, Windows and `file://` paths, and all of their
+percent-encoded forms inside the report URL.
+
+That threshold has a price, taken deliberately: `index out of bounds: the len is
+3 but the index is 5` is seven plain words and collapses. No threshold both
+keeps that and drops seven words of somebody's novel, so the manuscript wins —
+the numbers and the panic location survive, which is what identifies the bug.
 
 ## How the updater is kept from being a backdoor
 
@@ -140,64 +167,62 @@ whichever one the client opened with.
 
 ## Bugs found and fixed on the way
 
-- **`latest.json` from `tauri-action` 404s on a private repo.** It writes
-  `github.com/.../releases/download/...`, and only the API asset endpoint serves
-  bytes. The release workflow rewrites every platform URL, and the client
-  refuses the un-rewritten form outright so the problem is named at check time
-  rather than failing later on an empty download.
-- **Signing in did not reach the panel that cares.** The Updates section reads
-  the token saved under Git → Updates, and kept reporting "signed out" until
-  Settings was reopened. Found by the end-to-end test — the seam between two
-  sections is exactly what a unit test on either one misses.
-- **A tag/version mismatch published silently.** A release tagged `v0.2.0` while
-  the config still said `0.1.0` uploads fine and is never offered to anyone; the
-  guard job now refuses it.
-- **`pnpm/action-setup` would have failed every build** — no `packageManager`
-  field, so it refuses to guess.
+- **The corkboard fetched every chapter twice.** Its effect read the preview
+  cache to decide what to fetch and then wrote to it, so storing a preview
+  re-triggered the read that stored it. The dedupe now lives outside reactive
+  state.
+- **Onboarding advanced relative to wherever the writer stood**, so reaching the
+  project or template step from earlier landed on the wrong one.
+- **`detectAgents()` returning a non-promise** blew up the whole first step.
+- **The Report button could not open a browser** — there was no opener plugin,
+  so spec §12's "opens the browser" was a link the desktop app could not follow.
+- **Onboarding was unreachable**: nothing mounted it, because the file that
+  mounts it belonged to a different agent than the one that wrote it.
 
-## Files / structure (M6 delta)
+## Files / structure (M7 delta)
 
-- `src-tauri/src/update/mod.rs` (release selection, host guard, sha256),
-  `src-tauri/src/commands/update.rs` (6 commands)
-- `tauri.conf.json`: `createUpdaterArtifacts`, the public key, `endpoints: []`
-- Frontend: `src/lib/update/state.svelte.ts`,
-  `src/lib/settings/UpdatesSection.svelte`,
-  `src/lib/components/UpdateDialog.svelte`
-- `.github/workflows/release.yml`, `RELEASING.md`
-- Tests: `tests/e2e/m6-updates.spec.ts`, mock extended
+- Rust: `src-tauri/src/crash/`, `src-tauri/src/continuity/`,
+  `src-tauri/src/fonts/`, `src-tauri/src/commands/polish.rs`, `fonts/catalog.json`
+- Frontend: `src/lib/editor/modes.ts`, `src/lib/binder/Corkboard.svelte`,
+  `src/lib/onboarding/`, `src/lib/settings/TypographySection.svelte`,
+  `src/lib/settings/SafetySectionCrash.svelte`
+- Tests: `tests/e2e/m7-polish.spec.ts`, mock extended with a fresh-install flag
 
-## Architecture decisions (M6)
+## Architecture decisions (M7)
 
-1. **download → verify → install**, not `download_and_install`. The spec
-   requires rejecting a bad checksum, and the combined call leaves no window to
-   look at the bytes.
-2. **No token means no check.** Not a failed check — no request at all, so a
-   private repo never sees a 401 loop and the UI shows a sign-in path instead.
-3. **Later is per session, Skip is forever.** Only Skip reaches Rust.
-4. **Release notes render as text.** A release body is remote content; a test
-   pins that an `onerror` payload never becomes an element.
-5. **Releases are drafts.** Publishing is the moment clients start being
-   offered an update, so it stays a deliberate act after the checks in
-   `RELEASING.md`.
+1. **Modes go through compartments.** Toggling focus or typewriter must never
+   rebuild the editor — a test builds a real view, sets a caret, reconfigures,
+   and asserts the same DOM node, caret and text survive. That regression cost a
+   writer their selection and undo history once already.
+2. **Continuity refuses to pretend.** An empty findings list reads as "your
+   novel is consistent"; a stub that did not run has to say so.
+3. **Template chapter titles live in the locale files**, because they become
+   chapter titles inside the writer's own project and a Spanish writer should
+   not open a manuscript full of English beat names.
+4. **No Download button for a font we cannot fetch.** The catalogue lists what
+   is installed and marks Source Serif 4 unavailable.
+5. **Focus dims the chrome only once it holds neither hover nor keyboard
+   focus**, so a keyboard user never loses their place, and Escape always exits.
 
-## Known holes (M6)
+## Known holes at the end of v1
 
-- **The repo constants say `maecly/versorium-app`** (spec §11) while the current
-  git remote is a personal fork. One human decision, one constant, one line in
-  `RELEASING.md`.
-- No release has been cut, so the workflow is unproven in practice. Several CI
-  details could not be verified without running it: that `ubuntu-22.04` runners
-  remain available, that `gh release download` works against a draft, and the
-  macOS x86_64 cross-compile.
-- No Apple notarization or Windows Authenticode yet — minisign only, so a first
-  launch warns. Stated in the UI rather than hidden.
-- GitHub tokens are still plaintext in `settings.json`; the keyring pass never
-  happened and is now a standing hole rather than a deferred M6 item.
-- Carried over: no built-in inference runtime, no Scrivener export, no EPUB
-  import, no HTTP/SSE MCP transport, no network git.
+- **No built-in inference runtime** (M4). A downloaded GGUF is verified and Ready
+  but nothing loads it, so the continuity check and any built-in slot depend on
+  Ollama. This is the largest gap between the spec and the build.
+- **No release has ever been cut** (M6), so the updater chain is unproven end to
+  end and the repo constants still name `maecly/versorium-app` while the remote
+  is a personal fork.
+- **GitHub tokens are plaintext** in `settings.json`. The keyring pass was
+  deferred from M0 to M6 and never happened.
+- No Scrivener export, no EPUB import (M5). No HTTP/SSE MCP transport, no
+  network git (M3/M1). Whisper dictation packs absent (M4).
+- No Apple notarization or Windows Authenticode — minisign only.
+- Scene titles do not survive DOCX or PDF; characters outside WinAnsi do not
+  survive PDF. Both reported to the writer and documented in `FORMATS.md`.
+- Creative Mode remains a disabled control, as the spec requires for v1.
 
-## Next: M7 — Polish
+## Next
 
-DoD targets: onboarding with no signup, a basic corkboard, a continuity-check
-stub, a local crash log with a Report button that opens an issue **carrying no
-manuscript text**, focus and typewriter modes, and a font catalogue stub.
+M0–M7 are complete. The spec's own "Criterios de aceptación" (§17) is the
+remaining bar: it asks for a real release to be published and installed by three
+platforms, which needs the two human decisions above.

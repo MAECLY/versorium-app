@@ -5,6 +5,7 @@ pub mod git;
 pub mod mcp;
 pub mod models;
 pub mod ops;
+pub mod polish;
 pub mod project;
 pub mod settings;
 pub mod update;
