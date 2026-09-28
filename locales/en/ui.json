@@ -150,7 +150,9 @@
     "import_docx_formatting_dropped": "Bold, italics and other formatting were not carried across.",
     "import_docx_no_headings": "No Heading 1 was found, so the whole document became one chapter.",
     "import_images_dropped": "Images were not carried across.",
-    "empty_document": "That file has no text to import."
+    "empty_document": "That file has no text to import.",
+    "export_pdf_characters_replaced": "Some characters cannot be printed in a PDF and were replaced.",
+    "export_docx_scene_titles_dropped": "Scene titles are not part of manuscript format; the scene breaks remain."
   },
   "languages": {
     "en": "English",
@@ -361,7 +363,8 @@
       "authorMissing": "Add an author to export this format.",
       "action": "Export",
       "busy": "Exporting…",
-      "done": "Wrote {size} to {path}"
+      "done": "Wrote {size} to {path}",
+      "warningsTitle": "This format could not carry everything:"
     },
     "import": {
       "title": "Import",

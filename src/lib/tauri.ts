@@ -250,6 +250,8 @@ export interface ExportResult {
   path: string;
   bytes: number;
   format: ExportFormat;
+  /// i18n codes for what this format could not carry.
+  warnings: string[];
 }
 
 export interface ImportedChapter {

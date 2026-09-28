@@ -16,7 +16,12 @@ vi.mock("$lib/tauri", () => ({
   isTauri: () => true,
 }));
 
-const written: ExportResult = { path: "/out/novel.docx", bytes: 40_960, format: "docx" };
+const written: ExportResult = {
+  path: "/out/novel.docx",
+  bytes: 40_960,
+  format: "docx",
+  warnings: ["export_docx_scene_titles_dropped"],
+};
 const preview: Imported = {
   title: "The Long Winter",
   chapters: [{ title: "One", body: "## Scene\n\nUna frase corta.", synopsis: null }],
