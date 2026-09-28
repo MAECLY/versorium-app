@@ -83,13 +83,19 @@ jobs:
             name: Windows
     runs-on: ${{ matrix.platform }}
     env:
-      # ggml's build reads any GGML_* variable as a cmake define. The default
-      # x86_64 Rust target advertises no CPU features, so without this every x64
-      # build ships SSE2-baseline kernels and a modern Intel machine runs local
-      # inference far slower than its hardware allows. ON builds several
-      # microarchitecture variants and dispatches at runtime, which costs build
-      # time and binary size rather than correctness.
-      GGML_CPU_ALL_VARIANTS: ${{ (matrix.args == '--target aarch64-apple-darwin') && 'OFF' || 'ON' }}
+      # The default x86_64 Rust target advertises no CPU features, so an x64 build
+      # otherwise ships SSE2-baseline kernels and a modern machine runs local
+      # inference far slower than its hardware allows. build.rs reads target-cpu
+      # from here and forwards -march plus the matching GGML_AVX* defines.
+      #
+      # x86-64-v2 (SSE4.2, POPCNT) is safe back to roughly 2009. v3 would add
+      # AVX2 and be faster but would refuse to start on pre-2013 hardware, which
+      # is not a trade to make silently for a writing tool.
+      #
+      # Do NOT reach for GGML_CPU_ALL_VARIANTS here: ggml FATAL_ERRORs with
+      # "requires GGML_BACKEND_DL", which only the crate's dynamic-backends
+      # feature sets, and that feature also forces a shared-library build.
+      RUSTFLAGS: ${{ contains(matrix.args, 'aarch64') && '' || '-C target-cpu=x86-64-v2' }}
     steps:
       - uses: actions/checkout@v7
 
