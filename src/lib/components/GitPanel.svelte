@@ -6,7 +6,7 @@
 
   let { open, onClose }: { open: boolean; onClose: () => void } = $props();
 
-  type Tab = "status" | "log" | "diff" | "branches";
+  type Tab = "status" | "log" | "diff" | "advanced";
   let tab = $state<Tab>("status");
   let status = $state<GitStatus | null>(null);
   let log = $state<GitCommit[]>([]);
@@ -17,6 +17,25 @@
   let newBranch = $state("");
   let busy = $state(false);
   let notice = $state("");
+
+  /**
+   * Every file that differs from the last snapshot, in one list. Git's modified
+   * / staged / untracked split is collapsed because Versorium commits the whole
+   * project at once: the distinction never changes what the writer can do.
+   */
+  let changed = $derived.by(() => {
+    const seen = new Set<string>();
+    const out: { path: string; isNew: boolean }[] = [];
+    const add = (path: string, isNew: boolean) => {
+      if (seen.has(path)) return;
+      seen.add(path);
+      out.push({ path, isNew });
+    };
+    for (const f of status?.untracked ?? []) add(f, true);
+    for (const f of status?.modified ?? []) add(f, false);
+    for (const f of status?.staged ?? []) add(f, false);
+    return out;
+  });
 
   function projectPath(): string | null {
     return store.project?.path ?? null;
@@ -59,7 +78,11 @@
     notice = "";
     try {
       await store.flushAll();
-      await api.gitCommit(path, commitMsg.trim() || t("git.checkpoint"));
+      const described = commitMsg.trim();
+      await api.gitCommit(
+        path,
+        described || t("git.snapshotOf", { when: fmtTime(Date.now() / 1000) }),
+      );
       commitMsg = "";
       await refresh();
     } catch (e) {
@@ -109,7 +132,7 @@
     aria-label={t("git.title")}
   >
     <div class="v-row flex-shrink-0" style="gap: 4px; padding: 6px 12px 0;">
-      {#each (["status", "log", "diff", "branches"] as Tab[]) as tb (tb)}
+      {#each (["status", "log", "diff", "advanced"] as Tab[]) as tb (tb)}
         <button
           class="v-btn"
           style="padding: 2px 10px; opacity: {tab === tb ? 1 : 0.55};"
@@ -121,11 +144,6 @@
           {t(`git.tab_${tb}`)}
         </button>
       {/each}
-      <span class="v-muted" style="font-size: 12px; margin-left: 8px;" aria-hidden="true">
-        {status?.branch ?? "—"}
-        {#if status && status.ahead > 0} · {status.ahead} {t("git.ahead")}{/if}
-        {#if status && status.behind > 0} · {status.behind} {t("git.behind")}{/if}
-      </span>
       <button class="v-btn" style="margin-left: auto; padding: 2px 10px;" onclick={onClose}>✕</button>
     </div>
 
@@ -135,23 +153,20 @@
       {/if}
 
       {#if tab === "status"}
-        <div class="v-row" style="gap: 16px; flex-wrap: wrap;">
-          <span><b>{t("git.modified")}</b> {status?.modified.length ?? 0}</span>
-          <span><b>{t("git.staged")}</b> {status?.staged.length ?? 0}</span>
-          <span><b>{t("git.untracked")}</b> {status?.untracked.length ?? 0}</span>
-        </div>
-        {#if status && status.modified.length + status.staged.length + status.untracked.length === 0}
-          <p class="v-muted m-0 mt-2">{t("git.clean")}</p>
+        {#if changed.length === 0}
+          <p class="v-muted m-0">{t("git.clean")}</p>
         {:else}
-          <ul class="m-0 mt-2" style="padding-left: 18px;">
-            {#each status?.modified ?? [] as f (f)}
-              <li>{f}</li>
-            {/each}
-            {#each status?.staged ?? [] as f (f)}
-              <li>{f}</li>
-            {/each}
-            {#each status?.untracked ?? [] as f (f)}
-              <li>{f}</li>
+          <p class="m-0 mb-1"><b>{t("git.changedCount", { count: changed.length })}</b></p>
+          <ul class="m-0" style="padding-left: 0; list-style: none;">
+            {#each changed as file (file.path)}
+              <li class="v-row" style="gap: 8px; padding: 1px 0;">
+                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {file.path}
+                </span>
+                <span class="v-muted" style="font-size: 11px;">
+                  {file.isNew ? t("git.fileNew") : t("git.fileEdited")}
+                </span>
+              </li>
             {/each}
           </ul>
         {/if}
@@ -171,8 +186,7 @@
       {:else if tab === "log"}
         <ul class="m-0" style="padding-left: 0; list-style: none;">
           {#each log as c (c.sha)}
-            <li class="v-row" style="gap: 10px; padding: 3px 0; border-bottom: 1px solid var(--border);">
-              <code class="v-muted" style="font-size: 11px;">{c.short}</code>
+            <li class="v-row" style="gap: 10px; padding: 3px 0; border-bottom: 1px solid var(--border);" title={c.short}>
               <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 {c.message}
               </span>
@@ -190,6 +204,12 @@
           <p class="v-muted m-0">{t("git.clean")}</p>
         {/if}
       {:else}
+        <p class="v-muted m-0 mb-2" style="font-size: 12px;">{t("git.advancedNote")}</p>
+        <p class="v-muted m-0 mb-2" style="font-size: 12px;">
+          {status?.branch ?? "—"}
+          {#if status && status.ahead > 0} · {status.ahead} {t("git.ahead")}{/if}
+          {#if status && status.behind > 0} · {status.behind} {t("git.behind")}{/if}
+        </p>
         <div class="v-row" style="gap: 8px;">
           <input
             class="v-input"

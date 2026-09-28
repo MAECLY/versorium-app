@@ -77,7 +77,17 @@
     if (!path || store.loading) return;
     try {
       await store.flushAll();
-      await api.gitCommit(path, t("git.checkpoint"));
+      await api.gitCommit(
+        path,
+        t("git.snapshotOf", {
+          when: new Date().toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        }),
+      );
       await refreshGit();
     } catch (e) { store.error = store.codeMessagePublic(e); }
   }
