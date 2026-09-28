@@ -17,7 +17,6 @@ pub const PARSE_ERROR: i64 = -32700;
 pub const INVALID_REQUEST: i64 = -32600;
 pub const METHOD_NOT_FOUND: i64 = -32601;
 pub const INVALID_PARAMS: i64 = -32602;
-pub const INTERNAL_ERROR: i64 = -32603;
 
 pub fn error_response(id: Value, code: i64, message: &str, data: Option<Value>) -> Value {
     let mut error = json!({ "code": code, "message": message });

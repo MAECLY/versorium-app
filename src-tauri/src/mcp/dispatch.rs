@@ -8,21 +8,22 @@
 //! both eras are answered — installed clients span them.
 
 use super::server::{error_response, result_response, INVALID_PARAMS, METHOD_NOT_FOUND};
-use super::session::Session;
+use super::session::{Era, Session};
 use super::{log, tools};
 use serde_json::{json, Value};
 
-/// Newest first. The first entry is what we answer with when a client asks for
-/// something we do not know.
-pub const SUPPORTED: [&str; 5] = [
-    "2026-07-28",
-    "2025-11-25",
-    "2025-06-18",
-    "2025-03-26",
-    "2024-11-05",
-];
+/// Newest first. `2025-03-26` is deliberately absent: it is the one revision
+/// that requires receivers to accept JSON-RPC batch arrays, which the transport
+/// rejects — advertising it would be a promise we do not keep.
+pub const SUPPORTED: [&str; 4] = ["2026-07-28", "2025-11-25", "2025-06-18", "2024-11-05"];
 
+/// Preferred legacy answer when a client asks for a revision we do not speak.
+const LEGACY_PREFERRED: &str = "2025-11-25";
 const SERVER_NAME: &str = "versorium";
+const PROTOCOL_META: &str = "io.modelcontextprotocol/protocolVersion";
+const SERVER_INFO_META: &str = "io.modelcontextprotocol/serverInfo";
+/// `UnsupportedProtocolVersionError`.
+const UNSUPPORTED_VERSION: i64 = -32022;
 
 fn server_info() -> Value {
     json!({ "name": SERVER_NAME, "version": env!("CARGO_PKG_VERSION") })
@@ -43,6 +44,31 @@ fn instructions(session: &Session) -> String {
 
 fn capabilities() -> Value {
     json!({ "tools": { "listChanged": false } })
+}
+
+/// The tool list is fixed at compile time, but it is described per client (the
+/// write grant changes nothing in the list itself), so it is safe to cache
+/// privately for a short while.
+fn cacheable(mut result: Value) -> Value {
+    result["ttlMs"] = json!(300_000);
+    result["cacheScope"] = json!("private");
+    result
+}
+
+/// Modern results must declare `resultType`; legacy ones have no such field and
+/// would be answering a client that has never heard of it.
+fn for_era(era: Option<Era>, mut result: Value) -> Value {
+    if era == Some(Era::Modern) {
+        result["resultType"] = json!("complete");
+        result["_meta"] = json!({ SERVER_INFO_META: server_info() });
+    }
+    result
+}
+
+/// Modern requests carry their protocol version in `_meta`; that is also how a
+/// dual-era server tells the eras apart, since legacy never sends it.
+fn modern_version(params: &Value) -> Option<&str> {
+    params.get("_meta")?.get(PROTOCOL_META)?.as_str()
 }
 
 /// Tool definitions as `tools/list` returns them.
@@ -74,17 +100,43 @@ fn tool_failure(code: &str) -> Value {
     })
 }
 
+/// Latch and return the era a request belongs to. Modern requests announce
+/// themselves in `_meta`; anything else inherits whatever the client opened
+/// with, which for a legacy client is the `initialize` it already sent.
+fn era_of(session: &mut Session, params: &Value) -> Option<Era> {
+    if modern_version(params).is_some() {
+        return Some(session.latch_era(Era::Modern));
+    }
+    session.era()
+}
+
+/// A modern client naming a revision we do not speak gets the error the spec
+/// defines for exactly that, listing what we do support.
+fn unsupported_version(params: &Value, id: &Value) -> Option<Value> {
+    let asked = modern_version(params)?;
+    if SUPPORTED.contains(&asked) {
+        return None;
+    }
+    Some(error_response(
+        id.clone(),
+        UNSUPPORTED_VERSION,
+        "Unsupported protocol version",
+        Some(json!({ "supported": SUPPORTED, "requested": asked })),
+    ))
+}
+
 pub fn handle(session: &mut Session, method: &str, params: Value, id: Value) -> Option<Value> {
     match method {
-        // Legacy handshake (2025-11-25 and earlier).
+        // The handshake is what marks a client as legacy.
         "initialize" => {
+            session.latch_era(Era::Legacy);
             let asked = params
                 .get("protocolVersion")
                 .and_then(|v| v.as_str())
-                .unwrap_or(SUPPORTED[1]);
-            // Echo the client's version when we speak it; otherwise answer with
-            // ours and let the client decide whether it can continue.
-            let agreed = if SUPPORTED.contains(&asked) { asked } else { SUPPORTED[1] };
+                .unwrap_or(LEGACY_PREFERRED);
+            // Legacy negotiation answers a version we DO speak rather than an
+            // error; the client then decides whether it can live with it.
+            let agreed = if SUPPORTED.contains(&asked) { asked } else { LEGACY_PREFERRED };
             Some(result_response(
                 id,
                 json!({
@@ -95,26 +147,45 @@ pub fn handle(session: &mut Session, method: &str, params: Value, id: Value) -> 
                 }),
             ))
         }
-        // Modern discovery (2026-07-28+), which replaced the handshake.
-        "server/discover" => Some(result_response(
-            id,
-            json!({
-                "resultType": "discover",
-                "supported": SUPPORTED,
-                "serverInfo": server_info(),
-                "capabilities": capabilities(),
-                "instructions": instructions(session),
-            }),
-        )),
+        // Modern discovery replaced the handshake in 2026-07-28. Legacy clients
+        // never send it, so answering it is the era-detection front door.
+        "server/discover" => {
+            session.latch_era(Era::Modern);
+            Some(result_response(
+                id,
+                for_era(
+                    Some(Era::Modern),
+                    cacheable(json!({
+                        "supportedVersions": SUPPORTED,
+                        "capabilities": capabilities(),
+                        "instructions": instructions(session),
+                    })),
+                ),
+            ))
+        }
+        // Removed in 2026-07-28; still answered for legacy clients.
         "ping" => Some(result_response(id, json!({}))),
-        "tools/list" => Some(result_response(id, json!({ "tools": tool_entries() }))),
+        "tools/list" => {
+            let era = era_of(session, &params);
+            Some(result_response(
+                id,
+                match era {
+                    Some(Era::Modern) => for_era(era, cacheable(json!({ "tools": tool_entries() }))),
+                    _ => json!({ "tools": tool_entries() }),
+                },
+            ))
+        }
         "tools/call" => {
+            let era = era_of(session, &params);
+            if let Some(reply) = unsupported_version(&params, &id) {
+                return Some(reply);
+            }
             let name = params.get("name").and_then(|v| v.as_str()).unwrap_or_default();
             if name.is_empty() {
                 return Some(error_response(id, INVALID_PARAMS, "Missing tool name", None));
             }
-            // An unknown tool is a protocol-level error: the client asked for
-            // something that was never advertised.
+            // Finding the tool failed, so this is a protocol error rather than a
+            // tool that ran and failed.
             if tools::find(name).is_none() {
                 log::append(
                     &session.log_path(),
@@ -122,7 +193,7 @@ pub fn handle(session: &mut Session, method: &str, params: Value, id: Value) -> 
                 );
                 return Some(error_response(
                     id,
-                    METHOD_NOT_FOUND,
+                    INVALID_PARAMS,
                     &format!("Unknown tool: {name}"),
                     None,
                 ));
@@ -130,10 +201,18 @@ pub fn handle(session: &mut Session, method: &str, params: Value, id: Value) -> 
             let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
             Some(result_response(
                 id,
-                match tools::call(session, name, &arguments) {
-                    Ok(output) => json!({ "content": [{ "type": "text", "text": output.text }] }),
+                for_era(era, match tools::call(session, name, &arguments) {
+                    Ok(output) => {
+                        // The text already carries the same JSON, so a client
+                        // that ignores structuredContent loses nothing.
+                        let mut result = json!({ "content": [{ "type": "text", "text": output.text }] });
+                        if let Some(structured) = output.structured {
+                            result["structuredContent"] = structured;
+                        }
+                        result
+                    }
                     Err(code) => tool_failure(&code),
-                },
+                }),
             ))
         }
         // Notifications carry no id and must never be answered.
@@ -181,14 +260,88 @@ mod tests {
         assert_eq!(reply["result"]["protocolVersion"], "2025-11-25");
     }
 
+    /// `_meta` as a modern client actually sends it.
+    fn modern(mut params: Value, version: &str) -> Value {
+        params["_meta"] = json!({
+            "io.modelcontextprotocol/protocolVersion": version,
+            "io.modelcontextprotocol/clientCapabilities": {},
+        });
+        params
+    }
+
     #[test]
     fn modern_clients_get_discovery_instead_of_a_handshake() {
         let (_dir, mut s) = session();
-        let reply = handle(&mut s, "server/discover", json!({}), json!(1)).unwrap();
+        let reply = handle(&mut s, "server/discover", modern(json!({}), "2026-07-28"), json!(1)).unwrap();
         let result = &reply["result"];
-        assert_eq!(result["supported"][0], "2026-07-28");
-        assert_eq!(result["resultType"], "discover");
-        assert_eq!(result["serverInfo"]["name"], "versorium");
+        // Field names the modern schema fixes: supportedVersions, not
+        // "supported"; serverInfo lives in _meta, not at the top level.
+        assert_eq!(result["supportedVersions"][0], "2026-07-28");
+        assert_eq!(result["resultType"], "complete");
+        assert_eq!(result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"], "versorium");
+        assert!(result.get("serverInfo").is_none());
+        assert!(result["ttlMs"].is_number());
+        assert_eq!(result["cacheScope"], "private");
+    }
+
+    #[test]
+    fn we_never_advertise_a_revision_we_cannot_serve() {
+        // 2025-03-26 is the only revision requiring JSON-RPC batch support, and
+        // the transport rejects batch arrays.
+        assert!(!SUPPORTED.contains(&"2025-03-26"));
+    }
+
+    #[test]
+    fn a_legacy_result_carries_no_modern_fields() {
+        let (_dir, mut s) = session();
+        handle(&mut s, "initialize", real_initialize(), json!(0));
+        let reply = handle(&mut s, "tools/list", json!(null), json!(1)).unwrap();
+        let result = &reply["result"];
+        assert!(result["tools"].is_array());
+        // A 2025-11-25 client has never heard of these.
+        assert!(result.get("resultType").is_none());
+        assert!(result.get("ttlMs").is_none());
+        assert!(result.get("_meta").is_none());
+    }
+
+    #[test]
+    fn a_modern_tool_call_declares_its_result_type_but_is_not_cacheable() {
+        let (_dir, mut s) = session();
+        let reply = handle(
+            &mut s,
+            "tools/call",
+            modern(json!({ "name": "get_app_state" }), "2026-07-28"),
+            json!(2),
+        )
+        .unwrap();
+        let result = &reply["result"];
+        assert_eq!(result["resultType"], "complete");
+        // Only list-shaped results carry caching hints.
+        assert!(result.get("ttlMs").is_none());
+    }
+
+    #[test]
+    fn a_modern_client_asking_for_an_unknown_revision_is_told_what_we_speak() {
+        let (_dir, mut s) = session();
+        let reply = handle(
+            &mut s,
+            "tools/call",
+            modern(json!({ "name": "get_app_state" }), "1900-01-01"),
+            json!(3),
+        )
+        .unwrap();
+        assert_eq!(reply["error"]["code"], UNSUPPORTED_VERSION);
+        assert_eq!(reply["error"]["data"]["requested"], "1900-01-01");
+        assert_eq!(reply["error"]["data"]["supported"][0], "2026-07-28");
+    }
+
+    #[test]
+    fn the_era_a_client_opened_with_survives_the_stream() {
+        let (_dir, mut s) = session();
+        handle(&mut s, "initialize", real_initialize(), json!(0));
+        // A stray _meta later must not silently promote a legacy client.
+        handle(&mut s, "tools/list", modern(json!({}), "2026-07-28"), json!(1));
+        assert_eq!(s.era(), Some(Era::Legacy));
     }
 
     #[test]
@@ -235,10 +388,26 @@ mod tests {
     }
 
     #[test]
+    fn a_structured_result_is_also_offered_as_text() {
+        let (_dir, mut s) = session();
+        let reply = handle(&mut s, "tools/call", json!({ "name": "get_app_state" }), json!(6)).unwrap();
+        let result = &reply["result"];
+        let text = result["content"][0]["text"].as_str().unwrap();
+        // Both views must agree, so a client may use either.
+        assert_eq!(
+            serde_json::from_str::<Value>(text).unwrap(),
+            result["structuredContent"],
+        );
+        assert_eq!(result["structuredContent"]["client"], "claude-code");
+    }
+
+    #[test]
     fn an_unadvertised_tool_is_a_protocol_error() {
         let (_dir, mut s) = session();
+        // Failing to FIND a tool is a protocol error (-32602), distinct from
+        // -32601 which means the method itself does not exist.
         let reply = handle(&mut s, "tools/call", json!({ "name": "rm_rf" }), json!(4)).unwrap();
-        assert_eq!(reply["error"]["code"], METHOD_NOT_FOUND);
+        assert_eq!(reply["error"]["code"], INVALID_PARAMS);
     }
 
     #[test]
