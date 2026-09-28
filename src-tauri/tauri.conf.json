@@ -43,7 +43,8 @@
     "linux": {
       "deb": {
         "depends": [
-          "libvulkan1"
+          "libvulkan1",
+          "libssl3"
         ]
       }
     }

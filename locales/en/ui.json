@@ -198,7 +198,12 @@
     "model_too_large": "That model needs more memory than this machine has. Pick a smaller one.",
     "continuity_busy": "A rewrite is running. The continuity check waits rather than competing for the model.",
     "continuity_model_too_large": "The model chosen for Continuity needs more memory than this machine has.",
-    "hardware_gpu_pending": "starting…"
+    "hardware_gpu_pending": "starting…",
+    "git_auth_failed": "GitHub refused that token. Check it under Settings → History & backup.",
+    "git_behind_remote": "The copy on GitHub has changes this one does not. Pull first.",
+    "git_diverged": "Both copies changed separately. Versorium cannot merge that yet — open the folder in a git tool.",
+    "no_remote": "This novel has no GitHub backup set up yet.",
+    "not_signed_in": "Connect your GitHub account first."
   },
   "languages": {
     "en": "English",
