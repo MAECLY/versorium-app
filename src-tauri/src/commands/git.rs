@@ -95,3 +95,39 @@ pub async fn github_list_repos(token: String) -> Result<Vec<serde_json::Value>, 
         .map(|(n, p)| serde_json::json!({ "name": n, "private": p }))
         .collect())
 }
+
+/// Send the novel's current branch to its remote.
+///
+/// The token comes from the credential store, not from the caller: a frontend
+/// that had to pass it would need to hold it, which is the round trip the
+/// keychain change removed.
+///
+/// Blocking, and it is network work, so it goes to a blocking thread.
+#[tauri::command]
+pub async fn git_push(path: PathBuf, remote: Option<String>) -> Result<String, String> {
+    let remote = remote.unwrap_or_else(|| "origin".to_string());
+    let token = novel_token().await?;
+    tauri::async_runtime::spawn_blocking(move || repo::push(&path, &remote, &token))
+        .await
+        .map_err(|_| "io".to_string())?
+}
+
+/// Fetch and fast-forward. Refuses rather than merging when the histories have
+/// diverged: resolving a conflict is a feature this editor does not have yet,
+/// and a half-merged manuscript is worse than a clear refusal.
+#[tauri::command]
+pub async fn git_pull(path: PathBuf, remote: Option<String>) -> Result<repo::PullOutcome, String> {
+    let remote = remote.unwrap_or_else(|| "origin".to_string());
+    let token = novel_token().await?;
+    tauri::async_runtime::spawn_blocking(move || repo::pull(&path, &remote, &token))
+        .await
+        .map_err(|_| "io".to_string())?
+}
+
+/// The writer's own GitHub token, from the OS credential store.
+async fn novel_token() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(|| crate::secrets::get(crate::secrets::Slot::Novel))
+        .await
+        .map_err(|_| "io".to_string())??
+        .ok_or_else(|| "not_signed_in".to_string())
+}

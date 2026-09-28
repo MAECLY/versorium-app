@@ -231,6 +231,15 @@ pub struct RemoteInfo {
     pub url: String,
 }
 
+/// What a pull did, so the UI can say "already up to date" rather than claiming
+/// it fetched something.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PullOutcome {
+    pub branch: String,
+    pub changed: bool,
+}
+
 pub fn remotes(root: &Path) -> Result<Vec<RemoteInfo>, String> {
     let repo = open(root)?;
     let mut out = Vec::new();
@@ -251,6 +260,106 @@ pub fn remote_add(root: &Path, name: &str, url: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Credentials for a GitHub HTTPS remote.
+///
+/// A personal access token goes in the password field; GitHub ignores the
+/// username, and `x-access-token` is the name it documents. Only
+/// `USER_PASS_PLAINTEXT` is offered, so libgit2 cannot wander off into ssh keys
+/// or a credential helper that might prompt on a machine with no terminal.
+fn token_callbacks(token: &str) -> git2::RemoteCallbacks<'_> {
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.credentials(move |_url, _username, allowed| {
+        if allowed.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            git2::Cred::userpass_plaintext("x-access-token", token)
+        } else {
+            Err(git2::Error::from_str("unsupported credential type"))
+        }
+    });
+    callbacks
+}
+
+/// libgit2's own message is the only way to tell a wrong token from an
+/// unreachable host, and both need different sentences.
+fn network_code(error: &git2::Error) -> String {
+    let message = error.message().to_lowercase();
+    if message.contains("authentication") || message.contains("401") || message.contains("403") {
+        "git_auth_failed".to_string()
+    } else if message.contains("cannot push") || message.contains("non-fast-forward") {
+        "git_behind_remote".to_string()
+    } else {
+        "network".to_string()
+    }
+}
+
+fn head_branch(repo: &Repository) -> Result<String, String> {
+    let head = repo.head().map_err(|_| "no_commits".to_string())?;
+    head.shorthand().map(str::to_string).ok_or_else(|| "no_commits".to_string())
+}
+
+/// Send the current branch to a remote.
+///
+/// Sets the upstream on success, so a later pull knows what to compare against
+/// without the writer configuring anything.
+pub fn push(root: &Path, remote: &str, token: &str) -> Result<String, String> {
+    let repo = open(root)?;
+    let branch = head_branch(&repo)?;
+    let mut origin = repo.find_remote(remote).map_err(|_| "no_remote".to_string())?;
+
+    let mut options = git2::PushOptions::new();
+    options.remote_callbacks(token_callbacks(token));
+    let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    origin
+        .push(&[refspec.as_str()], Some(&mut options))
+        .map_err(|e| network_code(&e))?;
+
+    // Best effort: the push already succeeded, and failing the call because the
+    // bookkeeping did not would report a false negative.
+    if let Ok(mut local) = repo.find_branch(&branch, BranchType::Local) {
+        let _ = local.set_upstream(Some(&format!("{remote}/{branch}")));
+    }
+    Ok(branch)
+}
+
+/// Fetch and fast-forward the current branch.
+///
+/// Deliberately not a merge. A real merge can conflict, and resolving a conflict
+/// inside a novel editor is a feature of its own; refusing with
+/// `git_diverged` and leaving the work untouched is the honest outcome until
+/// that exists.
+pub fn pull(root: &Path, remote: &str, token: &str) -> Result<PullOutcome, String> {
+    let repo = open(root)?;
+    let branch = head_branch(&repo)?;
+    let mut origin = repo.find_remote(remote).map_err(|_| "no_remote".to_string())?;
+
+    let mut options = git2::FetchOptions::new();
+    options.remote_callbacks(token_callbacks(token));
+    origin
+        .fetch(&[branch.as_str()], Some(&mut options), None)
+        .map_err(|e| network_code(&e))?;
+
+    let fetch_head = repo.find_reference("FETCH_HEAD").map_err(|_| "network".to_string())?;
+    let incoming = repo.reference_to_annotated_commit(&fetch_head).map_err(|_| "io".to_string())?;
+    let (analysis, _) = repo.merge_analysis(&[&incoming]).map_err(|_| "io".to_string())?;
+
+    if analysis.is_up_to_date() {
+        return Ok(PullOutcome { branch, changed: false });
+    }
+    if !analysis.is_fast_forward() {
+        return Err("git_diverged".into());
+    }
+
+    // Fast-forward: move the ref, then make the working tree match it.
+    let name = format!("refs/heads/{branch}");
+    let mut reference = repo.find_reference(&name).map_err(|_| "io".to_string())?;
+    reference
+        .set_target(incoming.id(), "versorium: fast-forward")
+        .map_err(|_| "io".to_string())?;
+    repo.set_head(&name).map_err(|_| "io".to_string())?;
+    repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
+        .map_err(|_| "io".to_string())?;
+    Ok(PullOutcome { branch, changed: true })
+}
+
 pub fn remote_remove(root: &Path, name: &str) -> Result<(), String> {
     let repo = open(root)?;
     repo.remote_delete(name).map_err(|_| "not_found".to_string())?;
@@ -261,6 +370,67 @@ pub fn remote_remove(root: &Path, name: &str) -> Result<(), String> {
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn a_wrong_token_is_told_apart_from_an_unreachable_host() {
+        // These need different sentences: one is "check your token", the other
+        // is "check your connection", and collapsing them sends people to the
+        // wrong place.
+        let auth = git2::Error::from_str("authentication required but no callback set");
+        assert_eq!(network_code(&auth), "git_auth_failed");
+        let denied = git2::Error::from_str("too many redirects or authentication replays: 403");
+        assert_eq!(network_code(&denied), "git_auth_failed");
+
+        let stale = git2::Error::from_str("cannot push non-fast-forward reference");
+        assert_eq!(network_code(&stale), "git_behind_remote");
+
+        let offline = git2::Error::from_str("failed to resolve address for github.com");
+        assert_eq!(network_code(&offline), "network");
+    }
+
+    #[test]
+    fn pushing_without_a_remote_says_so_rather_than_failing_as_a_network_error() {
+        let (_dir, root) = tmp_repo();
+        init_with_commit(&root).unwrap();
+        assert_eq!(push(&root, "origin", "ghp_x").unwrap_err(), "no_remote");
+        assert_eq!(pull(&root, "origin", "ghp_x").unwrap_err(), "no_remote");
+    }
+
+    #[test]
+    fn pushing_a_repository_with_no_commits_is_refused_before_the_network() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        Repository::init(&root).unwrap();
+        remote_add(&root, "origin", "https://example.invalid/x.git").unwrap();
+        // HEAD points at an unborn branch; there is nothing to send.
+        assert_eq!(push(&root, "origin", "ghp_x").unwrap_err(), "no_commits");
+    }
+
+    /// Real network and a real token: `cargo test -- --ignored live_`.
+    /// Set VERSORIUM_TEST_REMOTE to an https URL you may push to, and
+    /// VERSORIUM_TEST_TOKEN to a token with access.
+    #[test]
+    #[ignore = "pushes to a real GitHub repository"]
+    fn live_a_push_and_pull_round_trip() {
+        let (Some(url), Some(token)) = (
+            std::env::var("VERSORIUM_TEST_REMOTE").ok(),
+            std::env::var("VERSORIUM_TEST_TOKEN").ok(),
+        ) else {
+            eprintln!("VERSORIUM_TEST_REMOTE / VERSORIUM_TEST_TOKEN not set: skipped");
+            return;
+        };
+        let (_dir, root) = tmp_repo();
+        init_with_commit(&root).unwrap();
+        remote_add(&root, "origin", &url).unwrap();
+
+        let branch = push(&root, "origin", &token).expect("push");
+        eprintln!("pushed {branch}");
+        let outcome = pull(&root, "origin", &token).expect("pull");
+        assert!(!outcome.changed, "a pull right after a push has nothing to bring");
+
+        // A bad token must be reported as a token problem, not as the network.
+        assert_eq!(push(&root, "origin", "ghp_definitely_not_valid").unwrap_err(), "git_auth_failed");
+    }
 
     fn tmp_repo() -> (tempfile::TempDir, std::path::PathBuf) {
         let dir = tempfile::tempdir().unwrap();
