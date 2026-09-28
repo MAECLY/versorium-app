@@ -86,6 +86,12 @@ pub struct Settings {
     /// Two OAuth slots, never mixed: app updates vs the user's novel repos.
     pub github_updates_token: Option<String>,
     pub github_novel_token: Option<String>,
+    /// `stable` (default) or `beta` — the spec's two release channels.
+    pub update_channel: String,
+    /// Checking on a schedule is on by default on stable (spec §11).
+    pub update_automatic: bool,
+    /// A version the writer chose to skip; never offered again.
+    pub update_skipped: Option<String>,
     /// MCP clients allowed to call write tools. Empty = every client is
     /// read-only, which is the default the spec requires (§7).
     pub mcp_write_clients: Vec<String>,
@@ -110,6 +116,9 @@ impl Default for Settings {
             censorship: false,
             github_updates_token: None,
             github_novel_token: None,
+            update_channel: "stable".into(),
+            update_automatic: true,
+            update_skipped: None,
             mcp_write_clients: Vec::new(),
             mcp_active_project: None,
             slots: Slots::default(),
@@ -201,6 +210,15 @@ pub fn set_settings(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn updates_are_automatic_on_stable_out_of_the_box() {
+        let store = SettingsStore::load(PathBuf::from("/nonexistent/versorium/settings.json"));
+        let s = store.get();
+        assert_eq!(s.update_channel, "stable");
+        assert!(s.update_automatic, "spec §11: on by default on stable");
+        assert!(s.update_skipped.is_none());
+    }
 
     #[test]
     fn write_grants_are_not_patchable_through_set_settings() {
