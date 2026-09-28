@@ -14,7 +14,15 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chrome", use: { ...devices["Desktop Chrome"], channel: "chrome" } }],
+  projects: [
+    {
+      name: "chrome",
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: process.env.PLAYWRIGHT_CHANNEL ?? "chrome",
+      },
+    },
+  ],
   webServer: {
     // The local vite binary, not a package-manager script: which pnpm/npm is on
     // PATH varies per machine, and the dev server should not depend on it.

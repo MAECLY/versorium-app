@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "test": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:ui": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "locales": "node tests/locale-parity.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
