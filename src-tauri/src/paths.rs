@@ -10,9 +10,17 @@ use std::path::PathBuf;
 /// Must equal `identifier` in `tauri.conf.json`.
 pub const APP_IDENTIFIER: &str = "dev.versorium.app";
 
+/// Overrides the app-data location. Exists so a test can drive the real binary
+/// without writing into the user's settings and MCP log; it is not a supported
+/// way to run the app (portable mode is a later version, spec §20).
+pub const DATA_DIR_ENV: &str = "VERSORIUM_DATA_DIR";
+
 /// `~/Library/Application Support/dev.versorium.app` (macOS) and the platform
 /// equivalents. Same value as Tauri's `app.path().app_data_dir()`.
 pub fn app_data_dir() -> Result<PathBuf, String> {
+    if let Some(dir) = std::env::var_os(DATA_DIR_ENV).filter(|v| !v.is_empty()) {
+        return Ok(PathBuf::from(dir));
+    }
     dirs::data_dir()
         .map(|dir| dir.join(APP_IDENTIFIER))
         .ok_or_else(|| "no_home".to_string())
