@@ -11,7 +11,13 @@
     onOpenManuscript,
     onRollbackWord,
     onRollbackSelection,
+    onToggleFocus,
+    onToggleTypewriter,
+    onToggleView,
     gitDirty,
+    focus,
+    typewriter,
+    corkboard,
   }: {
     onOpenSettings: () => void;
     onToggleGit: () => void;
@@ -20,7 +26,13 @@
     onOpenManuscript: () => void;
     onRollbackWord: () => void;
     onRollbackSelection: () => void;
+    onToggleFocus: () => void;
+    onToggleTypewriter: () => void;
+    onToggleView: () => void;
     gitDirty: boolean;
+    focus: boolean;
+    typewriter: boolean;
+    corkboard: boolean;
   } = $props();
 
   let version = $state("");
@@ -75,6 +87,30 @@
       </button>
       <button class="v-btn" onclick={onRollbackWord} title={t("git.rollbackWord")}>
         {t("git.rollbackWordShort")}
+      </button>
+      <button
+        class="v-btn"
+        onclick={onToggleView}
+        aria-pressed={corkboard}
+        title={t("binder.corkboardHint")}
+      >
+        {corkboard ? t("binder.editor") : t("binder.corkboard")}
+      </button>
+      <button
+        class="v-btn"
+        onclick={onToggleFocus}
+        aria-pressed={focus}
+        title={t("editor.focusHint")}
+      >
+        {t("editor.focus")}
+      </button>
+      <button
+        class="v-btn"
+        onclick={onToggleTypewriter}
+        aria-pressed={typewriter}
+        title={t("editor.typewriterHint")}
+      >
+        {t("editor.typewriter")}
       </button>
       <button class="v-btn" onclick={onToggleGit} title={t("git.title")}>{t("git.title")}</button>
       <button class="v-btn" onclick={onOpenManuscript} title={t("manuscript.title")}>

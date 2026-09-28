@@ -9,6 +9,7 @@
   import EmptyState from "$lib/components/EmptyState.svelte";
   import GitPanel from "$lib/components/GitPanel.svelte";
   import ChapterList from "$lib/binder/ChapterList.svelte";
+  import Corkboard from "$lib/binder/Corkboard.svelte";
   import MarkdownEditor from "$lib/editor/MarkdownEditor.svelte";
   import NewProjectDialog from "$lib/binder/NewProjectDialog.svelte";
   import NewChapterDialog from "$lib/binder/NewChapterDialog.svelte";
@@ -28,6 +29,34 @@
   let showManuscript = $state(false);
   let dismissedUpdate = $state(false);
   let rewriteSel = $state<{ from: number; to: number; text: string } | null>(null);
+  let focusMode = $state(false);
+  let typewriter = $state(false);
+  let corkboard = $state(false);
+
+  /** The Rust side adds these to the settings patch in M7; the shared
+   *  AppSettings interface lives in a file this change does not own, so the
+   *  two preferences are widened here until it catches up. */
+  type ModePrefs = { focusMode?: boolean; typewriter?: boolean };
+
+  function persistModes(): void {
+    if (!isTauri()) return;
+    void api
+      .setSettings({ focusMode, typewriter } as ModePrefs as Parameters<typeof api.setSettings>[0])
+      .catch(() => undefined);
+  }
+
+  function toggleFocus(): void {
+    focusMode = !focusMode;
+    // Leaving focus mode with the corkboard open would show dimmed chrome over
+    // a board that has no text to concentrate on.
+    if (focusMode) corkboard = false;
+    persistModes();
+  }
+
+  function toggleTypewriter(): void {
+    typewriter = !typewriter;
+    persistModes();
+  }
 
   let editorRef: {
     rollbackWord: () => boolean;
@@ -90,6 +119,13 @@
       event.preventDefault();
       doRewrite();
     }
+    // The way out of focus mode. The chrome also returns on hover, but a writer
+    // who cannot find their way back out will force-quit, so Escape is the
+    // guaranteed exit — unless a dialog is open, which owns Escape itself.
+    if (event.key === "Escape" && focusMode && !document.querySelector("dialog[open]")) {
+      event.preventDefault();
+      toggleFocus();
+    }
   }
 
   function doRollbackWord(): void {
@@ -116,6 +152,13 @@
       await initLocale();
       await initTheme();
       if (isTauri()) {
+        try {
+          const saved = (await api.getSettings()) as ModePrefs;
+          focusMode = saved.focusMode ?? false;
+          typewriter = saved.typewriter ?? false;
+        } catch {
+          // Defaults are fine; a writing mode is not worth an error.
+        }
         await store.refreshProjects();
         // Probing five CLIs takes seconds; warm the cache so Rewrite opens ready.
         void detectAgents().catch(() => undefined);
@@ -157,23 +200,35 @@
   });
 </script>
 
-<div class="flex h-full flex-col">
-  <TopBar
-    onOpenSettings={() => (showSettings = true)}
-    onToggleGit={() => (showGit = !showGit)}
-    onCommit={doCommit}
-    onRewrite={doRewrite}
-    onOpenManuscript={() => (showManuscript = true)}
-    onRollbackWord={doRollbackWord}
-    onRollbackSelection={doRollbackSelection}
-    gitDirty={gitDirty}
-  />
+<div class="flex h-full flex-col" class:v-focus={focusMode}>
+  <div class="v-chrome flex-shrink-0">
+    <TopBar
+      onOpenSettings={() => (showSettings = true)}
+      onToggleGit={() => (showGit = !showGit)}
+      onCommit={doCommit}
+      onRewrite={doRewrite}
+      onOpenManuscript={() => (showManuscript = true)}
+      onRollbackWord={doRollbackWord}
+      onRollbackSelection={doRollbackSelection}
+      onToggleFocus={toggleFocus}
+      onToggleTypewriter={toggleTypewriter}
+      onToggleView={() => (corkboard = !corkboard)}
+      gitDirty={gitDirty}
+      focus={focusMode}
+      typewriter={typewriter}
+      corkboard={corkboard}
+    />
+  </div>
 
   <div class="flex min-h-0 flex-1">
-    <ChapterList onRequestNewChapter={() => (showNewChapter = true)} />
+    <div class="v-chrome flex-shrink-0">
+      <ChapterList onRequestNewChapter={() => (showNewChapter = true)} />
+    </div>
 
     <main class="min-w-0 flex-1" style="background: var(--bg-editor);">
-      {#if store.project && store.currentChapter}
+      {#if store.project && corkboard}
+        <Corkboard />
+      {:else if store.project && store.currentChapter}
         {#key store.project.path + "/" + store.currentChapter.file}
         <MarkdownEditor
           bind:this={editorRef}
@@ -181,6 +236,8 @@
           chapterId={store.currentChapter.id}
           projectPath={store.project.path}
           disabled={store.loading}
+          focus={focusMode}
+          typewriter={typewriter}
           onChange={(body) => store.updateBody(body)}
           onOps={onOps}
           onOpsError={(e) => { store.error = store.codeMessagePublic(e); }}
@@ -196,7 +253,9 @@
     <GitPanel open={showGit} onClose={() => (showGit = false)} />
   {/if}
 
-  <StatusBar />
+  <div class="v-chrome flex-shrink-0">
+    <StatusBar />
+  </div>
 
   {#if store.error}
     <div
