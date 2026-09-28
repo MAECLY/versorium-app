@@ -225,6 +225,23 @@ pub fn handle(session: &mut Session, method: &str, params: Value, id: Value) -> 
 mod tests {
     use super::*;
 
+    /// A real project on disk so list-shaped tools have something to return.
+    fn fixture_project(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        let project = crate::commands::project::create_project(
+            crate::commands::project::CreateProjectArgs {
+                path: dir.path().to_path_buf(),
+                title: "Dispatch Fixture".into(),
+                language: "es".into(),
+            },
+        )
+        .unwrap();
+        let root = std::path::PathBuf::from(&project.path);
+        let chapter = root.join(&project.chapters[0].file);
+        let body = std::fs::read_to_string(&chapter).unwrap();
+        std::fs::write(&chapter, format!("{body}El invierno fue largo.")).unwrap();
+        root
+    }
+
     fn session() -> (tempfile::TempDir, Session) {
         let dir = tempfile::tempdir().unwrap();
         let session = Session::new("claude-code".into(), dir.path().join("settings.json"));
@@ -385,6 +402,28 @@ mod tests {
         assert_eq!(reply["result"]["isError"], true);
         let text = reply["result"]["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("write_not_allowed"));
+    }
+
+    #[test]
+    fn every_structured_result_is_an_object() {
+        // Claude Code rejects a bare array here with `expected: "record"`, so a
+        // list-shaped tool must still hand back an object.
+        let (_dir, mut s) = session();
+        s.open(&fixture_project(&_dir)).unwrap();
+        for (tool, args) in [
+            ("list_projects", json!({})),
+            ("list_documents", json!({})),
+            ("search", json!({ "query": "invierno" })),
+            ("git_log", json!({})),
+            ("codex_search", json!({})),
+            ("get_app_state", json!({})),
+        ] {
+            let reply = handle(&mut s, "tools/call", json!({ "name": tool, "arguments": args }), json!(1)).unwrap();
+            let result = &reply["result"];
+            if let Some(structured) = result.get("structuredContent") {
+                assert!(structured.is_object(), "{tool} returned a non-object structuredContent");
+            }
+        }
     }
 
     #[test]
