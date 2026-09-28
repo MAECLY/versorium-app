@@ -136,7 +136,23 @@
     "sha_mismatch": "The download did not match its checksum, so it was deleted. Try again.",
     "not_ready": "Download that model before selecting it.",
     "bad_catalog": "The model catalog could not be read.",
-    "bad_args": "That value is not one Versorium accepts."
+    "bad_args": "That value is not one Versorium accepts.",
+    "bad_format": "Versorium does not know that format.",
+    "unsupported_source": "Versorium cannot read that kind of file.",
+    "empty_manuscript": "There is nothing to export yet.",
+    "no_author": "This format needs an author for its running heads.",
+    "import_prose_before_first_chapter": "Text before the first chapter heading was kept as an opening chapter.",
+    "import_no_chapter_headings": "No chapter headings were found, so the whole document became one chapter.",
+    "import_title_guessed": "The title was taken from the first heading.",
+    "import_not_utf8": "Some characters could not be decoded and were replaced.",
+    "import_scrivener_labels_dropped": "Scrivener labels and status flags were not carried across.",
+    "import_scrivener_notes_dropped": "Scrivener document notes were not carried across.",
+    "import_docx_formatting_dropped": "Bold, italics and other formatting were not carried across.",
+    "import_docx_no_headings": "No Heading 1 was found, so the whole document became one chapter.",
+    "import_images_dropped": "Images were not carried across.",
+    "empty_document": "That file has no text to import.",
+    "export_pdf_characters_replaced": "Some characters cannot be printed in a PDF and were replaced.",
+    "export_docx_scene_titles_dropped": "Scene titles are not part of manuscript format; the scene breaks remain."
   },
   "languages": {
     "en": "English",
@@ -315,6 +331,56 @@
       "embeddingsHint": "Indexing the manuscript so search understands meaning.",
       "dictation": "Dictation",
       "dictationHint": "Turning speech into text."
+    }
+  },
+  "manuscript": {
+    "title": "Manuscript",
+    "open": "Manuscript",
+    "close": "Close",
+    "tabs": {
+      "export": "Export",
+      "import": "Import"
+    },
+    "export": {
+      "title": "Export",
+      "intro": "Write the whole manuscript out as one file.",
+      "format": "Format",
+      "formats": {
+        "md": "The canonical format. Nothing is lost.",
+        "docx": "Standard manuscript format: 12pt serif, double-spaced, 1-inch margins, surname / title / page in the header.",
+        "epub": "An ebook readers accept.",
+        "pdf": "Print preview, with chapter openings and running heads."
+      },
+      "formatNames": {
+        "md": "Markdown",
+        "docx": "Word (DOCX)",
+        "epub": "EPUB 3",
+        "pdf": "PDF"
+      },
+      "author": "Author",
+      "authorPlaceholder": "Ursula K. Le Guin",
+      "authorHint": "DOCX and PDF print the surname in every running head, so they need it.",
+      "authorMissing": "Add an author to export this format.",
+      "action": "Export",
+      "busy": "Exporting…",
+      "done": "Wrote {size} to {path}",
+      "warningsTitle": "This format could not carry everything:"
+    },
+    "import": {
+      "title": "Import",
+      "intro": "Read a manuscript into a new project. Nothing is written until you confirm.",
+      "chooseFile": "Choose a file",
+      "chooseProject": "Choose a Scrivener project",
+      "fileHint": "Markdown or Word.",
+      "projectHint": "A .scriv bundle.",
+      "busy": "Reading…",
+      "previewTitle": "Project title",
+      "chapters": "Chapters",
+      "chapterWords": "{words} words",
+      "noChapters": "This source has no chapters.",
+      "warningsTitle": "What this import cannot carry across",
+      "action": "Create project",
+      "cancel": "Discard"
     }
   }
 }

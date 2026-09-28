@@ -1,11 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 // Tauri command wrappers. All business logic lives in Rust; this is a thin typed edge.
 
 export interface ProjectMeta {
   schema: number;
   title: string;
+  /** Standard Manuscript Format puts the surname in every running head. */
+  author: string;
   language: string;
   uiLanguage: string;
   defaultChapterPattern: string;
@@ -239,6 +241,33 @@ export interface LocalAiView {
   modelsDir: string;
 }
 
+// --- M5: formats ---
+
+export type ExportFormat = "md" | "docx" | "epub" | "pdf";
+export type ImportFormat = "md" | "docx" | "scriv";
+
+export interface ExportResult {
+  path: string;
+  bytes: number;
+  format: ExportFormat;
+  /// i18n codes for what this format could not carry.
+  warnings: string[];
+}
+
+export interface ImportedChapter {
+  title: string;
+  /** Markdown body, frontmatter excluded. */
+  body: string;
+  synopsis: string | null;
+}
+
+export interface Imported {
+  title: string;
+  chapters: ImportedChapter[];
+  /** What the source held that Versorium could not carry across. */
+  warnings: string[];
+}
+
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   uiReady: () => invoke<void>("ui_ready"),
@@ -311,6 +340,27 @@ export const api = {
   studioTest: (host: string, port: number) => invoke<boolean>("studio_test", { host, port }),
   studioSave: (host: string, port: number, enabled: boolean) =>
     invoke<StudioView>("studio_save", { host, port, enabled }),
+
+  // --- M5: formats ---
+  exportManuscript: (path: string, format: ExportFormat, dest: string) =>
+    invoke<ExportResult>("export_manuscript", { path, format, dest }),
+  importPreview: (source: string) => invoke<Imported>("import_preview", { source }),
+  importApply: (source: string, title: string) =>
+    invoke<Project>("import_apply", { source, title }),
+  setAuthor: (path: string, author: string) =>
+    invoke<ProjectMeta>("set_author", { path, author }),
+
+  /** Where to write an export. Returns null when the user backs out. */
+  pickExportTarget: (defaultPath: string, name: string, extension: string) =>
+    save({ defaultPath, filters: [{ name, extensions: [extension] }] }),
+  /** A manuscript file to import. */
+  pickImportFile: () =>
+    open({
+      multiple: false,
+      filters: [{ name: "Manuscript", extensions: ["md", "markdown", "docx"] }],
+    }),
+  /** A Scrivener project, which is a .scriv bundle directory on macOS. */
+  pickImportProject: () => open({ directory: true, multiple: false }),
 };
 
 export function isTauri(): boolean {

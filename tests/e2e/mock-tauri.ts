@@ -38,6 +38,7 @@ interface ProjectState {
   meta: {
     schema: number;
     title: string;
+    author: string;
     language: string;
     uiLanguage: string;
     defaultChapterPattern: string;
@@ -52,6 +53,9 @@ interface ProjectState {
   branches: string[];
   remotes: { name: string; url: string }[];
 }
+
+interface ImportedChapter { title: string; body: string; synopsis: string | null }
+interface Imported { title: string; chapters: ImportedChapter[]; warnings: string[] }
 
 interface ModelCard {
   id: string; family: string; label: string; task: string; tier: string;
@@ -104,6 +108,21 @@ const projects = new Map<string, ProjectState>();
 const calls: { cmd: string; args: Args }[] = [];
 
 const GB = 1024 ** 3;
+
+/// What a Scrivener import would surface: chapters plus what could not cross.
+const importPreview: Imported = {
+  title: "The Salt Road",
+  chapters: [
+    { title: "A door in the rain", body: "It rained for three days.", synopsis: "She leaves." },
+    { title: "North", body: "## Morning\n\nThe road bent north.", synopsis: null },
+  ],
+  warnings: [
+    "Scrivener labels and status flags are not imported.",
+    "Comments and footnotes in 2 documents were dropped.",
+  ],
+};
+
+let lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null = null;
 
 const models: ModelCard[] = [
   { id: "gemma3-1b-q4km", family: "Gemma", label: "Gemma 3 1B", task: "writing", tier: "low",
@@ -250,6 +269,7 @@ const commands: Record<string, (args: Args) => unknown> = {
         schema: 1,
         title: clean,
         language,
+        author: "",
         uiLanguage: "en",
         defaultChapterPattern: "ch-{n}-{slug}.md",
         censorship: "off",
@@ -362,6 +382,32 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   agents_detect: () => agents.map((a) => ({ ...a, models: a.models ? [...a.models] : null })),
+
+  // --- M5: formats ---
+  export_manuscript: ({ path, format, dest }) => {
+    const project = projects.get(String(path));
+    if (!project) throw "not_found";
+    if (!["md", "docx", "epub", "pdf"].includes(String(format))) throw "bad_format";
+    if (!project.chapters.some((c) => c.body.trim())) throw "empty_manuscript";
+    // PDF cannot carry every character, and the UI has to say so.
+    const warnings = format === "pdf" ? ["export_pdf_characters_replaced"]
+                   : format === "docx" ? ["export_docx_scene_titles_dropped"] : [];
+    lastExport = { path: String(dest), bytes: 48_231, format: String(format), warnings };
+    return { ...lastExport };
+  },
+  import_preview: ({ source }) => {
+    const name = String(source);
+    if (!/\.(md|markdown|docx|scriv)$/i.test(name)) throw "unsupported_source";
+    return JSON.parse(JSON.stringify(importPreview));
+  },
+  import_apply: ({ source: _source, title }) =>
+    commands.create_project({ args: { path: PROJECTS_DIR, title, language: "en" } }),
+  set_author: ({ path, author }) => {
+    const project = projects.get(String(path));
+    if (!project) throw "not_found";
+    project.meta.author = String(author);
+    return { ...project.meta };
+  },
 
   // --- M4: local models ---
   models_view: () => ({
@@ -478,7 +524,21 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   // Plugins used by the UI. The dialog returns the first project so "Open project" works.
-  "plugin:dialog|open": () => projects.keys().next().value ?? null,
+  // The native pickers. `open` returns a project folder for "Open project" and
+  // an importable file for the Manuscript dialog; the two are told apart by the
+  // filters the caller passes.
+  "plugin:dialog|open": ({ options }) => {
+    const o = (options ?? {}) as { directory?: boolean; filters?: { extensions: string[] }[] };
+    const extensions = o.filters?.flatMap((f) => f.extensions) ?? [];
+    if (extensions.includes("scriv")) return "/mock/Documents/The Salt Road.scriv";
+    if (extensions.length) return `/mock/Documents/import.${extensions[0]}`;
+    return projects.keys().next().value ?? null;
+  },
+  "plugin:dialog|save": ({ options }) => {
+    const o = (options ?? {}) as { defaultPath?: string; filters?: { extensions: string[] }[] };
+    const extension = o.filters?.[0]?.extensions?.[0] ?? "out";
+    return o.defaultPath ?? `/mock/Documents/novel.${extension}`;
+  },
   "plugin:event|listen": () => Math.floor(Math.random() * 1e9),
   "plugin:event|unlisten": () => undefined,
   "plugin:window|destroy": () => undefined,
@@ -537,12 +597,22 @@ declare global {
       mcpLog: McpLogEntry[];
       models: ModelCard[];
       slots: Record<string, SlotAssignment>;
+      lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null;
     };
   }
 }
 
 window.__TAURI_INTERNALS__ = internals;
 window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
-window.__VERSORIUM_MOCK__ = { projects, settings, calls, agents, mcpClients, mcpLog, models, slots };
+Object.defineProperty(window, "__VERSORIUM_MOCK__", {
+  value: {
+    projects, settings, calls, agents, mcpClients, mcpLog, models, slots,
+    get lastExport() {
+      return lastExport;
+    },
+  },
+  writable: false,
+  configurable: true,
+});
 
 export {};
