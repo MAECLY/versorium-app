@@ -27,20 +27,20 @@ test("focus and typewriter toggle without losing the text", async ({ page }) => 
   await page.keyboard.type("El invierno fue largo.");
   await page.waitForTimeout(900);
 
-  const banner = page.getByRole("banner");
-  await banner.getByRole("button", { name: "Typewriter" }).click();
-  await expect(banner.getByRole("button", { name: "Typewriter" })).toHaveAttribute("aria-pressed", "true");
+  const bar = page.getByRole("contentinfo");
+  await bar.getByRole("button", { name: "Typewriter" }).click();
+  await expect(bar.getByRole("button", { name: "Typewriter" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".cm-content")).toContainText("El invierno fue largo.");
 
-  await banner.getByRole("button", { name: "Focus" }).click();
-  await expect(banner.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+  await bar.getByRole("button", { name: "Focus" }).click();
+  await expect(bar.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
   // The words survive the mode change — that is the whole point.
   await expect(page.locator(".cm-content")).toContainText("El invierno fue largo.");
 
   // Escape is the way out, so nobody has to force-quit.
   await page.locator(".cm-content").click();
   await page.keyboard.press("Escape");
-  await expect(banner.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "false");
+  await expect(bar.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "false");
 });
 
 test("the corkboard shows a card per chapter and opens one", async ({ page }) => {
@@ -49,12 +49,12 @@ test("the corkboard shows a card per chapter and opens one", async ({ page }) =>
   await page.keyboard.type("Primera escena del capítulo.");
   await page.waitForTimeout(900);
 
-  await page.getByRole("banner").getByRole("button", { name: "Corkboard" }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "Corkboard" }).click();
   const board = page.getByRole("list", { name: "Corkboard" }).or(page.locator("ul").filter({ hasText: "El largo invierno" }).first());
   await expect(board.getByRole("listitem").first()).toBeVisible();
   await expect(page.getByText("Primera escena del capítulo.")).toBeVisible();
 
-  await page.getByRole("banner").getByRole("button", { name: "Editor" }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "Editor" }).click();
   await expect(page.locator(".cm-content")).toBeVisible();
 });
 

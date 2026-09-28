@@ -124,7 +124,7 @@ test("settings: agents cards and censorship toggle persist", async ({ page }) =>
 
 test("the whole M2 surface is translated", async ({ page }) => {
   await createProject(page, "Idioma");
-  await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
   const header = page.getByRole("banner");
   await expect(header.getByRole("button", { name: "Reescribir" })).toBeVisible();
   await page.getByRole("button", { name: "Ajustes" }).click();

@@ -18,7 +18,7 @@ async function withProject(page: Page, title = "El faro") {
 }
 
 async function openHistory(page: Page) {
-  await page.getByRole("banner").getByRole("button", { name: "History" }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "History" }).click();
   return page.getByRole("region", { name: "History" });
 }
 
@@ -120,9 +120,9 @@ test("saving without a description still produces a findable snapshot", async ({
 
 test("the history panel is translated", async ({ page }) => {
   await withProject(page);
-  await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
   const history = await page.getByRole("region", { name: "Historial" });
-  await page.getByRole("banner").getByRole("button", { name: "Historial" }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "Historial" }).click();
 
   for (const tab of ["Cambios", "Instantáneas", "Qué cambió", "Avanzado"]) {
     await expect(history.getByRole("button", { name: tab, exact: true })).toBeVisible();

@@ -105,7 +105,7 @@ test("the Ollama tab lists what the daemon has", async ({ page }) => {
 
 test("the Local AI panel is translated", async ({ page }) => {
   await page.goto("/?mock=tauri");
-  await page.getByRole("banner").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
   await page.getByRole("button", { name: "Ajustes" }).click();
   const settings = page.getByRole("region", { name: "Ajustes" });
   await settings.getByRole("button", { name: "IA local" }).click();
