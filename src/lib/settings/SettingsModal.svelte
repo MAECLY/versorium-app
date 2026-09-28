@@ -147,7 +147,7 @@
 
   <div class="min-h-0 flex-1 overflow-y-auto py-4">
     <!-- Appearance (live in M0) -->
-    <section class="mb-6">
+    <section class="mb-6" aria-label={t("settings.appearance")}>
       <h3 class="v-section-title mb-2">{t("settings.appearance")}</h3>
 
       <div class="v-row mb-3" style="gap: 12px;">
@@ -193,7 +193,7 @@
     </section>
 
     <!-- Agents (live in M2): Connected / Detected / Missing -->
-    <section class="mb-6">
+    <section class="mb-6" aria-label={t("agents.title")}>
       <div class="v-row mb-2" style="justify-content: space-between;">
         <h3 class="v-section-title m-0">{t("agents.title")}</h3>
         {#if isTauri()}
@@ -243,7 +243,7 @@
     </section>
 
     <!-- Safety (M2): censorship toggle; routing arrives with Local AI -->
-    <section class="mb-6">
+    <section class="mb-6" aria-label={t("safety.title")}>
       <h3 class="v-section-title mb-2">{t("safety.title")}</h3>
       <label class="v-row" style="gap: 8px; font-size: 13px;">
         <input type="checkbox" checked={censorship} onchange={(e) => void setCensorship((e.currentTarget as HTMLInputElement).checked)} />
@@ -254,7 +254,7 @@
     </section>
 
     <!-- MCP (live in M3): stdio on this machine, read scope by default -->
-    <section class="mb-6">
+    <section class="mb-6" aria-label={t("mcp.title")}>
       <div class="v-row mb-2" style="justify-content: space-between;">
         <h3 class="v-section-title m-0">{t("mcp.title")}</h3>
         {#if isTauri()}
@@ -385,7 +385,7 @@
     </section>
 
     <!-- Git (live in M1): two OAuth slots, never mixed -->
-    <section class="mb-6">
+    <section class="mb-6" aria-label={t("git.title")}>
       <h3 class="v-section-title mb-2">{t("git.title")}</h3>
 
       <div class="v-card mb-3 p-3">
@@ -450,7 +450,7 @@
 
     <!-- Placeholder sections (filled in M3–M7) -->
     {#each placeholderSections as s (s)}
-      <section class="mb-4">
+      <section class="mb-4" aria-label={t(`settings.sections.${s}`)}>
         <h3 class="v-section-title mb-1">{t(`settings.sections.${s}`)}</h3>
         <p class="v-muted m-0" style="font-size: 13px;">{t("settings.comingSoon")}</p>
       </section>
