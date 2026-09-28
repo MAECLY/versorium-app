@@ -396,7 +396,8 @@ const CLI_HARNESSES: [(&str, &[&str]); 3] =
 
 /// Rewrite `text` with the model assigned to a slot. Errors are stable codes:
 /// `no_provider` (nothing assigned, or a harness that is not installed),
-/// `no_runtime` (a downloaded GGUF with no engine to load it),
+/// `not_ready` (a `builtin` slot whose weights are not fully downloaded),
+/// `model_too_large` (the machine cannot hold it), `llama_busy`,
 /// `ollama_offline`, `ai_failed` (spawn, timeout or daemon failure),
 /// `ai_empty` (empty result).
 ///
@@ -411,8 +412,7 @@ pub async fn rewrite(slot: &SlotAssignment, text: &str) -> Result<String, String
             None => Err("no_provider".to_string()),
         },
         "ollama" if !id.is_empty() => ollama_rewrite(id, text).await,
-        // The weights are on disk and verified, but nothing loads them yet.
-        "builtin" if !id.is_empty() => Err("no_runtime".to_string()),
+        "builtin" if !id.is_empty() => builtin_rewrite(id, text).await,
         _ => Err("no_provider".to_string()),
     }
 }
@@ -427,6 +427,18 @@ async fn cli_rewrite(bin: &str, args: &[&str], text: &str) -> Result<String, Str
         .map_err(|_| "io".to_string())?
         .ok_or_else(|| "ai_failed".to_string())?;
     Ok(out)
+}
+
+/// Rewrite through the in-process engine.
+///
+/// Blocking work, so it goes to a blocking thread exactly like a CLI harness
+/// does; the engine has its own worker thread behind that.
+async fn builtin_rewrite(id: &str, text: &str) -> Result<String, String> {
+    let prompt = rewrite_prompt(text);
+    let id = id.to_string();
+    tauri::async_runtime::spawn_blocking(move || crate::llama::generate(&id, &prompt))
+        .await
+        .map_err(|_| "io".to_string())?
 }
 
 async fn ollama_rewrite(model: &str, text: &str) -> Result<String, String> {
@@ -544,9 +556,16 @@ mod tests {
         // `gh` is a git tool, not an editor, and must never be offered prose.
         assert_eq!(refused("cli", "gh"), "no_provider");
         assert_eq!(refused("cli", "not-a-harness"), "no_provider");
-        // A downloaded GGUF is a different failure from a missing provider: the
-        // weights are there, the engine is not. The UI says different things.
-        assert_eq!(refused("builtin", "qwen35-4b-q4km"), "no_runtime");
+        // A `builtin` slot now reaches the engine, so the refusal it earns
+        // depends on the machine rather than on there being no engine: an id the
+        // catalog does not know is `not_found`, and a real id nobody downloaded
+        // is `not_ready`. Either way it is never `no_provider`.
+        let real = refused("builtin", "qwen35-4b-q4km");
+        assert!(
+            real == "not_ready" || real == "model_too_large" || real == "ai_empty" || real == "llama_load_failed",
+            "unexpected refusal for a real catalog id: {real}"
+        );
+        assert_eq!(refused("builtin", "no-such-model"), "not_found");
     }
 
     #[test]

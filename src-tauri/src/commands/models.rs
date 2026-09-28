@@ -11,7 +11,6 @@ use serde::Serialize;
 use std::path::Path;
 
 /// Headroom the spec asks for before calling a model a fit (§6.2).
-const RAM_HEADROOM: f32 = 1.2;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,11 +83,6 @@ pub struct LocalAiView {
     pub models_dir: String,
 }
 
-/// Enough RAM for the model plus the spec's margin.
-fn fits(ram_hint_gb: f32, total_ram_gb: f32) -> bool {
-    ram_hint_gb * RAM_HEADROOM <= total_ram_gb
-}
-
 fn state_label(state: &store::ModelState) -> (&'static str, u64) {
     match state {
         store::ModelState::Missing => ("missing", 0),
@@ -119,7 +113,7 @@ fn card(entry: &catalog::ModelEntry, state: store::ModelState, total_ram_gb: f32
         repo: entry.repo.clone(),
         state: label.to_string(),
         received_bytes,
-        fits: fits(entry.ram_hint_gb, total_ram_gb),
+        fits: hardware::fits(entry.ram_hint_gb, total_ram_gb),
     }
 }
 
@@ -428,10 +422,10 @@ mod tests {
     #[test]
     fn the_ram_margin_is_twenty_percent() {
         // 4 GB model needs 4.8 GB of machine.
-        assert!(fits(4.0, 4.8));
-        assert!(!fits(4.0, 4.79));
-        assert!(fits(1.0, 8.0));
-        assert!(!fits(48.0, 32.0));
+        assert!(hardware::fits(4.0, 4.8));
+        assert!(!hardware::fits(4.0, 4.79));
+        assert!(hardware::fits(1.0, 8.0));
+        assert!(!hardware::fits(48.0, 32.0));
     }
 
     #[test]

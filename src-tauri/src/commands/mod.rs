@@ -2,6 +2,7 @@ pub mod ai;
 pub mod chapters;
 pub mod formats;
 pub mod git;
+pub mod llama;
 pub mod mcp;
 pub mod models;
 pub mod ops;
