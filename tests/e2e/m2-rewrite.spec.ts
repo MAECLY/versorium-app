@@ -158,14 +158,48 @@ test("the rewrite names the model, and downloaded weights say they have no engin
   expect(state.commits[0]).toBe("checkpoint: before ai rewrite (qwen3.8:latest)");
   expect(state.ops.some((op) => op.author === "ai:qwen3.8:latest")).toBe(true);
 
-  // A downloaded GGUF is offered, and explains itself rather than looking broken.
+  // A downloaded GGUF now runs in-process instead of reporting that nothing can
+  // load it. This assertion was the inverse until the engine shipped.
   await typeAndSelectLine(page, "Otra noche mas.");
   await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
   const again = page.getByRole("dialog", { name: "Rewrite" });
   await again.getByLabel("Agent").selectOption({ label: "Gemma 3 1B" });
   await again.getByRole("button", { name: "Rewrite", exact: true }).click();
-  await expect(again.getByRole("alert")).toContainText("no engine to run it yet");
-  await expect(again.getByRole("button", { name: "Apply" })).toBeDisabled();
+  await expect(again.getByRole("region", { name: "Preview" })).toContainText(
+    "rewritten by gemma3-1b-q4km",
+  );
+  await expect(again.getByRole("alert")).toHaveCount(0);
+});
+
+test("a model too large for the machine is refused before it loads", async ({ page }) => {
+  await createProject(page, "Demasiado grande");
+  // Dolphin 24B does not fit the mocked 36 GB machine with the spec's margin.
+  await page.evaluate(() => {
+    const m = window.__VERSORIUM_MOCK__.models.find((x) => x.id === "dolphin-24b-q4km");
+    if (m) m.state = "ready";
+  });
+  await typeAndSelectLine(page, "Una linea.");
+  await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
+  const dialog = page.getByRole("dialog", { name: "Rewrite" });
+  await dialog.getByLabel("Agent").selectOption({ label: "Dolphin 24B" });
+  await dialog.getByRole("button", { name: "Rewrite", exact: true }).click();
+  // Refusing beats swapping: a model that does not fit does not fail, it makes
+  // the machine unusable until the OS kills it.
+  await expect(dialog.getByRole("alert")).toContainText("more memory than this machine has");
+  await expect(dialog.getByRole("button", { name: "Apply" })).toBeDisabled();
+});
+
+test("the engine says it is starting, then names the device it will use", async ({ page }) => {
+  await page.goto("/?mock=tauri");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Local AI" }).click();
+  const localAi = settings.getByRole("region", { name: "Local AI" });
+
+  // Spec §6.2 asks for the backend on Ready. Starting is a visible state
+  // because the first init compiles GPU shaders for about fifteen seconds.
+  await expect(localAi.getByText(/compiling GPU shaders/)).toBeVisible();
+  await expect(localAi.getByText("Metal (Apple M4 Max)")).toBeVisible();
 });
 
 test("the configured Rewrite slot is what the dialog opens on", async ({ page }) => {

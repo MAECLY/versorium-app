@@ -187,10 +187,18 @@
     "continuity_no_model": "No model is selected for Continuity. Pick one under Local AI.",
     "continuity_daemon_offline": "The Ollama daemon is not running, so the check could not start.",
     "continuity_failed": "The continuity check could not finish.",
-    "no_runtime": "That model is downloaded, but Versorium has no engine to run it yet. Pick Ollama or a CLI agent.",
+    "no_runtime": "Versorium has no engine for that task yet. Dictation needs a speech model, which llama.cpp cannot run.",
     "cancelled": "Cancelled.",
     "ollama_offline": "Ollama is not answering. Start it and try again.",
-    "ollama_failed": "Ollama could not finish that."
+    "ollama_failed": "Ollama could not finish that.",
+    "llama_busy": "Versorium is already running one model. Wait for it to finish.",
+    "llama_load_failed": "That model file could not be loaded. It may be for a different purpose than writing.",
+    "llama_cancelled": "Stopped.",
+    "llama_failed": "The local model could not finish that.",
+    "model_too_large": "That model needs more memory than this machine has. Pick a smaller one.",
+    "continuity_busy": "A rewrite is running. The continuity check waits rather than competing for the model.",
+    "continuity_model_too_large": "The model chosen for Continuity needs more memory than this machine has.",
+    "hardware_gpu_pending": "starting…"
   },
   "languages": {
     "en": "English",
@@ -383,6 +391,13 @@
       "embeddingsHint": "Indexing the manuscript so search understands meaning.",
       "dictation": "Dictation",
       "dictationHint": "Turning speech into text."
+    },
+    "engine": {
+      "title": "Engine",
+      "warming": "starting… (compiling GPU shaders, once per machine)",
+      "failed": "llama.cpp could not start on this machine.",
+      "cpuOnly": "CPU",
+      "noGpuBuild": "· this build has no GPU backend, so speeds are CPU speeds"
     }
   },
   "manuscript": {

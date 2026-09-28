@@ -226,6 +226,11 @@ const mcpLog: McpLogEntry[] = [
   { ts: 1_759_000_060_000, client: "codex", tool: "write_document", scope: "write", outcome: "denied", detail: "write not allowed for codex" },
 ];
 
+/** The in-process engine's state. `warming` for the first call only, so a test
+ *  can see the "starting" copy the real app shows while Metal shaders compile. */
+let llamaWarmCalls = 0;
+let llamaBusy = false;
+
 /// Mirrors settings::SLOT_KINDS; Rust rejects anything else as `bad_args`.
 const SLOT_KINDS = ["none", "builtin", "ollama", "cli"];
 
@@ -569,6 +574,21 @@ const commands: Record<string, (args: Args) => unknown> = {
     slots[name] = kind === "none" ? { kind: "none", id: "" } : { kind: String(kind), id: String(id) };
     return { ...slots };
   },
+  llama_backend: () => {
+    // The real backend reports `warming` while it compiles Metal shaders; the
+    // first call here does too so the UI state is reachable in a test.
+    llamaWarmCalls += 1;
+    if (llamaWarmCalls === 1) return { state: "warming", device: null, gpuOffload: false };
+    return {
+      state: "ready",
+      device: { label: "Metal (Apple M4 Max)", deviceType: "gpu", memFreeMb: 53_083, memTotalMb: 55_662 },
+      gpuOffload: true,
+    };
+  },
+  llama_progress: () => null,
+  llama_cancel: () => undefined,
+  llama_unload: () => undefined,
+
   ollama_pull: () => undefined,
   ollama_remove: () => undefined,
   studio_test: ({ port }) => Number(port) === 1234,
@@ -635,9 +655,13 @@ const commands: Record<string, (args: Args) => unknown> = {
         break;
       }
       case "builtin": {
-        if (models.find((m) => m.id === model)?.state !== "ready") throw "no_provider";
-        // Weights on disk, no engine to load them.
-        throw "no_runtime";
+        const card = models.find((m) => m.id === model);
+        if (!card) throw "not_found";
+        if (card.state !== "ready") throw "not_ready";
+        // The engine refuses before loading rather than swapping the machine.
+        if (!card.fits) throw "model_too_large";
+        if (llamaBusy) throw "llama_busy";
+        break;
       }
       default:
         throw "no_provider";

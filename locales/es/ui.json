@@ -187,10 +187,18 @@
     "continuity_no_model": "No hay modelo asignado a Continuidad. Elige uno en IA local.",
     "continuity_daemon_offline": "El daemon de Ollama no está corriendo, así que la revisión no pudo empezar.",
     "continuity_failed": "La revisión de continuidad no pudo terminar.",
-    "no_runtime": "Ese modelo está descargado, pero Versorium aún no tiene motor para ejecutarlo. Elige Ollama o un agente CLI.",
+    "no_runtime": "Versorium aún no tiene motor para esa tarea. El dictado necesita un modelo de voz, que llama.cpp no puede ejecutar.",
     "cancelled": "Cancelado.",
     "ollama_offline": "Ollama no responde. Inícialo e inténtalo de nuevo.",
-    "ollama_failed": "Ollama no pudo terminar eso."
+    "ollama_failed": "Ollama no pudo terminar eso.",
+    "llama_busy": "Versorium ya está ejecutando un modelo. Espera a que termine.",
+    "llama_load_failed": "No se pudo cargar ese archivo de modelo. Puede que no sea para escribir.",
+    "llama_cancelled": "Detenido.",
+    "llama_failed": "El modelo local no pudo terminar eso.",
+    "model_too_large": "Ese modelo necesita más memoria de la que tiene esta máquina. Elige uno más pequeño.",
+    "continuity_busy": "Hay una reescritura en marcha. La comprobación de continuidad espera en vez de competir por el modelo.",
+    "continuity_model_too_large": "El modelo elegido para Continuidad necesita más memoria de la que tiene esta máquina.",
+    "hardware_gpu_pending": "iniciando…"
   },
   "languages": {
     "en": "English",
@@ -383,6 +391,13 @@
       "embeddingsHint": "Indexar el manuscrito para que la búsqueda entienda el sentido.",
       "dictation": "Dictado",
       "dictationHint": "Convertir la voz en texto."
+    },
+    "engine": {
+      "title": "Motor",
+      "warming": "iniciando… (compilando shaders de GPU, una vez por máquina)",
+      "failed": "llama.cpp no pudo iniciarse en esta máquina.",
+      "cpuOnly": "CPU",
+      "noGpuBuild": "· esta versión no trae backend de GPU, así que la velocidad es la de CPU"
     }
   },
   "manuscript": {
