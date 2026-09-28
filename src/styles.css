@@ -216,6 +216,15 @@ button:focus-visible {
   border-color: var(--accent);
 }
 
+/* A toggle that is on has to look on. Focus mode gets away without this
+   because the whole layout changes; the typewriter and corkboard toggles did
+   not, so pressing them appeared to do nothing at all. */
+.v-btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+
 .v-btn-primary {
   background: var(--accent);
   color: var(--accent-contrast);
