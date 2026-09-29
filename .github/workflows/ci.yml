@@ -16,9 +16,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # Fail on warnings in shipped code. Test code carries pre-existing ones, which
-  # is why this is not `--all-targets`; tightening that is its own change.
-  RUSTFLAGS: -D warnings
 
 jobs:
   # The frontend is fast and catches most mistakes, so it runs alone and first.
@@ -28,9 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # No `version` input: package.json pins pnpm through `packageManager`, and
+      # supplying both makes the action refuse with "Multiple versions of pnpm
+      # specified".
       - uses: pnpm/action-setup@v6
         with:
-          version: 10
           run_install: false
 
       - uses: actions/setup-node@v6
@@ -80,11 +79,11 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      # Shipped code only. `--all-targets` would also lint test code, which has
-      # six pre-existing warnings; failing on those would make this red on
-      # arrival and teach everyone to ignore it.
+      # Test code included. It used to carry pre-existing warnings, which is why
+      # this was scoped to shipped code; those are fixed, so the stricter form is
+      # the one worth keeping.
       - name: Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
       # The `live_` tests are excluded by being #[ignore]: they reach the
       # network, the Ollama daemon, pandoc, poppler and a real GGUF. None of
@@ -146,9 +145,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # No `version` input: package.json pins pnpm through `packageManager`, and
+      # supplying both makes the action refuse with "Multiple versions of pnpm
+      # specified".
       - uses: pnpm/action-setup@v6
         with:
-          version: 10
           run_install: false
 
       - uses: actions/setup-node@v6

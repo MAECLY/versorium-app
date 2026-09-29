@@ -130,7 +130,9 @@ mod tests {
     fn every_defect_that_would_leave_the_page_unstyled_is_rejected() {
         assert_eq!(validate(&catalog_of(vec![], "a")).unwrap_err(), "bad_font_catalog");
 
-        let broken: Vec<(&str, fn(&mut FontEntry))> = vec![
+        /// A named mutation and the edit that breaks an entry that way.
+        type Break = (&'static str, fn(&mut FontEntry));
+        let broken: Vec<Break> = vec![
             ("blank id", |f| f.id = "  ".into()),
             ("empty stack", |f| f.stack = String::new()),
             ("blank family", |f| f.family = " ".into()),

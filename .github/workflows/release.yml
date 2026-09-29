@@ -119,12 +119,12 @@ jobs:
             file \
             wget
 
-      # An explicit version is required: package.json has no `packageManager`
-      # field, and without one the action stops rather than guessing. 10 is the
-      # major that matches `lockfileVersion: '9.0'` in pnpm-lock.yaml.
+      # No `version` input: package.json pins pnpm through `packageManager`
+      # (12.4.1), and supplying both makes the action refuse with "Multiple
+      # versions of pnpm specified". The comment here previously claimed there
+      # was no `packageManager` field; there is.
       - uses: pnpm/action-setup@v6
         with:
-          version: 10
           run_install: false
 
       - uses: actions/setup-node@v6
