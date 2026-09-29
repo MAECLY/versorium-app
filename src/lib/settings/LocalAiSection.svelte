@@ -268,11 +268,13 @@
         />
         <label class="v-row" style="gap: 6px; font-size: 12.5px;">
           {t("localAi.filter.sort")}
+          <span class="v-select">
           <select aria-label={t("localAi.filter.sort")} bind:value={sort}>
             {#each SORTS as option (option)}
               <option value={option}>{t(`localAi.filter.sorts.${option}`)}</option>
             {/each}
           </select>
+          </span>
         </label>
       </div>
 
@@ -610,12 +612,13 @@
                 <span style="font-size: 13px;">{t(`localAi.slots.${slot}`)}</span>
                 <p class="v-muted m-0" style="font-size: 12px;">{t(`localAi.slots.${slot}Hint`)}</p>
               </div>
+              <span class="v-select" style="min-width: 200px;">
               <select
                 aria-label={t(`localAi.slots.${slot}`)}
                 value={slotValue(slot)}
                 disabled={models.loading}
                 onchange={(e) => onSlotChange(slot, (e.currentTarget as HTMLSelectElement).value)}
-                style="min-width: 200px;"
+               
               >
                 <option value="none">{t("localAi.slots.none")}</option>
                 {#if ready.length > 0}
@@ -633,6 +636,7 @@
                   </optgroup>
                 {/if}
               </select>
+              </span>
             </li>
           {/each}
         </ul>

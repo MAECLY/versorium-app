@@ -138,6 +138,7 @@
   <p class="v-muted m-0 mb-2" style="font-size: 12px;">{t("settings.languageHint")}</p>
   <label class="v-row" style="gap: 8px; font-size: 13px;">
     {t("settings.language")}
+    <span class="v-select">
     <select
       value={getLocale()}
       onchange={(e) => setLocale((e.currentTarget as HTMLSelectElement).value === "es" ? "es" : "en")}
@@ -145,5 +146,6 @@
       <option value="en">{t("languages.en")}</option>
       <option value="es">{t("languages.es")}</option>
     </select>
+    </span>
   </label>
 </section>

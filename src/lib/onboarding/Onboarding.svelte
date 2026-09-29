@@ -109,11 +109,13 @@
       </label>
       <label class="mt-3 flex flex-col gap-1" style="font-size: 13px;">
         {t("dialog.language")}
+        <span class="v-select">
         <select bind:value={onboarding.language} disabled={onboarding.created || onboarding.busy}>
           {#each LANGUAGES as code (code)}
             <option value={code}>{t(`languages.${code}`)}</option>
           {/each}
         </select>
+        </span>
       </label>
       {#if onboarding.created}
         <p class="m-0 mt-2" style="font-size: 12px; color: var(--ok);">

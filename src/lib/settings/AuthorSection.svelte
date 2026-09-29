@@ -106,11 +106,11 @@
             {t(`author.fields.${field}`)}
           </label>
           {#if field === "role"}
+            <span class="v-select" style="max-width: 280px;">
             <select
               id="author-{field}"
               aria-describedby="author-where-{field}"
               value={current.role}
-              style="max-width: 280px;"
               onchange={(e) => edit("role", (e.currentTarget as HTMLSelectElement).value, true)}
             >
               <option value="">{t("author.roles.none")}</option>
@@ -118,6 +118,7 @@
                 <option value={code}>{t(`author.roles.${code}`)}</option>
               {/each}
             </select>
+            </span>
           {:else}
             <input
               id="author-{field}"
