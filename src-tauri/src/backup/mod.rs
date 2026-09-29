@@ -23,6 +23,7 @@
 //! for, and it works offline.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
@@ -35,6 +36,21 @@ const EXTENSION: &str = "zip";
 /// How many archives to keep by default. Enough to recover from a mistake
 /// noticed days later, few enough not to fill a synced folder.
 pub const DEFAULT_KEEP: usize = 10;
+
+/// How many hex digits of the fingerprint ride in the filename.
+const PRINT_HEX: usize = 16;
+
+/// Copies of one state a destination keeps.
+///
+/// One would make "keep the newest 10" mean ten states with one copy each,
+/// which is fewer physical files than today — the one thing this change must
+/// not do. Two is the smallest number that survives a single corrupt file.
+const COPIES_PER_STATE: usize = 2;
+
+/// Hashed first, so changing what the fingerprint covers can never read as
+/// "nothing has changed". Bumping it makes every project look changed, which is
+/// the safe direction to be wrong in.
+const PRINT_SCHEME: &[u8] = b"versorium-backup-fingerprint-v1\0";
 
 /// Where a backup can go. `kind` exists so the UI can name the destination in
 /// the writer's own terms rather than showing a path.
@@ -170,7 +186,19 @@ pub struct Archive {
     pub name: String,
     pub bytes: u64,
     /// Unix seconds, from the file's own mtime.
+    ///
+    /// Not what the UI should show. One press gave this app's first reporter
+    /// 1:13:16 in one folder and 1:13:17 in another, because each destination
+    /// writes at its own speed and a sync client rewrites mtimes when it
+    /// re-downloads a file.
     pub modified: u64,
+    /// When the backup was asked for, read back out of the name. This is the
+    /// time the writer means.
+    pub stamped: Option<u64>,
+    /// Which state of the novel this archive holds, read out of the name.
+    /// `None` for an archive written before fingerprints existed — which is
+    /// exactly why such an archive can never be mistaken for a match.
+    pub print: Option<String>,
     /// Of the archive as it sits on the destination, read back after writing.
     /// `None` for an archive found by listing, which has not been re-verified.
     pub sha256: Option<String>,
@@ -497,8 +525,91 @@ fn slug(name: &str) -> String {
 }
 
 /// The archive name for a project at a moment.
-pub fn archive_name(project: &str, now: std::time::SystemTime) -> String {
-    format!("{PREFIX}-{}-{}.{EXTENSION}", slug(project), stamp(now))
+/// `versorium-backup-<slug>-<YYYY-MM-DD-HHMMSS>-<16 hex>.zip`
+///
+/// The fingerprint goes after the stamp so a name sort is still chronological,
+/// which both `list_in` and `prune_in` depend on.
+pub fn archive_name(project: &str, now: std::time::SystemTime, print: &str) -> String {
+    let short: String = print.chars().take(PRINT_HEX).collect();
+    format!("{PREFIX}-{}-{}-{short}.{EXTENSION}", slug(project), stamp(now))
+}
+
+/// The fingerprint a name carries, if it carries one.
+///
+/// Two conditions, not one: sixteen lowercase hex digits AND a six-digit field
+/// immediately before them. `slug` turns every non-alphanumeric into a dash, so
+/// a novel called "Caso 0123456789abcdef" can put sixteen hex characters in a
+/// filename on its own; only the stamp before them proves the app put them
+/// there. A name written before fingerprints existed ends in the stamp, so this
+/// returns `None` and such an archive is never read as a match.
+fn print_in_name(name: &str) -> Option<&str> {
+    let stem = name.strip_suffix(&format!(".{EXTENSION}"))?;
+    let (head, last) = stem.rsplit_once('-')?;
+    let hex_ok = last.len() == PRINT_HEX
+        && last.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+    let (_, before) = head.rsplit_once('-')?;
+    let stamp_ok = before.len() == 6 && before.bytes().all(|b| b.is_ascii_digit());
+    (hex_ok && stamp_ok).then_some(last)
+}
+
+/// The moment a backup was asked for, out of its name.
+fn stamped_in_name(name: &str) -> Option<u64> {
+    let stem = name.strip_suffix(&format!(".{EXTENSION}"))?;
+    let fields: Vec<&str> = stem.split('-').collect();
+    // ... <YYYY> <MM> <DD> <HHMMSS> [<print>]
+    let end = if print_in_name(name).is_some() { fields.len() - 1 } else { fields.len() };
+    if end < 4 {
+        return None;
+    }
+    let time = fields[end - 1];
+    if time.len() != 6 {
+        return None;
+    }
+    let year: i64 = fields[end - 4].parse().ok()?;
+    let month: u32 = fields[end - 3].parse().ok()?;
+    let day: u32 = fields[end - 2].parse().ok()?;
+    let hour: u64 = time[0..2].parse().ok()?;
+    let minute: u64 = time[2..4].parse().ok()?;
+    let second: u64 = time[4..6].parse().ok()?;
+    let days = days_from_civil(year, month, day);
+    Some((days as u64) * 86_400 + hour * 3600 + minute * 60 + second)
+}
+
+/// A calendar date to days since the Unix epoch (Howard Hinnant's algorithm,
+/// the inverse of `civil_from_days`).
+fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let m = month as i64;
+    let d = day as i64;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+/// A name nothing is standing on.
+///
+/// `archive_name` has one-second resolution and `fs::rename` replaces silently,
+/// so two presses inside the same second with an edit between them would
+/// destroy the first verified snapshot. The stamp is bumped rather than a "-2"
+/// suffix appended, because a suffix would push the fingerprint out of the last
+/// field and `print_in_name` would stop finding it.
+fn free_name(
+    dir: &Path,
+    title: &str,
+    now: std::time::SystemTime,
+    print: &str,
+) -> Result<(String, PathBuf), String> {
+    for bump in 0..100u64 {
+        let at = now + std::time::Duration::from_secs(bump);
+        let name = archive_name(title, at, print);
+        let path = dir.join(&name);
+        if !path.exists() {
+            return Ok((name, path));
+        }
+    }
+    Err("io".into())
 }
 
 /// Whether Versorium wrote this file, so pruning cannot touch anything else in
@@ -533,9 +644,11 @@ pub fn list_in(dir: &Path, project: &str) -> Result<Vec<Archive>, String> {
                 .unwrap_or(0);
             Some(Archive {
                 path: entry.path().to_string_lossy().into_owned(),
-                name,
                 bytes: meta.len(),
                 modified,
+                stamped: stamped_in_name(&name),
+                print: print_in_name(&name).map(str::to_string),
+                name,
                 // Listing does not re-read gigabytes; `verify` does that on
                 // demand.
                 sha256: None,
@@ -565,15 +678,38 @@ pub fn prune_in(dir: &Path, project: &str, keep: usize) -> Result<usize, String>
 /// `.DS_Store` and `Thumbs.db` are the OS's, not the novel's. Nested backups
 /// are excluded so a project that once held one cannot grow geometrically.
 fn skip(name: &str) -> bool {
-    name == ".DS_Store" || name == "Thumbs.db" || name.starts_with(PREFIX)
+    name == ".DS_Store"
+        || name == "Thumbs.db"
+        || name.starts_with(PREFIX)
+        // `storage::atomic_write` parks a `.versorium-save-<pid>-<n>.tmp`
+        // beside the file it is replacing. One caught mid-flight would enter
+        // the archive as a phantom file, and would make an untouched novel look
+        // changed on the next press.
+        || name.starts_with(".versorium-save-")
 }
 
-fn add_dir<W: Write + Seek>(
-    zip: &mut zip::ZipWriter<W>,
-    root: &Path,
-    dir: &Path,
-    options: zip::write::SimpleFileOptions,
-) -> Result<(), String> {
+/// One thing the archive will hold.
+struct Entry {
+    /// Forward-slashed path inside the archive.
+    inside: String,
+    path: PathBuf,
+    is_dir: bool,
+}
+
+/// Everything `root` would pack, in one canonical order.
+///
+/// Sorted, because `fs::read_dir` is unordered on every platform — in the
+/// archives that produced this change, `research/` came before `manuscript/`.
+/// The order is the only thing that makes a fingerprint the same value twice
+/// for the same novel.
+fn collect(root: &Path) -> Result<Vec<Entry>, String> {
+    let mut out: Vec<Entry> = Vec::new();
+    walk(root, root, &mut out)?;
+    out.sort_unstable_by(|a, b| a.inside.as_bytes().cmp(b.inside.as_bytes()));
+    Ok(out)
+}
+
+fn walk(root: &Path, dir: &Path, out: &mut Vec<Entry>) -> Result<(), String> {
     let entries = fs::read_dir(dir).map_err(|_| "io".to_string())?;
     for entry in entries.flatten() {
         let path = entry.path();
@@ -587,37 +723,195 @@ fn add_dir<W: Write + Seek>(
         let inside = relative.to_string_lossy().replace('\\', "/");
         let meta = entry.metadata().map_err(|_| "io".to_string())?;
         if meta.is_dir() {
-            zip.add_directory(format!("{inside}/"), options).map_err(|_| "io".to_string())?;
-            add_dir(zip, root, &path, options)?;
+            out.push(Entry { inside, path: path.clone(), is_dir: true });
+            walk(root, &path, out)?;
         } else if meta.is_file() {
-            zip.start_file(inside, options).map_err(|_| "io".to_string())?;
-            let mut file = fs::File::open(&path).map_err(|_| "io".to_string())?;
-            let mut buffer = vec![0u8; 64 * 1024];
-            loop {
-                let read = file.read(&mut buffer).map_err(|_| "io".to_string())?;
-                if read == 0 {
-                    break;
-                }
-                zip.write_all(&buffer[..read]).map_err(|_| "io".to_string())?;
-            }
+            out.push(Entry { inside, path, is_dir: false });
         }
-        // Symlinks are skipped: following one could pull in the whole disk, and
-        // a novel has no reason to contain any.
     }
     Ok(())
 }
 
-/// Write one archive of `project` into `dir`, then prune.
+/// What the novel is right now: one walk, one hash.
+pub struct Plan {
+    /// 64 lowercase hex.
+    pub print: String,
+    entries: Vec<Entry>,
+}
+
+pub fn plan(project: &Path) -> Result<Plan, String> {
+    if !project.is_dir() {
+        return Err("not_found".into());
+    }
+    let entries = collect(project)?;
+    let print = fingerprint(&entries)?;
+    Ok(Plan { print, entries })
+}
+
+/// A digest of names and contents, in order.
 ///
-/// The archive is built under a temporary name and renamed once complete, so a
-/// sync client never uploads a half-written zip and a crash mid-backup leaves
-/// nothing that looks restorable.
-pub fn create_in(
+/// Every field is length-prefixed. Without that, a file `ab` holding `c` and a
+/// file `a` holding `bc` hash to the same value, and a fingerprint a rename can
+/// fool is worse than no fingerprint at all.
+fn fingerprint(entries: &[Entry]) -> Result<String, String> {
+    let mut hasher = Sha256::new();
+    hasher.update(PRINT_SCHEME);
+    let mut buffer = vec![0u8; 64 * 1024];
+    for entry in entries {
+        hasher.update(if entry.is_dir { *b"d" } else { *b"f" });
+        hasher.update((entry.inside.len() as u64).to_le_bytes());
+        hasher.update(entry.inside.as_bytes());
+        if entry.is_dir {
+            continue;
+        }
+        let mut file = match fs::File::open(&entry.path) {
+            Ok(file) => file,
+            // Vanished between the walk and the read: a save in flight. The
+            // pack will notice the same thing and the two digests will agree.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return Err("io".into()),
+        };
+        let len = file.metadata().map(|m| m.len()).unwrap_or(0);
+        hasher.update(len.to_le_bytes());
+        loop {
+            let read = file.read(&mut buffer).map_err(|_| "io".to_string())?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+        }
+    }
+    Ok(hex(&hasher.finalize()))
+}
+
+/// A file's own mtime as a zip timestamp.
+///
+/// So a chapter unzipped in Finder keeps the date it was written on, rather
+/// than the instant somebody pressed a button.
+fn zip_time(at: Option<std::time::SystemTime>) -> zip::DateTime {
+    let Some(secs) = at
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+    else {
+        return zip::DateTime::default();
+    };
+    let (year, month, day) = civil_from_days((secs / 86_400) as i64);
+    let rest = secs % 86_400;
+    zip::DateTime::from_date_and_time(
+        year as u16,
+        month as u8,
+        day as u8,
+        (rest / 3600) as u8,
+        ((rest % 3600) / 60) as u8,
+        (rest % 60) as u8,
+    )
+    .unwrap_or_default()
+}
+
+/// Pack every entry and hash exactly the bytes that went in.
+///
+/// Hashed here rather than reused from `plan` so the digest in the name
+/// describes the archive's real contents. A save landing mid-backup then makes
+/// the two differ, which is true, instead of stamping a name that lies.
+fn write_entries<W: Write + Seek>(
+    zip: &mut zip::ZipWriter<W>,
+    entries: &[Entry],
+    base: zip::write::SimpleFileOptions,
+) -> Result<String, String> {
+    let mut hasher = Sha256::new();
+    hasher.update(PRINT_SCHEME);
+    let mut buffer = vec![0u8; 64 * 1024];
+    for entry in entries {
+        if entry.is_dir {
+            hasher.update(*b"d");
+            hasher.update((entry.inside.len() as u64).to_le_bytes());
+            hasher.update(entry.inside.as_bytes());
+            zip.add_directory(format!("{}/", entry.inside), base)
+                .map_err(|_| "io".to_string())?;
+            continue;
+        }
+        // Opened before the entry is started, so a file that vanished does not
+        // leave a headed-but-empty member in the archive.
+        let mut file = match fs::File::open(&entry.path) {
+            Ok(file) => file,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return Err("io".into()),
+        };
+        let meta = file.metadata().map_err(|_| "io".to_string())?;
+        hasher.update(*b"f");
+        hasher.update((entry.inside.len() as u64).to_le_bytes());
+        hasher.update(entry.inside.as_bytes());
+        hasher.update(meta.len().to_le_bytes());
+
+        let options = base.last_modified_time(zip_time(meta.modified().ok()));
+        zip.start_file(&entry.inside, options).map_err(|_| "io".to_string())?;
+        loop {
+            let read = file.read(&mut buffer).map_err(|_| "io".to_string())?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+            zip.write_all(&buffer[..read]).map_err(|_| "io".to_string())?;
+        }
+    }
+    Ok(hex(&hasher.finalize()))
+}
+
+/// What happened at one destination that did not fail outright.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Written {
+    /// A state that was not here before, written and read back.
+    Fresh { archive: Archive, pruned: usize },
+    /// The same state again, kept a second time, because one file is one file.
+    Copy { archive: Archive, pruned: usize },
+    /// Nothing has changed and there are already enough copies. The newest was
+    /// read back in full anyway — that is the only proof a press which writes
+    /// nothing can offer.
+    Same { archive: Archive, pruned: usize },
+    /// The copy that was here could not be read back whole. A fresh one was
+    /// written and the bad one left where it is, to age out through pruning
+    /// rather than be deleted on a guess.
+    Repaired { archive: Archive, pruned: usize, reason: String, damaged: String },
+}
+
+/// Reading a `Written` without caring which kind it is.
+///
+/// Only the tests need this: the command matches on the variant, because the
+/// whole point of the variants is that the writer is told which one happened.
+#[cfg(test)]
+impl Written {
+    pub fn archive(&self) -> &Archive {
+        match self {
+            Written::Fresh { archive, .. }
+            | Written::Copy { archive, .. }
+            | Written::Same { archive, .. }
+            | Written::Repaired { archive, .. } => archive,
+        }
+    }
+
+    pub fn pruned(&self) -> usize {
+        match self {
+            Written::Fresh { pruned, .. }
+            | Written::Copy { pruned, .. }
+            | Written::Same { pruned, .. }
+            | Written::Repaired { pruned, .. } => *pruned,
+        }
+    }
+}
+
+/// Back `project` up into `dir`, then prune.
+///
+/// Takes a `Plan` so a novel is walked and hashed once per press rather than
+/// once per destination — a 200 MB project across three folders is otherwise
+/// read three times, and two destinations could disagree about what state they
+/// were given.
+pub fn create_planned(
     project: &Path,
     dir: &Path,
     keep: usize,
     now: std::time::SystemTime,
-) -> Result<Archive, String> {
+    plan: &Plan,
+) -> Result<Written, String> {
     if !project.is_dir() {
         return Err("not_found".into());
     }
@@ -627,28 +921,117 @@ pub fn create_in(
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "novel".into());
-    let name = archive_name(&title, now);
-    let final_path = dir.join(&name);
-    let partial = dir.join(format!("{name}.part"));
+    let short: String = plan.print.chars().take(PRINT_HEX).collect();
+    // Clamped, or a writer keeping one archive gets a second copy written and
+    // pruned away in the same breath.
+    let copies = COPIES_PER_STATE.min(keep.max(1));
 
-    {
+    let archives = list_in(dir, &title)?;
+    let holding = archives.iter().filter(|a| a.print.as_deref() == Some(short.as_str())).count();
+
+    // Compared against the NEWEST only, never "any archive in the folder". That
+    // is what keeps the property a writer relies on: the newest archive in every
+    // destination is the novel as it stands now. Matching against any archive
+    // would leave a reverted state looking already-backed-up while the newest
+    // file on disk held something else.
+    let matches_newest = archives.first().and_then(|a| a.print.as_deref()) == Some(short.as_str());
+
+    let mut damaged: Option<(String, String)> = None;
+    if matches_newest {
+        let newest = &archives[0];
+        match confirm(newest, &plan.print) {
+            Ok(digest) if holding >= copies => {
+                // Nothing to write. Pruning still runs, so a `keep` the writer
+                // just lowered takes effect now rather than waiting for the
+                // next edit.
+                let pruned = prune_in(dir, &title, keep)?;
+                let mut archive = newest.clone();
+                // The message says the copy was read back in full, so the
+                // evidence that it was travels with it.
+                archive.sha256 = Some(digest);
+                return Ok(Written::Same { archive, pruned });
+            }
+            Ok(_) => {}
+            Err(reason) => damaged = Some((reason, newest.name.clone())),
+        }
+    }
+
+    let (archive, pruned) = write_archive(dir, &title, now, keep, plan)?;
+    Ok(match damaged {
+        Some((reason, name)) => Written::Repaired { archive, pruned, reason, damaged: name },
+        None if matches_newest => Written::Copy { archive, pruned },
+        None => Written::Fresh { archive, pruned },
+    })
+}
+
+/// Is the archive on disk really the state its name claims, and is it whole?
+///
+/// The name carries sixteen hex digits; the archive's own comment carries all
+/// sixty-four. Confirming the long form costs nothing, because the file has to
+/// be opened to verify it anyway, and it is what makes the short form in the
+/// name safe to rely on at all.
+///
+/// An archive whose name matches but which cannot be opened, or whose comment
+/// no longer agrees, is reported rather than quietly written past: something
+/// rewrote the file the writer is counting on.
+fn confirm(newest: &Archive, print: &str) -> Result<String, String> {
+    let path = Path::new(&newest.path);
+    let file = fs::File::open(path).map_err(|_| "backup_unreadable".to_string())?;
+    let zip = zip::ZipArchive::new(file).map_err(|_| "backup_unreadable".to_string())?;
+    let comment = String::from_utf8_lossy(zip.comment()).into_owned();
+    if comment != print {
+        return Err("backup_corrupt".into());
+    }
+    drop(zip);
+    verify(path)
+}
+
+/// Build the archive under a temporary name and rename it once complete, so a
+/// sync client never uploads a half-written zip and a crash mid-backup leaves
+/// nothing that looks restorable.
+fn write_archive(
+    dir: &Path,
+    title: &str,
+    now: std::time::SystemTime,
+    keep: usize,
+    plan: &Plan,
+) -> Result<(Archive, usize), String> {
+    // The pid is in the temp name so two processes cannot write one temp file.
+    let partial = dir.join(format!("{PREFIX}-{}-{}.part", slug(title), std::process::id()));
+
+    let packed = {
         let file = fs::File::create(&partial).map_err(|_| "backup_dest_unwritable".to_string())?;
         let mut zip = zip::ZipWriter::new(file);
         // Deflate: a manuscript is text and compresses to a fraction, which is
         // the difference between a synced folder noticing and not.
         let options = zip::write::SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated);
-        if let Err(e) = add_dir(&mut zip, project, project, options) {
-            let _ = fs::remove_file(&partial);
-            return Err(e);
-        }
+        let packed = match write_entries(&mut zip, &plan.entries, options) {
+            Ok(packed) => packed,
+            Err(e) => {
+                let _ = fs::remove_file(&partial);
+                return Err(e);
+            }
+        };
+        // The full digest, so the short form in the filename can be confirmed.
+        zip.set_comment(packed.clone());
         if zip.finish().is_err() {
             let _ = fs::remove_file(&partial);
             return Err("io".into());
         }
-    }
+        packed
+    };
 
-    fs::rename(&partial, &final_path).map_err(|_| "io".to_string())?;
+    // Named from what was packed, not from the plan: a save landing mid-backup
+    // makes the two differ, and the name should describe these bytes.
+    let (name, final_path) = free_name(dir, title, now, &packed)?;
+    if let Err(e) = fs::rename(&partial, &final_path) {
+        let _ = fs::remove_file(&partial);
+        return Err(match e.kind() {
+            std::io::ErrorKind::NotFound => "io".to_string(),
+            _ => "io".to_string(),
+        });
+    }
 
     // Before pruning, so a destination that cannot hold this archive does not
     // also lose the older ones that were fine.
@@ -661,18 +1044,39 @@ pub fn create_in(
     };
 
     let bytes = fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
-    prune_in(dir, &title, keep)?;
+    let pruned = prune_in(dir, title, keep)?;
 
-    Ok(Archive {
-        path: final_path.to_string_lossy().into_owned(),
-        name,
-        bytes,
-        modified: now
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0),
-        sha256: Some(digest),
-    })
+    Ok((
+        Archive {
+            path: final_path.to_string_lossy().into_owned(),
+            stamped: stamped_in_name(&name),
+            print: print_in_name(&name).map(str::to_string),
+            name,
+            bytes,
+            modified: now
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            sha256: Some(digest),
+        },
+        pruned,
+    ))
+}
+
+/// One destination, walking and hashing the project itself.
+///
+/// The app never calls this: `backup_now` plans once and hands the same plan to
+/// every destination, so a large novel is read once per press rather than once
+/// per folder. This is here for tests about a single destination.
+#[cfg(test)]
+pub fn create_in(
+    project: &Path,
+    dir: &Path,
+    keep: usize,
+    now: std::time::SystemTime,
+) -> Result<Written, String> {
+    let plan = plan(project)?;
+    create_planned(project, dir, keep, now, &plan)
 }
 
 /// Read a file back and hash it.
@@ -682,7 +1086,6 @@ pub fn create_in(
 /// signal a network share or a sync folder gives at all. It proves the
 /// filesystem agrees, not that the platters do — say "verified", not "safe".
 fn hash_of(path: &Path) -> Result<String, String> {
-    use sha2::{Digest, Sha256};
     let mut file = fs::File::open(path).map_err(|_| "io".to_string())?;
     let mut hasher = Sha256::new();
     let mut buffer = vec![0u8; 64 * 1024];
@@ -693,11 +1096,16 @@ fn hash_of(path: &Path) -> Result<String, String> {
         }
         hasher.update(&buffer[..read]);
     }
-    Ok(hasher.finalize().iter().fold(String::with_capacity(64), |mut out, byte| {
+    Ok(hex(&hasher.finalize()))
+}
+
+/// Lowercase hex, the only form any of this compares against.
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut out, byte| {
         use std::fmt::Write;
         let _ = write!(out, "{byte:02x}");
         out
-    }))
+    })
 }
 
 /// Confirm an archive is there, complete and extractable.
@@ -798,7 +1206,7 @@ mod tests {
         let dest = tmp.path().join("synced");
 
         let archive = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
-        let file = fs::File::open(&archive.path).unwrap();
+        let file = fs::File::open(&archive.archive().path).unwrap();
         let mut zip = zip::ZipArchive::new(file).unwrap();
         let names: Vec<String> = (0..zip.len()).map(|i| zip.by_index(i).unwrap().name().to_string()).collect();
 
@@ -838,7 +1246,7 @@ mod tests {
         let dest = tmp.path().join("synced");
 
         let archive = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
-        let file = fs::File::open(&archive.path).unwrap();
+        let file = fs::File::open(&archive.archive().path).unwrap();
         let mut zip = zip::ZipArchive::new(file).unwrap();
         let names: Vec<String> = (0..zip.len()).map(|i| zip.by_index(i).unwrap().name().to_string()).collect();
         assert!(!names.iter().any(|n| n.contains(PREFIX)), "nested a backup: {names:?}");
@@ -885,7 +1293,7 @@ mod tests {
         let dest = tmp.path().join("synced");
         let archive = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
 
-        let restored = restore_beside(Path::new(&archive.path), &root, "restored").unwrap();
+        let restored = restore_beside(Path::new(&archive.archive().path), &root, "restored").unwrap();
         assert_ne!(restored, root, "restored over the original");
         assert_eq!(fs::read_to_string(restored.join("chapters/ch-01.md")).unwrap(), "La luz giraba sobre el agua.");
         assert!(restored.join(".git/HEAD").exists(), "restored without its history");
@@ -893,7 +1301,7 @@ mod tests {
         assert!(root.join("chapters/ch-01.md").exists());
 
         // Restoring twice does not merge into the first copy.
-        let again = restore_beside(Path::new(&archive.path), &root, "restored").unwrap();
+        let again = restore_beside(Path::new(&archive.archive().path), &root, "restored").unwrap();
         assert_ne!(again, restored);
     }
 
@@ -916,11 +1324,11 @@ mod tests {
 
     #[test]
     fn the_name_sorts_chronologically_and_is_safe_on_every_filesystem() {
-        let early = archive_name("El Faro", at(1_700_000_000));
-        let late = archive_name("El Faro", at(1_759_000_000));
+        let early = archive_name("El Faro", at(1_700_000_000), "0123456789abcdef");
+        let late = archive_name("El Faro", at(1_759_000_000), "0123456789abcdef");
         assert!(early < late, "names must sort by time: {early} vs {late}");
         // Accents, spaces and punctuation cannot reach the filename.
-        let awkward = archive_name("La Niña: ¿Dónde? / Parte 2", at(1_759_000_000));
+        let awkward = archive_name("La Niña: ¿Dónde? / Parte 2", at(1_759_000_000), "0123456789abcdef");
         assert!(
             awkward.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.'),
             "unsafe filename: {awkward}"
@@ -928,7 +1336,7 @@ mod tests {
         assert!(awkward.starts_with(PREFIX));
         assert!(awkward.ends_with(".zip"));
         // An untitled project still produces a usable name.
-        assert!(archive_name("", at(0)).contains("novel"));
+        assert!(archive_name("", at(0), "0123456789abcdef").contains("novel"));
     }
 
     #[test]
@@ -966,9 +1374,9 @@ mod tests {
 
         // The hash is of what the destination hands back, not of what we meant
         // to write.
-        let digest = archive.sha256.expect("a written archive carries its hash");
+        let digest = archive.archive().sha256.clone().expect("a written archive carries its hash");
         assert_eq!(digest.len(), 64);
-        assert_eq!(verify(Path::new(&archive.path)).unwrap(), digest);
+        assert_eq!(verify(Path::new(&archive.archive().path)).unwrap(), digest);
     }
 
     #[test]
@@ -981,9 +1389,9 @@ mod tests {
         let dest = tmp.path().join("synced");
         let archive = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
 
-        let bytes = fs::read(&archive.path).unwrap();
-        fs::write(&archive.path, &bytes[..bytes.len() / 2]).unwrap();
-        assert_eq!(verify(Path::new(&archive.path)).unwrap_err(), "backup_unreadable");
+        let bytes = fs::read(&archive.archive().path).unwrap();
+        fs::write(&archive.archive().path, &bytes[..bytes.len() / 2]).unwrap();
+        assert_eq!(verify(Path::new(&archive.archive().path)).unwrap_err(), "backup_unreadable");
     }
 
     #[test]
@@ -994,6 +1402,10 @@ mod tests {
         let root = project(tmp.path(), "el-faro");
         let dest = tmp.path().join("synced");
         for day in 1..=3 {
+            // Edited between presses. Three identical presses would now produce
+            // two archives, not three, and this test is about pruning rather
+            // than about deduplication.
+            fs::write(root.join("chapters/ch-01.md"), format!("Día {day}.")).unwrap();
             create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000 + day * 86_400)).unwrap();
         }
         assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 3);
@@ -1165,6 +1577,262 @@ mod tests {
         assert_eq!(super::volume_of(&a), super::volume_of(&b));
         assert!(super::volume_of(&a).is_some(), "the test host has a filesystem");
         assert_eq!(super::volume_of(&tmp.path().join("nope")), None);
+    }
+
+    #[test]
+    fn pressing_again_with_nothing_changed_writes_no_third_copy() {
+        // THE REPORTED BUG. Three presses in under a minute produced three
+        // identical archives, each one eating a slot of "keep the newest ten" —
+        // so ten presses would evict ten real states of the novel and leave a
+        // window that covers sixty seconds of nothing.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+
+        let first = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+        let second = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_005)).unwrap();
+        let third = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_010)).unwrap();
+
+        assert!(matches!(first, Written::Fresh { .. }));
+        assert!(matches!(second, Written::Copy { .. }), "one file is one file");
+        assert!(matches!(third, Written::Same { .. }), "and there it stops");
+        assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 2);
+
+        // The press that wrote nothing still read the newest back in full —
+        // that is the only proof it can offer for saying the copy is intact.
+        assert!(third.archive().sha256.is_some());
+    }
+
+    #[test]
+    fn an_edited_chapter_is_always_a_new_archive_even_a_second_later() {
+        // The skip must never swallow a real change.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+
+        fs::write(root.join("chapters/ch-01.md"), "Otra cosa.").unwrap();
+        let after = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_001)).unwrap();
+
+        assert!(matches!(after, Written::Fresh { .. }));
+        let listed = list_in(&dest, "el-faro").unwrap();
+        assert_eq!(listed.len(), 2);
+        assert_ne!(listed[0].print, listed[1].print, "a different state, a different name");
+    }
+
+    #[test]
+    fn a_revert_to_an_older_state_is_still_a_new_archive() {
+        // Compared against the NEWEST only. Matching against any archive in the
+        // folder would leave the newest file holding B while the app claimed
+        // the novel was already backed up.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        let chapter = root.join("chapters/ch-01.md");
+        let original = fs::read(&chapter).unwrap();
+
+        create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+        fs::write(&chapter, "Estado B.").unwrap();
+        create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_100)).unwrap();
+        fs::write(&chapter, original).unwrap();
+        let back = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_200)).unwrap();
+
+        assert!(matches!(back, Written::Fresh { .. }));
+        assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 3);
+    }
+
+    #[test]
+    fn keeping_only_one_does_not_write_a_second_copy_just_to_delete_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        create_in(&root, &dest, 1, at(1_759_000_000)).unwrap();
+        let again = create_in(&root, &dest, 1, at(1_759_000_005)).unwrap();
+
+        assert!(matches!(again, Written::Same { .. }));
+        assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn the_fingerprint_does_not_depend_on_the_order_the_filesystem_lists_files_in() {
+        // `fs::read_dir` is unordered. In the archives that produced this
+        // change, `research/` came before `manuscript/`.
+        let tmp = tempfile::tempdir().unwrap();
+        let a = tmp.path().join("a");
+        let b = tmp.path().join("b");
+        for (root, order) in [(&a, ["uno", "dos", "tres"]), (&b, ["tres", "dos", "uno"])] {
+            fs::create_dir_all(root.join("chapters")).unwrap();
+            for name in order {
+                fs::write(root.join("chapters").join(format!("{name}.md")), name).unwrap();
+            }
+        }
+        assert_eq!(plan(&a).unwrap().print, plan(&b).unwrap().print);
+    }
+
+    #[test]
+    fn what_the_fingerprint_hashed_is_exactly_what_the_archive_holds() {
+        // Non-negotiable. If the hashing walk and the packing walk ever drift,
+        // the app says "nothing has changed" about a file it never looked at.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        let planned = plan(&root).unwrap();
+        let written = create_planned(&root, &dest, DEFAULT_KEEP, at(1_759_000_000), &planned).unwrap();
+
+        let file = fs::File::open(&written.archive().path).unwrap();
+        let zip = zip::ZipArchive::new(file).unwrap();
+        let packed: std::collections::HashSet<String> =
+            zip.file_names().map(|n| n.trim_end_matches('/').to_string()).collect();
+        let hashed: std::collections::HashSet<String> =
+            planned.entries.iter().map(|e| e.inside.clone()).collect();
+        assert_eq!(packed, hashed);
+    }
+
+    #[test]
+    fn an_archive_written_before_fingerprints_existed_is_never_a_match() {
+        // Cannot tell means write.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(dest.join("versorium-backup-el-faro-2026-01-01-120000.zip"), b"old").unwrap();
+
+        let listed = list_in(&dest, "el-faro").unwrap();
+        assert_eq!(listed[0].print, None);
+        let written = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+        assert!(matches!(written, Written::Fresh { .. }));
+    }
+
+    #[test]
+    fn a_title_that_looks_like_a_fingerprint_cannot_forge_one() {
+        // `slug` maps every non-alphanumeric to a dash, so a novel can put
+        // sixteen hex characters in a filename on its own. Only the six-digit
+        // stamp immediately before them proves the app put them there.
+        assert_eq!(
+            print_in_name("versorium-backup-caso-0123456789abcdef.zip"),
+            None,
+            "no stamp in front of it"
+        );
+        assert_eq!(
+            print_in_name("versorium-backup-x-2026-09-29-061321-0123456789abcdef.zip"),
+            Some("0123456789abcdef")
+        );
+        assert_eq!(print_in_name("versorium-backup-x-2026-09-29-061321.zip"), None);
+        assert_eq!(
+            print_in_name("versorium-backup-x-2026-09-29-061321-0123456789ABCDEF.zip"),
+            None,
+            "lowercase is the only form anything writes"
+        );
+    }
+
+    #[test]
+    fn two_presses_in_the_same_second_do_not_overwrite_each_other() {
+        // A present-tense data-loss bug in shipped code: `archive_name` has
+        // one-second resolution and `fs::rename` replaces silently, so the
+        // first verified snapshot was simply destroyed.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        let same_second = at(1_759_000_000);
+
+        create_in(&root, &dest, DEFAULT_KEEP, same_second).unwrap();
+        fs::write(root.join("chapters/ch-01.md"), "Cambiado dentro del mismo segundo.").unwrap();
+        create_in(&root, &dest, DEFAULT_KEEP, same_second).unwrap();
+
+        assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn the_number_kept_still_takes_effect_when_nothing_changed() {
+        // Pruning runs on the skip path too, so lowering the count acts on the
+        // next press rather than waiting for the next edit — and it is
+        // reported, so the UI can name the deletion instead of saying nothing
+        // happened.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        for day in 0..6 {
+            fs::write(root.join("chapters/ch-01.md"), format!("Día {day}.")).unwrap();
+            create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000 + day * 86_400)).unwrap();
+        }
+        assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 6);
+        // The second copy of the current state, so the next press has nothing
+        // left to write.
+        create_in(&root, &dest, DEFAULT_KEEP, at(1_759_900_000)).unwrap();
+        assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 7);
+
+        let quiet = create_in(&root, &dest, 3, at(1_759_999_999)).unwrap();
+        assert!(matches!(quiet, Written::Same { .. }), "nothing to write");
+        assert_eq!(quiet.pruned(), 4, "and it says how many it removed");
+        assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 3);
+    }
+
+    #[test]
+    fn a_save_temp_never_enters_an_archive() {
+        // `storage::atomic_write` parks one of these beside the file it is
+        // replacing. One caught mid-flight would enter the archive as a phantom
+        // and make an untouched novel look changed on the next press.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let before = plan(&root).unwrap().print;
+        fs::write(root.join(".versorium-save-1-0.tmp"), b"half a chapter").unwrap();
+        assert_eq!(plan(&root).unwrap().print, before);
+    }
+
+    #[test]
+    fn a_damaged_newest_archive_is_replaced_and_the_bad_one_left_where_it_is() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+        create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_005)).unwrap();
+
+        let newest = list_in(&dest, "el-faro").unwrap()[0].clone();
+        fs::write(&newest.path, b"not a zip any more").unwrap();
+
+        let after = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_010)).unwrap();
+        match after {
+            Written::Repaired { damaged, .. } => assert_eq!(damaged, newest.name),
+            other => panic!("expected Repaired, got {other:?}"),
+        }
+        // Not deleted on a guess: it ages out through pruning like anything else.
+        assert!(Path::new(&newest.path).exists());
+    }
+
+    #[test]
+    fn a_restored_chapter_keeps_the_date_it_was_written_on() {
+        // Rather than the instant somebody pressed a button.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        let when = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+        fs::File::options()
+            .write(true)
+            .open(root.join("chapters/ch-01.md"))
+            .unwrap()
+            .set_modified(when)
+            .unwrap();
+
+        let written = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+        let file = fs::File::open(&written.archive().path).unwrap();
+        let mut zip = zip::ZipArchive::new(file).unwrap();
+        let entry = zip.by_name("chapters/ch-01.md").unwrap();
+        let stamped = entry.last_modified().expect("a real timestamp");
+        assert_eq!(stamped.year(), 2023, "the file's own date, not the backup's");
+    }
+
+    #[test]
+    fn the_time_shown_comes_from_the_name_rather_than_an_mtime_a_client_rewrites() {
+        // One press gave the reporter 1:13:16 in one folder and 1:13:17 in
+        // another. Those were never two backups; they were two mtimes.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("icloud");
+        let asked = 1_759_000_000u64;
+        create_in(&root, &dest, DEFAULT_KEEP, at(asked)).unwrap();
+
+        let listed = list_in(&dest, "el-faro").unwrap();
+        assert_eq!(listed[0].stamped, Some(asked));
     }
 }
 

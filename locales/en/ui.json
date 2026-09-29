@@ -738,7 +738,14 @@
     "verify": "Check",
     "verified": "Read back in full and intact.",
     "verifyHint": "Checking opens the archive and reads every file back. An archive that has sat on a disk for a year is the one this is for.",
-    "liveRepoHint": "The novel itself stays where it is. A live repository inside a synced folder gets corrupted — these services copy file by file, with no regard for the order git needs."
+    "liveRepoHint": "The novel itself stays where it is. A live repository inside a synced folder gets corrupted — these services copy file by file, with no regard for the order git needs.",
+    "resultUnchanged": "{name}: nothing has changed since {when}. Nothing new was written; that copy was read back in full and is intact.",
+    "resultCopy": "{name}: nothing has changed, so this is a second copy of the same state, {size}. There will not be a third.",
+    "resultRepaired": "{name}: the copy that was there could not be read back in full. A new one was written, {size}. The damaged file was left where it is.",
+    "alsoPruned": "{n} older ones were deleted to stay within the number you keep.",
+    "onlyWhenChanged": "Back up now writes a new archive only when the novel has changed. It keeps two copies of each state at each destination, then tells you instead of writing — pressing it again cannot fill the folder.",
+    "damaged": "could not be read back",
+    "keepHint": "Archives, not days. With two copies of each state, ten archives is at least five different states of the novel."
   },
   "author": {
     "title": "Author",

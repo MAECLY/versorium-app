@@ -179,6 +179,17 @@
     return new Date(seconds * 1000).toLocaleString(getLocale());
   }
 
+  /**
+   * The moment the backup was asked for, not the file's mtime.
+   *
+   * One press used to show 1:13:16 in one folder and 1:13:17 in another: those
+   * were never two backups, they were two mtimes. Each destination writes at
+   * its own speed, and a sync client rewrites the mtime when it re-downloads.
+   */
+  function archiveTime(archive: BackupArchive): number {
+    return archive.stamped ?? archive.modified;
+  }
+
   /** A destination's own name, for a message that has only its path. */
   function name(path: string): string {
     const known = destinations.find((d) => d.path === path);
@@ -186,19 +197,43 @@
   }
 
   function outcomeText(outcome: BackupOutcome): string {
-    if (outcome.state === "ok") {
-      return t("backup.resultOk", { name: name(outcome.path), size: humanSize(outcome.archive.bytes) });
+    const who = name(outcome.path);
+    switch (outcome.state) {
+      case "ok":
+        return t("backup.resultOk", { name: who, size: humanSize(outcome.archive.bytes) });
+      case "copy":
+        return t("backup.resultCopy", { name: who, size: humanSize(outcome.archive.bytes) });
+      case "unchanged":
+        // Named with the time of the copy that is already there, because "since
+        // when" is the question a writer has when told nothing was written.
+        return t("backup.resultUnchanged", { name: who, when: when(archiveTime(outcome.archive)) });
+      case "repaired":
+        return t("backup.resultRepaired", { name: who, size: humanSize(outcome.archive.bytes) });
+      case "unavailable":
+        return t("backup.resultUnavailable", { name: who });
+      default:
+        return t("backup.resultFailed", { name: who, reason: store.codeMessagePublic(outcome.reason) });
     }
-    if (outcome.state === "unavailable") return t("backup.resultUnavailable", { name: name(outcome.path) });
-    return t("backup.resultFailed", {
-      name: name(outcome.path),
-      reason: store.codeMessagePublic(outcome.reason),
-    });
+  }
+
+  /** The deletion, when there was one. A press that removed nine files should
+      not report only the one it kept. */
+  function prunedText(outcome: BackupOutcome): string {
+    const pruned = "pruned" in outcome ? outcome.pruned : 0;
+    return pruned > 0 ? " " + t("backup.alsoPruned", { n: pruned }) : "";
   }
 
   function outcomeColor(outcome: BackupOutcome): string {
-    if (outcome.state === "ok") return "var(--ok)";
-    return outcome.state === "failed" ? "var(--warn)" : "var(--fg-muted, var(--fg))";
+    switch (outcome.state) {
+      case "ok":
+      case "copy":
+        return "var(--ok)";
+      case "failed":
+      case "repaired":
+        return "var(--warn)";
+      default:
+        return "var(--text-mute)";
+    }
   }
 </script>
 
@@ -306,6 +341,10 @@
         />
       </label>
 
+      <p class="v-muted m-0 mb-2" style="font-size: 11.5px; line-height: 1.6;">
+        {t("backup.onlyWhenChanged")}
+      </p>
+
       <div class="v-row mb-2" style="gap: 8px;">
         <button class="v-btn v-btn-primary" disabled={busy || !project} onclick={() => void backupNow()}>
           {busy ? t("backup.working") : t("backup.now")}
@@ -315,7 +354,9 @@
       {#if results.length > 0}
         <ul class="m-0 mb-2 flex list-none flex-col gap-1 p-0" aria-live="polite">
           {#each results as outcome (outcome.path)}
-            <li style={`font-size: 12px; color: ${outcomeColor(outcome)};`}>{outcomeText(outcome)}</li>
+            <li style={`font-size: 12px; color: ${outcomeColor(outcome)};`}>
+              {outcomeText(outcome)}{prunedText(outcome)}
+            </li>
           {/each}
         </ul>
       {/if}
@@ -326,7 +367,9 @@
           <ul class="m-0 flex list-none flex-col gap-1 p-0">
             {#each stored as archive (archive.path)}
               <li class="v-row" style="gap: 10px; font-size: 12px; padding: 2px 0;">
-                <span class="v-muted" style="font-variant-numeric: tabular-nums;">{when(archive.modified)}</span>
+                <span class="v-muted" style="font-variant-numeric: tabular-nums;">
+                {when(archiveTime(archive))}
+              </span>
                 <span class="v-muted">{humanSize(archive.bytes)}</span>
                 {#if checked[archive.path]}
                   <span style="color: var(--ok); font-size: 11.5px;">{checked[archive.path]}</span>

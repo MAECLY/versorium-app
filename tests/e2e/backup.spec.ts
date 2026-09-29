@@ -171,3 +171,26 @@ test("the backup panel is translated", async ({ page }) => {
   await expect(backup.getByRole("button", { name: "Elegir carpeta…" })).toBeVisible();
   await expect(backup.getByRole("button", { name: "Respaldo en GitHub (avanzado)" })).toBeVisible();
 });
+
+test("pressing again with nothing changed does not fill the folder", async ({ page }) => {
+  // The reported bug: three presses in under a minute produced three identical
+  // archives, each one eating a slot of "keep the newest ten".
+  await withProject(page);
+  const backup = await openBackup(page);
+  await backup.getByRole("button", { name: "Use this" }).first().click();
+
+  await backup.getByRole("button", { name: "Back up now" }).click();
+  await expect(backup.getByText(/^iCloud Drive: saved, /)).toBeVisible();
+
+  // One file is one file, so the same state is kept twice...
+  await backup.getByRole("button", { name: "Back up now" }).click();
+  await expect(backup.getByText(/second copy of the same state/)).toBeVisible();
+
+  // ...and there it stops, with the truth rather than another "saved".
+  await backup.getByRole("button", { name: "Back up now" }).click();
+  await expect(backup.getByText(/nothing has changed since/)).toBeVisible();
+  await expect(backup.getByRole("button", { name: "Restore" })).toHaveCount(2);
+
+  // And the panel says so before anybody presses anything.
+  await expect(backup.getByText(/writes a new archive only when the novel has changed/)).toBeVisible();
+});

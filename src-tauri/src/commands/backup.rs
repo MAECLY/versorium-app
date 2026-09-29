@@ -28,8 +28,25 @@ pub const MAX_DESTINATIONS: usize = 3;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", tag = "state")]
 pub enum Outcome {
-    /// Written and read back.
-    Ok { path: String, archive: backup::Archive },
+    /// A state that was not here before, written and read back.
+    Ok { path: String, archive: backup::Archive, pruned: usize },
+    /// The same state as the copy already here, kept a second time. One file
+    /// is one file, and a destination holding a single archive of a state has
+    /// nothing left if that archive goes bad.
+    Copy { path: String, archive: backup::Archive, pruned: usize },
+    /// Nothing has changed and there are already enough copies. Neither a save
+    /// nor a failure: there was nothing to write, and saying "saved" would be
+    /// a lie about what is on the disk.
+    Unchanged { path: String, archive: backup::Archive, pruned: usize },
+    /// The copy that was here could not be read back. A new one was written
+    /// and the bad one left where it is.
+    Repaired {
+        path: String,
+        archive: backup::Archive,
+        pruned: usize,
+        reason: String,
+        damaged: String,
+    },
     /// The folder is not there: an unplugged disk, a signed-out client. Not an
     /// error — the writer is told, and it is retried next time.
     Unavailable { path: String },
@@ -90,14 +107,43 @@ pub async fn backup_now(
     let (dirs, keep) = configured(&state)?;
     tauri::async_runtime::spawn_blocking(move || {
         let now = std::time::SystemTime::now();
+        // Walked and hashed once, not once per destination: a large project
+        // across three folders would otherwise be read three times, and two
+        // destinations could be handed different answers from one press.
+        let plan = match backup::plan(&path) {
+            Ok(plan) => plan,
+            // One unreadable project is not three destinations' fault, but it
+            // is every destination's outcome. The list is never collapsed, not
+            // even into an error.
+            Err(reason) => {
+                return dirs
+                    .into_iter()
+                    .map(|dir| Outcome::Failed {
+                        path: dir.to_string_lossy().into_owned(),
+                        reason: reason.clone(),
+                    })
+                    .collect()
+            }
+        };
         dirs.into_iter()
             .map(|dir| {
                 let shown = dir.to_string_lossy().into_owned();
                 if !dir.is_dir() {
                     return Outcome::Unavailable { path: shown };
                 }
-                match backup::create_in(&path, &dir, keep, now) {
-                    Ok(archive) => Outcome::Ok { path: shown, archive },
+                match backup::create_planned(&path, &dir, keep, now, &plan) {
+                    Ok(backup::Written::Fresh { archive, pruned }) => {
+                        Outcome::Ok { path: shown, archive, pruned }
+                    }
+                    Ok(backup::Written::Copy { archive, pruned }) => {
+                        Outcome::Copy { path: shown, archive, pruned }
+                    }
+                    Ok(backup::Written::Same { archive, pruned }) => {
+                        Outcome::Unchanged { path: shown, archive, pruned }
+                    }
+                    Ok(backup::Written::Repaired { archive, pruned, reason, damaged }) => {
+                        Outcome::Repaired { path: shown, archive, pruned, reason, damaged }
+                    }
                     Err(reason) => Outcome::Failed { path: shown, reason },
                 }
             })
@@ -293,11 +339,14 @@ mod tests {
         // one it is talking about.
         let ok = Outcome::Ok {
             path: "/a".into(),
+            pruned: 0,
             archive: backup::Archive {
                 path: "/a/x.zip".into(),
                 name: "x.zip".into(),
                 bytes: 1,
                 modified: 0,
+                stamped: Some(0),
+                print: Some("0123456789abcdef".into()),
                 sha256: Some("abc".into()),
             },
         };

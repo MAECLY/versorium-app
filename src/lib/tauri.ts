@@ -319,8 +319,12 @@ export interface BackupArchive {
   path: string;
   name: string;
   bytes: number;
-  /** Unix seconds. */
+  /** Unix seconds from the file's own mtime — not what to show a writer. */
   modified: number;
+  /** When the backup was asked for, read out of the name. Show this one. */
+  stamped: number | null;
+  /** Which state of the novel it holds. Null for one written before this existed. */
+  print: string | null;
   /** Of the archive as the destination handed it back. Null when only listed. */
   sha256: string | null;
 }
@@ -338,7 +342,17 @@ export interface BackupCoverage {
 
 /** What happened at one destination. A missing disk is not a failure. */
 export type BackupOutcome =
-  | { state: "ok"; path: string; archive: BackupArchive }
+  | { state: "ok"; path: string; archive: BackupArchive; pruned: number }
+  | { state: "copy"; path: string; archive: BackupArchive; pruned: number }
+  | { state: "unchanged"; path: string; archive: BackupArchive; pruned: number }
+  | {
+      state: "repaired";
+      path: string;
+      archive: BackupArchive;
+      pruned: number;
+      reason: string;
+      damaged: string;
+    }
   | { state: "unavailable"; path: string }
   | { state: "failed"; path: string; reason: string };
 
