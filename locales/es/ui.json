@@ -27,7 +27,30 @@
     "corkboard": "Fichas",
     "corkboardHint": "Mira los capítulos como fichas en un tablero.",
     "corkboardLoading": "Leyendo capítulos…",
-    "corkboardEmpty": "Todavía sin escribir."
+    "corkboardEmpty": "Todavía sin escribir.",
+    "menu": {
+      "forProject": "Acciones de la novela {title}",
+      "forChapter": "Acciones del capítulo {title}",
+      "renameProject": "Renombrar novela…",
+      "deleteProject": "Mover a la papelera",
+      "renameChapter": "Renombrar capítulo…",
+      "deleteChapter": "Borrar capítulo",
+      "markAs": "Marcar como {status}"
+    },
+    "rename": {
+      "project": "Renombrar novela",
+      "chapter": "Renombrar capítulo",
+      "label": "Título",
+      "action": "Renombrar",
+      "projectHint": "Solo cambia el título. La carpeta conserva su nombre, así que tus respaldos y el remoto de GitHub siguen apuntando a ella.",
+      "chapterHint": "Solo cambia el título. El archivo conserva su nombre, que es lo que sostiene la posición del capítulo y su historial de escritura."
+    },
+    "confirm": {
+      "projectTitle": "¿Mover «{title}» a la papelera?",
+      "projectBody": "La carpeta entera va a la papelera de tu sistema, con todo su historial. Puedes devolverla desde ahí hasta que la vacíes.",
+      "chapterTitle": "¿Borrar «{title}»?",
+      "chapterBody": "Versorium guarda una instantánea antes, así que el capítulo queda en el historial de la novela y se puede recuperar."
+    }
   },
   "editor": {
     "placeholder": "Empieza a escribir…",
@@ -151,7 +174,7 @@
     "projectExists": "Ya existe un proyecto con ese nombre.",
     "notFound": "Proyecto no encontrado.",
     "project_exists": "Ya existe un proyecto con ese nombre.",
-    "empty_title": "El título está vacío.",
+    "empty_title": "El título no puede estar vacío.",
     "no_repo": "Esta carpeta aún no lleva historial.",
     "no_commits": "Aún no hay instantáneas.",
     "nothing_to_commit": "No ha cambiado nada desde la última instantánea.",
@@ -220,7 +243,8 @@
     "export_scrivener_scenes_flattened": "Los saltos de escena se vuelven un separador: Scrivener no tiene escenas dentro de un documento.",
     "import_epub_styles_dropped": "El estilo del libro no se conserva: un capítulo de Versorium es Markdown.",
     "mcp_http_bind_failed": "Versorium no pudo abrir un puerto local para HTTP.",
-    "mcp_http_no_entropy": "Versorium no pudo obtener bytes aleatorios del sistema operativo, así que no abrirá un puerto HTTP con un token adivinable."
+    "mcp_http_no_entropy": "Versorium no pudo obtener bytes aleatorios del sistema operativo, así que no abrirá un puerto HTTP con un token adivinable.",
+    "trash_failed": "Versorium no pudo mover eso a la papelera."
   },
   "languages": {
     "en": "English",

@@ -1,8 +1,62 @@
 <script lang="ts">
   import { store } from "$lib/binder/store.svelte";
   import { t } from "$lib/i18n";
+  import type { ChapterMeta, ChapterStatus, Project } from "$lib/tauri";
+  import ItemMenu from "$lib/binder/ItemMenu.svelte";
+  import RenameDialog from "$lib/binder/RenameDialog.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   let { onRequestNewChapter }: { onRequestNewChapter: () => void } = $props();
+
+  const STATUSES: ChapterStatus[] = ["draft", "revised", "final"];
+
+  let renaming = $state<{ kind: "project" | "chapter"; id: string; title: string } | null>(null);
+  let confirming = $state<{ kind: "project" | "chapter"; id: string; title: string } | null>(null);
+
+  let projectActions = $derived([
+    { id: "rename", label: t("binder.menu.renameProject") },
+    { id: "delete", label: t("binder.menu.deleteProject"), destructive: true },
+  ]);
+
+  /** Only the statuses it is not already, so the menu never offers a no-op. */
+  function chapterActions(chapter: ChapterMeta) {
+    return [
+      { id: "rename", label: t("binder.menu.renameChapter") },
+      ...STATUSES.filter((s) => s !== chapter.status).map((s) => ({
+        id: `status:${s}`,
+        label: t("binder.menu.markAs", { status: t(`binder.status.${s}`) }),
+      })),
+      { id: "delete", label: t("binder.menu.deleteChapter"), destructive: true },
+    ];
+  }
+
+  function onProjectAction(project: Project, action: string): void {
+    if (action === "rename") renaming = { kind: "project", id: project.path, title: project.meta.title };
+    if (action === "delete") confirming = { kind: "project", id: project.path, title: project.meta.title };
+  }
+
+  function onChapterAction(chapter: ChapterMeta, action: string): void {
+    if (action === "rename") renaming = { kind: "chapter", id: chapter.file, title: chapter.title };
+    else if (action === "delete") confirming = { kind: "chapter", id: chapter.file, title: chapter.title };
+    else if (action.startsWith("status:")) {
+      void store.updateChapter(chapter.file, undefined, action.slice(7) as ChapterStatus);
+    }
+  }
+
+  async function doRename(title: string): Promise<void> {
+    const target = renaming;
+    if (!target) return;
+    if (target.kind === "project") await store.renameProject(target.id, title);
+    else await store.updateChapter(target.id, title);
+  }
+
+  async function doDelete(): Promise<void> {
+    const target = confirming;
+    confirming = null;
+    if (!target) return;
+    if (target.kind === "project") await store.deleteProject(target.id);
+    else await store.deleteChapter(target.id);
+  }
 </script>
 
 <aside
@@ -15,8 +69,10 @@
   <ul class="m-0 min-h-0 flex-1 list-none overflow-y-auto px-2 py-2" aria-label={t("binder.projects")}>
     {#each store.projects as p (p.path)}
       <li>
+      <div class="v-row" style="gap: 2px;">
       <button
         class="v-list-item {store.project?.path === p.path ? 'v-list-item-active' : ''}"
+        style="flex: 1; min-width: 0;"
         aria-current={store.project?.path === p.path ? "true" : undefined}
         disabled={store.loading}
         onclick={() => store.openProject(p.path)}
@@ -26,6 +82,12 @@
           {t("binder.wordCount", { words: p.chapters.reduce((a, c) => a + c.words, 0) })}
         </span>
       </button>
+      <ItemMenu
+        label={t("binder.menu.forProject", { title: p.meta.title })}
+        actions={projectActions}
+        onChoose={(action) => onProjectAction(p, action)}
+      />
+      </div>
       </li>
     {:else}
       <li class="v-muted px-2" style="font-size: 12px;">{t("binder.noProjects")}</li>
@@ -49,8 +111,10 @@
       {#each store.project.chapters as ch (ch.id)}
         {@const active = store.currentChapter?.id === ch.id}
         <li>
+        <div class="v-row" style="gap: 2px;">
         <button
           class="v-list-item {active ? 'v-list-item-active' : ''}"
+          style="flex: 1; min-width: 0;"
           aria-current={active ? "true" : undefined}
           disabled={store.loading}
           onclick={() => store.openChapter(ch)}
@@ -65,6 +129,12 @@
             {t("binder.status." + ch.status)}
           </span>
         </button>
+        <ItemMenu
+          label={t("binder.menu.forChapter", { title: ch.title })}
+          actions={chapterActions(ch)}
+          onChoose={(action) => onChapterAction(ch, action)}
+        />
+        </div>
         </li>
       {:else}
         <li class="v-muted px-2" style="font-size: 12px;">{t("binder.noChapters")}</li>
@@ -72,3 +142,22 @@
     </ul>
   {/if}
 </aside>
+
+{#if renaming}
+  <RenameDialog
+    kind={renaming.kind}
+    current={renaming.title}
+    onClose={() => (renaming = null)}
+    onRename={doRename}
+  />
+{/if}
+
+{#if confirming}
+  <ConfirmDialog
+    title={t(`binder.confirm.${confirming.kind}Title`, { title: confirming.title })}
+    body={t(`binder.confirm.${confirming.kind}Body`)}
+    confirmLabel={t(confirming.kind === "project" ? "binder.menu.deleteProject" : "binder.menu.deleteChapter")}
+    onCancel={() => (confirming = null)}
+    onConfirm={doDelete}
+  />
+{/if}

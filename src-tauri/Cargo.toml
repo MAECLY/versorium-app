@@ -49,6 +49,10 @@ keyring = "4"
 # write to a manuscript must come from a real random source, not from mixing the
 # clock with a heap address.
 getrandom = "0.3"
+# Deleting a novel sends it to the system trash, not to oblivion. Git protects a
+# deleted chapter; nothing protects a deleted project folder, so the recovery
+# has to be the one the writer already knows how to use.
+trash = "5"
 
 [features]
 # GPU offload on Windows and Linux. Off by default and switched on only in the

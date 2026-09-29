@@ -408,6 +408,48 @@ const commands: Record<string, (args: Args) => unknown> = {
     return { ...settings };
   },
 
+  update_project: ({ path, title, author }) => {
+    const p = project(String(path));
+    if (title !== undefined && title !== null) {
+      if (!String(title).trim()) throw "empty_title";
+      p.meta.title = String(title).trim();
+    }
+    if (author !== undefined && author !== null) p.meta.author = String(author).trim();
+    if (title == null && author == null) throw "bad_args";
+    return { ...p.meta };
+  },
+  // Mirrors the real command: the folder goes to the system trash, and what
+  // comes back is the remaining projects.
+  delete_project: ({ path }) => {
+    if (!projects.has(String(path))) throw "not_found";
+    projects.delete(String(path));
+    return [...projects.values()].map((p) => ({ path: p.path, meta: { ...p.meta }, chapters: p.chapters.map((c) => ({ ...c })) }));
+  },
+  update_chapter: ({ path, file, title, status }) => {
+    const p = project(String(path));
+    const c = chapter(p, String(file));
+    if (title == null && status == null) throw "bad_args";
+    if (title !== undefined && title !== null) {
+      if (!String(title).trim()) throw "empty_title";
+      c.title = String(title).trim();
+    }
+    if (status !== undefined && status !== null) {
+      if (!["draft", "revised", "final"].includes(String(status))) throw "bad_args";
+      c.status = String(status);
+    }
+    return { ...c };
+  },
+  delete_chapter: ({ path, file }) => {
+    const p = project(String(path));
+    const index = p.chapters.findIndex((c) => c.file === String(file));
+    if (index < 0) throw "not_found";
+    // The real command snapshots before removing, which is what makes this
+    // recoverable; the mock records the commit so a test can see it happened.
+    commit(p, `checkpoint: before deleting ${file}`);
+    p.chapters.splice(index, 1);
+    return p.chapters.map((c) => ({ ...c }));
+  },
+
   git_status: ({ path }) => {
     const p = project(path);
     const dirty = [...p.dirty];

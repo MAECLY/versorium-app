@@ -15,10 +15,13 @@ export interface ProjectMeta {
   remote: string | null;
 }
 
+/** Mirrors `commands::chapters::STATUSES`; anything else is refused by Rust. */
+export type ChapterStatus = "draft" | "revised" | "final";
+
 export interface ChapterMeta {
   id: string;
   title: string;
-  status: string;
+  status: ChapterStatus;
   words: number;
   file: string;
   mtime: number;
@@ -482,6 +485,18 @@ export const api = {
 
   updateProgress: () => invoke<InstallProgress | null>("update_progress"),
   updateRelaunch: () => invoke<void>("update_relaunch"),
+
+  // --- editing a novel and its chapters ---
+  updateProject: (path: string, title?: string, author?: string) =>
+    invoke<ProjectMeta>("update_project", { path, title, author }),
+  /** Moves the folder to the system trash; returns what is left. */
+  deleteProject: (path: string, parent: string) =>
+    invoke<Project[]>("delete_project", { path, parent }),
+  updateChapter: (path: string, file: string, title?: string, status?: ChapterStatus) =>
+    invoke<ChapterMeta>("update_chapter", { path, file, title, status }),
+  /** Snapshots the project first, so this is recoverable from its history. */
+  deleteChapter: (path: string, file: string) =>
+    invoke<ChapterMeta[]>("delete_chapter", { path, file }),
 
   mcpHttpStatus: () => invoke<McpHttpStatus>("mcp_http_status"),
   mcpSetHttp: (enabled: boolean) => invoke<McpHttpStatus>("mcp_set_http", { enabled }),

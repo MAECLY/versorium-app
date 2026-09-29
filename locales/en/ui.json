@@ -27,7 +27,30 @@
     "corkboard": "Corkboard",
     "corkboardHint": "See the chapters as cards.",
     "corkboardLoading": "Reading chapters…",
-    "corkboardEmpty": "Nothing written yet."
+    "corkboardEmpty": "Nothing written yet.",
+    "menu": {
+      "forProject": "Actions for the novel {title}",
+      "forChapter": "Actions for chapter {title}",
+      "renameProject": "Rename novel…",
+      "deleteProject": "Move to Trash",
+      "renameChapter": "Rename chapter…",
+      "deleteChapter": "Delete chapter",
+      "markAs": "Mark as {status}"
+    },
+    "rename": {
+      "project": "Rename novel",
+      "chapter": "Rename chapter",
+      "label": "Title",
+      "action": "Rename",
+      "projectHint": "Only the title changes. The folder keeps its name, so your backups and any GitHub remote still point at it.",
+      "chapterHint": "Only the title changes. The file keeps its name, which is what holds the chapter's position and its writing history."
+    },
+    "confirm": {
+      "projectTitle": "Move “{title}” to the Trash?",
+      "projectBody": "The whole folder goes to your system Trash, including its history. You can put it back from there until you empty it.",
+      "chapterTitle": "Delete “{title}”?",
+      "chapterBody": "Versorium saves a snapshot first, so this chapter stays in the novel's history and can be brought back."
+    }
   },
   "editor": {
     "placeholder": "Start writing…",
@@ -151,7 +174,7 @@
     "projectExists": "A project with that name already exists.",
     "notFound": "Project not found.",
     "project_exists": "A project with that name already exists.",
-    "empty_title": "The title is empty.",
+    "empty_title": "A title cannot be blank.",
     "no_repo": "This folder is not keeping history yet.",
     "no_commits": "No snapshots yet.",
     "nothing_to_commit": "Nothing has changed since the last snapshot.",
@@ -220,7 +243,8 @@
     "export_scrivener_scenes_flattened": "Scene breaks become a separator: Scrivener has no scene inside a document.",
     "import_epub_styles_dropped": "The book's styling is not kept: a Versorium chapter is Markdown.",
     "mcp_http_bind_failed": "Versorium could not open a local port for HTTP.",
-    "mcp_http_no_entropy": "Versorium could not get random bytes from the operating system, so it will not open an HTTP port with a guessable token."
+    "mcp_http_no_entropy": "Versorium could not get random bytes from the operating system, so it will not open an HTTP port with a guessable token.",
+    "trash_failed": "Versorium could not move that to the Trash."
   },
   "languages": {
     "en": "English",

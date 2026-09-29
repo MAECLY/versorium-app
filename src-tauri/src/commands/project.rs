@@ -222,6 +222,16 @@ pub fn create_chapter(path: PathBuf, title: String) -> Result<ChapterMeta, Strin
 
 // ---------------------------------------------------------------- helpers
 
+/// Persist a novel's metadata.
+///
+/// The one place `versorium.json` is written. It used to be inlined in
+/// `commands::formats::set_author`, which is a strange home for the record of
+/// what a novel is called.
+pub fn write_meta(root: &Path, meta: &ProjectMeta) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(meta).map_err(|_| "io".to_string())?;
+    crate::storage::atomic_write(&root.join("versorium.json"), json)
+}
+
 pub fn load_meta(root: &Path) -> Option<ProjectMeta> {
     fs::read_to_string(root.join("versorium.json"))
         .ok()
@@ -315,6 +325,88 @@ mod tests {
     use super::*;
 
     #[test]
+    fn renaming_a_novel_leaves_its_folder_where_everything_points_at_it() {
+        // The folder is a git repository, it may already be a GitHub remote,
+        // and the backup archives are named after it. A title is what the
+        // writer reads; a folder name is an address.
+        let dir = tempfile::tempdir().unwrap();
+        let created = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "El faro".into(),
+            language: "es".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&created.path);
+
+        let meta = update_project(root.clone(), Some("La niebla".into()), None).unwrap();
+        assert_eq!(meta.title, "La niebla");
+        assert!(root.is_dir(), "the folder moved");
+        assert_eq!(load_meta(&root).unwrap().title, "La niebla", "the rename did not persist");
+        // And the git repository is still the same one.
+        assert!(root.join(".git").exists());
+    }
+
+    #[test]
+    fn a_novel_can_be_renamed_and_attributed_in_one_go_or_separately() {
+        let dir = tempfile::tempdir().unwrap();
+        let created = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "Sin autor".into(),
+            language: "en".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&created.path);
+
+        let both = update_project(root.clone(), Some("Con autor".into()), Some("  Ana Ruiz  ".into())).unwrap();
+        assert_eq!(both.title, "Con autor");
+        assert_eq!(both.author, "Ana Ruiz", "surrounding space is not part of a name");
+
+        // Author alone leaves the title alone.
+        let only_author = update_project(root.clone(), None, Some("Otra".into())).unwrap();
+        assert_eq!(only_author.title, "Con autor");
+
+        assert_eq!(update_project(root.clone(), None, None).unwrap_err(), "bad_args");
+        assert_eq!(update_project(root, Some(" ".into()), None).unwrap_err(), "empty_title");
+    }
+
+    #[test]
+    fn deleting_refuses_anything_that_is_not_a_versorium_project() {
+        // This moves a whole folder to the trash. A path that is not a novel
+        // must never reach that call — somebody's Documents folder is one bad
+        // argument away.
+        let dir = tempfile::tempdir().unwrap();
+        let stranger = dir.path().join("not-a-novel");
+        std::fs::create_dir_all(&stranger).unwrap();
+        std::fs::write(stranger.join("taxes.pdf"), b"important").unwrap();
+
+        assert_eq!(
+            delete_project(stranger.clone(), dir.path().to_path_buf()).unwrap_err(),
+            "not_found"
+        );
+        assert!(stranger.join("taxes.pdf").exists(), "trashed a folder that was not a project");
+    }
+
+    /// Really moves a folder to this machine's trash, so it is opt-in.
+    #[test]
+    #[ignore = "moves a folder to the system trash"]
+    fn live_deleting_a_novel_sends_it_to_the_trash_rather_than_destroying_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let created = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "Versorium trash test".into(),
+            language: "en".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&created.path);
+        assert!(root.is_dir());
+
+        let left = delete_project(root.clone(), dir.path().to_path_buf()).unwrap();
+        assert!(left.is_empty(), "the novel is gone from the list");
+        assert!(!root.exists(), "the folder is gone from where it was");
+        eprintln!("check the trash for: {}", root.display());
+    }
+
+    #[test]
     fn slugifies_titles() {
         assert_eq!(slugify("The Long Winter"), "the-long-winter");
         assert_eq!(slugify("  ¡Hola, Mundo! "), "hola-mundo");
@@ -405,4 +497,54 @@ mod tests {
         assert!(root.join(&file).exists());
         assert_eq!(load_meta(&root).unwrap().title, title);
     }
+}
+
+/// Rename a novel, or set its author, or both.
+///
+/// Only `versorium.json` changes. The folder keeps its name: it is a git
+/// repository, it may already be a GitHub remote, and the backup archives are
+/// named after it. A title is what the writer reads; a folder name is an
+/// address, and quietly changing an address breaks whatever pointed at it.
+#[tauri::command]
+pub fn update_project(
+    path: PathBuf,
+    title: Option<String>,
+    author: Option<String>,
+) -> Result<ProjectMeta, String> {
+    let title = match title {
+        Some(t) if t.trim().is_empty() => return Err("empty_title".into()),
+        Some(t) => Some(t.trim().to_string()),
+        None => None,
+    };
+    if title.is_none() && author.is_none() {
+        return Err("bad_args".into());
+    }
+    let mut meta = load_meta(&path).ok_or_else(|| "not_found".to_string())?;
+    if let Some(title) = title {
+        meta.title = title;
+    }
+    if let Some(author) = author {
+        meta.author = author.trim().to_string();
+    }
+    write_meta(&path, &meta)?;
+    Ok(meta)
+}
+
+/// Move a novel to the system trash.
+///
+/// Not `remove_dir_all`. Git cannot help here — deleting the folder takes the
+/// repository and every snapshot in it — so the recovery has to be the one the
+/// writer already knows: their own desktop's trash, where the folder sits until
+/// they empty it.
+///
+/// Returns the remaining projects so the caller does not have to re-scan.
+#[tauri::command]
+pub fn delete_project(path: PathBuf, parent: PathBuf) -> Result<Vec<Project>, String> {
+    if load_meta(&path).is_none() {
+        // Refusing anything that is not a Versorium project is what stops a bad
+        // path from trashing a folder full of something else.
+        return Err("not_found".into());
+    }
+    trash::delete(&path).map_err(|_| "trash_failed".to_string())?;
+    list_projects(parent)
 }
