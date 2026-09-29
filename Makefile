@@ -15,7 +15,7 @@ EPUBCHECK_DIR := /tmp/m5/epubcheck-$(EPUBCHECK_VERSION)
 DEV_URL := http://localhost:1420
 
 .DEFAULT_GOAL := help
-.PHONY: help dev devtools web mock bundle deps check locales test test-ui test-e2e \
+.PHONY: help dev devtools web mock bundle deps check locales icons icons-preview test test-ui test-e2e \
         test-e2e-ui test-live verify clippy fmt fmt-check lint mcp tools clean
 
 help: ## Show this list
@@ -94,6 +94,12 @@ fmt-check: ## Report what rustfmt would change (non-zero until fmt is adopted)
 
 mcp: ## Run Versorium as a stdio MCP server (read-only until granted in Settings)
 	cargo run --manifest-path $(CARGO_MANIFEST) -- mcp
+
+icons: ## Regenerate the whole app icon set from one source
+	python3 tests/icons/generate.py --variant paper
+
+icons-preview: ## Contact sheet of both variants, to judge before committing
+	python3 tests/icons/generate.py --preview --out /tmp/versorium-icons
 
 tools: ## Fetch epubcheck, which test-live needs and /tmp loses on reboot
 	@if [ ! -f "$(EPUBCHECK_DIR)/epubcheck.jar" ]; then \
