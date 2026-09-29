@@ -2,6 +2,7 @@
   import { t, getLocale } from "$lib/i18n";
   import Modal from "$lib/components/Modal.svelte";
   import CoverPreview from "$lib/components/CoverPreview.svelte";
+  import Checkbox from "$lib/components/forms/Checkbox.svelte";
   import { store } from "$lib/binder/store.svelte";
   import { api, isTauri, type AuthorProfile, type Project } from "$lib/tauri";
 
@@ -72,33 +73,21 @@
     </div>
 
     <div style="flex: 1; min-width: 260px;">
-      <label class="v-row" style="gap: 8px; font-size: 13px; align-items: flex-start;">
-        <input
-          type="checkbox"
-          checked={cover}
-          onchange={(e) => void save({ cover: (e.currentTarget as HTMLInputElement).checked })}
-        />
-        <span>
-          {t("project.coverLabel")}
-          <span class="v-muted" style="display: block; font-size: 11.5px; line-height: 1.5; margin-top: 2px;">
-            {t("project.coverHint")}
-          </span>
-        </span>
-      </label>
+      <Checkbox
+        label={t("project.coverLabel")}
+        hint={t("project.coverHint")}
+        checked={cover}
+        onChange={(next) => void save({ cover: next })}
+      />
 
-      <label class="v-row mt-3" style="gap: 8px; font-size: 13px; align-items: flex-start;">
-        <input
-          type="checkbox"
+      <div class="mt-3">
+        <Checkbox
+          label={t("project.colophonLabel")}
+          hint={t("project.colophonHint")}
           checked={colophon}
-          onchange={(e) => void save({ colophon: (e.currentTarget as HTMLInputElement).checked })}
+          onChange={(next) => void save({ colophon: next })}
         />
-        <span>
-          {t("project.colophonLabel")}
-          <span class="v-muted" style="display: block; font-size: 11.5px; line-height: 1.5; margin-top: 2px;">
-            {t("project.colophonHint")}
-          </span>
-        </span>
-      </label>
+      </div>
 
       {#if colophon}
         <!-- What the last page will actually say, from this novel's own data. -->

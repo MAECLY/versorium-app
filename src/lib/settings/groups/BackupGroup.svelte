@@ -12,6 +12,7 @@
   } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
   import { humanSize } from "$lib/models/state.svelte";
+  import NumberField from "$lib/components/forms/NumberField.svelte";
 
   /**
    * Three layers, named as layers, because they protect against different
@@ -326,20 +327,20 @@
     {/if}
 
     {#if chosen.length > 0}
-      <label class="v-row mb-3" style="gap: 8px; font-size: 13px;">
-        {t("backup.keep")}
-        <input
-          type="number"
-          min="1"
-          max="200"
+      <div class="mb-3">
+        <NumberField
+          label={t("backup.keep")}
+          hint={t("backup.keepHint")}
           value={keep}
-          style="width: 80px;"
-          onchange={(e) => {
-            keep = Number((e.currentTarget as HTMLInputElement).value);
+          min={1}
+          max={200}
+          inline
+          onCommit={(next) => {
+            keep = next;
             void save(chosen, "");
           }}
         />
-      </label>
+      </div>
 
       <p class="v-muted m-0 mb-2" style="font-size: 11.5px; line-height: 1.6;">
         {t("backup.onlyWhenChanged")}
