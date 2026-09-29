@@ -249,7 +249,7 @@ mod tests {
             "prerelease": prerelease,
             "assets": [
                 { "id": 1, "name": MANIFEST_ASSET,
-                  "url": format!("https://api.github.com/repos/MAECLY/versorium-app/releases/assets/1") },
+                  "url": "https://api.github.com/repos/MAECLY/versorium-app/releases/assets/1" },
                 { "id": 2, "name": CHECKSUMS_ASSET,
                   "url": "https://api.github.com/repos/MAECLY/versorium-app/releases/assets/2" }
             ]
