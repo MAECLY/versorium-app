@@ -724,5 +724,41 @@
     "verified": "Read back in full and intact.",
     "verifyHint": "Checking opens the archive and reads every file back. An archive that has sat on a disk for a year is the one this is for.",
     "liveRepoHint": "The novel itself stays where it is. A live repository inside a synced folder gets corrupted — these services copy file by file, with no regard for the order git needs."
+  },
+  "author": {
+    "title": "Author",
+    "intro": "What goes inside the exported file, not on the page. Readers, libraries and publishers all look here first, and a file with an empty author is one nobody can attribute.",
+    "none": "Author details need the desktop app.",
+    "which": "Profile",
+    "profiles": {
+      "work": "Work",
+      "hobby": "Personal",
+      "workHint": "The name on a contract: legal name, publisher, the copyright line they gave you.",
+      "hobbyHint": "A pen name, a pseudonym, work that is nobody's business but yours."
+    },
+    "inUseShort": "in use",
+    "useForExports": "Use {profile} for exports",
+    "fields": {
+      "name": "Name",
+      "sortAs": "Sort as",
+      "role": "Role",
+      "organization": "Publisher or company",
+      "rights": "Copyright line"
+    },
+    "where": {
+      "name": "The byline. Written as the author into EPUB, DOCX, PDF and Markdown. A project that already has its own author keeps it.",
+      "sortAs": "How a library shelves it — surname first. EPUB only. Left blank, it is guessed from the name.",
+      "role": "EPUB only, as a MARC relator code. Nothing else has anywhere to put it.",
+      "organization": "The publisher in EPUB, the company in DOCX.",
+      "rights": "The rights line in EPUB, the subject in PDF, the description in DOCX."
+    },
+    "roles": {
+      "none": "Not stated",
+      "aut": "Author",
+      "edt": "Editor",
+      "trl": "Translator"
+    },
+    "privacy": "These fields are written into files you export and nowhere else. Nothing here is sent anywhere, and no address or account is asked for, because no export format has a place to put one.",
+    "saved": "Saved."
   }
 }

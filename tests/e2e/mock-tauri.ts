@@ -126,6 +126,11 @@ const settings = {
   // Already onboarded, so the tour does not sit on top of every other spec.
   // `?mock=tauri&fresh=1` simulates a first run instead.
   onboarded: !new URLSearchParams(location.search).has("fresh"),
+  authorProfiles: {
+    work: { name: "", sortAs: "", role: "", organization: "", rights: "" },
+    hobby: { name: "", sortAs: "", role: "", organization: "", rights: "" },
+  },
+  authorProfile: "work",
 };
 
 const projects = new Map<string, ProjectState>();

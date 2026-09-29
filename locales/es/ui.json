@@ -724,5 +724,41 @@
     "verified": "Leído entero y sin daños.",
     "verifyHint": "Comprobar abre el archivo y vuelve a leer cada fichero. Un archivo que lleva un año en un disco es justo para lo que esto sirve.",
     "liveRepoHint": "La novela se queda donde está. Un repositorio vivo dentro de una carpeta sincronizada se corrompe — estos servicios copian fichero a fichero, sin respetar el orden que git necesita."
+  },
+  "author": {
+    "title": "Autor",
+    "intro": "Lo que va dentro del archivo exportado, no en la página. Lectores, bibliotecas y editoriales miran aquí primero, y un archivo sin autor es un archivo que nadie puede atribuir.",
+    "none": "Los datos del autor necesitan la app de escritorio.",
+    "which": "Perfil",
+    "profiles": {
+      "work": "Trabajo",
+      "hobby": "Personal",
+      "workHint": "El nombre de un contrato: nombre legal, editorial, la línea de copyright que te dieron.",
+      "hobbyHint": "Un seudónimo, un nombre de pluma, obra que no es asunto de nadie más."
+    },
+    "inUseShort": "en uso",
+    "useForExports": "Usar {profile} al exportar",
+    "fields": {
+      "name": "Nombre",
+      "sortAs": "Ordenar como",
+      "role": "Rol",
+      "organization": "Editorial o empresa",
+      "rights": "Línea de copyright"
+    },
+    "where": {
+      "name": "La firma. Se escribe como autor en EPUB, DOCX, PDF y Markdown. Un proyecto que ya tiene su propio autor lo conserva.",
+      "sortAs": "Cómo lo coloca una biblioteca — apellido primero. Solo EPUB. Si lo dejas vacío, se deduce del nombre.",
+      "role": "Solo EPUB, como código MARC. Ningún otro formato tiene dónde ponerlo.",
+      "organization": "La editorial en EPUB, la empresa en DOCX.",
+      "rights": "La línea de derechos en EPUB, el asunto en PDF, la descripción en DOCX."
+    },
+    "roles": {
+      "none": "Sin indicar",
+      "aut": "Autor",
+      "edt": "Editor",
+      "trl": "Traductor"
+    },
+    "privacy": "Estos campos se escriben en los archivos que exportas y en ningún otro sitio. Nada de esto se envía a ninguna parte, y no se pide ninguna dirección ni cuenta, porque ningún formato de exportación tiene dónde ponerla.",
+    "saved": "Guardado."
   }
 }

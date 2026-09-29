@@ -24,8 +24,25 @@ pub struct ExportResult {
 const NEEDS_AUTHOR: [&str; 2] = ["docx", "pdf"];
 
 #[tauri::command]
-pub fn export_manuscript(path: PathBuf, format: String, dest: PathBuf) -> Result<ExportResult, String> {
-    let manuscript = formats::read_manuscript(&path)?;
+pub fn export_manuscript(
+    state: tauri::State<crate::commands::settings::SettingsStore>,
+    path: PathBuf,
+    format: String,
+    dest: PathBuf,
+) -> Result<ExportResult, String> {
+    export_with(&state.get().active_author().clone(), path, format, dest)
+}
+
+/// The command body without Tauri's `State`, which cannot be built in a test.
+fn export_with(
+    profile: &crate::commands::settings::AuthorProfile,
+    path: PathBuf,
+    format: String,
+    dest: PathBuf,
+) -> Result<ExportResult, String> {
+    // The project's own author still wins; the profile fills in what a project
+    // file has never had a place for, and supplies a name when it has none.
+    let manuscript = formats::read_manuscript(&path)?.with_byline(&profile.name, profile.byline());
     if manuscript.chapters.iter().all(|c| c.scenes.is_empty()) {
         return Err("empty_manuscript".into());
     }
@@ -150,10 +167,10 @@ mod tests {
         let root = project(dir.path(), "No Author");
         with_text(&root);
         // Markdown has no running head, so it does not care.
-        assert!(export_manuscript(root.clone(), "md".into(), dir.path().join("a.md")).is_ok());
+        assert!(export_with(&Default::default(), root.clone(), "md".into(), dir.path().join("a.md")).is_ok());
         for format in NEEDS_AUTHOR {
             assert_eq!(
-                export_manuscript(root.clone(), format.into(), dir.path().join("a.out")).unwrap_err(),
+                export_with(&Default::default(), root.clone(), format.into(), dir.path().join("a.out")).unwrap_err(),
                 "no_author",
                 "{format} prints the surname in every header"
             );
@@ -166,7 +183,7 @@ mod tests {
         let root = project(dir.path(), "Empty");
         let dest = dir.path().join("empty.md");
         assert_eq!(
-            export_manuscript(root, "md".into(), dest.clone()).unwrap_err(),
+            export_with(&Default::default(), root, "md".into(), dest.clone()).unwrap_err(),
             "empty_manuscript"
         );
         assert!(!dest.exists(), "nothing may be written for a refused export");
@@ -178,7 +195,7 @@ mod tests {
         let root = project(dir.path(), "Formats");
         with_text(&root);
         assert_eq!(
-            export_manuscript(root, "rtf".into(), dir.path().join("a.rtf")).unwrap_err(),
+            export_with(&Default::default(), root, "rtf".into(), dir.path().join("a.rtf")).unwrap_err(),
             "bad_format"
         );
         assert_eq!(
@@ -211,5 +228,21 @@ mod tests {
         // import_apply writes into the real projects dir, so it is covered by
         // the e2e mock rather than here; this pins the preview contract it uses.
         assert_eq!(imported.chapters[0].title, "One");
+    }
+
+    #[test]
+    fn a_profile_supplies_the_author_a_project_never_got() {
+        use crate::commands::settings::AuthorProfile;
+        let dir = tempfile::tempdir().unwrap();
+        let root = project(dir.path(), "La Casa");
+        with_text(&root);
+        // Exporting to PDF is refused without an author, so a profile that did
+        // not reach the export would make this fail.
+        let profile = AuthorProfile { name: "Ana Ruiz".into(), ..Default::default() };
+        let dest = dir.path().join("a.pdf");
+        export_with(&profile, root, "pdf".into(), dest.clone()).unwrap();
+
+        let pdf = std::fs::read(&dest).unwrap();
+        assert!(String::from_utf8_lossy(&pdf).contains("/Author (Ana Ruiz)"));
     }
 }

@@ -690,6 +690,7 @@ mod tests {
         Manuscript {
             title: "El largo invierno".into(),
             author: "Ana Ruiz".into(),
+            byline: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {

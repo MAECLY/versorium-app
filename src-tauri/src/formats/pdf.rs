@@ -244,6 +244,44 @@ fn content_stream(manuscript: &Manuscript, page: &[Line], number: usize) -> Vec<
     out
 }
 
+/// The document information dictionary.
+///
+/// A PDF without one shows an empty Title and Author in every reader's
+/// properties panel, and a manuscript sent to an agent is exactly the file
+/// somebody checks the properties of. `/Producer` names the tool; `/Creator`
+/// names it too, because here they are the same program.
+fn info_dict(manuscript: &Manuscript) -> Vec<u8> {
+    let mut out = b"<< /Title ".to_vec();
+    out.extend_from_slice(&pdf_string(&manuscript.title));
+    out.extend_from_slice(b" /Author ");
+    out.extend_from_slice(&pdf_string(&manuscript.author));
+    if !manuscript.byline.rights.trim().is_empty() {
+        out.extend_from_slice(b" /Subject ");
+        out.extend_from_slice(&pdf_string(manuscript.byline.rights.trim()));
+    }
+    out.extend_from_slice(b" /Creator (Versorium) /Producer (Versorium) /CreationDate ");
+    out.extend_from_slice(pdf_date().as_bytes());
+    out.extend_from_slice(b" >>");
+    out
+}
+
+/// `D:YYYYMMDDHHmmSSZ`. UTC, so the file does not disclose a time zone the
+/// writer did not choose to disclose.
+fn pdf_date() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let (year, month, day) = crate::formats::epub::civil_from_secs(secs as i64);
+    let rest = secs % 86_400;
+    format!(
+        "(D:{year:04}{month:02}{day:02}{:02}{:02}{:02}Z)",
+        rest / 3600,
+        (rest % 3600) / 60,
+        rest % 60
+    )
+}
+
 pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
     let pages = paginate(manuscript);
     if pages.is_empty() {
@@ -253,7 +291,8 @@ pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
     const CATALOG: usize = 1;
     const PAGES: usize = 2;
     const FONT: usize = 3;
-    let first = 4;
+    const INFO: usize = 4;
+    let first = 5;
     let page_obj = |i: usize| first + 2 * i;
     let content_obj = |i: usize| first + 2 * i + 1;
 
@@ -269,6 +308,7 @@ pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>"
             .to_vec(),
     ));
+    objects.push((INFO, info_dict(manuscript)));
     for (i, page) in pages.iter().enumerate() {
         objects.push((
             page_obj(i),
@@ -310,7 +350,9 @@ pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
         buffer.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
     }
     buffer.extend_from_slice(
-        format!("trailer\n<< /Size {size} /Root {CATALOG} 0 R >>\nstartxref\n{xref_at}\n%%EOF\n")
+        format!(
+            "trailer\n<< /Size {size} /Root {CATALOG} 0 R /Info {INFO} 0 R >>\nstartxref\n{xref_at}\n%%EOF\n"
+        )
             .as_bytes(),
     );
     Ok(buffer)
@@ -341,6 +383,7 @@ mod tests {
         Manuscript {
             title: "La Casa de Niebla".into(),
             author: "María Fernández".into(),
+            byline: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -509,6 +552,7 @@ mod tests {
         let manuscript = Manuscript {
             title: "Empty".into(),
             author: "A B".into(),
+            byline: Default::default(),
             language: "en".into(),
             chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![] }],
         };
@@ -554,6 +598,29 @@ mod tests {
         assert!(text.contains("Fernández / La Casa de Niebla / 1"), "running head missing");
         assert!(text.contains("nadie había llamado"), "prose missing");
     }
+
+    #[test]
+    fn a_reader_asking_for_the_properties_gets_an_answer() {
+        let mut book = book();
+        book.byline.rights = "© 2026 María Fernández".into();
+        let pdf = render(&book).unwrap();
+        let text = String::from_utf8_lossy(&pdf);
+
+        assert!(text.contains("/Info 4 0 R"), "the trailer has to point at it");
+        assert!(text.contains("/Producer (Versorium)"));
+        // Non-ASCII is escaped octally, as every other string in the file is.
+        assert!(text.contains("/Author (Mar\\355a Fern\\341ndez)"), "{text}");
+        assert!(text.contains("/Subject ("));
+        assert!(text.contains("/CreationDate (D:"));
+    }
+
+    #[test]
+    fn adding_an_object_did_not_break_the_table_every_reader_walks() {
+        // The xref is the one place an error is fatal, and inserting an object
+        // renumbers every page after it.
+        let pdf = render(&book()).unwrap();
+        verify_xref(&pdf);
+    }
 }
 
 /// Characters this encoding cannot carry, named before the export runs.
@@ -588,6 +655,7 @@ mod warning_tests {
         Manuscript {
             title: "T".into(),
             author: "A B".into(),
+            byline: Default::default(),
             language: "es".into(),
             chapters: vec![Chapter {
                 id: "ch-01".into(),
