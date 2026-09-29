@@ -1,4 +1,5 @@
-import { api, isTauri, type ChapterMeta, type Project } from "$lib/tauri";
+import { api, isTauri, type ChapterMeta,
+  type ChapterStatus, type Project } from "$lib/tauri";
 import { t } from "$lib/i18n";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
@@ -18,6 +19,79 @@ export class BinderStore {
   private writes = Promise.resolve();
 
   get canOpen(): boolean { return this.project !== null; }
+
+  /**
+   * Run an operation, surfacing a failure as a message rather than a rejection.
+   *
+   * The same try/catch the older methods write inline; the editing operations
+   * below all need it, and four more copies would be four chances to forget the
+   * error.
+   */
+  private async run(action: () => Promise<void>): Promise<void> {
+    try {
+      await action();
+    } catch (e) {
+      this.error = this.codeMessagePublic(e);
+    }
+  }
+
+  /** Rename a novel, or set its author. The folder does not move. */
+  async renameProject(path: string, title: string): Promise<void> {
+    await this.run(async () => {
+      const meta = await api.updateProject(path, title);
+      if (this.project?.path === path) this.project = { ...this.project, meta };
+      await this.refreshProjects();
+    });
+  }
+
+  /**
+   * Move a novel to the system trash.
+   *
+   * Git cannot recover this — the repository goes with the folder — so the
+   * recovery is the writer's own desktop trash.
+   */
+  async deleteProject(path: string): Promise<void> {
+    await this.run(async () => {
+      this.projects = await api.deleteProject(path, await api.defaultProjectsDir());
+      if (this.project?.path === path) {
+        this.project = null;
+        this.currentChapter = null;
+        this.chapterBody = "";
+      }
+    });
+  }
+
+  /** Retitle a chapter, or change its status. The file does not move. */
+  async updateChapter(file: string, title?: string, status?: ChapterStatus): Promise<void> {
+    const path = this.project?.path;
+    if (!path) return;
+    await this.run(async () => {
+      const meta = await api.updateChapter(path, file, title, status);
+      if (!this.project) return;
+      this.project = {
+        ...this.project,
+        chapters: this.project.chapters.map((c) => (c.file === meta.file ? meta : c)),
+      };
+      if (this.currentChapter?.file === meta.file) this.currentChapter = meta;
+    });
+  }
+
+  /** Delete a chapter. A git snapshot is taken first, so it can come back. */
+  async deleteChapter(file: string): Promise<void> {
+    const path = this.project?.path;
+    if (!path) return;
+    await this.run(async () => {
+      const chapters = await api.deleteChapter(path, file);
+      if (!this.project) return;
+      this.project = { ...this.project, chapters };
+      if (this.currentChapter?.file === file) {
+        // Land somewhere real rather than on a chapter that no longer exists.
+        this.currentChapter = null;
+        this.chapterBody = "";
+        if (chapters[0]) await this.openChapter(chapters[0]);
+      }
+    });
+  }
 
   async refreshProjects(): Promise<void> {
     try {

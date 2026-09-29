@@ -114,8 +114,7 @@ pub fn import_apply(source: PathBuf, title: String) -> Result<Project, String> {
 pub fn set_author(path: PathBuf, author: String) -> Result<ProjectMeta, String> {
     let mut meta = load_meta(&path).ok_or_else(|| "not_found".to_string())?;
     meta.author = author.trim().to_string();
-    let json = serde_json::to_string_pretty(&meta).map_err(|_| "io".to_string())?;
-    crate::storage::atomic_write(&path.join("versorium.json"), json)?;
+    crate::commands::project::write_meta(&path, &meta)?;
     Ok(meta)
 }
 
