@@ -1,4 +1,5 @@
 <script lang="ts">
+  import VMark from "$lib/components/VMark.svelte";
   import { store } from "$lib/binder/store.svelte";
   import { t } from "$lib/i18n";
   import { api, isTauri, type ChapterMeta, type Project } from "$lib/tauri";
@@ -52,11 +53,7 @@
   class="flex h-full flex-col items-center justify-center gap-4"
   style="background: var(--bg-editor);"
 >
-  <svg width="72" height="72" viewBox="0 0 100 100" aria-hidden="true">
-    <circle cx="50" cy="50" r="44" fill="none" stroke="var(--accent)" stroke-width="4" />
-    <path d="M50 10 L62 50 L50 90 L38 50 Z" fill="var(--accent)" transform="rotate(45 50 50)" />
-    <circle cx="50" cy="50" r="6" fill="var(--bg-editor)" />
-  </svg>
+  <VMark size={72} detail="nib" />
 
   {#if first}
     <h1 class="m-0" style="font-size: 22px; font-weight: 600;">{t("empty.title")}</h1>
