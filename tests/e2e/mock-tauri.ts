@@ -44,6 +44,9 @@ interface ProjectState {
     defaultChapterPattern: string;
     censorship: string;
     remote: string | null;
+    chapterOrder: string[];
+    exportCover: boolean;
+    exportColophon: boolean;
   };
   chapters: Chapter[];
   commits: Commit[];
@@ -384,6 +387,10 @@ const commands: Record<string, (args: Args) => unknown> = {
         defaultChapterPattern: "ch-{n}-{slug}.md",
         censorship: "off",
         remote: null,
+        chapterOrder: [],
+        // On by default, exactly as a fresh versorium.json has them.
+        exportCover: true,
+        exportColophon: true,
       },
       chapters: [newChapter(1, clean)],
       commits: [],
@@ -437,14 +444,20 @@ const commands: Record<string, (args: Args) => unknown> = {
     return { ...settings };
   },
 
-  update_project: ({ path, title, author }) => {
+  update_project: ({ path, title, author, exportCover, exportColophon }) => {
     const p = project(String(path));
     if (title !== undefined && title !== null) {
       if (!String(title).trim()) throw "empty_title";
       p.meta.title = String(title).trim();
     }
     if (author !== undefined && author !== null) p.meta.author = String(author).trim();
-    if (title == null && author == null) throw "bad_args";
+    if (exportCover !== undefined && exportCover !== null) p.meta.exportCover = Boolean(exportCover);
+    if (exportColophon !== undefined && exportColophon !== null) {
+      p.meta.exportColophon = Boolean(exportColophon);
+    }
+    if (title == null && author == null && exportCover == null && exportColophon == null) {
+      throw "bad_args";
+    }
     return { ...p.meta };
   },
   // Mirrors the real command: the folder goes to the system trash, and what

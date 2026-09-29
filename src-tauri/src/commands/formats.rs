@@ -29,8 +29,9 @@ pub fn export_manuscript(
     path: PathBuf,
     format: String,
     dest: PathBuf,
+    labels: Option<formats::Labels>,
 ) -> Result<ExportResult, String> {
-    export_with(&state.get().active_author().clone(), path, format, dest)
+    export_with(&state.get().active_author().clone(), path, format, dest, labels)
 }
 
 /// The command body without Tauri's `State`, which cannot be built in a test.
@@ -39,10 +40,18 @@ fn export_with(
     path: PathBuf,
     format: String,
     dest: PathBuf,
+    labels: Option<formats::Labels>,
 ) -> Result<ExportResult, String> {
     // The project's own author still wins; the profile fills in what a project
     // file has never had a place for, and supplies a name when it has none.
-    let manuscript = formats::read_manuscript(&path)?.with_byline(&profile.name, profile.byline());
+    let mut manuscript =
+        formats::read_manuscript(&path)?.with_byline(&profile.name, profile.byline());
+    // Colophon wording arrives from the frontend, the only side with a
+    // dictionary. It is read by whoever opens the book, so it follows the
+    // manuscript's language rather than the app's.
+    if let Some(labels) = labels {
+        manuscript.matter.labels = labels;
+    }
     if manuscript.chapters.iter().all(|c| c.scenes.is_empty()) {
         return Err("empty_manuscript".into());
     }
@@ -167,10 +176,10 @@ mod tests {
         let root = project(dir.path(), "No Author");
         with_text(&root);
         // Markdown has no running head, so it does not care.
-        assert!(export_with(&Default::default(), root.clone(), "md".into(), dir.path().join("a.md")).is_ok());
+        assert!(export_with(&Default::default(), root.clone(), "md".into(), dir.path().join("a.md"), None).is_ok());
         for format in NEEDS_AUTHOR {
             assert_eq!(
-                export_with(&Default::default(), root.clone(), format.into(), dir.path().join("a.out")).unwrap_err(),
+                export_with(&Default::default(), root.clone(), format.into(), dir.path().join("a.out"), None).unwrap_err(),
                 "no_author",
                 "{format} prints the surname in every header"
             );
@@ -183,7 +192,7 @@ mod tests {
         let root = project(dir.path(), "Empty");
         let dest = dir.path().join("empty.md");
         assert_eq!(
-            export_with(&Default::default(), root, "md".into(), dest.clone()).unwrap_err(),
+            export_with(&Default::default(), root, "md".into(), dest.clone(), None).unwrap_err(),
             "empty_manuscript"
         );
         assert!(!dest.exists(), "nothing may be written for a refused export");
@@ -195,7 +204,7 @@ mod tests {
         let root = project(dir.path(), "Formats");
         with_text(&root);
         assert_eq!(
-            export_with(&Default::default(), root, "rtf".into(), dir.path().join("a.rtf")).unwrap_err(),
+            export_with(&Default::default(), root, "rtf".into(), dir.path().join("a.rtf"), None).unwrap_err(),
             "bad_format"
         );
         assert_eq!(
@@ -240,7 +249,7 @@ mod tests {
         // not reach the export would make this fail.
         let profile = AuthorProfile { name: "Ana Ruiz".into(), ..Default::default() };
         let dest = dir.path().join("a.pdf");
-        export_with(&profile, root, "pdf".into(), dest.clone()).unwrap();
+        export_with(&profile, root, "pdf".into(), dest.clone(), None).unwrap();
 
         let pdf = std::fs::read(&dest).unwrap();
         assert!(String::from_utf8_lossy(&pdf).contains("/Author (Ana Ruiz)"));

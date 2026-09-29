@@ -65,7 +65,7 @@
         // A failed save must not block an export that does not need the name.
       }
     }
-    await formats.exportAs(path, format, project?.meta.title ?? "manuscript");
+    await formats.exportAs(path, format, project?.meta.title ?? "manuscript", project?.meta.language ?? "en");
   }
 
   async function doImport(): Promise<void> {
