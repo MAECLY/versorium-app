@@ -43,6 +43,11 @@ pub fn export_manuscript(path: PathBuf, format: String, dest: PathBuf) -> Result
             formats::pdf::export_to(&manuscript, &dest)?,
             formats::pdf::export_warnings(&manuscript),
         ),
+        // A directory, not a file: Scrivener projects are bundles.
+        "scriv" => (
+            formats::scrivener::export_to(&manuscript, &dest)?,
+            formats::scrivener::export_warnings(&manuscript),
+        ),
         _ => return Err("bad_format".into()),
     };
     Ok(ExportResult { path: dest.to_string_lossy().into_owned(), bytes, format, warnings })
