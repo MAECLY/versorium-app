@@ -563,7 +563,7 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
   import_preview: ({ source }) => {
     const name = String(source);
-    if (!/\.(md|markdown|docx|scriv)$/i.test(name)) throw "unsupported_source";
+    if (!/\.(md|markdown|docx|scriv|epub)$/i.test(name)) throw "unsupported_source";
     return JSON.parse(JSON.stringify(importPreview));
   },
   import_apply: ({ source: _source, title }) =>

@@ -212,7 +212,8 @@
     "git_diverged": "Las dos copias cambiaron por separado. Versorium aún no sabe fusionar eso — abre la carpeta con una herramienta de git.",
     "no_remote": "Esta novela todavía no tiene respaldo en GitHub configurado.",
     "not_signed_in": "Conecta tu cuenta de GitHub primero.",
-    "export_scrivener_scenes_flattened": "Los saltos de escena se vuelven un separador: Scrivener no tiene escenas dentro de un documento."
+    "export_scrivener_scenes_flattened": "Los saltos de escena se vuelven un separador: Scrivener no tiene escenas dentro de un documento.",
+    "import_epub_styles_dropped": "El estilo del libro no se conserva: un capítulo de Versorium es Markdown."
   },
   "languages": {
     "en": "English",

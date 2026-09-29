@@ -63,6 +63,7 @@ fn importer_for(source: &Path) -> Option<Importer> {
         "md" | "markdown" | "txt" => Some(formats::markdown::import_file),
         "docx" => Some(formats::docx::import_file),
         "scriv" => Some(formats::scrivener::import_file),
+        "epub" => Some(formats::epub::import_file),
         _ => None,
     }
 }
