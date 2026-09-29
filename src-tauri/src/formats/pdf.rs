@@ -182,8 +182,33 @@ struct Line {
 
 /// Lay the manuscript out into pages. Each chapter opens a new page, which is
 /// what makes this a print preview rather than a text dump.
+/// A page of centred lines, vertically settled about a third down.
+///
+/// Where a title page sits in standard manuscript format, and far enough from
+/// the top that it does not read as a heading somebody forgot to follow.
+fn centred_page(lines: &[String]) -> Vec<Line> {
+    let mut out = Vec::new();
+    let mut y = text_top() - CHAPTER_DROP;
+    for text in lines {
+        out.push(Line { x: (PAGE_W - width_of(text)) / 2.0, y, text: text.clone() });
+        y -= LEADING * 2.0;
+    }
+    out
+}
+
 fn paginate(manuscript: &Manuscript) -> Vec<Vec<Line>> {
     let mut pages: Vec<Vec<Line>> = Vec::new();
+
+    if manuscript.matter.cover {
+        let mut lines = vec![manuscript.title.clone()];
+        for extra in [&manuscript.author, &manuscript.byline.organization, &manuscript.byline.rights] {
+            if !extra.trim().is_empty() {
+                lines.push(extra.trim().to_string());
+            }
+        }
+        pages.push(centred_page(&lines));
+    }
+
     for chapter in &manuscript.chapters {
         if chapter.scenes.is_empty() {
             continue;
@@ -222,6 +247,28 @@ fn paginate(manuscript: &Manuscript) -> Vec<Vec<Line>> {
         }
         pages.push(page);
     }
+    if manuscript.matter.colophon {
+        let labels = &manuscript.matter.labels;
+        let mut lines = vec![labels.get("heading").to_string()];
+        for (key, value) in crate::formats::colophon_lines(manuscript) {
+            lines.push(format!("{}: {value}", labels.get(&key)));
+        }
+        lines.push(crate::formats::colophon_credit());
+        lines.push(labels.get("thanks").to_string());
+        // Left-aligned rather than centred: it is a list of facts, and a
+        // centred list of facts reads as a poem.
+        let mut y = text_top() - CHAPTER_DROP;
+        let page = lines
+            .into_iter()
+            .map(|text| {
+                let line = Line { x: MARGIN, y, text };
+                y -= LEADING;
+                line
+            })
+            .collect();
+        pages.push(page);
+    }
+
     pages
 }
 
@@ -283,6 +330,12 @@ fn pdf_date() -> String {
 }
 
 pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
+    // Emptiness is a property of the manuscript, not of the page count. With a
+    // title page switched on, a novel with no words in it would otherwise
+    // export as a perfectly valid one-page PDF of its own title.
+    if manuscript.chapters.iter().all(|c| c.scenes.is_empty()) {
+        return Err("empty_manuscript".into());
+    }
     let pages = paginate(manuscript);
     if pages.is_empty() {
         return Err("empty_manuscript".into());
@@ -456,9 +509,51 @@ mod tests {
         assert!(size > 4);
     }
 
+    /// No title page, no colophon: for tests about the prose itself.
+    fn bare() -> crate::formats::Matter {
+        crate::formats::Matter { cover: false, colophon: false, ..Default::default() }
+    }
+
+    #[test]
+    fn the_title_page_comes_first_and_the_colophon_last() {
+        let mut m = book();
+        m.byline.rights = "© 2026 María Fernández".into();
+        m.matter.labels = crate::formats::Labels::from_pairs(&[
+            ("heading", "Sobre este libro"),
+            ("thanks", "Gracias por escribirlo aquí."),
+        ]);
+        let pages = paginate(&m);
+        assert_eq!(pages.len(), 4, "title page, two chapters, colophon");
+
+        assert_eq!(pages[0][0].text, m.title);
+        assert!(pages[0].iter().any(|l| l.text == "María Fernández"));
+        assert!(pages[0].iter().any(|l| l.text == "© 2026 María Fernández"));
+        assert_eq!(pages[1][0].text, "Capítulo 1. El umbral", "chapter one still opens a page");
+
+        let last = pages.last().unwrap();
+        assert_eq!(last[0].text, "Sobre este libro");
+        assert!(last.iter().any(|l| l.text.starts_with("Written in Versorium")));
+        assert!(last.iter().any(|l| l.text == "Gracias por escribirlo aquí."));
+    }
+
+    #[test]
+    fn a_novel_with_no_words_is_refused_even_with_a_title_page_switched_on() {
+        // Otherwise a novel nobody has written yet exports as a perfectly valid
+        // one-page PDF of its own title.
+        let empty = Manuscript {
+            title: "La Casa de Niebla".into(),
+            chapters: vec![Chapter { id: "ch-01".into(), title: "Uno".into(), scenes: vec![] }],
+            ..book()
+        };
+        assert!(empty.matter.cover, "the setting that made this possible");
+        assert_eq!(render(&empty).unwrap_err(), "empty_manuscript");
+    }
+
     #[test]
     fn each_chapter_opens_a_new_page() {
-        let manuscript = book();
+        // Apparatus off: this is about how prose paginates, and counting around
+        // a title page would hide the thing it checks.
+        let manuscript = Manuscript { matter: bare(), ..book() };
         let pages = paginate(&manuscript);
         assert_eq!(pages.len(), 2, "two short chapters, two pages");
         // The first line of each page is the centred chapter title.
@@ -472,7 +567,7 @@ mod tests {
 
     #[test]
     fn a_long_chapter_spills_onto_further_pages() {
-        let mut manuscript = book();
+        let mut manuscript = Manuscript { matter: bare(), ..book() };
         let prose = manuscript.chapters[0].scenes[0].paragraphs[0].clone();
         manuscript.chapters[0].scenes = vec![scene(
             None,
