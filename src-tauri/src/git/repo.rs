@@ -260,15 +260,60 @@ pub fn remote_add(root: &Path, name: &str, url: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Whether a URL is somewhere this token is allowed to go.
+///
+/// The token is a GitHub personal access token with `repo` scope — read and
+/// write over every private repository the writer owns. It must never be handed
+/// to anything else.
+///
+/// That is not hypothetical here. Nothing in Versorium ever creates a remote:
+/// `remote_add` is not reachable from the UI, so every `origin` this code will
+/// ever see was written into `.git/config` by something outside the app — a
+/// clone, a folder from a writing partner, a self-hosted forge. git's own
+/// credential helpers are host-scoped and would never hand a github.com
+/// credential to another host; without this check, this app would.
+///
+/// `http://` is refused as well as the wrong host: plaintext Basic auth puts
+/// the token on the wire in the clear.
+pub fn is_github_https(url: &str) -> bool {
+    let Some(rest) = url.strip_prefix("https://") else { return false };
+    // Credentials in the URL are ignored by everything downstream, so a
+    // `user@evil.tld` prefix must not be read as the host.
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let host = authority.rsplit('@').next().unwrap_or("");
+    // A port is allowed to be present but not to smuggle a second host.
+    let host = host.split(':').next().unwrap_or("").to_ascii_lowercase();
+    host == "github.com" || host.ends_with(".github.com")
+}
+
+/// Read a remote's URL and refuse it if the token has no business going there.
+fn checked_remote<'a>(
+    repo: &'a Repository,
+    remote: &str,
+) -> Result<git2::Remote<'a>, String> {
+    let origin = repo.find_remote(remote).map_err(|_| "no_remote".to_string())?;
+    match origin.url() {
+        Some(url) if is_github_https(url) => Ok(origin),
+        _ => Err("remote_not_github".to_string()),
+    }
+}
+
 /// Credentials for a GitHub HTTPS remote.
 ///
 /// A personal access token goes in the password field; GitHub ignores the
 /// username, and `x-access-token` is the name it documents. Only
 /// `USER_PASS_PLAINTEXT` is offered, so libgit2 cannot wander off into ssh keys
 /// or a credential helper that might prompt on a machine with no terminal.
+///
+/// The URL is checked again here, inside the callback, even though the caller
+/// already validated the remote. libgit2 follows redirects, and the host it
+/// ends up authenticating against is not necessarily the one configured.
 fn token_callbacks(token: &str) -> git2::RemoteCallbacks<'_> {
     let mut callbacks = git2::RemoteCallbacks::new();
-    callbacks.credentials(move |_url, _username, allowed| {
+    callbacks.credentials(move |url, _username, allowed| {
+        if !is_github_https(url) {
+            return Err(git2::Error::from_str("refusing to send credentials to a non-GitHub host"));
+        }
         if allowed.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
             git2::Cred::userpass_plaintext("x-access-token", token)
         } else {
@@ -303,7 +348,7 @@ fn head_branch(repo: &Repository) -> Result<String, String> {
 pub fn push(root: &Path, remote: &str, token: &str) -> Result<String, String> {
     let repo = open(root)?;
     let branch = head_branch(&repo)?;
-    let mut origin = repo.find_remote(remote).map_err(|_| "no_remote".to_string())?;
+    let mut origin = checked_remote(&repo, remote)?;
 
     let mut options = git2::PushOptions::new();
     options.remote_callbacks(token_callbacks(token));
@@ -329,7 +374,7 @@ pub fn push(root: &Path, remote: &str, token: &str) -> Result<String, String> {
 pub fn pull(root: &Path, remote: &str, token: &str) -> Result<PullOutcome, String> {
     let repo = open(root)?;
     let branch = head_branch(&repo)?;
-    let mut origin = repo.find_remote(remote).map_err(|_| "no_remote".to_string())?;
+    let mut origin = checked_remote(&repo, remote)?;
 
     let mut options = git2::FetchOptions::new();
     options.remote_callbacks(token_callbacks(token));
@@ -492,5 +537,51 @@ mod tests {
     fn no_repo_errors() {
         let dir = tempfile::tempdir().unwrap();
         assert_eq!(status(dir.path()).unwrap_err(), "no_repo");
+    }
+
+    #[test]
+    fn the_token_only_ever_goes_to_github_over_https() {
+        for url in [
+            "https://github.com/ana/novela.git",
+            "https://GitHub.com/ana/novela.git",
+            "https://api.github.com/x",
+            "https://github.com:443/ana/novela.git",
+        ] {
+            assert!(is_github_https(url), "{url} is GitHub");
+        }
+
+        for url in [
+            // Plaintext puts a repo-scoped token on the wire in the clear.
+            "http://github.com/ana/novela.git",
+            // The whole point: a remote nobody at GitHub controls.
+            "https://collector.attacker.tld/x.git",
+            "git@github.com:ana/novela.git",
+            "ssh://github.com/ana/novela.git",
+            // Userinfo must not be mistaken for the host.
+            "https://github.com@attacker.tld/x.git",
+            // Nor a lookalike domain that merely contains the name.
+            "https://github.com.attacker.tld/x.git",
+            "https://notgithub.com/x.git",
+            // Nor a path segment.
+            "https://attacker.tld/github.com/x.git",
+            "",
+        ] {
+            assert!(!is_github_https(url), "{url} must be refused");
+        }
+    }
+
+    #[test]
+    fn a_remote_pointing_elsewhere_is_refused_before_a_connection_is_made() {
+        // The app never creates a remote, so every origin it sees came from
+        // outside: a clone, a handed-over folder, a self-hosted forge.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        std::fs::write(root.join("a.md"), "x").unwrap();
+        init_with_commit(&root).unwrap();
+        remote_add(&root, "origin", "https://collector.attacker.tld/x.git").unwrap();
+
+        // Distinct from a network or auth failure: nothing was contacted.
+        assert_eq!(push(&root, "origin", "ghp_secret").unwrap_err(), "remote_not_github");
+        assert_eq!(pull(&root, "origin", "ghp_secret").unwrap_err(), "remote_not_github");
     }
 }

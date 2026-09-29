@@ -254,7 +254,8 @@
     "import_epub_styles_dropped": "The book's styling is not kept: a Versorium chapter is Markdown.",
     "mcp_http_bind_failed": "Versorium could not open a local port for HTTP.",
     "mcp_http_no_entropy": "Versorium could not get random bytes from the operating system, so it will not open an HTTP port with a guessable token.",
-    "trash_failed": "Versorium could not move that to the Trash."
+    "trash_failed": "Versorium could not move that to the Trash.",
+    "remote_not_github": "This project's remote is not a GitHub address, so the token was not sent. Versorium only signs in to github.com over https."
   },
   "languages": {
     "en": "English",

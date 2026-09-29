@@ -254,7 +254,8 @@
     "import_epub_styles_dropped": "El estilo del libro no se conserva: un capítulo de Versorium es Markdown.",
     "mcp_http_bind_failed": "Versorium no pudo abrir un puerto local para HTTP.",
     "mcp_http_no_entropy": "Versorium no pudo obtener bytes aleatorios del sistema operativo, así que no abrirá un puerto HTTP con un token adivinable.",
-    "trash_failed": "Versorium no pudo mover eso a la papelera."
+    "trash_failed": "Versorium no pudo mover eso a la papelera.",
+    "remote_not_github": "El remoto de este proyecto no es una dirección de GitHub, así que el token no se envió. Versorium solo se identifica en github.com por https."
   },
   "languages": {
     "en": "English",
