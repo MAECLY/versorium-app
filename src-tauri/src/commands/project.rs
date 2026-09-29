@@ -35,6 +35,25 @@ pub struct ProjectMeta {
     /// rather than disappearing.
     #[serde(default)]
     pub chapter_order: Vec<String>,
+    /// Put a title page at the front of an export.
+    ///
+    /// On by default: a manuscript that arrives with no title page makes the
+    /// reader work out whose it is from the filename. Per project rather than
+    /// per app, because the same writer submits a bare manuscript to an agent
+    /// who asked for one and a bound-looking file to everybody else.
+    #[serde(default = "yes")]
+    pub export_cover: bool,
+    /// Close an export with the project's own record and a line of thanks.
+    ///
+    /// Also on by default, and also refusable: nobody should have to ship an
+    /// advert for their writing software inside their novel.
+    #[serde(default = "yes")]
+    pub export_colophon: bool,
+}
+
+/// `true`, as a function, because serde's `default` wants a path.
+fn yes() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,6 +180,8 @@ pub fn create_project(args: CreateProjectArgs) -> Result<Project, String> {
         censorship: "off".into(),
         remote: None,
         chapter_order: Vec::new(),
+        export_cover: true,
+        export_colophon: true,
     };
     fs::write(
         root.join("versorium.json"),
@@ -450,6 +471,8 @@ mod tests {
             censorship: "off".into(),
             remote: None,
             chapter_order: Vec::new(),
+            export_cover: true,
+            export_colophon: true,
         };
         assert_eq!(
             chapter_path_for(&meta, 7, "The Door"),
@@ -515,6 +538,8 @@ mod tests {
             censorship: "off".into(),
             remote: None,
             chapter_order: Vec::new(),
+            export_cover: true,
+            export_colophon: true,
         };
         fs::write(root.join("versorium.json"), serde_json::to_string_pretty(&meta).unwrap()).unwrap();
         let (id, file) = chapter_path_for(&meta, 1, title);

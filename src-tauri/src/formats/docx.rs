@@ -628,6 +628,7 @@ mod tests {
             title: "La Casa de Niebla".into(),
             author: "María Fernández".into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "es-ES".into(),
             chapters: vec![
                 Chapter {
@@ -1000,6 +1001,7 @@ mod warning_tests {
             title: "T".into(),
             author: "A B".into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![Chapter {
                 id: "ch-01".into(),
