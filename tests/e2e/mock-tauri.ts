@@ -458,6 +458,20 @@ const commands: Record<string, (args: Args) => unknown> = {
     }
     return { ...c };
   },
+  reorder_chapters: ({ path, ids }) => {
+    const p = project(String(path));
+    const wanted = (ids as string[] | undefined) ?? [];
+    for (const id of wanted) {
+      if (!p.chapters.some((c) => c.id === id)) throw "not_found";
+    }
+    // Named ids first, in the order given; everything else keeps its place
+    // after them, exactly as the Rust command does.
+    const named = p.chapters.filter((c) => wanted.includes(c.id));
+    named.sort((a, b) => wanted.indexOf(a.id) - wanted.indexOf(b.id));
+    p.chapters = [...named, ...p.chapters.filter((c) => !wanted.includes(c.id))];
+    return p.chapters.map((c) => ({ ...c }));
+  },
+
   delete_chapter: ({ path, file }) => {
     const p = project(String(path));
     const index = p.chapters.findIndex((c) => c.file === String(file));

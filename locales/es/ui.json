@@ -35,7 +35,9 @@
       "deleteProject": "Mover a la papelera",
       "renameChapter": "Renombrar capítulo…",
       "deleteChapter": "Borrar capítulo",
-      "markAs": "Marcar como {status}"
+      "markAs": "Marcar como {status}",
+      "moveUp": "Subir",
+      "moveDown": "Bajar"
     },
     "rename": {
       "project": "Renombrar novela",

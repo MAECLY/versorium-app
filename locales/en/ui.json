@@ -35,7 +35,9 @@
       "deleteProject": "Move to Trash",
       "renameChapter": "Rename chapter…",
       "deleteChapter": "Delete chapter",
-      "markAs": "Mark as {status}"
+      "markAs": "Mark as {status}",
+      "moveUp": "Move up",
+      "moveDown": "Move down"
     },
     "rename": {
       "project": "Rename novel",

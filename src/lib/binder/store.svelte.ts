@@ -76,6 +76,31 @@ export class BinderStore {
     });
   }
 
+  /**
+   * Move a chapter one place up or down.
+   *
+   * Up and down rather than drag-and-drop: a binder is a keyboard surface, the
+   * novel this exists for has forty chapters and not four hundred, and a drop
+   * target that is one row tall is a worse way to move one chapter than a menu
+   * item that says which way it is going.
+   */
+  async moveChapter(file: string, delta: -1 | 1): Promise<void> {
+    const path = this.project?.path;
+    const chapters = this.project?.chapters;
+    if (!path || !chapters) return;
+    const from = chapters.findIndex((c) => c.file === file);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= chapters.length) return;
+
+    const ids = chapters.map((c) => c.id);
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    await this.run(async () => {
+      const reordered = await api.reorderChapters(path, ids);
+      if (!this.project) return;
+      this.project = { ...this.project, chapters: reordered };
+    });
+  }
+
   /** Delete a chapter. A git snapshot is taken first, so it can come back. */
   async deleteChapter(file: string): Promise<void> {
     const path = this.project?.path;

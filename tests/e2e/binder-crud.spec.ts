@@ -149,3 +149,45 @@ test("the binder actions are translated", async ({ page }) => {
   await expect(page.getByRole("menuitem", { name: "Renombrar novela…" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Mover a la papelera" })).toBeVisible();
 });
+
+test("a chapter can be moved, and the file it points at does not move with it", async ({ page }) => {
+  await withProject(page);
+  await addChapter(page, "Segundo");
+  await addChapter(page, "Tercero");
+
+  const titles = () =>
+    page.evaluate(() =>
+      [...window.__VERSORIUM_MOCK__.projects.values()][0].chapters.map((c) => c.title),
+    );
+  const files = () =>
+    page.evaluate(() =>
+      [...window.__VERSORIUM_MOCK__.projects.values()][0].chapters.map((c) => c.file).sort(),
+    );
+  const before = await files();
+  expect(await titles()).toEqual(["El largo invierno", "Segundo", "Tercero"]);
+
+  await chapterMenu(page, "Tercero").click();
+  await page.getByRole("menuitem", { name: "Move up" }).click();
+  await expect.poll(titles).toEqual(["El largo invierno", "Tercero", "Segundo"]);
+
+  // Order is data, not a numbering: renaming files to reorder them would
+  // orphan the git history and the ops log of every chapter after the move.
+  expect(await files()).toEqual(before);
+});
+
+test("the ends of the list do not offer a move that goes nowhere", async ({ page }) => {
+  await withProject(page);
+  await addChapter(page, "Segundo");
+
+  // A disabled item is a thing to read and then work out why; an absent one is
+  // an answer.
+  await chapterMenu(page, "El largo invierno").click();
+  await expect(page.getByRole("menuitem", { name: "Move up" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Move down" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await chapterMenu(page, "Segundo").click();
+  await expect(page.getByRole("menuitem", { name: "Move down" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Move up" })).toBeVisible();
+});
+
