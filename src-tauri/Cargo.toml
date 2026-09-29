@@ -44,6 +44,11 @@ encoding_rs = "0.8.35"
 # Secret Service); `cli` would pull in nine. No new system packages: the Linux
 # backend is zbus, pure Rust.
 keyring = "4"
+# The OS CSPRNG, for the MCP HTTP bearer token. Already in the tree transitively,
+# so declaring it adds nothing to the binary — but a token gating tools that can
+# write to a manuscript must come from a real random source, not from mixing the
+# clock with a heap address.
+getrandom = "0.3"
 
 [features]
 # GPU offload on Windows and Linux. Off by default and switched on only in the

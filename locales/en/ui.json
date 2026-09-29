@@ -214,7 +214,8 @@
     "not_signed_in": "Connect your GitHub account first.",
     "export_scrivener_scenes_flattened": "Scene breaks become a separator: Scrivener has no scene inside a document.",
     "import_epub_styles_dropped": "The book's styling is not kept: a Versorium chapter is Markdown.",
-    "mcp_http_bind_failed": "Versorium could not open a local port for HTTP."
+    "mcp_http_bind_failed": "Versorium could not open a local port for HTTP.",
+    "mcp_http_no_entropy": "Versorium could not get random bytes from the operating system, so it will not open an HTTP port with a guessable token."
   },
   "languages": {
     "en": "English",
