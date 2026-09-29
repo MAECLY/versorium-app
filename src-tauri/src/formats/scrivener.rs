@@ -691,6 +691,7 @@ mod tests {
             title: "El largo invierno".into(),
             author: "Ana Ruiz".into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {

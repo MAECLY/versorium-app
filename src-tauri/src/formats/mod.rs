@@ -74,6 +74,49 @@ impl Byline {
     }
 }
 
+/// The front and back matter an export may carry.
+///
+/// Both are refusable per project. A title page is what an agent asks for and
+/// what a beta reader has no use for; a colophon naming the tool is a courtesy
+/// the writer extends, not one the tool takes.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Matter {
+    pub cover: bool,
+    pub colophon: bool,
+    /// Words the reader of the finished file will see, supplied by the
+    /// frontend.
+    ///
+    /// Same reason `backup_restore` takes its folder label: Rust has no
+    /// dictionary, and the colophon is read by whoever opens the book — so it
+    /// is written in the manuscript's language, not the app's.
+    pub labels: Labels,
+}
+
+impl Default for Matter {
+    fn default() -> Self {
+        Self { cover: true, colophon: true, labels: Labels::default() }
+    }
+}
+
+/// A small phrasebook for text that ends up inside an exported file.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Labels(std::collections::BTreeMap<String, String>);
+
+impl Labels {
+    /// The key itself when nothing was supplied. A missing translation should
+    /// read as a terse English word, never as an empty line in somebody's book.
+    pub fn get<'a>(&'a self, key: &'a str) -> &'a str {
+        self.0.get(key).map(String::as_str).filter(|s| !s.trim().is_empty()).unwrap_or(key)
+    }
+
+    #[cfg(test)]
+    pub fn from_pairs(pairs: &[(&str, &str)]) -> Self {
+        Self(pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Manuscript {
@@ -82,7 +125,49 @@ pub struct Manuscript {
     /// Empty unless an author profile is in use, and empty writes nothing.
     pub byline: Byline,
     pub language: String,
+    pub matter: Matter,
     pub chapters: Vec<Chapter>,
+}
+
+/// One line of the colophon: a label and what it says.
+///
+/// Built once here so DOCX, EPUB and PDF cannot end up disagreeing about what a
+/// project's own record contains.
+pub fn colophon_lines(manuscript: &Manuscript) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = vec![("title".into(), manuscript.title.clone())];
+    if !manuscript.author.trim().is_empty() {
+        out.push(("author".into(), manuscript.author.clone()));
+    }
+    if !manuscript.byline.organization.trim().is_empty() {
+        out.push(("publisher".into(), manuscript.byline.organization.clone()));
+    }
+    if !manuscript.byline.rights.trim().is_empty() {
+        out.push(("rights".into(), manuscript.byline.rights.clone()));
+    }
+    out.push(("language".into(), manuscript.language.clone()));
+    out.push(("chapters".into(), manuscript.chapters.len().to_string()));
+    out.push(("words".into(), word_count(manuscript).to_string()));
+    out
+}
+
+/// Words in the whole manuscript, counted the way the binder counts them so the
+/// colophon and the sidebar cannot disagree.
+pub fn word_count(manuscript: &Manuscript) -> usize {
+    manuscript
+        .chapters
+        .iter()
+        .flat_map(|c| c.scenes.iter())
+        .flat_map(|s| s.paragraphs.iter())
+        .map(|p| p.split_whitespace().count())
+        .sum()
+}
+
+/// What the app says about itself at the end of a manuscript.
+///
+/// Deliberately one sentence and deliberately last. A tool that puts its name
+/// on the title page has mistaken whose book it is.
+pub fn colophon_credit() -> String {
+    format!("Written in Versorium {}", env!("CARGO_PKG_VERSION"))
 }
 
 impl Manuscript {
@@ -160,6 +245,11 @@ pub fn read_manuscript(root: &Path) -> Result<Manuscript, String> {
         author: meta.author,
         byline: Byline::default(),
         language: meta.language,
+        matter: Matter {
+            cover: meta.export_cover,
+            colophon: meta.export_colophon,
+            labels: Labels::default(),
+        },
         chapters: out,
     })
 }
@@ -227,6 +317,7 @@ mod tests {
             title: "T".into(),
             author: author.into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![],
         };

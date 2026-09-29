@@ -134,6 +134,83 @@ fn chapter_xhtml(chapter: &Chapter, language: &str) -> String {
     )
 }
 
+/// The title page.
+///
+/// A manuscript that arrives with no title page makes the reader work out whose
+/// it is from the filename. Only what the writer actually filled in appears —
+/// an empty publisher line is a blank stripe on the first page somebody sees.
+fn cover_xhtml(manuscript: &Manuscript) -> String {
+    let mut lines = String::new();
+    if !manuscript.author.trim().is_empty() {
+        lines.push_str(&format!("    <p class=\"byline\">{}</p>\n", esc(&manuscript.author)));
+    }
+    for value in [&manuscript.byline.organization, &manuscript.byline.rights] {
+        if !value.trim().is_empty() {
+            lines.push_str(&format!("    <p class=\"imprint\">{}</p>\n", esc(value.trim())));
+        }
+    }
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}" lang="{lang}">
+  <head>
+    <meta charset="utf-8"/>
+    <title>{title}</title>
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+  </head>
+  <body>
+    <section epub:type="titlepage" role="doc-tithead" class="cover">
+    <h1 class="cover-title">{title}</h1>
+{lines}    </section>
+  </body>
+</html>
+"#,
+        lang = esc(&manuscript.language),
+        title = esc(&manuscript.title),
+        lines = lines
+    )
+}
+
+/// The project's own record, and one line of thanks.
+///
+/// Last, and refusable. A tool that puts its name on the title page has
+/// mistaken whose book it is.
+fn colophon_xhtml(manuscript: &Manuscript) -> String {
+    let labels = &manuscript.matter.labels;
+    let rows: String = crate::formats::colophon_lines(manuscript)
+        .into_iter()
+        .map(|(key, value)| {
+            format!(
+                "      <div class=\"row\"><span class=\"key\">{}</span><span>{}</span></div>\n",
+                esc(labels.get(&key)),
+                esc(&value)
+            )
+        })
+        .collect();
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}" lang="{lang}">
+  <head>
+    <meta charset="utf-8"/>
+    <title>{heading}</title>
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+  </head>
+  <body>
+    <section epub:type="colophon" role="doc-afterword" class="colophon">
+      <h1>{heading}</h1>
+{rows}      <p class="credit">{credit}</p>
+      <p class="thanks">{thanks}</p>
+    </section>
+  </body>
+</html>
+"#,
+        lang = esc(&manuscript.language),
+        heading = esc(labels.get("heading")),
+        rows = rows,
+        credit = esc(&crate::formats::colophon_credit()),
+        thanks = esc(labels.get("thanks"))
+    )
+}
+
 fn nav_xhtml(chapters: &[(usize, &Chapter)], language: &str) -> String {
     let items: String = chapters
         .iter()
@@ -180,6 +257,24 @@ fn optional_element(name: &str, value: &str) -> String {
 }
 
 fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified: &str) -> String {
+    // Front and back matter sit in the manifest and the spine like any other
+    // document; a reading system that skipped them would be skipping pages.
+    let mut extra_manifest = String::new();
+    let mut before = String::new();
+    let mut after = String::new();
+    if manuscript.matter.cover {
+        extra_manifest.push_str(
+            "    <item id=\"cover\" href=\"cover.xhtml\" media-type=\"application/xhtml+xml\"/>\n",
+        );
+        before.push_str("    <itemref idref=\"cover\"/>\n");
+    }
+    if manuscript.matter.colophon {
+        extra_manifest.push_str(
+            "    <item id=\"colophon\" href=\"colophon.xhtml\" media-type=\"application/xhtml+xml\"/>\n",
+        );
+        after.push_str("    <itemref idref=\"colophon\"/>\n");
+    }
+
     let manifest: String = chapters
         .iter()
         .map(|(index, _)| {
@@ -194,6 +289,7 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
         .iter()
         .map(|(index, _)| format!("    <itemref idref=\"ch{}\"/>\n", index + 1))
         .collect();
+    let spine = format!("{before}{spine}{after}");
     // `file-as` and `role` are refinements of `dc:creator`, so they are only
     // legal when there is a creator to refine: epubcheck rejects a `refines=`
     // pointing at nothing.
@@ -231,7 +327,7 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="css" href="style.css" media-type="text/css"/>
-{manifest}  </manifest>
+{extra_manifest}{manifest}  </manifest>
   <spine>
 {spine}  </spine>
 </package>
@@ -244,6 +340,7 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
         rights = rights,
         modified = modified,
         manifest = manifest,
+        extra_manifest = extra_manifest,
         spine = spine
     )
 }
@@ -257,6 +354,14 @@ const CONTAINER: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 "#;
 
 const STYLE: &str = r#"body { margin: 0 5%; line-height: 1.4; }
+.cover { text-align: center; margin-top: 30%; }
+.cover-title { font-size: 2em; margin: 0 0 1.5em; }
+.byline { text-indent: 0; font-size: 1.15em; margin: 0 0 2em; }
+.imprint { text-indent: 0; font-size: 0.85em; margin: 0.4em 0; }
+.colophon .row { margin: 0.3em 0; }
+.colophon .key { display: inline-block; min-width: 9em; font-variant: small-caps; }
+.colophon .credit { text-indent: 0; margin-top: 2em; }
+.colophon .thanks { text-indent: 0; font-size: 0.9em; }
 h1 { text-align: center; margin: 2em 0 1em; }
 h2 { text-align: center; font-size: 1em; font-weight: normal; margin: 1.5em 0 0.5em; }
 p { text-indent: 1.5em; margin: 0; }
@@ -296,6 +401,12 @@ pub fn export_to(manuscript: &Manuscript, dest: &Path) -> Result<u64, String> {
         put("OEBPS/package.opf", &package_opf(manuscript, &chapters, &modified))?;
         put("OEBPS/nav.xhtml", &nav_xhtml(&chapters, &manuscript.language))?;
         put("OEBPS/style.css", STYLE)?;
+        if manuscript.matter.cover {
+            put("OEBPS/cover.xhtml", &cover_xhtml(manuscript))?;
+        }
+        if manuscript.matter.colophon {
+            put("OEBPS/colophon.xhtml", &colophon_xhtml(manuscript))?;
+        }
         for (index, chapter) in &chapters {
             put(
                 &format!("OEBPS/{}", chapter_href(*index)),
@@ -314,6 +425,20 @@ pub fn export_to(manuscript: &Manuscript, dest: &Path) -> Result<u64, String> {
 /// Text an EPUB carries that a Versorium project does not.
 pub const WARN_IMAGES: &str = "import_images_dropped";
 pub const WARN_STYLES: &str = "import_epub_styles_dropped";
+
+/// `epub:type` values that mark a page as apparatus rather than as a chapter.
+/// Straight from the EPUB 3 structural semantics vocabulary, so this skips the
+/// front and back matter of books this app never wrote.
+const NOT_A_CHAPTER: [&str; 8] = [
+    "toc",
+    "titlepage",
+    "colophon",
+    "cover",
+    "copyright-page",
+    "dedication",
+    "acknowledgments",
+    "landmarks",
+];
 
 pub fn import_file(path: &Path) -> Result<Imported, String> {
     let bytes = std::fs::read(path).map_err(|_| "not_found".to_string())?;
@@ -375,6 +500,18 @@ pub fn import_bytes(bytes: &[u8]) -> Result<Imported, String> {
             }
         }
         let Some(html) = read(&mut zip, &format!("{base}{href}")) else { continue };
+        // Front and back matter are pages of the book, not chapters of the
+        // novel. Without this, re-importing an EPUB this app wrote hands the
+        // writer a title page and a colophon as two new chapters — which the
+        // round-trip test is how we found out.
+        //
+        // Matched on `epub:type`, the structural semantics every conforming
+        // EPUB carries, rather than on a filename, which is ours alone.
+        if NOT_A_CHAPTER.iter().any(|kind| {
+            html.contains(&format!("epub:type=\"{kind}\"")) || html.contains(&format!("epub:type='{kind}'"))
+        }) {
+            continue;
+        }
         let (heading, body) = html_to_chapter(&html);
         if body.trim().is_empty() {
             continue;
@@ -588,6 +725,7 @@ mod import_tests {
             title: "El largo invierno".into(),
             author: "Ana Ruiz".into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -742,6 +880,7 @@ mod tests {
             title: "Niebla & \"Sombra\" <1>".into(),
             author: "María Fernández".into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -898,6 +1037,7 @@ mod tests {
             title: "Empty".into(),
             author: "A".into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "en".into(),
             chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![] }],
         };
@@ -989,5 +1129,75 @@ mod tests {
         let opf = package_opf(&anonymous, &[], "2026-01-01T00:00:00Z");
         assert!(!opf.contains("dc:creator"));
         assert!(!opf.contains("refines"));
+    }
+
+    #[test]
+    fn a_title_page_and_a_colophon_are_real_pages_of_the_book() {
+        let mut m = book();
+        m.byline.organization = "Minotauro".into();
+        m.byline.rights = "© 2026 María Fernández".into();
+        m.matter.labels = crate::formats::Labels::from_pairs(&[
+            ("heading", "Sobre este libro"),
+            ("chapters", "Capítulos"),
+            ("thanks", "Gracias por escribirlo aquí."),
+        ]);
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("b.epub");
+        export_to(&m, &dest).unwrap();
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(std::fs::read(&dest).unwrap())).unwrap();
+
+        let cover = read(&mut zip, "OEBPS/cover.xhtml");
+        assert!(cover.contains(&esc(&m.title)), "the title page carries the title");
+        assert!(cover.contains("María Fernández"));
+        assert!(cover.contains("Minotauro"));
+        assert!(cover.contains("epub:type=\"titlepage\""));
+
+        let colophon = read(&mut zip, "OEBPS/colophon.xhtml");
+        assert!(colophon.contains("Sobre este libro"), "labels come from the caller");
+        assert!(colophon.contains("Capítulos"));
+        assert!(colophon.contains("Gracias por escribirlo aquí."));
+        assert!(colophon.contains("Written in Versorium"));
+
+        // A page nothing points at is a page nobody reads.
+        let opf = read(&mut zip, "OEBPS/package.opf");
+        assert!(opf.contains(r#"<item id="cover" href="cover.xhtml""#));
+        assert!(opf.contains(r#"<itemref idref="cover"/>"#));
+        assert!(opf.contains(r#"<itemref idref="colophon"/>"#));
+        // And in the right order: title page first, colophon last.
+        assert!(opf.find("idref=\"cover\"").unwrap() < opf.find("idref=\"ch1\"").unwrap());
+        assert!(opf.find("idref=\"colophon\"").unwrap() > opf.find("idref=\"ch1\"").unwrap());
+    }
+
+    #[test]
+    fn a_writer_who_refuses_them_gets_a_book_with_neither() {
+        // Nobody should have to ship an advert for their writing software
+        // inside their novel.
+        let mut m = book();
+        m.matter = crate::formats::Matter { cover: false, colophon: false, ..Default::default() };
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("b.epub");
+        export_to(&m, &dest).unwrap();
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(std::fs::read(&dest).unwrap())).unwrap();
+
+        assert!(zip.by_name("OEBPS/cover.xhtml").is_err());
+        assert!(zip.by_name("OEBPS/colophon.xhtml").is_err());
+        let opf = read(&mut zip, "OEBPS/package.opf");
+        assert!(!opf.contains("cover.xhtml"));
+        assert!(!opf.contains("Versorium"), "not even a trace in the metadata");
+    }
+
+    #[test]
+    fn a_line_the_writer_left_empty_is_not_a_blank_stripe_on_the_title_page() {
+        let m = book();
+        let cover = cover_xhtml(&m);
+        assert!(!cover.contains("class=\"imprint\""), "no publisher, no line");
+    }
+
+    /// Read one member of an EPUB as text.
+    fn read(zip: &mut zip::ZipArchive<std::io::Cursor<Vec<u8>>>, name: &str) -> String {
+        let mut file = zip.by_name(name).unwrap_or_else(|_| panic!("{name} is missing"));
+        let mut out = String::new();
+        file.read_to_string(&mut out).unwrap();
+        out
     }
 }

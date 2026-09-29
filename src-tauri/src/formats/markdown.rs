@@ -244,6 +244,7 @@ mod tests {
             title: "El largo invierno".into(),
             author: "Ana García".into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -302,6 +303,7 @@ mod tests {
             title: back.title.clone(),
             author: "Ana García".into(),
             byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: back
                 .chapters
