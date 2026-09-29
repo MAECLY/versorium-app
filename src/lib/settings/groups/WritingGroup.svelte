@@ -1,8 +1,11 @@
 <script lang="ts">
+  import AuthorSection from "$lib/settings/AuthorSection.svelte";
   import TypographySection from "$lib/settings/TypographySection.svelte";
 </script>
 
-<!-- Only typography for now. Focus mode and the typewriter line are writing
-     settings too and are already persisted, but they are reachable solely as
-     TopBar toggles; bringing them here is the next step, not this one. -->
+<!-- Both sections answer the group's question — what the manuscript is, rather
+     than what the app is. Focus mode and the typewriter line are writing
+     settings too and are already persisted, but they are modes reachable as
+     TopBar toggles with visible state, not preferences. -->
 <TypographySection />
+<AuthorSection />

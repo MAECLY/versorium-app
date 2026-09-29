@@ -48,7 +48,7 @@ fn utc_now() -> String {
 }
 
 /// Days-to-civil, the same algorithm the ops log uses for its pack names.
-fn civil_from_secs(secs: i64) -> (i64, u32, u32) {
+pub fn civil_from_secs(secs: i64) -> (i64, u32, u32) {
     let z = secs.div_euclid(86_400) + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z - era * 146_097;
@@ -167,6 +167,18 @@ fn nav_xhtml(chapters: &[(usize, &Chapter)], language: &str) -> String {
     )
 }
 
+/// An element only when there is something to put in it.
+///
+/// An empty `<dc:publisher/>` is worse than none: a reader shows a blank
+/// publisher rather than falling back to nothing.
+fn optional_element(name: &str, value: &str) -> String {
+    let value = value.trim();
+    if value.is_empty() {
+        return String::new();
+    }
+    format!("    <{name}>{}</{name}>\n", esc(value))
+}
+
 fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified: &str) -> String {
     let manifest: String = chapters
         .iter()
@@ -182,14 +194,31 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
         .iter()
         .map(|(index, _)| format!("    <itemref idref=\"ch{}\"/>\n", index + 1))
         .collect();
+    // `file-as` and `role` are refinements of `dc:creator`, so they are only
+    // legal when there is a creator to refine: epubcheck rejects a `refines=`
+    // pointing at nothing.
     let creator = if manuscript.author.trim().is_empty() {
         String::new()
     } else {
-        format!(
+        let byline = &manuscript.byline;
+        let mut out = format!(
             "    <dc:creator id=\"creator\">{}</dc:creator>\n",
             esc(&manuscript.author)
-        )
+        );
+        out.push_str(&format!(
+            "    <meta refines=\"#creator\" property=\"file-as\">{}</meta>\n",
+            esc(&byline.sort_as_or_guess(&manuscript.author))
+        ));
+        if crate::formats::ROLES.contains(&byline.role.as_str()) {
+            out.push_str(&format!(
+                "    <meta refines=\"#creator\" property=\"role\" scheme=\"marc:relators\">{}</meta>\n",
+                esc(&byline.role)
+            ));
+        }
+        out
     };
+    let publisher = optional_element("dc:publisher", &manuscript.byline.organization);
+    let rights = optional_element("dc:rights", &manuscript.byline.rights);
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id" xml:lang="{lang}">
@@ -197,7 +226,7 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
     <dc:identifier id="pub-id">{id}</dc:identifier>
     <dc:title>{title}</dc:title>
     <dc:language>{lang}</dc:language>
-{creator}    <meta property="dcterms:modified">{modified}</meta>
+{creator}{publisher}{rights}    <meta property="dcterms:modified">{modified}</meta>
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
@@ -211,6 +240,8 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
         id = stable_uuid(manuscript),
         title = esc(&manuscript.title),
         creator = creator,
+        publisher = publisher,
+        rights = rights,
         modified = modified,
         manifest = manifest,
         spine = spine
@@ -556,6 +587,7 @@ mod import_tests {
         Manuscript {
             title: "El largo invierno".into(),
             author: "Ana Ruiz".into(),
+            byline: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -709,6 +741,7 @@ mod tests {
         Manuscript {
             title: "Niebla & \"Sombra\" <1>".into(),
             author: "María Fernández".into(),
+            byline: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -864,6 +897,7 @@ mod tests {
         let manuscript = Manuscript {
             title: "Empty".into(),
             author: "A".into(),
+            byline: Default::default(),
             language: "en".into(),
             chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![] }],
         };
@@ -915,5 +949,45 @@ mod tests {
         eprintln!("{report}");
         assert!(out.status.success(), "epubcheck rejected the file:\n{report}");
         assert!(!report.contains("ERROR"), "epubcheck reported errors:\n{report}");
+    }
+
+    #[test]
+    fn an_author_profile_reaches_the_package_document() {
+        let mut book = book();
+        book.byline = crate::formats::Byline {
+            sort_as: "Ruiz, Ana".into(),
+            role: "aut".into(),
+            organization: "Minotauro".into(),
+            rights: "© 2026 Ana Ruiz".into(),
+        };
+        let opf = package_opf(&book, &book.chapters.iter().enumerate().collect::<Vec<_>>(), "2026-01-01T00:00:00Z");
+
+        assert!(opf.contains(r##"<meta refines="#creator" property="file-as">Ruiz, Ana</meta>"##));
+        assert!(opf.contains(r##"property="role" scheme="marc:relators">aut<"##));
+        assert!(opf.contains("<dc:publisher>Minotauro</dc:publisher>"));
+        assert!(opf.contains("<dc:rights>© 2026 Ana Ruiz</dc:rights>"));
+    }
+
+    #[test]
+    fn nothing_is_written_for_a_profile_nobody_filled_in() {
+        // An empty <dc:publisher/> shows as a blank publisher in a reader,
+        // which is worse than the reader falling back to nothing.
+        let opf = package_opf(&book(), &[], "2026-01-01T00:00:00Z");
+        assert!(!opf.contains("<dc:publisher"));
+        assert!(!opf.contains("<dc:rights"));
+        assert!(!opf.contains("marc:relators"), "an invented role code is worse than none");
+        // file-as is still written, from the guess, because a shelf has to sort
+        // somehow and "Ruiz, Ana" beats sorting on "Ana".
+        assert!(opf.contains(r##"property="file-as""##));
+    }
+
+    #[test]
+    fn a_refinement_is_never_left_pointing_at_a_creator_that_is_not_there() {
+        // epubcheck rejects a refines= with no target, so an anonymous
+        // manuscript must write neither the creator nor its refinements.
+        let anonymous = Manuscript { author: String::new(), ..book() };
+        let opf = package_opf(&anonymous, &[], "2026-01-01T00:00:00Z");
+        assert!(!opf.contains("dc:creator"));
+        assert!(!opf.contains("refines"));
     }
 }

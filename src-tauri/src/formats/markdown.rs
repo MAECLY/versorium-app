@@ -35,6 +35,18 @@ pub fn export(manuscript: &Manuscript) -> String {
     out.push_str(&format!("title: {}\n", yaml(&manuscript.title)));
     out.push_str(&format!("author: {}\n", yaml(&manuscript.author)));
     out.push_str(&format!("language: {}\n", yaml(&manuscript.language)));
+    // Only what was filled in. A key with an empty value survives a round trip
+    // as a key with an empty value, and then looks like data.
+    for (key, value) in [
+        ("sortAs", manuscript.byline.sort_as.trim()),
+        ("role", manuscript.byline.role.trim()),
+        ("publisher", manuscript.byline.organization.trim()),
+        ("rights", manuscript.byline.rights.trim()),
+    ] {
+        if !value.is_empty() {
+            out.push_str(&format!("{key}: {}\n", yaml(value)));
+        }
+    }
     out.push_str("---\n");
 
     for chapter in &manuscript.chapters {
@@ -231,6 +243,7 @@ mod tests {
         Manuscript {
             title: "El largo invierno".into(),
             author: "Ana García".into(),
+            byline: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -288,6 +301,7 @@ mod tests {
         let rebuilt = Manuscript {
             title: back.title.clone(),
             author: "Ana García".into(),
+            byline: Default::default(),
             language: "es".into(),
             chapters: back
                 .chapters

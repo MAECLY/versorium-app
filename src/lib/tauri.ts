@@ -55,7 +55,38 @@ export interface AppSettings {
   /** Folders archives are written to; empty means backups are off. */
   backupDirs: string[];
   backupKeep: number;
+  /** Two author identities; exports use whichever `authorProfile` names. */
+  authorProfiles: AuthorProfiles;
+  /** `work` or `hobby`. */
+  authorProfile: string;
 }
+
+/**
+ * One author identity, as it will appear inside an exported file.
+ *
+ * Every field lands somewhere real — no field here is stored only to be looked
+ * at, and none of them travels anywhere but into the file being written.
+ */
+export interface AuthorProfile {
+  /** The byline. Creator in every format that has one. */
+  name: string;
+  /** "Le Guin, Ursula K." — EPUB `file-as`. Guessed when blank. */
+  sortAs: string;
+  /** A MARC relator: `aut`, `edt`, `trl`. EPUB only. */
+  role: string;
+  /** `dc:publisher` in EPUB, `Company` in DOCX. */
+  organization: string;
+  /** The copyright line. `dc:rights` in EPUB, `/Subject` in PDF. */
+  rights: string;
+}
+
+export interface AuthorProfiles {
+  work: AuthorProfile;
+  hobby: AuthorProfile;
+}
+
+/** The relator codes offered. A free-text role produces codes nothing reads. */
+export const AUTHOR_ROLES = ["aut", "edt", "trl"] as const;
 
 export interface ChapterDoc {
   frontmatter: Record<string, string>;
