@@ -550,11 +550,14 @@ const commands: Record<string, (args: Args) => unknown> = {
   export_manuscript: ({ path, format, dest }) => {
     const project = projects.get(String(path));
     if (!project) throw "not_found";
-    if (!["md", "docx", "epub", "pdf"].includes(String(format))) throw "bad_format";
+    if (!["md", "docx", "epub", "pdf", "scriv"].includes(String(format))) throw "bad_format";
     if (!project.chapters.some((c) => c.body.trim())) throw "empty_manuscript";
     // PDF cannot carry every character, and the UI has to say so.
     const warnings = format === "pdf" ? ["export_pdf_characters_replaced"]
-                   : format === "docx" ? ["export_docx_scene_titles_dropped"] : [];
+                   : format === "docx" ? ["export_docx_scene_titles_dropped"]
+                   // Scrivener has no scene inside a document, so a heading
+                   // becomes a separator and the UI has to say so.
+                   : format === "scriv" ? ["export_scrivener_scenes_flattened"] : [];
     lastExport = { path: String(dest), bytes: 48_231, format: String(format), warnings };
     return { ...lastExport };
   },

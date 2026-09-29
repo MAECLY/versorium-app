@@ -308,7 +308,7 @@ export interface LocalAiView {
 
 // --- M5: formats ---
 
-export type ExportFormat = "md" | "docx" | "epub" | "pdf";
+export type ExportFormat = "md" | "docx" | "epub" | "pdf" | "scriv";
 export type ImportFormat = "md" | "docx" | "scriv";
 
 export interface ExportResult {

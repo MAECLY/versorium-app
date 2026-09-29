@@ -13,7 +13,11 @@ const TARGET: Record<ExportFormat, { extension: string; name: string }> = {
   docx: { extension: "docx", name: "Word" },
   epub: { extension: "epub", name: "EPUB" },
   pdf: { extension: "pdf", name: "PDF" },
+  scriv: { extension: "scriv", name: "Scrivener" },
 };
+
+/** Formats written as a directory rather than a file. */
+const BUNDLES: ExportFormat[] = ["scriv"];
 
 /**
  * Export and import state for the Manuscript dialog.
@@ -34,7 +38,14 @@ export class FormatsStore {
   async exportAs(projectPath: string, format: ExportFormat, title: string): Promise<void> {
     await this.run(async () => {
       const { extension, name } = TARGET[format];
-      const dest = await api.pickExportTarget(`${title}.${extension}`, name, extension);
+      let dest: unknown;
+      if (BUNDLES.includes(format)) {
+        const parent = await api.pickDirectory();
+        if (typeof parent !== "string") return;
+        dest = `${parent}/${title}.${extension}`;
+      } else {
+        dest = await api.pickExportTarget(`${title}.${extension}`, name, extension);
+      }
       if (typeof dest !== "string") return;
       this.result = await api.exportManuscript(projectPath, format, dest);
     });
