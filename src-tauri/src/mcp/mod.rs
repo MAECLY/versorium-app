@@ -7,9 +7,10 @@
 
 pub mod clients;
 pub mod dispatch;
+pub mod http;
 pub mod log;
 pub mod query;
-pub mod server;
+mod server;
 pub mod session;
 pub mod tools;
 pub mod write;

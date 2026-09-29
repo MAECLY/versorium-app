@@ -243,6 +243,8 @@ let backupDir: string | null = null;
 let backupKeep = 10;
 let backupArchives: { path: string; name: string; bytes: number; modified: number }[] = [];
 
+let mcpHttpEnabled = false;
+
 let llamaWarmCalls = 0;
 let llamaBusy = false;
 
@@ -734,6 +736,17 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
   mcp_log: ({ limit }) => mcpLog.slice(-Number(limit ?? 50)).reverse(),
   mcp_set_active_project: () => undefined,
+  // Off by default, like the real setting: it opens a listener on a machine
+  // whose MCP tools can write.
+  mcp_http_status: () => ({
+    enabled: mcpHttpEnabled,
+    url: mcpHttpEnabled ? "http://127.0.0.1:52341/mcp" : null,
+    endpointFile: "/mock/Library/versorium/mcp-http.json",
+  }),
+  mcp_set_http: ({ enabled }) => {
+    mcpHttpEnabled = Boolean(enabled);
+    return commands.mcp_http_status({});
+  },
 
   // Mirrors agents::rewrite: dispatch on the assignment, never on `kind` alone.
   ai_rewrite: ({ kind, id, text }) => {
