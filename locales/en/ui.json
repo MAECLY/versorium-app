@@ -212,7 +212,8 @@
     "git_diverged": "Both copies changed separately. Versorium cannot merge that yet — open the folder in a git tool.",
     "no_remote": "This novel has no GitHub backup set up yet.",
     "not_signed_in": "Connect your GitHub account first.",
-    "export_scrivener_scenes_flattened": "Scene breaks become a separator: Scrivener has no scene inside a document."
+    "export_scrivener_scenes_flattened": "Scene breaks become a separator: Scrivener has no scene inside a document.",
+    "import_epub_styles_dropped": "The book's styling is not kept: a Versorium chapter is Markdown."
   },
   "languages": {
     "en": "English",

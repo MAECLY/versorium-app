@@ -536,7 +536,7 @@ export const api = {
   pickImportFile: () =>
     open({
       multiple: false,
-      filters: [{ name: "Manuscript", extensions: ["md", "markdown", "docx"] }],
+      filters: [{ name: "Manuscript", extensions: ["md", "markdown", "docx", "epub"] }],
     }),
   /** A Scrivener project, which is a .scriv bundle directory on macOS. */
   pickImportProject: () => open({ directory: true, multiple: false }),
