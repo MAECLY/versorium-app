@@ -42,6 +42,10 @@ test("a card shows Download, Ready or a resumable percentage", async ({ page }) 
   const missing = localAi.getByRole("listitem").filter({ hasText: "Qwen3 4B Instruct" });
   await expect(missing.getByRole("button", { name: "Download" })).toBeVisible();
   await expect(missing.getByText("Balanced", { exact: true })).toBeVisible();
+  // Speed and quality are folded away until asked for: the row carries what it
+  // takes to decide, the details carry the rest.
+  await expect(missing.getByText(/Balanced • Good/i)).toHaveCount(0);
+  await missing.getByRole("button", { name: "Details" }).click();
   await expect(missing.getByText(/Balanced • Good/i)).toBeVisible();
 
   // A partial download offers to resume rather than starting over.

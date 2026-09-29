@@ -50,11 +50,44 @@
   let view = $derived(models.view);
   let progress = $derived(view?.progress ?? null);
 
-  let writing = $derived(
-    [...models.writing].sort(
-      (a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier) || a.sizeBytes - b.sizeBytes,
-    ),
-  );
+  /**
+   * Finding a model, rather than scrolling past every model.
+   *
+   * The catalogue grew past the point where a single column of full cards is
+   * readable. Search, one filter per question somebody actually asks ("which
+   * ones run here", "which family"), and a sort — with the details folded away
+   * until asked for, so the list is a list.
+   */
+  type Sort = "recommended" | "smallest" | "largest" | "name";
+  const SORTS: Sort[] = ["recommended", "smallest", "largest", "name"];
+
+  let query = $state("");
+  let family = $state("all");
+  let onlyFits = $state(false);
+  let sort = $state<Sort>("recommended");
+  let expanded = $state<string | null>(null);
+
+  let families = $derived([...new Set(models.writing.map((m) => m.family))].sort());
+
+  let writing = $derived.by(() => {
+    const needle = query.trim().toLowerCase();
+    const matches = models.writing.filter(
+      (m) =>
+        (family === "all" || m.family === family) &&
+        (!onlyFits || m.fits) &&
+        (needle === "" ||
+          `${m.label} ${m.family} ${m.params} ${m.quant}`.toLowerCase().includes(needle)),
+    );
+    const byLadder = (a: ModelCard, b: ModelCard) =>
+      TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier) || a.sizeBytes - b.sizeBytes;
+    const order: Record<Sort, (a: ModelCard, b: ModelCard) => number> = {
+      recommended: byLadder,
+      smallest: (a, b) => a.sizeBytes - b.sizeBytes,
+      largest: (a, b) => b.sizeBytes - a.sizeBytes,
+      name: (a, b) => a.label.localeCompare(b.label, getLocale()),
+    };
+    return matches.sort(order[sort]);
+  });
 
   /** Built-in models a slot may point at — only what is actually on disk. */
   let ready = $derived(models.models.filter((m) => m.state === "ready"));
@@ -225,8 +258,62 @@
         {t("localAi.card.ladderIntro")}
       </p>
 
-      {#if writing.length === 0}
+      <div class="v-row mb-2" style="gap: 8px; flex-wrap: wrap;">
+        <input
+          type="search"
+          placeholder={t("localAi.filter.search")}
+          aria-label={t("localAi.filter.search")}
+          bind:value={query}
+          style="flex: 1; min-width: 160px;"
+        />
+        <label class="v-row" style="gap: 6px; font-size: 12.5px;">
+          {t("localAi.filter.sort")}
+          <select aria-label={t("localAi.filter.sort")} bind:value={sort}>
+            {#each SORTS as option (option)}
+              <option value={option}>{t(`localAi.filter.sorts.${option}`)}</option>
+            {/each}
+          </select>
+        </label>
+      </div>
+
+      <div class="v-row mb-1" style="gap: 6px; flex-wrap: wrap;" role="group" aria-label={t("localAi.filter.family")}>
+        <button
+          class="v-btn"
+          style="padding: 2px 10px; font-size: 12px;"
+          aria-pressed={family === "all"}
+          onclick={() => (family = "all")}
+        >
+          {t("localAi.filter.allFamilies")}
+        </button>
+        {#each families as name (name)}
+          <button
+            class="v-btn"
+            style="padding: 2px 10px; font-size: 12px;"
+            aria-pressed={family === name}
+            onclick={() => (family = name)}
+          >
+            {name}
+          </button>
+        {/each}
+        <!-- The question a writer with 8 GB of RAM is actually asking. -->
+        <button
+          class="v-btn"
+          style="padding: 2px 10px; font-size: 12px;"
+          aria-pressed={onlyFits}
+          onclick={() => (onlyFits = !onlyFits)}
+        >
+          {t("localAi.filter.fits")}
+        </button>
+      </div>
+
+      <p class="v-muted m-0 mb-2" style="font-size: 11.5px;" aria-live="polite">
+        {t("localAi.filter.showing", { shown: writing.length, total: models.writing.length })}
+      </p>
+
+      {#if models.writing.length === 0}
         <p class="v-muted m-0" style="font-size: 13px;">{t("localAi.card.empty")}</p>
+      {:else if writing.length === 0}
+        <p class="v-muted m-0" style="font-size: 13px;">{t("localAi.filter.noMatch")}</p>
       {:else}
         <ul class="m-0 flex list-none flex-col gap-2 p-0" aria-busy={models.loading}>
           {#each writing as m (m.id)}
@@ -268,29 +355,39 @@
                     {/if}
                   </div>
                   <p class="m-0 mt-1" style="font-size: 12px;">
-                    {t(`localAi.card.purpose.${m.task}`)}
+                    {humanSize(m.sizeBytes)} · {t(`localAi.card.purpose.${m.task}`)}
                   </p>
-                  <p class="v-muted m-0 mt-1" style="font-size: 12px;">
-                    {t(`localAi.card.tierNote.${m.tier}`)}
-                    · {t("localAi.card.oneLiner", {
-                      speed: t(`localAi.speeds.${m.speed}`),
-                      quality: t(`localAi.qualities.${m.quality}`),
-                    })}
-                  </p>
-                  <p class="v-muted m-0 mt-1" style="font-size: 12px;">
-                    {t("localAi.card.meta", {
-                      size: humanSize(m.sizeBytes),
-                      quality: t(`localAi.qualities.${m.quality}`),
-                      quant: m.quant,
-                      ctx: m.ctx.toLocaleString(getLocale()),
-                      ram: `${m.ramHintGB} GB`,
-                    })}
-                  </p>
-                  <p class="v-muted m-0 mt-1" style="font-size: 11px;">
-                    {t("localAi.card.license")}: {m.license} · {m.repo}
-                  </p>
-                  {#if m.uncensored}
-                    <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("localAi.card.uncensoredWhy")}</p>
+                  <button
+                    class="v-btn mt-1"
+                    style="padding: 0 8px; font-size: 11.5px;"
+                    aria-expanded={expanded === m.id}
+                    onclick={() => (expanded = expanded === m.id ? null : m.id)}
+                  >
+                    {t("localAi.card.details")}
+                  </button>
+                  {#if expanded === m.id}
+                    <p class="v-muted m-0 mt-1" style="font-size: 12px;">
+                      {t(`localAi.card.tierNote.${m.tier}`)}
+                      · {t("localAi.card.oneLiner", {
+                        speed: t(`localAi.speeds.${m.speed}`),
+                        quality: t(`localAi.qualities.${m.quality}`),
+                      })}
+                    </p>
+                    <p class="v-muted m-0 mt-1" style="font-size: 12px;">
+                      {t("localAi.card.meta", {
+                        size: humanSize(m.sizeBytes),
+                        quality: t(`localAi.qualities.${m.quality}`),
+                        quant: m.quant,
+                        ctx: m.ctx.toLocaleString(getLocale()),
+                        ram: `${m.ramHintGB} GB`,
+                      })}
+                    </p>
+                    <p class="v-muted m-0 mt-1" style="font-size: 11px;">
+                      {t("localAi.card.license")}: {m.license} · {m.repo}
+                    </p>
+                    {#if m.uncensored}
+                      <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("localAi.card.uncensoredWhy")}</p>
+                    {/if}
                   {/if}
                   {#if !m.fits}
                     <p class="m-0 mt-1" style="font-size: 12px; color: var(--warn);">{t("localAi.card.tooBig")}</p>

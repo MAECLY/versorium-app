@@ -387,7 +387,8 @@
         "mid": "The sweet spot on an ordinary laptop.",
         "midPlus": "Noticeably better prose, and it is heavy.",
         "high": "The best here, and it asks for a lot of memory."
-      }
+      },
+      "details": "Details"
     },
     "speeds": {
       "fast": "Fast",
@@ -450,6 +451,21 @@
       "failed": "llama.cpp could not start on this machine.",
       "cpuOnly": "CPU",
       "noGpuBuild": "· this build has no GPU backend, so speeds are CPU speeds"
+    },
+    "filter": {
+      "search": "Search models",
+      "sort": "Sort",
+      "sorts": {
+        "recommended": "Recommended order",
+        "smallest": "Smallest first",
+        "largest": "Largest first",
+        "name": "By name"
+      },
+      "family": "Family",
+      "allFamilies": "All families",
+      "fits": "Runs on this machine",
+      "showing": "Showing {shown} of {total}",
+      "noMatch": "No model matches that. Clear the search or the filters."
     }
   },
   "manuscript": {
