@@ -262,7 +262,21 @@ const backupDestinations = [
 const projectVolume = "1";
 let backupDirs: string[] = [];
 let backupKeep = 10;
-type MockArchive = { path: string; name: string; bytes: number; modified: number; sha256: string | null };
+type MockArchive = {
+  path: string;
+  name: string;
+  bytes: number;
+  modified: number;
+  stamped: number | null;
+  print: string | null;
+  sha256: string | null;
+};
+/** Which state of the novel each destination is already holding, and how many
+    copies of it — the mock's stand-in for reading the archives back. */
+const backupHeld = new Map<string, { print: string; copies: number }>();
+/** Bumped by any command that changes the manuscript, so the mock can tell an
+    unchanged press from a real one without hashing anything. */
+let manuscriptRevision = 0;
 const backupArchives = new Map<string, MockArchive[]>();
 
 let mcpHttpEnabled = false;
@@ -428,6 +442,8 @@ const commands: Record<string, (args: Args) => unknown> = {
   save_chapter: ({ path, file, body, status }) => {
     const p = project(path);
     const c = chapter(p, file);
+    // What makes the next "Back up now" a real backup rather than a no-op.
+    manuscriptRevision += 1;
     c.body = String(body);
     c.words = countWords(c.body);
     if (typeof status === "string") c.status = status;
@@ -758,19 +774,32 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (backupDirs.length === 0) throw "backup_not_configured";
     // `/mock/Volumes/Respaldo` stands in for an unplugged drive: the case the
     // whole per-destination reporting exists for.
+    const print = `state${manuscriptRevision}`.padEnd(16, "0");
     return backupDirs.map((dir) => {
       if (dir === "/mock/Volumes/Respaldo") return { state: "unavailable", path: dir };
       const stored = backupArchives.get(dir) ?? [];
+      const held = backupHeld.get(dir);
+
+      // Mirrors the real rule: two copies of a state, then nothing.
+      if (held?.print === print && held.copies >= 2) {
+        return { state: "unchanged", path: dir, archive: { ...stored[0] }, pruned: 0 };
+      }
+      const copy = held?.print === print;
       const stamp = `2026-09-28-01000${stored.length}`;
       const archive: MockArchive = {
-        path: `${dir}/versorium-backup-el-largo-invierno-${stamp}.zip`,
-        name: `versorium-backup-el-largo-invierno-${stamp}.zip`,
+        path: `${dir}/versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
+        name: `versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
         bytes: 1_240_000,
         modified: 1_790_553_600 + stored.length,
+        stamped: 1_790_553_600 + stored.length,
+        print,
         sha256: "a".repeat(64),
       };
-      backupArchives.set(dir, [archive, ...stored].slice(0, backupKeep));
-      return { state: "ok", path: dir, archive: { ...archive } };
+      const next = [archive, ...stored];
+      const pruned = Math.max(0, next.length - backupKeep);
+      backupArchives.set(dir, next.slice(0, backupKeep));
+      backupHeld.set(dir, { print, copies: copy ? (held?.copies ?? 0) + 1 : 1 });
+      return { state: copy ? "copy" : "ok", path: dir, archive: { ...archive }, pruned };
     });
   },
   backup_list: () =>

@@ -738,7 +738,14 @@
     "verify": "Comprobar",
     "verified": "Leído entero y sin daños.",
     "verifyHint": "Comprobar abre el archivo y vuelve a leer cada fichero. Un archivo que lleva un año en un disco es justo para lo que esto sirve.",
-    "liveRepoHint": "La novela se queda donde está. Un repositorio vivo dentro de una carpeta sincronizada se corrompe — estos servicios copian fichero a fichero, sin respetar el orden que git necesita."
+    "liveRepoHint": "La novela se queda donde está. Un repositorio vivo dentro de una carpeta sincronizada se corrompe — estos servicios copian fichero a fichero, sin respetar el orden que git necesita.",
+    "resultUnchanged": "{name}: no ha cambiado nada desde {when}. No se ha escrito nada nuevo; esa copia se ha vuelto a leer entera y está intacta.",
+    "resultCopy": "{name}: no ha cambiado nada, así que esta es una segunda copia del mismo estado, {size}. No habrá una tercera.",
+    "resultRepaired": "{name}: la copia que había no se pudo volver a leer entera. He escrito una nueva, {size}. El archivo dañado se queda donde está.",
+    "alsoPruned": "Se han borrado {n} más antiguas para no pasar del número que conservas.",
+    "onlyWhenChanged": "Respaldar ahora escribe un archivo nuevo solo si la novela ha cambiado. Guarda dos copias de cada estado en cada destino, y a partir de ahí te lo dice en vez de escribir — pulsarlo otra vez no puede llenar la carpeta.",
+    "damaged": "no se pudo leer entera",
+    "keepHint": "Archivos, no días. Con dos copias de cada estado, diez archivos son al menos cinco estados distintos de la novela."
   },
   "author": {
     "title": "Autor",
