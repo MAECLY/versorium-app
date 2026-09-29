@@ -108,6 +108,13 @@ pub struct Settings {
     pub studio_host: String,
     pub studio_port: u16,
     pub studio_enabled: bool,
+    /// Where backups went when there could only be one destination.
+    ///
+    /// Kept so an existing install does not silently lose the folder it was
+    /// already backing up to: `backup_dirs` is a different key, and an unknown
+    /// key is dropped without a word. Migrated on load and never written again.
+    #[serde(skip_serializing)]
+    pub backup_dir: Option<String>,
     /// Which entry of `fonts/catalog.json` the editor renders in.
     pub editor_font: String,
     /// Chrome fades and the page centres (DESIGN-VERSORIUM.md).
@@ -205,6 +212,7 @@ impl Default for Settings {
             // LM Studio's default local port.
             studio_port: 1234,
             studio_enabled: false,
+            backup_dir: None,
             editor_font: "system-serif".into(),
             focus_mode: false,
             typewriter: false,
@@ -225,10 +233,18 @@ pub struct SettingsStore {
 
 impl SettingsStore {
     pub fn load(path: PathBuf) -> Self {
-        let settings = fs::read_to_string(&path)
+        let mut settings: Settings = fs::read_to_string(&path)
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
+        // One destination became a list. Without this, an install that was
+        // already backing up would come back with backups off and no reason
+        // given, which is the worst way to find out.
+        if let Some(legacy) = settings.backup_dir.take() {
+            if settings.backup_dirs.is_empty() && !legacy.trim().is_empty() {
+                settings.backup_dirs.push(legacy);
+            }
+        }
         Self {
             path,
             inner: RwLock::new(settings),
@@ -443,5 +459,34 @@ mod tests {
         assert_eq!(again.author_profiles.work.organization, "Minotauro");
         assert_eq!(again.author_profiles.hobby.organization, "");
         assert_eq!(again.active_author().name, "A. R. Nocturna");
+    }
+
+    #[test]
+    fn an_install_that_was_already_backing_up_keeps_its_folder() {
+        // `backupDir` became `backupDirs`. An unknown key is dropped in
+        // silence, so without a migration the writer's backups turn off and
+        // nothing says why.
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("settings.json");
+        fs::write(&path, r#"{"backupDir":"/Users/x/iCloud","backupKeep":7,"theme":"quarry"}"#).unwrap();
+
+        let settings = SettingsStore::load(path.clone()).get();
+        assert_eq!(settings.backup_dirs, vec!["/Users/x/iCloud".to_string()]);
+        assert_eq!(settings.backup_keep, 7, "the rest of the file still parsed");
+        assert_eq!(settings.theme, "quarry");
+        assert_eq!(settings.author_profile, "work", "a missing key takes its default");
+    }
+
+    #[test]
+    fn the_legacy_key_is_never_written_back() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("settings.json");
+        fs::write(&path, r#"{"backupDir":"/Users/x/iCloud"}"#).unwrap();
+
+        let store = SettingsStore::load(path.clone());
+        store.update(|s| s.theme = "needle".into());
+        let written = fs::read_to_string(&path).unwrap();
+        assert!(!written.contains("backupDir\""), "migrated once, then gone: {written}");
+        assert!(written.contains("backupDirs"));
     }
 }
