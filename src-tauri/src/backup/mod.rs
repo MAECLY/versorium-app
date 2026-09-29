@@ -232,6 +232,7 @@ fn usable(root: &Path) -> Option<PathBuf> {
 /// `Vendor-Account`. Apple forces this layout: file-provider extensions have
 /// been the only sanctioned route since kexts were deprecated in 12.3, so this
 /// finds providers this code has never heard of.
+#[cfg(target_os = "macos")]
 const CLOUD_STORAGE_VENDORS: [(&str, &str); 6] = [
     ("GoogleDrive", "googledrive"),
     ("OneDrive", "onedrive"),
