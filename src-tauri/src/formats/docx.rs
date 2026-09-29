@@ -215,6 +215,23 @@ fn styles(language: &str) -> String {
       <w:jc w:val="center"/>
     </w:pPr>
   </w:style>
+  <w:style w:type="paragraph" w:styleId="TitlePage">
+    <w:name w:val="Title Page"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:ind w:firstLine="0"/>
+      <w:jc w:val="center"/>
+      <w:spacing w:line="240" w:lineRule="auto" w:after="240"/>
+    </w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Colophon">
+    <w:name w:val="Colophon"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:ind w:firstLine="0"/>
+      <w:spacing w:line="240" w:lineRule="auto"/>
+    </w:pPr>
+  </w:style>
   <w:style w:type="paragraph" w:styleId="Header">
     <w:name w:val="header"/>
     <w:basedOn w:val="Normal"/>
@@ -270,8 +287,50 @@ fn header(manuscript: &Manuscript) -> String {
     )
 }
 
+/// A paragraph that also ends the page.
+///
+/// `w:br w:type="page"` inside the run, not a pile of empty paragraphs: a
+/// manuscript whose title page is held down by blank lines re-flows the moment
+/// anybody changes the font.
+fn page_break_after(style: &str, text: &str) -> String {
+    format!(
+        "  <w:p>\n    <w:pPr>\n      <w:pStyle w:val=\"{style}\"/>\n    </w:pPr>\n\
+         \x20   <w:r>\n      <w:t xml:space=\"preserve\">{}</w:t>\n    </w:r>\n\
+         \x20   <w:r>\n      <w:br w:type=\"page\"/>\n    </w:r>\n  </w:p>\n",
+        esc(text)
+    )
+}
+
 fn document(manuscript: &Manuscript) -> String {
     let mut body = String::new();
+
+    // Standard manuscript format puts the title and the byline on a page of
+    // their own. `w:titlePg` in the section properties already suppresses the
+    // running head there, so this fills a page the layout was expecting.
+    if manuscript.matter.cover {
+        body.push_str(&paragraph("TitlePage", &manuscript.title));
+        let mut lines: Vec<&str> = Vec::new();
+        if !manuscript.author.trim().is_empty() {
+            lines.push(manuscript.author.trim());
+        }
+        for extra in [&manuscript.byline.organization, &manuscript.byline.rights] {
+            if !extra.trim().is_empty() {
+                lines.push(extra.trim());
+            }
+        }
+        match lines.split_last() {
+            // The last line carries the break, so no empty paragraph is left
+            // sitting at the top of chapter one.
+            Some((last, rest)) => {
+                for line in rest {
+                    body.push_str(&paragraph("TitlePage", line));
+                }
+                body.push_str(&page_break_after("TitlePage", last));
+            }
+            None => body.push_str(&page_break_after("TitlePage", "")),
+        }
+    }
+
     for chapter in &manuscript.chapters {
         body.push_str(&paragraph("Heading1", &chapter.title));
         for (index, scene) in chapter.scenes.iter().enumerate() {
@@ -291,6 +350,20 @@ fn document(manuscript: &Manuscript) -> String {
             }
         }
     }
+    if manuscript.matter.colophon {
+        // Behind a page break, at the very end, where a colophon belongs.
+        body.push_str(&page_break_after("Colophon", ""));
+        body.push_str(&paragraph("Colophon", manuscript.matter.labels.get("heading")));
+        for (key, value) in crate::formats::colophon_lines(manuscript) {
+            body.push_str(&paragraph(
+                "Colophon",
+                &format!("{}: {value}", manuscript.matter.labels.get(&key)),
+            ));
+        }
+        body.push_str(&paragraph("Colophon", &crate::formats::colophon_credit()));
+        body.push_str(&paragraph("Colophon", manuscript.matter.labels.get("thanks")));
+    }
+
     format!(
         "{XML_DECL}\n<w:document {W} {R}>\n<w:body>\n{body}\
          \x20 <w:sectPr>\n\
@@ -364,6 +437,15 @@ const HEADING_ONE: [&str; 11] = [
     "heading1", "titulo1", "ttulo1", "titre1", "uberschrift1", "berschrift1", "titolo1", "kop1",
     "rubrik1", "overskrift1", "nagowek1",
 ];
+
+/// Paragraph styles this app writes for pages that are not the novel.
+///
+/// Matched on the style id, which is what carries the intent. A DOCX from
+/// elsewhere will not use these ids, so nothing of a stranger's manuscript is
+/// ever dropped by this.
+fn is_apparatus(style: &Option<String>) -> bool {
+    matches!(style.as_deref(), Some("TitlePage") | Some("Colophon"))
+}
 
 fn is_heading_one(style: &str) -> bool {
     HEADING_ONE.contains(&normalize_style(style).as_str())
@@ -573,6 +655,13 @@ pub fn import_bytes(bytes: &[u8]) -> Result<Imported, String> {
     };
 
     for para in &paras {
+        // The title page and the colophon are apparatus, not prose. Without
+        // this, re-importing a DOCX this app wrote turns its own title page
+        // into the opening paragraphs of chapter one — which is how the
+        // round-trip test found it.
+        if is_apparatus(&para.style) {
+            continue;
+        }
         if heading(&para.style) {
             if title.is_some() || !body.is_empty() {
                 if title.is_none() {
