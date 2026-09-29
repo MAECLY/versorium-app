@@ -6,21 +6,31 @@ have to agree with each other. Hand-exported, they drift — one gets re-cropped
 another keeps an old colour — and nobody can tell which is canonical. Here the
 source of truth is this file, and `make icons` rebuilds all of them.
 
-## What the old set got wrong, and what this fixes
+## Why the mark changed
 
-The mark is a compass, and it is kept. But it was drawn once and scaled down,
-which is why it dissolved: at 32px the ring was a grey hairline, the cardinal
-ticks had vanished into sub-pixel smudges, and the needle was a sliver. An icon
-is not one drawing — it is a family, and the small members need fewer, heavier
-parts.
+It used to be a needle inside a ring. That is a compass, and a teal compass in a
+rounded tile is Safari — near enough that people recognised the wrong app. The
+previous pass fixed how it survived being shrunk and kept the thing that was
+actually wrong with it.
 
-  * Stroke weights are a fraction of the tile, and the fraction *grows* as the
-    tile shrinks, so the ring stays visible rather than staying proportional.
-  * Cardinal ticks are dropped below 48px. Detail that cannot resolve is not
-    detail, it is noise that muddies everything next to it.
-  * The needle keeps its two tones, because that is what makes it read as a
-    compass and not an abstract diamond, but both tones are pushed apart so the
-    contrast survives a 4x downscale.
+The mark is now the letter the app is named for, written rather than set: a
+steep Copperplate slant, the left limb a shade that swells under pressure, the
+right limb a hairline pushed back up, and the nib that drew it resting at the
+end of the stroke. It is drawn, not typed, because a broad-nib letter is not a
+shape with an outline — it is a path with a pressure profile, and no installed
+font can be relied on to exist on a Linux build machine.
+
+## Per-size detail
+
+An icon is not one drawing, it is a family, and the small members need fewer,
+heavier parts:
+
+  * 256px and up — the V, the nib, and the ink.
+  * 64 to 128px — the V and the nib.
+  * below 64px — the V alone, and heavier than proportion would give.
+
+Detail that cannot resolve is not detail, it is mud that muddies everything next
+to it.
 
 ## Per-platform shape
 
@@ -64,26 +74,28 @@ INK = (27, 36, 34)
 NEEDLE_TILT = 34
 
 VARIANTS = {
-    # The current identity: a teal compass on paper. Warm and quiet.
+    # The identity: a written V on paper. Warm and quiet.
     "paper": {
         "bg_top": PAPER,
         "bg_bottom": PAPER_WARM,
-        "ring": TEAL,
-        "needle_dark": TEAL_DEEP,
-        "needle_light": (255, 255, 255),
-        "hub": PAPER,
-        "tick": TEAL,
+        # The shade carries the letter, so it is the strongest tone on the tile.
+        "shade": TEAL_DEEP,
+        "hair": TEAL,
+        "nib": TEAL_DEEP,
+        # The slit reads by cutting back to the page, not by being another ink.
+        "slit": PAPER,
+        "ink": TEAL,
     },
     # The same two colours, inverted. A pale tile disappears in a Dock full of
-    # saturated ones; this is the same compass that can be seen across a screen.
+    # saturated ones; this is the same letter that can be seen across a screen.
     "ink": {
         "bg_top": TEAL,
         "bg_bottom": TEAL_DEEP,
-        "ring": PAPER,
-        "needle_dark": (255, 255, 255),
-        "needle_light": TEAL_BRIGHT,
-        "hub": TEAL_DEEP,
-        "tick": PAPER,
+        "shade": PAPER,
+        "hair": TEAL_BRIGHT,
+        "nib": PAPER,
+        "slit": TEAL_DEEP,
+        "ink": TEAL_BRIGHT,
     },
 }
 
@@ -122,66 +134,162 @@ def vertical_gradient(size: int, top: tuple[int, int, int], bottom: tuple[int, i
     return grad.resize((size, size), Image.Resampling.BICUBIC)
 
 
-def draw_compass(canvas: Image.Image, palette: dict, box: float, ticks: bool, weight: float) -> None:
-    """The mark itself, centred in `canvas`.
+def _tapered(draw, spine, widths, fill) -> None:
+    """A stroke that swells and thins along its length.
 
-    `weight` scales every stroke. It is passed in rather than derived so a small
-    tile can be drawn fatter than proportion would give — which is the whole
-    trick to an icon that survives being shrunk.
+    This is the entire reason the mark is drawn rather than set in a font. A
+    broad-nib letter is not a shape with an outline, it is a path with a
+    pressure profile — thick where the pen is pulled down, a hairline where it
+    is pushed up. `spine` is the path, `widths` is the pressure.
+    """
+    left, right = [], []
+    for i, (point, width) in enumerate(zip(spine, widths)):
+        before = spine[max(0, i - 1)]
+        after = spine[min(len(spine) - 1, i + 1)]
+        dx, dy = after[0] - before[0], after[1] - before[1]
+        length = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / length, dx / length
+        left.append((point[0] + nx * width / 2, point[1] + ny * width / 2))
+        right.append((point[0] - nx * width / 2, point[1] - ny * width / 2))
+    draw.polygon(left + right[::-1], fill=fill)
+
+
+def _bezier(p0, p1, p2, steps: int = 48):
+    """A quadratic curve, sampled. Copperplate has no straight lines."""
+    out = []
+    for i in range(steps + 1):
+        t = i / steps
+        u = 1 - t
+        out.append(
+            (
+                u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0],
+                u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1],
+            )
+        )
+    return out
+
+
+def _profile(n: int, stops) -> list[float]:
+    """Interpolate a width profile given as (position, width) stops."""
+    out = []
+    for i in range(n):
+        t = i / (n - 1)
+        for (t0, w0), (t1, w1) in zip(stops, stops[1:]):
+            if t0 <= t <= t1:
+                k = 0 if t1 == t0 else (t - t0) / (t1 - t0)
+                out.append(w0 + (w1 - w0) * k)
+                break
+        else:
+            out.append(stops[-1][1])
+    return out
+
+
+def draw_mark(canvas: Image.Image, palette: dict, box: float, detail: str, weight: float) -> None:
+    """A V, written.
+
+    The old mark was a ringed needle, which is a compass, which is Safari. This
+    one is the letter the app is named for, drawn the way a pointed nib draws
+    it: a steep Copperplate slant, the left limb a shade that swells under
+    pressure, the right limb a hairline pushed back up, ending in a small curl.
+
+    `detail` is what the tile can hold, not what would be nice:
+
+      * `full`   — the V, the nib that wrote it, and the ink it was written in
+      * `nib`    — the V and the nib
+      * `letter` — the V alone, heavier
+
+    That ladder is the same lesson as before: detail that cannot resolve is not
+    detail, it is mud. A nib at 32px is four grey pixels. A V is still a V.
     """
     draw = ImageDraw.Draw(canvas)
     size = canvas.size[0]
     cx = cy = size / 2
     r = box / 2
 
-    ring_w = max(1.0, r * 0.11 * weight)
-    draw.ellipse(
-        [cx - r, cy - r, cx + r, cy + r],
-        outline=palette["ring"],
-        width=round(ring_w),
+    def at(x: float, y: float) -> tuple[float, float]:
+        """Unit coordinates to canvas pixels. y grows downward, as it draws."""
+        return (cx + x * r, cy + y * r)
+
+    # The three anchors of the letter. They lean right: Copperplate is written
+    # at roughly 55 degrees off the baseline, and a V standing up straight is a
+    # different letter in a different hand.
+    top_left = (-0.62, -0.74)
+    vertex = (0.02, 0.76)
+    top_right = (0.78, -0.80)
+
+    # The shade. Pulled downward, so it is thin entering, heaviest a little past
+    # the middle, and narrows into the join.
+    shade = _bezier(at(*top_left), at(-0.34, -0.02), at(*vertex))
+    widths = _profile(
+        len(shade),
+        # Thin entering, heaviest past the middle where the pull is strongest,
+        # narrowing into the join. A swell centred at the midpoint reads as a
+        # leaf; the whole character of the hand is that it is off-centre.
+        [(0.0, 0.085 * r * weight), (0.58, 0.21 * r * weight), (1.0, 0.05 * r * weight)],
     )
+    _tapered(draw, shade, widths, palette["shade"])
 
-    if ticks:
-        # North, east, south, west. Only at sizes where they can resolve.
-        tick_len = r * 0.16
-        tick_w = max(1.0, ring_w * 0.85)
-        for angle in (0, 90, 180, 270):
-            rad = math.radians(angle - 90)
-            x0 = cx + math.cos(rad) * (r - ring_w * 0.5)
-            y0 = cy + math.sin(rad) * (r - ring_w * 0.5)
-            x1 = cx + math.cos(rad) * (r - ring_w * 0.5 - tick_len)
-            y1 = cy + math.sin(rad) * (r - ring_w * 0.5 - tick_len)
-            draw.line([x0, y0, x1, y1], fill=palette["tick"], width=round(tick_w))
+    # The hairline. Pushed upward, so it stays thin the whole way and finishes
+    # lighter than it started.
+    hair_full = _bezier(at(*vertex), at(0.46, 0.02), at(*top_right))
+    # The stroke ends where the nib begins, so the two read as one object
+    # rather than as a bead threaded onto a wire.
+    hair = hair_full[: int(len(hair_full) * 0.72)] if detail != "letter" else hair_full
+    widths = _profile(
+        len(hair),
+        [(0.0, 0.10 * r * weight), (0.5, 0.075 * r * weight), (1.0, 0.055 * r * weight)],
+    )
+    _tapered(draw, hair, widths, palette["hair"])
 
-    # The needle: two long triangles meeting at the hub. North is the strong
-    # tone, south the light one — the convention that makes it a compass.
-    #
-    # Tilted, as the original mark was. Vertical, it reads as a clock hand at
-    # twelve or a power symbol; the tilt is what makes the silhouette say
-    # compass before any detail resolves.
-    reach = r * 0.78
-    waist = r * 0.135
-    tilt = math.radians(NEEDLE_TILT)
+    if detail == "letter":
+        return
 
-    def at(forward: float, side: float) -> tuple[float, float]:
-        """A point `forward` along the needle and `side` across it."""
+    # The nib that wrote it, sitting at the end of the hairline as though the
+    # pen has just been lifted. Two tines and the slit between them — the one
+    # detail that makes a pointed shape read as a pen.
+    # Seated on the stroke, not floating beside it. The tip is placed back
+    # along the hairline so the nib and the letter are one object: a nib drawn
+    # past the end of its own stroke reads as a kite that happens to be nearby.
+    seat = hair[-1]
+    # Pointing back down the stroke it just drew: a nib's tip is the end of the
+    # line, and its body runs away from the paper.
+    angle = math.atan2(hair_full[-1][1] - seat[1], hair_full[-1][0] - seat[0])
+    nib_len = r * 0.40
+    nib_wide = r * 0.11
+
+    def along(forward: float, side: float) -> tuple[float, float]:
         return (
-            cx + math.sin(tilt) * forward + math.cos(tilt) * side,
-            cy - math.cos(tilt) * forward + math.sin(tilt) * side,
+            seat[0] + math.cos(angle) * forward - math.sin(angle) * side,
+            seat[1] + math.sin(angle) * forward + math.cos(angle) * side,
         )
 
     draw.polygon(
-        [at(reach, 0), at(0, waist), at(-reach * 0.12, 0), at(0, -waist)],
-        fill=palette["needle_dark"],
+        [
+            along(-nib_len * 0.22, 0),
+            along(nib_len * 0.34, nib_wide),
+            along(nib_len, nib_wide * 0.72),
+            along(nib_len, -nib_wide * 0.72),
+            along(nib_len * 0.34, -nib_wide),
+        ],
+        fill=palette["nib"],
     )
-    draw.polygon(
-        [at(-reach, 0), at(0, -waist), at(reach * 0.12, 0), at(0, waist)],
-        fill=palette["needle_light"],
-    )
+    slit = max(1.0, r * 0.028 * weight)
+    draw.line([along(nib_len * 0.02, 0), along(nib_len * 0.62, 0)], fill=palette["slit"], width=round(slit))
+    # The breather hole, which every nib has and which keeps the shape from
+    # reading as a plain arrowhead.
+    hole = max(1.0, r * 0.042)
+    hx, hy = along(nib_len * 0.62, 0)
+    draw.ellipse([hx - hole, hy - hole, hx + hole, hy + hole], fill=palette["slit"])
 
-    # A hub, so the two halves read as one pivoting needle.
-    hub = max(1.0, r * 0.085 * weight)
-    draw.ellipse([cx - hub, cy - hub, cx + hub, cy + hub], fill=palette["hub"])
+    if detail != "full":
+        return
+
+    # The ink. Not a bottle: a bottle is a container, and what this is about is
+    # the ink itself — a pool gathered under the join where the pen rested, and
+    # one drop about to leave it.
+    pool_x, pool_y = at(0.02, 0.80)
+    pool_w, pool_h = r * 0.30, r * 0.055
+    draw.ellipse([pool_x - pool_w, pool_y - pool_h, pool_x + pool_w, pool_y + pool_h], fill=palette["ink"])
 
 
 def render(size: int, variant: str, macos: bool) -> Image.Image:
@@ -189,11 +297,11 @@ def render(size: int, variant: str, macos: bool) -> Image.Image:
     palette = VARIANTS[variant]
     big = size * SS
 
-    # Below this, the ticks are smaller than a pixel after reduction, so they
-    # only add mud.
-    ticks = size >= 48
+    # What the tile can hold. A nib at 32px is four grey pixels; a V is still a
+    # V, so the small sizes get the letter alone and get it heavier.
+    detail = "full" if size >= 256 else "nib" if size >= 64 else "letter"
     # Strokes get proportionally heavier as the tile gets smaller.
-    weight = 1.0 if size >= 128 else 1.25 if size >= 64 else 1.7
+    weight = 1.0 if size >= 128 else 1.15 if size >= 64 else 1.35
 
     tile = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     body = vertical_gradient(big, palette["bg_top"], palette["bg_bottom"]).convert("RGBA")
@@ -206,7 +314,7 @@ def render(size: int, variant: str, macos: bool) -> Image.Image:
         mask = Image.new("L", (big, big), 0)
         mask.paste(shape, (inset, inset))
         tile.paste(body, (0, 0), mask)
-        box = (big - inset * 2) * (0.66 if ticks else 0.80)
+        box = (big - inset * 2) * (0.62 if detail == "full" else 0.70 if detail == "nib" else 0.78)
     else:
         # Windows and Linux draw edge to edge, with a corner radius soft enough
         # not to look like a mistake on a square grid.
@@ -215,9 +323,9 @@ def render(size: int, variant: str, macos: bool) -> Image.Image:
             [0, 0, big - 1, big - 1], radius=round(big * 0.18), fill=255
         )
         tile.paste(body, (0, 0), mask)
-        box = big * (0.70 if ticks else 0.84)
+        box = big * (0.66 if detail == "full" else 0.74 if detail == "nib" else 0.82)
 
-    draw_compass(tile, palette, box, ticks, weight)
+    draw_mark(tile, palette, box, detail, weight)
     return tile.resize((size, size), Image.Resampling.LANCZOS)
 
 
