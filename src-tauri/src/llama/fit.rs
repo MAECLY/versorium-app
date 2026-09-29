@@ -17,6 +17,9 @@ use crate::models::hardware;
 
 /// Asking for less than this is not worth loading a model for: a rewrite needs
 /// the passage, the instructions and the answer to coexist.
+///
+/// It also has to beat llama.cpp's own 512-token default, which would cut a
+/// selected passage off mid-sentence with no error at all.
 pub const MIN_CONTEXT: u32 = 2048;
 
 /// Why a model will not be loaded. Stable codes; the UI translates them.
@@ -117,7 +120,6 @@ mod tests {
         assert_eq!(context_for(8192, 0), 8192);
         // A model claiming something absurdly small is lifted to the floor.
         assert_eq!(context_for(128, 128), MIN_CONTEXT);
-        assert!(MIN_CONTEXT > 512, "the floor must beat llama.cpp's default");
     }
 
     #[test]

@@ -432,7 +432,7 @@ mod tests {
         let prose = manuscript.chapters[0].scenes[0].paragraphs[0].clone();
         manuscript.chapters[0].scenes = vec![scene(
             None,
-            &std::iter::repeat(prose.as_str()).take(40).collect::<Vec<_>>(),
+            &vec![prose.as_str(); 40],
         )];
         manuscript.chapters.truncate(1);
         let pages = paginate(&manuscript);

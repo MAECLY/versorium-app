@@ -366,6 +366,7 @@ pub(crate) mod tests {
 
     pub(crate) struct Fixture {
         /// Held, not read: dropping it deletes the project the test is using.
+        #[allow(dead_code)]
         pub dir: tempfile::TempDir,
         pub root: PathBuf,
         pub chapter: ChapterMeta,
