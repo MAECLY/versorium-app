@@ -101,6 +101,7 @@
     "languageHint": "Changes the interface only. It never touches the language your novel is written in.",
     "groups": {
       "writing": "Writing",
+      "author": "Author",
       "appearance": "Appearance",
       "localAi": "Local AI",
       "backup": "History & backup",
@@ -109,6 +110,7 @@
     },
     "purpose": {
       "writing": "How the page feels while you write: the typeface and size of the manuscript itself.",
+      "author": "Who the manuscript is by, as the exported file will say it.",
       "appearance": "How Versorium looks, and what language its own buttons speak.",
       "localAi": "Models that run on this machine, and which one does each job. Nothing here sends your prose anywhere.",
       "backup": "Your novel's history on this disk, and an optional private copy on GitHub. Versorium never mixes it with its own repository.",

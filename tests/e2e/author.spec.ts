@@ -13,7 +13,7 @@ async function openAuthor(page: Page) {
 
   await page.getByRole("button", { name: "Settings" }).click();
   const settings = page.getByRole("region", { name: "Settings" });
-  await settings.getByRole("button", { name: "Writing" }).click();
+  await settings.getByRole("button", { name: "Author", exact: true }).click();
   return settings.getByRole("region", { name: "Author" });
 }
 
@@ -87,4 +87,19 @@ test("the author section is translated", async ({ page }) => {
   const author = page.getByRole("region", { name: "Autor" });
   await expect(author.getByLabel("Línea de copyright")).toBeVisible();
   await expect(author.getByText(/Solo EPUB, como código MARC/)).toBeVisible();
+});
+
+test("the author settings are their own group, not a second heading under Writing", async ({ page }) => {
+  await page.goto("/?mock=tauri");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+
+  // Typography is what a manuscript looks like; this is who it is by. Two
+  // questions, two entries in the rail.
+  await settings.getByRole("button", { name: "Writing" }).click();
+  await expect(settings.getByRole("region", { name: "Author" })).toHaveCount(0);
+
+  await settings.getByRole("button", { name: "Author", exact: true }).click();
+  await expect(settings.getByRole("region", { name: "Author" })).toBeVisible();
+  await expect(settings.getByText("Who the manuscript is by, as the exported file will say it.")).toBeVisible();
 });

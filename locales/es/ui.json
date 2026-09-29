@@ -101,6 +101,7 @@
     "languageHint": "Cambia solo la interfaz. Nunca toca el idioma en que escribes tu novela.",
     "groups": {
       "writing": "Escritura",
+      "author": "Autor",
       "appearance": "Apariencia",
       "localAi": "IA local",
       "backup": "Historial y respaldo",
@@ -109,6 +110,7 @@
     },
     "purpose": {
       "writing": "Cómo se siente la página mientras escribes: la tipografía y el tamaño del manuscrito.",
+      "author": "De quién es el manuscrito, tal como lo dirá el archivo exportado.",
       "appearance": "Cómo se ve Versorium, y en qué idioma habla su propia interfaz.",
       "localAi": "Modelos que corren en esta máquina, y cuál hace cada tarea. Nada de aquí envía tu prosa a ningún lado.",
       "backup": "El historial de tu novela en este disco, y una copia privada opcional en GitHub. Versorium nunca lo mezcla con su propio repositorio.",
