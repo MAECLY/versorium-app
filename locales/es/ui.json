@@ -43,7 +43,8 @@
       "deleteChapter": "Borrar capítulo",
       "markAs": "Marcar como {status}",
       "moveUp": "Subir",
-      "moveDown": "Bajar"
+      "moveDown": "Bajar",
+      "projectSettings": "Ajustes del proyecto…"
     },
     "rename": {
       "project": "Renombrar novela",
@@ -80,7 +81,8 @@
     "cancel": "Cancelar",
     "newChapter": "Nuevo capítulo",
     "chapterTitle": "Título del capítulo",
-    "chapterTitlePlaceholder": "El largo invierno"
+    "chapterTitlePlaceholder": "El largo invierno",
+    "done": "Listo"
   },
   "settings": {
     "title": "Ajustes",
@@ -773,5 +775,26 @@
     },
     "privacy": "Estos campos se escriben en los archivos que exportas y en ningún otro sitio. Nada de esto se envía a ninguna parte, y no se pide ninguna dirección ni cuenta, porque ningún formato de exportación tiene dónde ponerla.",
     "saved": "Guardado."
+  },
+  "project": {
+    "title": "Proyecto",
+    "intro": "Ajustes que pertenecen a esta novela, no a la app. Viajan con la carpeta.",
+    "coverLabel": "Abrir las exportaciones con una portada",
+    "coverHint": "El título, tu firma, y la editorial y los derechos si tu perfil de autor los tiene. Un manuscrito que llega sin ella obliga al lector a deducir de quién es por el nombre del archivo.",
+    "colophonLabel": "Cerrar las exportaciones con la ficha de esta novela",
+    "colophonHint": "Título, autor, idioma, número de capítulos y de palabras, y una línea diciendo que se escribió aquí. Si lo desactivas, no queda rastro de Versorium en el archivo.",
+    "preview": "Portada",
+    "previewEmpty": "Añade un autor en Ajustes → Autor y aparecerá aquí.",
+    "colophonHeading": "Sobre este libro",
+    "colophonThanks": "Gracias por escribirlo aquí.",
+    "keys": {
+      "title": "Título",
+      "author": "Autor",
+      "publisher": "Editorial",
+      "rights": "Derechos",
+      "language": "Idioma",
+      "chapters": "Capítulos",
+      "words": "Palabras"
+    }
   }
 }

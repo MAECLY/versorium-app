@@ -1,11 +1,13 @@
 import {
   api,
   isTauri,
+  type ExportLabels,
   type ExportFormat,
   type ExportResult,
   type Imported,
 } from "$lib/tauri";
 import { errorMessage } from "$lib/i18n/errors";
+import { tIn } from "$lib/i18n";
 
 /** Extension and picker label per export format (spec §9). */
 const TARGET: Record<ExportFormat, { extension: string; name: string }> = {
@@ -35,7 +37,13 @@ export class FormatsStore {
   source = $state<string | null>(null);
 
   /** Ask for a destination, then write. A cancelled picker is not an error. */
-  async exportAs(projectPath: string, format: ExportFormat, title: string): Promise<void> {
+  async exportAs(
+    projectPath: string,
+    format: ExportFormat,
+    title: string,
+    /** The manuscript's own language, which the colophon is written in. */
+    language: string,
+  ): Promise<void> {
     await this.run(async () => {
       const { extension, name } = TARGET[format];
       let dest: unknown;
@@ -47,7 +55,7 @@ export class FormatsStore {
         dest = await api.pickExportTarget(`${title}.${extension}`, name, extension);
       }
       if (typeof dest !== "string") return;
-      this.result = await api.exportManuscript(projectPath, format, dest);
+      this.result = await api.exportManuscript(projectPath, format, dest, exportLabels(language));
     });
   }
 
@@ -108,4 +116,21 @@ export function bodyWords(body: string): number {
     .join(" ")
     .split(/\s+/)
     .filter(Boolean).length;
+}
+
+/**
+ * The wording the colophon and the title page will carry.
+ *
+ * Built in the manuscript's language, not the interface's: a Spanish novel
+ * exported by somebody running the app in English still says "Capítulos",
+ * because the reader of the file is not the person who exported it.
+ */
+export function exportLabels(language: string): ExportLabels {
+  const keys = ["title", "author", "publisher", "rights", "language", "chapters", "words"];
+  const labels: ExportLabels = {
+    heading: tIn(language, "project.colophonHeading"),
+    thanks: tIn(language, "project.colophonThanks"),
+  };
+  for (const key of keys) labels[key] = tIn(language, `project.keys.${key}`);
+  return labels;
 }

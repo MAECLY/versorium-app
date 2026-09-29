@@ -5,6 +5,7 @@
   import ItemMenu from "$lib/binder/ItemMenu.svelte";
   import RenameDialog from "$lib/binder/RenameDialog.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import ProjectSettingsDialog from "$lib/binder/ProjectSettingsDialog.svelte";
 
   let { onRequestNewChapter }: { onRequestNewChapter: () => void } = $props();
 
@@ -13,8 +14,11 @@
   let renaming = $state<{ kind: "project" | "chapter"; id: string; title: string } | null>(null);
   let confirming = $state<{ kind: "project" | "chapter"; id: string; title: string } | null>(null);
 
+  let settingsFor = $state<string | null>(null);
+
   let projectActions = $derived([
     { id: "rename", label: t("binder.menu.renameProject") },
+    { id: "settings", label: t("binder.menu.projectSettings") },
     { id: "delete", label: t("binder.menu.deleteProject"), destructive: true },
   ]);
 
@@ -38,6 +42,7 @@
 
   function onProjectAction(project: Project, action: string): void {
     if (action === "rename") renaming = { kind: "project", id: project.path, title: project.meta.title };
+    if (action === "settings") settingsFor = project.path;
     if (action === "delete") confirming = { kind: "project", id: project.path, title: project.meta.title };
   }
 
@@ -168,4 +173,8 @@
     onCancel={() => (confirming = null)}
     onConfirm={doDelete}
   />
+{/if}
+
+{#if settingsFor}
+  <ProjectSettingsDialog path={settingsFor} onClose={() => (settingsFor = null)} />
 {/if}

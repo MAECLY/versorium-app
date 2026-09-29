@@ -13,7 +13,22 @@ export interface ProjectMeta {
   defaultChapterPattern: string;
   censorship: string;
   remote: string | null;
+  /** Chapter ids in reading order, when it differs from their numbering. */
+  chapterOrder: string[];
+  /** Open an export with a title page. */
+  exportCover: boolean;
+  /** Close it with the project's own record and a line of thanks. */
+  exportColophon: boolean;
 }
+
+/**
+ * Wording that ends up inside an exported file.
+ *
+ * Supplied by the frontend because Rust has no dictionary, and written in the
+ * manuscript's language rather than the app's: it is read by whoever opens the
+ * book, not by whoever exported it.
+ */
+export type ExportLabels = Record<string, string>;
 
 /** Mirrors `commands::chapters::STATUSES`; anything else is refused by Rust. */
 export type ChapterStatus = "draft" | "revised" | "final";
@@ -541,8 +556,14 @@ export const api = {
   updateRelaunch: () => invoke<void>("update_relaunch"),
 
   // --- editing a novel and its chapters ---
-  updateProject: (path: string, title?: string, author?: string) =>
-    invoke<ProjectMeta>("update_project", { path, title, author }),
+  updateProject: (
+    path: string,
+    title?: string,
+    author?: string,
+    exportCover?: boolean,
+    exportColophon?: boolean,
+  ) =>
+    invoke<ProjectMeta>("update_project", { path, title, author, exportCover, exportColophon }),
   /** Moves the folder to the system trash; returns what is left. */
   deleteProject: (path: string, parent: string) =>
     invoke<Project[]>("delete_project", { path, parent }),
@@ -590,8 +611,8 @@ export const api = {
   llamaUnload: () => invoke<void>("llama_unload"),
 
   // --- M5: formats ---
-  exportManuscript: (path: string, format: ExportFormat, dest: string) =>
-    invoke<ExportResult>("export_manuscript", { path, format, dest }),
+  exportManuscript: (path: string, format: ExportFormat, dest: string, labels?: ExportLabels) =>
+    invoke<ExportResult>("export_manuscript", { path, format, dest, labels }),
   importPreview: (source: string) => invoke<Imported>("import_preview", { source }),
   importApply: (source: string, title: string) =>
     invoke<Project>("import_apply", { source, title }),

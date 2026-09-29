@@ -384,7 +384,7 @@ mod tests {
         .unwrap();
         let root = std::path::PathBuf::from(&created.path);
 
-        let meta = update_project(root.clone(), Some("La niebla".into()), None).unwrap();
+        let meta = update_project(root.clone(), Some("La niebla".into()), None, None, None).unwrap();
         assert_eq!(meta.title, "La niebla");
         assert!(root.is_dir(), "the folder moved");
         assert_eq!(load_meta(&root).unwrap().title, "La niebla", "the rename did not persist");
@@ -403,16 +403,16 @@ mod tests {
         .unwrap();
         let root = std::path::PathBuf::from(&created.path);
 
-        let both = update_project(root.clone(), Some("Con autor".into()), Some("  Ana Ruiz  ".into())).unwrap();
+        let both = update_project(root.clone(), Some("Con autor".into()), Some("  Ana Ruiz  ".into()), None, None).unwrap();
         assert_eq!(both.title, "Con autor");
         assert_eq!(both.author, "Ana Ruiz", "surrounding space is not part of a name");
 
         // Author alone leaves the title alone.
-        let only_author = update_project(root.clone(), None, Some("Otra".into())).unwrap();
+        let only_author = update_project(root.clone(), None, Some("Otra".into()), None, None).unwrap();
         assert_eq!(only_author.title, "Con autor");
 
-        assert_eq!(update_project(root.clone(), None, None).unwrap_err(), "bad_args");
-        assert_eq!(update_project(root, Some(" ".into()), None).unwrap_err(), "empty_title");
+        assert_eq!(update_project(root.clone(), None, None, None, None).unwrap_err(), "bad_args");
+        assert_eq!(update_project(root, Some(" ".into()), None, None, None).unwrap_err(), "empty_title");
     }
 
     #[test]
@@ -594,13 +594,15 @@ pub fn update_project(
     path: PathBuf,
     title: Option<String>,
     author: Option<String>,
+    export_cover: Option<bool>,
+    export_colophon: Option<bool>,
 ) -> Result<ProjectMeta, String> {
     let title = match title {
         Some(t) if t.trim().is_empty() => return Err("empty_title".into()),
         Some(t) => Some(t.trim().to_string()),
         None => None,
     };
-    if title.is_none() && author.is_none() {
+    if title.is_none() && author.is_none() && export_cover.is_none() && export_colophon.is_none() {
         return Err("bad_args".into());
     }
     let mut meta = load_meta(&path).ok_or_else(|| "not_found".to_string())?;
@@ -609,6 +611,12 @@ pub fn update_project(
     }
     if let Some(author) = author {
         meta.author = author.trim().to_string();
+    }
+    if let Some(cover) = export_cover {
+        meta.export_cover = cover;
+    }
+    if let Some(colophon) = export_colophon {
+        meta.export_colophon = colophon;
     }
     write_meta(&path, &meta)?;
     Ok(meta)

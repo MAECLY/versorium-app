@@ -101,6 +101,22 @@ export class BinderStore {
     });
   }
 
+  /**
+   * Whether exports of this novel carry a title page and a colophon.
+   *
+   * Takes a path rather than assuming the open project: the binder offers this
+   * from the menu of every novel in the sidebar, not only the one being edited.
+   * Both the open project and the sidebar list are updated, so a dialog reading
+   * either sees the result.
+   */
+  async setExportMatter(path: string, cover: boolean, colophon: boolean): Promise<void> {
+    await this.run(async () => {
+      const meta = await api.updateProject(path, undefined, undefined, cover, colophon);
+      this.projects = this.projects.map((p) => (p.path === path ? { ...p, meta } : p));
+      if (this.project?.path === path) this.project = { ...this.project, meta };
+    });
+  }
+
   /** Delete a chapter. A git snapshot is taken first, so it can come back. */
   async deleteChapter(file: string): Promise<void> {
     const path = this.project?.path;
