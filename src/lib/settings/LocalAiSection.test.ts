@@ -100,7 +100,11 @@ it("renders the ladder, the wizard and the per-task slots", async () => {
   expect(target.textContent).toContain("balanced pack is the largest that fits");
   expect(api.modelsDownload).not.toHaveBeenCalled();
 
-  const slotSelect = target.querySelector<HTMLSelectElement>('select[aria-label="Rewrite"]');
+  // The task list leads the panel now, so the picker is above the catalogue
+  // rather than buried under it.
+  const slotSelect = [...target.querySelectorAll<HTMLSelectElement>("select")].find(
+    (el) => el.labels?.[0]?.textContent?.trim() === "Rewrite",
+  );
   expect(slotSelect?.value).toBe("builtin:qwen3-4b");
   // Only downloaded models may be picked.
   expect([...(slotSelect?.querySelectorAll("option") ?? [])].map((o) => o.value)).toEqual([
@@ -116,7 +120,15 @@ it("renders the ladder, the wizard and the per-task slots", async () => {
 it("switches tabs and keeps exactly one panel visible", async () => {
   const { target, app } = await render();
   const tabs = [...target.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-  expect(tabs.map((b) => b.textContent?.trim())).toEqual(["Writing", "Ollama", "Studio", "Dictation"]);
+    // Named for what they are — sources of models — rather than for tasks.
+  // "Writing" collided with the Writing settings group, and "Studio" meant
+  // nothing on its own.
+  expect(tabs.map((b) => b.textContent?.trim())).toEqual([
+    "Built in",
+    "Ollama",
+    "Local server",
+    "Dictation",
+  ]);
   expect(tabs[0].getAttribute("aria-selected")).toBe("true");
 
   const panels = () => [...target.querySelectorAll<HTMLElement>('[role="tabpanel"]')].filter((p) => !p.hidden);

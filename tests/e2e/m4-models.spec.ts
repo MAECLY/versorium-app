@@ -53,16 +53,33 @@ test("a card shows Download, Ready or a resumable percentage", async ({ page }) 
   await expect(partial.getByRole("button", { name: "Resume" })).toBeVisible();
 });
 
-test("downloading reports progress and can be cancelled", async ({ page }) => {
+test("downloading shows a bar that moves, and can be cancelled while it does", async ({ page }) => {
   const { localAi } = await openLocalAi(page);
   const card = localAi.getByRole("listitem").filter({ hasText: "Qwen3 4B Instruct" });
 
   await card.getByRole("button", { name: "Download" }).click();
-  await expect(card.getByRole("button", { name: "Cancel" })).toBeVisible();
-  await expect.poll(async () => (await mockModels(page)).find((m) => m.id === "qwen3-4b-q4km")?.state).toBe("partial");
 
+  // The bug: `models_download` does not resolve until the file is on disk, and
+  // polling used to start after that await — so a writer pressing Download
+  // watched a greyed-out button and nothing else for the whole transfer.
+  const bar = card.getByRole("progressbar");
+  await expect(bar).toBeVisible();
+  await expect(card.getByText(/of .* · \d+%/)).toBeVisible();
+
+  // And it actually moves.
+  const first = Number(await bar.getAttribute("aria-valuenow"));
+  await expect
+    .poll(async () => Number(await bar.getAttribute("aria-valuenow")))
+    .toBeGreaterThan(first);
+
+  // Cancel used to be routed through the same guard that was held for the
+  // length of the download, so it was dead for exactly as long as it was the
+  // only button on screen.
   await card.getByRole("button", { name: "Cancel" }).click();
-  await expect.poll(async () => page.evaluate(() => window.__VERSORIUM_MOCK__.calls.some((c) => c.cmd === "models_cancel"))).toBe(true);
+  await expect.poll(async () =>
+    page.evaluate(() => window.__VERSORIUM_MOCK__.calls.some((c) => c.cmd === "models_cancel")),
+  ).toBe(true);
+  await expect(bar).toHaveCount(0);
 });
 
 test("a model too large for the machine says so but is not forbidden", async ({ page }) => {
@@ -114,6 +131,38 @@ test("the Local AI panel is translated", async ({ page }) => {
   const settings = page.getByRole("region", { name: "Ajustes" });
   await settings.getByRole("button", { name: "IA local" }).click();
   const localAi = settings.getByRole("region", { name: "IA local" });
-  await expect(localAi.getByRole("tab", { name: "Escritura" })).toBeVisible();
+  // The tab is named for what it is — a source of models — rather than for a
+  // task, which is what "Escritura" read as next to the Writing settings group.
+  await expect(localAi.getByRole("tab", { name: "Integrados" })).toBeVisible();
   await expect(localAi.getByRole("button", { name: "Descargar" }).first()).toBeVisible();
+  await expect(localAi.getByText("Qué usa cada tarea")).toBeVisible();
+});
+
+test("the panel leads with the tasks, not with the four ways to supply a model", async ({ page }) => {
+  await page.goto("/?mock=tauri");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Local AI" }).click();
+  const localAi = settings.getByRole("region", { name: "Local AI" });
+
+  // "Which model does which job" used to be a row of dropdowns at the very
+  // bottom, under four tabs that were four suppliers dressed as four choices.
+  const headings = await localAi.locator("h4").allTextContents();
+  expect(headings[0]).toBe("What each task uses");
+  expect(headings.slice(1)).toContain("Where models come from");
+
+  // A task with nothing assigned says so rather than looking configured.
+  const rewrite = localAi.getByRole("listitem").filter({ hasText: "Rewrite" }).first();
+  await expect(rewrite.getByText("no model yet")).toBeVisible();
+
+  // And once it has one, it says where that one runs — instead of leaving it
+  // implied by whichever tab you happened to find the model under.
+  await rewrite.getByRole("combobox", { name: "Rewrite" }).selectOption({ index: 1 });
+  await expect(rewrite.getByText("runs in Versorium")).toBeVisible();
+
+  // The picker lists every source together, which is the other half of the
+  // point: a writer choosing a model for a job should not have to know which
+  // program is going to run it.
+  const options = await rewrite.getByRole("combobox").locator("optgroup").allTextContents();
+  expect(options.length).toBeGreaterThan(0);
 });

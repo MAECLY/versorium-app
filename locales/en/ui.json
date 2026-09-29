@@ -120,9 +120,9 @@
       "writing": "How the page feels while you write: the typeface and size of the manuscript itself.",
       "author": "Who the manuscript is by, as the exported file will say it.",
       "appearance": "How Versorium looks, and what language its own buttons speak.",
-      "localAi": "Models that run on this machine, and which one does each job. Nothing here sends your prose anywhere.",
+      "localAi": "Which model does each job, and where those models come from. Nothing here sends your prose anywhere.",
       "backup": "Your novel's history on this disk, and an optional private copy on GitHub. Versorium never mixes it with its own repository.",
-      "assistants": "Outside AI tools that can reach your novel, and exactly how much each one is allowed to do.",
+      "assistants": "Assistants that reach into your novel from outside, and exactly how much each one is allowed to do.",
       "app": "Versorium itself: the version you are running, how it updates, and what it records when it crashes."
     },
     "themes": {
@@ -283,8 +283,8 @@
     "configuredSuffix": "(configured)"
   },
   "agents": {
-    "title": "Agents",
-    "hint": "Harnesses keep their own login. Versorium never stores their keys.",
+    "title": "Assistants on this machine",
+    "hint": "Found, not configured: each one keeps its own login and Versorium never stores their keys. Versorium can hand a task to one of these when no local model is assigned to it.",
     "recheck": "Re-check",
     "checking": "Checking…",
     "connected": "Connected",
@@ -304,8 +304,8 @@
     "off": "Off"
   },
   "mcp": {
-    "title": "MCP",
-    "intro": "A local server on this machine (stdio). Agents connect to it to read your manuscript. Read-only until you allow writing.",
+    "title": "What they are allowed to do",
+    "intro": "The arrow points the other way here: an assistant connects to Versorium and reads your manuscript through it. A local server on this machine (stdio), read-only until you allow writing, per client.",
     "command": "Command",
     "commandHint": "Connected clients spawn this. Nothing listens on the network.",
     "connect": "Connect",
@@ -350,9 +350,9 @@
     "diskUsed": "Downloaded models use {size}.",
     "modelsDir": "Stored in",
     "tabs": {
-      "writing": "Writing",
+      "writing": "Built in",
       "ollama": "Ollama",
-      "studio": "Studio",
+      "studio": "Local server",
       "dictation": "Dictation"
     },
     "wizard": {
@@ -401,7 +401,9 @@
         "midPlus": "Noticeably better prose, and it is heavy.",
         "high": "The best here, and it asks for a lot of memory."
       },
-      "details": "Details"
+      "details": "Details",
+      "progress": "{done} of {total} · {percent}%",
+      "downloading": "Downloading {label}"
     },
     "speeds": {
       "fast": "Fast",
@@ -479,6 +481,20 @@
       "fits": "Runs on this machine",
       "showing": "Showing {shown} of {total}",
       "noMatch": "No model matches that. Clear the search or the filters."
+    },
+    "tasks": {
+      "title": "What each task uses",
+      "intro": "Five jobs, and the model each one runs on. A task with no model falls back to a connected assistant — and if there is none, it says so rather than doing nothing."
+    },
+    "sources": {
+      "title": "Where models come from",
+      "intro": "Four ways to have a model on this machine. You do not need all of them; you need one that the tasks above can point at."
+    },
+    "runsOn": {
+      "none": "no model yet",
+      "builtin": "runs in Versorium",
+      "ollama": "runs in Ollama",
+      "cli": "runs in an assistant"
     }
   },
   "manuscript": {

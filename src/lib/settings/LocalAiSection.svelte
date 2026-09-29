@@ -3,6 +3,7 @@
   import { t, getLocale } from "$lib/i18n";
   import { api, isTauri, type LlamaBackendState, type ModelCard, type SlotKind, type SlotName } from "$lib/tauri";
   import { models, humanSize, percent } from "$lib/models/state.svelte";
+  import Select from "$lib/components/forms/Select.svelte";
 
   type Tab = "writing" | "ollama" | "studio" | "dictation";
   const TABS: Tab[] = ["writing", "ollama", "studio", "dictation"];
@@ -143,6 +144,25 @@
     await models.removeOllama(name);
   }
 
+  /** Every source a task can point at, grouped by where it runs. */
+  function sourceGroups() {
+    const groups: { label: string; options: { value: string; label: string }[] }[] = [];
+    if (ready.length > 0) {
+      groups.push({
+        label: t("localAi.slots.builtin"),
+        options: ready.map((m) => ({ value: `builtin:${m.id}`, label: m.label })),
+      });
+    }
+    const pulled = view?.ollama.models ?? [];
+    if (pulled.length > 0) {
+      groups.push({
+        label: t("localAi.slots.ollamaGroup"),
+        options: pulled.map((o) => ({ value: `ollama:${o.name}`, label: o.name })),
+      });
+    }
+    return groups;
+  }
+
   function slotValue(slot: SlotName): string {
     const assignment = view?.slots[slot];
     if (!assignment || assignment.kind === "none") return "none";
@@ -186,6 +206,60 @@
     {#if models.error}
       <p role="alert" class="m-0 mb-3" style="font-size: 12px; color: var(--warn);">{models.error}</p>
     {/if}
+
+    <!-- The tasks, first.
+         This panel used to lead with four tabs — Writing, Ollama, Studio,
+         Dictation — which are four ways of SUPPLYING a model presented as if
+         they were four things a writer might want. The thing they actually
+         want to know, which model does which job, was a list of dropdowns at
+         the very bottom. So it leads now, and the suppliers are what you open
+         when you need one. -->
+    {#if view}
+      <h4 class="v-section-title mb-1">{t("localAi.tasks.title")}</h4>
+      <p class="v-muted m-0 mb-3" style="font-size: 12px; line-height: 1.6;">
+        {t("localAi.tasks.intro")}
+      </p>
+      <ul class="m-0 mb-5 flex list-none flex-col gap-2 p-0" aria-label={t("localAi.tasks.title")}>
+        {#each SLOTS as slot (slot)}
+          {@const assignment = view.slots[slot]}
+          <li class="v-card p-3">
+            <div class="v-row" style="justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div style="min-width: 0; flex: 1;">
+                <div class="v-row" style="gap: 8px;">
+                  <b style="font-size: 13px;">{t(`localAi.slots.${slot}`)}</b>
+                  <!-- Where this one runs, said once per task rather than
+                       implied by which tab you found it under. -->
+                  <span
+                    class="v-muted"
+                    style="font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--sel);"
+                  >
+                    {t(`localAi.runsOn.${assignment.kind}`)}
+                  </span>
+                </div>
+                <p class="v-muted m-0 mt-1" style="font-size: 12px;">
+                  {t(`localAi.slots.${slot}Hint`)}
+                </p>
+              </div>
+              <Select
+                label={t(`localAi.slots.${slot}`)}
+                labelHidden
+                minWidth="210px"
+                value={slotValue(slot)}
+                disabled={models.loading}
+                options={[{ value: "none", label: t("localAi.slots.none") }]}
+                groups={sourceGroups()}
+                onChange={(next) => onSlotChange(slot, next)}
+              />
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <h4 class="v-section-title mb-1">{t("localAi.sources.title")}</h4>
+    <p class="v-muted m-0 mb-2" style="font-size: 12px; line-height: 1.6;">
+      {t("localAi.sources.intro")}
+    </p>
 
     <div class="v-row mb-3" style="gap: 4px;" role="tablist" aria-label={t("localAi.title")}>
       {#each TABS as name, i (name)}
@@ -401,9 +475,35 @@
 
                 <div class="v-row" style="gap: 8px; flex-shrink: 0;">
                   {#if downloading(m)}
-                    <span style="font-size: 12px; font-variant-numeric: tabular-nums;" aria-live="polite">
-                      {percent(progress?.received ?? 0, progress?.total ?? 0)}%
-                    </span>
+                    {@const done = percent(progress?.received ?? 0, progress?.total ?? 0)}
+                    <div style="min-width: 190px;">
+                      <!-- A real bar, not a number. A 3 GB file on a slow line
+                           moves a percentage so rarely that the panel read as
+                           frozen; a bar shows movement the digits do not. -->
+                      <div
+                        role="progressbar"
+                        aria-label={t("localAi.card.downloading", { label: m.label })}
+                        aria-valuenow={done}
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        style="height: 5px; border-radius: 999px; background: var(--sel); overflow: hidden;"
+                      >
+                        <div
+                          style="width: {done}%; height: 100%; background: var(--accent); transition: width 300ms linear;"
+                        ></div>
+                      </div>
+                      <p
+                        class="v-muted m-0 mt-1"
+                        style="font-size: 11.5px; font-variant-numeric: tabular-nums;"
+                        aria-live="polite"
+                      >
+                        {t("localAi.card.progress", {
+                          done: humanSize(progress?.received ?? 0),
+                          total: humanSize(progress?.total ?? m.sizeBytes),
+                          percent: done,
+                        })}
+                      </p>
+                    </div>
                     <button class="v-btn" onclick={() => void models.cancel(m.id)}>
                       {t("localAi.card.cancel")}
                     </button>
@@ -600,47 +700,5 @@
       {/if}
     </div>
 
-    <!-- Slots: a model per task, not one model for everything -->
-    {#if view}
-      <div class="mt-4">
-        <b style="font-size: 13px;">{t("localAi.slots.title")}</b>
-        <p class="v-muted m-0 mt-1 mb-2" style="font-size: 12px;">{t("localAi.slots.intro")}</p>
-        <ul class="m-0 flex list-none flex-col gap-2 p-0" aria-label={t("localAi.slots.title")}>
-          {#each SLOTS as slot (slot)}
-            <li class="v-row" style="justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-              <div style="min-width: 0;">
-                <span style="font-size: 13px;">{t(`localAi.slots.${slot}`)}</span>
-                <p class="v-muted m-0" style="font-size: 12px;">{t(`localAi.slots.${slot}Hint`)}</p>
-              </div>
-              <span class="v-select" style="min-width: 200px;">
-              <select
-                aria-label={t(`localAi.slots.${slot}`)}
-                value={slotValue(slot)}
-                disabled={models.loading}
-                onchange={(e) => onSlotChange(slot, (e.currentTarget as HTMLSelectElement).value)}
-               
-              >
-                <option value="none">{t("localAi.slots.none")}</option>
-                {#if ready.length > 0}
-                  <optgroup label={t("localAi.slots.builtin")}>
-                    {#each ready as m (m.id)}
-                      <option value="builtin:{m.id}">{m.label}</option>
-                    {/each}
-                  </optgroup>
-                {/if}
-                {#if view.ollama.models.length > 0}
-                  <optgroup label={t("localAi.slots.ollamaGroup")}>
-                    {#each view.ollama.models as o (o.name)}
-                      <option value="ollama:{o.name}">{o.name}</option>
-                    {/each}
-                  </optgroup>
-                {/if}
-              </select>
-              </span>
-            </li>
-          {/each}
-        </ul>
-      </div>
-    {/if}
   {/if}
 </section>
