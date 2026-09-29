@@ -83,15 +83,16 @@ Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?moc
 - [x] Tool log in Settings → MCP: tool, client, scope, outcome, paths — never manuscript text
 - [x] i18n EN + ES (29 `mcp.*` keys); actionable copy for every error code a tool can return
 
-## Verification (this machine, 2026-09-27, macOS 27.0)
+## Verification (this machine, 2026-09-28, macOS 27.0)
 
 | Check | Result |
 |---|---|
-| `cargo test` | ✅ 305 unit + 4 integration passed |
-| `cargo clippy` | ✅ 0 warnings **on shipped code**. `--all-targets` reports 6, all in test code, all predating this branch — the earlier "0 warnings" was measured without that flag and overstated the result |
-| `pnpm check` | ✅ 0 errors, 0 warnings |
-| `pnpm test:ui` | ✅ 82 passed |
-| `pnpm test:e2e` | ✅ 39 passed (6 new for polish) |
+| `cargo test` | ✅ 438 unit + 4 integration passed, 16 ignored |
+| `cargo clippy --all-targets` | ✅ 0 warnings. The 6 that used to be reported were in test code and are now fixed, so CI can run this flag with `-D warnings` |
+| `pnpm check` | ✅ 0 errors, 0 warnings, 368 files |
+| `pnpm test:ui` | ✅ 91 passed |
+| `pnpm test:e2e` | ✅ 81 passed |
+| `node tests/locale-parity.mjs` | ✅ 632 keys in each of en, es |
 | Real app | ✅ launches with every M7 control present, editor, project switching and the Git panel working |
 
 **Honest limit on the real-app pass**: the corkboard and focus mode were driven
@@ -346,15 +347,96 @@ Three things that came from reading the crate rather than assuming it:
   path ships with unit coverage plus a `live_` test gated on
   `VERSORIUM_TEST_GGUF`.
 
+### Backup, done properly (2026-09-28)
+
+Three layers, named as layers in the UI, because they fail differently:
+
+1. **The novel's own history.** Always on, nothing to configure.
+2. **Up to three folders elsewhere**, written in one pass. Cloud providers are
+   detected rather than guessed — `~/Library/CloudStorage/Vendor-Account`,
+   Dropbox's `info.json`, the Nextcloud/ownCloud `.cfg` — so somebody who moved
+   their Dropbox folder still gets a working backup. A **second or third disk**
+   is offered too, with mount points excluded by device number rather than by
+   name, so an empty `/Volumes/Something` left by an ejected drive is never
+   silently accepted.
+3. **GitHub**, collapsed, because it needs an account and a token.
+
+What the three-copy rule (three copies, two media, one offsite) asked for and
+this now reports rather than scores:
+
+- Every destination says whether it **leaves the machine**. A second disk
+  survives a dead drive, not a burnt flat, and calling both "backup" hides the
+  only difference that matters.
+- Two destinations on one disk are counted as **one disk**, by device number. A
+  frontend comparing path prefixes would call `/Volumes/Backup` and
+  `/Volumes/Backup2` two disks.
+- A volume that cannot be identified makes the count **unknown**, never
+  optimistic. Claiming "2 disks" on a guess is the one lie this must not tell.
+- Outcomes are **never collapsed into one result**. Two of three succeeding is a
+  real outcome that both "backed up" and "failed" misreport. A destination that
+  is gone reports as unavailable and is retried next time.
+- An archive can be **checked on demand**: reopened, and every entry read back.
+
+A live `.git` still must not sit inside a synced folder — these services sync
+per file without git's ordering or atomicity and evict files to placeholders —
+so the artefact is one timestamped zip, and the panel says so where somebody is
+about to choose a folder.
+
+### Author metadata (2026-09-28)
+
+Settings → Writing holds **two author profiles**, work and personal, and each
+field states in the UI where it lands. The fields were chosen by what the
+formats can carry, not by what a form usually asks for:
+
+| Field | Where it goes |
+|---|---|
+| name | creator in EPUB, DOCX, PDF, Markdown |
+| sortAs | EPUB `file-as`; guessed from the name, and the guess is the placeholder |
+| role | EPUB only, as a MARC relator; an unlisted code is dropped |
+| organization | `dc:publisher` in EPUB, `Company` in DOCX |
+| rights | `dc:rights` in EPUB, `/Subject` in PDF, `dc:description` in DOCX |
+
+No email and no address: no export format has a slot for either, and storing a
+contact detail only to look at it is not a feature.
+
+Three gaps this closed, all of them silent until somebody opened the file
+properties: DOCX had **no app.xml at all**, so Word showed the manuscript as
+coming from no application; PDF had **no information dictionary**, so every
+reader's properties panel was blank; EPUB had a creator with **no file-as**, so
+a library shelved *El largo invierno* under A for Ana.
+
+### Chapter order is data, not a numbering (2026-09-28)
+
+`versorium.json` gains `chapterOrder`. Reorder used to be impossible to do
+safely because order came from the id, the id is in the filename, and renaming
+files is what git history follows, what a backup archive contains, and what
+`.versorium/ops/<id>` is keyed by. It is an override, not the whole truth:
+anything missing from the list still sorts by id, after the ordered ones, so a
+chapter restored from a backup appears rather than vanishing.
+
+### Model catalogue (2026-09-28)
+
+Four models under 1.3 GB — Qwen3.5 0.8B (0.58 GB), Llama 3.2 1B (0.81 GB),
+SmolLM2 1.7B (1.06 GB), Qwen3.5 2B Q3\_K\_M (1.22 GB) — with sizes and hashes
+taken from the Hugging Face **LFS object ids**, which are the sha256 the
+downloader checks. `tests/catalog/hf-files.py` is how, so the next person adding
+a model does not work it out again. Every URL in the catalogue re-checked: 12/12
+return 200. The panel gained search, family chips, a "runs on this machine"
+filter, a sort and a count, with each card's quant/context/RAM/licence folded
+behind Details — eleven models in one column of full cards is a scroll, not a
+list.
+
 ### Still open on this branch
 
-- A backup destination that is not GitHub — iCloud Drive, OneDrive, or a chosen
-  folder — with GitHub demoted to an advanced option. Note that a live `.git`
-  must not sit inside a synced folder: these services sync per file without
-  git's ordering or atomicity and evict files to placeholders, which corrupts
-  repositories. `git2` 0.19 cannot write a bundle (libgit2 has no bundle
-  support), so the artifact should be a single timestamped archive — the `zip`
-  crate is already a dependency for DOCX.
+- **One unreproduced test failure.** A single `cargo test` run reported 1 failed
+  of 438 without naming it in captured output, and ten subsequent runs were
+  clean. Not diagnosed, so not claimed fixed. Ephemeral ports rule out the
+  obvious cause (the MCP http tests bind port 0).
+- **Chat UI, the embeddings search index, and Whisper dictation.** The three
+  features with a runtime behind them and no surface yet. Dictation has no
+  Whisper pack in the catalogue and the UI says so rather than pretending.
+- **Apple notarization and Windows Authenticode.** Both need purchased
+  certificates, so neither is a code problem.
 
 ## Next
 
