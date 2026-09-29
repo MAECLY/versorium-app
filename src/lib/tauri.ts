@@ -52,8 +52,8 @@ export interface AppSettings {
   typewriter: boolean;
   /** False until the first run is done or skipped. */
   onboarded: boolean;
-  /** Folder archives are written to; null means backups are off. */
-  backupDir: string | null;
+  /** Folders archives are written to; empty means backups are off. */
+  backupDirs: string[];
   backupKeep: number;
 }
 
@@ -258,11 +258,15 @@ export interface SecretsStatus {
 }
 
 export interface BackupDestination {
-  /** `icloud` | `onedrive` | `nextcloud` | `dropbox` | `folder` */
+  /** A provider slug (`icloud`, `dropbox`, …), `disk`, or `folder`. */
   kind: string;
   path: string;
   /** The folder is there right now; an absent one is still offered, and says so. */
   available: boolean;
+  /** Which physical disk this is on. Null where the platform will not say. */
+  volume: string | null;
+  /** A provider carries the copy off this machine; a second disk does not. */
+  offsite: boolean;
 }
 
 export interface BackupArchive {
@@ -271,7 +275,26 @@ export interface BackupArchive {
   bytes: number;
   /** Unix seconds. */
   modified: number;
+  /** Of the archive as the destination handed it back. Null when only listed. */
+  sha256: string | null;
 }
+
+/** Grades the current choice against the three-copy rule. Never scored. */
+export interface BackupCoverage {
+  /** Counting the novel itself, as the rule does. */
+  copies: number;
+  /** Distinct disks. Null when one could not be identified, never guessed. */
+  media: number | null;
+  offsite: boolean;
+  /** Destinations sharing a disk with the novel: a copy that dies with it. */
+  onTheNovelsDisk: string[];
+}
+
+/** What happened at one destination. A missing disk is not a failure. */
+export type BackupOutcome =
+  | { state: "ok"; path: string; archive: BackupArchive }
+  | { state: "unavailable"; path: string }
+  | { state: "failed"; path: string; reason: string };
 
 /** How far along an install is. The phases are the real steps, not an
  *  animation: downloading has byte counts, verifying is the two signature
@@ -509,10 +532,15 @@ export const api = {
 
   // --- backup to a synced folder ---
   backupDestinations: () => invoke<BackupDestination[]>("backup_destinations"),
-  backupConfigure: (path: string, keep: number) =>
-    invoke<void>("backup_configure", { path, keep }),
-  backupNow: (path: string) => invoke<BackupArchive>("backup_now", { path }),
-  backupList: (path: string) => invoke<BackupArchive[]>("backup_list", { path }),
+  backupConfigure: (paths: string[], keep: number) =>
+    invoke<void>("backup_configure", { paths, keep }),
+  /** One outcome per destination; never collapsed into a single result. */
+  backupNow: (path: string) => invoke<BackupOutcome[]>("backup_now", { path }),
+  backupList: (path: string) => invoke<[string, BackupArchive[]][]>("backup_list", { path }),
+  /** Read an archive back and confirm it is complete and extractable. */
+  backupVerify: (archive: string) => invoke<string>("backup_verify", { archive }),
+  /** What the configured destinations protect this novel against. */
+  backupCoverage: (path: string) => invoke<BackupCoverage>("backup_coverage", { path }),
   backupRestore: (archive: string, project: string, label: string) =>
     invoke<string>("backup_restore", { archive, project, label }),
 

@@ -235,13 +235,27 @@ let relaunched = false;
 /** Which credentials exist. Never their values, matching the real command. */
 const storedSecrets = new Set<string>();
 
+// One reachable provider, one absent, one second disk, and one folder that
+// happens to be on the novel's own disk — the four cases the panel renders
+// differently.
 const backupDestinations = [
-  { kind: "icloud", path: "/mock/Library/Mobile Documents/com~apple~CloudDocs", available: true },
-  { kind: "dropbox", path: "/mock/Dropbox", available: false },
+  {
+    kind: "icloud",
+    path: "/mock/Library/Mobile Documents/com~apple~CloudDocs",
+    available: true,
+    volume: "1",
+    offsite: true,
+  },
+  { kind: "dropbox", path: "/mock/Dropbox", available: false, volume: null, offsite: true },
+  { kind: "disk", path: "/mock/Volumes/Respaldo", available: true, volume: "2", offsite: false },
+  { kind: "folder", path: "/mock/novels/backups", available: true, volume: "1", offsite: false },
 ];
-let backupDir: string | null = null;
+/** The novel lives here, so a destination on volume 1 shares its disk. */
+const projectVolume = "1";
+let backupDirs: string[] = [];
 let backupKeep = 10;
-let backupArchives: { path: string; name: string; bytes: number; modified: number }[] = [];
+type MockArchive = { path: string; name: string; bytes: number; modified: number; sha256: string | null };
+const backupArchives = new Map<string, MockArchive[]>();
 
 let mcpHttpEnabled = false;
 
@@ -400,7 +414,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     return publicChapter(c);
   },
 
-  get_settings: () => ({ ...settings, backupDir, backupKeep }),
+  get_settings: () => ({ ...settings, backupDirs: [...backupDirs], backupKeep }),
   set_settings: ({ patch }) => {
     Object.assign(settings, patch as Partial<typeof settings>);
     // Saving the Updates token is what signs the updater in.
@@ -686,30 +700,60 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   backup_destinations: () => backupDestinations.map((d) => ({ ...d })),
-  backup_configure: ({ path, keep }) => {
-    const dir = String(path ?? "").trim();
-    if (!dir) {
-      backupDir = null;
-      return undefined;
+  backup_configure: ({ paths, keep }) => {
+    const kept: string[] = [];
+    for (const raw of (paths as string[] | undefined) ?? []) {
+      const dir = String(raw ?? "").trim();
+      if (!dir) continue;
+      if (!backupDestinations.some((d) => d.path === dir && d.available)) throw "backup_dest_missing";
+      if (!kept.includes(dir)) kept.push(dir);
     }
-    if (!backupDestinations.some((d) => d.path === dir && d.available)) throw "backup_dest_missing";
-    backupDir = dir;
+    backupDirs = kept.slice(0, 3);
     backupKeep = Math.min(200, Math.max(1, Number(keep ?? 10)));
     return undefined;
   },
   backup_now: () => {
-    if (!backupDir) throw "backup_not_configured";
-    const archive = {
-      path: `${backupDir}/versorium-backup-el-largo-invierno-2026-09-28-0100${backupArchives.length}.zip`,
-      name: `versorium-backup-el-largo-invierno-2026-09-28-0100${backupArchives.length}.zip`,
-      bytes: 1_240_000,
-      modified: 1_790_553_600 + backupArchives.length,
-    };
-    backupArchives.unshift(archive);
-    backupArchives = backupArchives.slice(0, backupKeep);
-    return { ...archive };
+    if (backupDirs.length === 0) throw "backup_not_configured";
+    // `/mock/Volumes/Respaldo` stands in for an unplugged drive: the case the
+    // whole per-destination reporting exists for.
+    return backupDirs.map((dir) => {
+      if (dir === "/mock/Volumes/Respaldo") return { state: "unavailable", path: dir };
+      const stored = backupArchives.get(dir) ?? [];
+      const stamp = `2026-09-28-01000${stored.length}`;
+      const archive: MockArchive = {
+        path: `${dir}/versorium-backup-el-largo-invierno-${stamp}.zip`,
+        name: `versorium-backup-el-largo-invierno-${stamp}.zip`,
+        bytes: 1_240_000,
+        modified: 1_790_553_600 + stored.length,
+        sha256: "a".repeat(64),
+      };
+      backupArchives.set(dir, [archive, ...stored].slice(0, backupKeep));
+      return { state: "ok", path: dir, archive: { ...archive } };
+    });
   },
-  backup_list: () => (backupDir ? backupArchives.map((a) => ({ ...a })) : []),
+  backup_list: () =>
+    backupDirs.map((dir) => [dir, (backupArchives.get(dir) ?? []).map((a) => ({ ...a }))]),
+  backup_verify: () => "a".repeat(64),
+  backup_coverage: () => {
+    const volumes = new Set<string>([projectVolume]);
+    let unknown = false;
+    const onTheNovelsDisk: string[] = [];
+    for (const dir of backupDirs) {
+      const known = backupDestinations.find((d) => d.path === dir);
+      if (!known?.volume) {
+        unknown = true;
+        continue;
+      }
+      if (known.volume === projectVolume) onTheNovelsDisk.push(dir);
+      volumes.add(known.volume);
+    }
+    return {
+      copies: 1 + backupDirs.length,
+      media: unknown ? null : volumes.size,
+      offsite: backupDirs.some((dir) => backupDestinations.find((d) => d.path === dir)?.offsite),
+      onTheNovelsDisk,
+    };
+  },
   backup_restore: ({ project, label }) => `${String(project)}-${String(label)}`,
 
   git_push: ({ path }) => {

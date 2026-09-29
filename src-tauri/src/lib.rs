@@ -112,6 +112,8 @@ pub fn run() {
             commands::backup::backup_now,
             commands::backup::backup_list,
             commands::backup::backup_restore,
+            commands::backup::backup_verify,
+            commands::backup::backup_coverage,
             commands::git::git_status,
             commands::git::git_log,
             commands::git::git_diff,
