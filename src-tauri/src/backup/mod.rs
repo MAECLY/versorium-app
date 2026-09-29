@@ -64,42 +64,207 @@ fn home() -> Result<PathBuf, String> {
     dirs::home_dir().ok_or_else(|| "no_home".to_string())
 }
 
-/// Candidate sync folders on this machine, most conventional first.
+/// Whether a directory will actually accept a file.
 ///
-/// Linux has no standard location, so the common third-party clients are probed
-/// and the writer can always pick a folder instead. Reporting a destination that
-/// does not exist, rather than hiding it, is deliberate: "OneDrive — not found"
-/// tells someone their assumption was wrong, while silence looks like a bug.
+/// `is_dir()` is not enough. Google Drive's root is `dr-x------`: a real
+/// directory that rejects every write. Offering it as a destination and failing
+/// at backup time is the worst possible moment to find out.
+fn writable(path: &Path) -> bool {
+    if !path.is_dir() {
+        return false;
+    }
+    let probe = path.join(".versorium-write-probe");
+    match fs::write(&probe, b"") {
+        Ok(()) => {
+            let _ = fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// The first writable directory inside `root`, for providers whose root is not.
+///
+/// Google Drive puts the real target one level down, and names it in the user's
+/// own language — `Mi unidad` here, `My Drive` in English. Probing beats a
+/// translation table nobody can keep complete.
+fn writable_child(root: &Path) -> Option<PathBuf> {
+    let mut children: Vec<PathBuf> = fs::read_dir(root)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .filter(|p| {
+            !p.file_name()
+                .map(|n| n.to_string_lossy().starts_with('.'))
+                .unwrap_or(true)
+        })
+        .collect();
+    children.sort();
+    children.into_iter().find(|p| writable(p))
+}
+
+fn usable(root: &Path) -> Option<PathBuf> {
+    if writable(root) {
+        Some(root.to_path_buf())
+    } else {
+        writable_child(root)
+    }
+}
+
+/// Vendor prefixes macOS uses under `~/Library/CloudStorage`, which it names
+/// `Vendor-Account`. Apple forces this layout: file-provider extensions have
+/// been the only sanctioned route since kexts were deprecated in 12.3, so this
+/// finds providers this code has never heard of.
+const CLOUD_STORAGE_VENDORS: [(&str, &str); 6] = [
+    ("GoogleDrive", "googledrive"),
+    ("OneDrive", "onedrive"),
+    ("Box", "box"),
+    ("Dropbox", "dropbox"),
+    ("ProtonDrive", "protondrive"),
+    ("pCloud", "pcloud"),
+];
+
+/// Read Dropbox's own record of where its folder is.
+///
+/// `~/Dropbox` is a guess, and a wrong one for anybody who moved it. Dropbox
+/// writes the real path into `info.json`, one entry per linked account.
+fn dropbox_paths(home: &Path) -> Vec<PathBuf> {
+    let mut candidates = vec![home.join(".dropbox").join("info.json")];
+    for var in ["APPDATA", "LOCALAPPDATA"] {
+        if let Some(dir) = std::env::var_os(var) {
+            candidates.push(PathBuf::from(dir).join("Dropbox").join("info.json"));
+        }
+    }
+    for path in candidates {
+        let Ok(text) = fs::read_to_string(&path) else { continue };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
+        let Some(accounts) = value.as_object() else { continue };
+        let found: Vec<PathBuf> = accounts
+            .values()
+            .filter_map(|account| account.get("path").and_then(|p| p.as_str()))
+            .map(PathBuf::from)
+            .collect();
+        if !found.is_empty() {
+            return found;
+        }
+    }
+    Vec::new()
+}
+
+/// Read a Nextcloud or ownCloud client config for its sync roots.
+///
+/// The config moved on macOS with client v33, so both locations are tried.
+fn sync_client_paths(home: &Path, file: &str, vendor: &str) -> Vec<PathBuf> {
+    let candidates = [
+        home.join("Library/Preferences").join(vendor).join(file),
+        home.join("Library/Containers")
+            .join(format!("com.{}.desktopclient", vendor.to_lowercase()))
+            .join("Data/Library/Preferences")
+            .join(vendor)
+            .join(file),
+        home.join(".config").join(vendor).join(file),
+        std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_default()
+            .join(vendor)
+            .join(file),
+    ];
+    for path in candidates {
+        let Ok(text) = fs::read_to_string(&path) else { continue };
+        let found: Vec<PathBuf> = text
+            .lines()
+            .filter_map(|line| {
+                let line = line.trim();
+                let at = line.find("localPath=")?;
+                // Only a whole key, so a value that happens to contain the word
+                // is not mistaken for one.
+                if at > 0 && !matches!(line.as_bytes().get(at - 1), Some(b'\\') | Some(b'/')) {
+                    return None;
+                }
+                let value = line[at + "localPath=".len()..].trim();
+                (!value.is_empty()).then(|| PathBuf::from(value))
+            })
+            .collect();
+        if !found.is_empty() {
+            return found;
+        }
+    }
+    Vec::new()
+}
+
+/// Candidate sync folders on this machine.
+///
+/// Detected rather than guessed wherever the provider records the answer:
+/// somebody who moved their Dropbox folder still gets a working backup, and a
+/// destination that would reject the write is never offered.
 pub fn destinations() -> Vec<Destination> {
     let Ok(home) = home() else { return Vec::new() };
-    let mut found = Vec::new();
+    let mut found: Vec<Destination> = Vec::new();
 
     let mut add = |kind: &str, path: PathBuf| {
+        let resolved = usable(&path);
+        let available = resolved.is_some();
+        let path = resolved.unwrap_or(path);
+        if found.iter().any(|d: &Destination| d.path == path.to_string_lossy()) {
+            return;
+        }
         found.push(Destination {
             kind: kind.to_string(),
-            available: path.is_dir(),
+            available,
             path: path.to_string_lossy().into_owned(),
         });
     };
 
+    // Fixed and locale-independent: only the Finder label is translated.
     #[cfg(target_os = "macos")]
     add("icloud", home.join("Library/Mobile Documents/com~apple~CloudDocs"));
 
-    #[cfg(target_os = "windows")]
-    {
-        // Set by the OneDrive client itself; the folder is not always under the
-        // profile root, and business accounts use a second variable.
-        for var in ["OneDrive", "OneDriveConsumer", "OneDriveCommercial"] {
-            if let Some(value) = std::env::var_os(var).filter(|v| !v.is_empty()) {
-                add("onedrive", PathBuf::from(value));
-                break;
-            }
+    // Everything macOS syncs lives here, named `Vendor-Account`.
+    #[cfg(target_os = "macos")]
+    if let Ok(entries) = fs::read_dir(home.join("Library/CloudStorage")) {
+        let mut dirs: Vec<PathBuf> = entries.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
+        dirs.sort();
+        for dir in dirs {
+            let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let kind = CLOUD_STORAGE_VENDORS
+                .iter()
+                .find(|(prefix, _)| name.starts_with(prefix))
+                .map(|(_, kind)| *kind)
+                .unwrap_or("folder");
+            add(kind, dir);
         }
     }
 
-    // Offered everywhere: these clients run on all three platforms, and someone
-    // on macOS may well prefer Dropbox to iCloud.
-    for (kind, dir) in [("nextcloud", "Nextcloud"), ("dropbox", "Dropbox")] {
+    // Set by the OneDrive client; the folder is not always under the profile.
+    for var in ["OneDrive", "OneDriveConsumer", "OneDriveCommercial"] {
+        if let Some(value) = std::env::var_os(var).filter(|v| !v.is_empty()) {
+            add("onedrive", PathBuf::from(value));
+        }
+    }
+
+    for path in dropbox_paths(&home) {
+        add("dropbox", path);
+    }
+    for path in sync_client_paths(&home, "nextcloud.cfg", "Nextcloud") {
+        add("nextcloud", path);
+    }
+    for path in sync_client_paths(&home, "owncloud.cfg", "ownCloud") {
+        add("owncloud", path);
+    }
+
+    // Last, and only if nothing authoritative was found: the conventional names
+    // these clients use when nobody moved them.
+    for (kind, dir) in [
+        ("dropbox", "Dropbox"),
+        ("nextcloud", "Nextcloud"),
+        ("owncloud", "ownCloud"),
+        ("mega", "MEGA"),
+        ("pcloud", "pCloud"),
+        ("seafile", "Seafile"),
+        ("koofr", "Koofr"),
+        ("syncthing", "Sync"),
+    ] {
         let path = home.join(dir);
         if path.is_dir() {
             add(kind, path);
@@ -547,12 +712,110 @@ mod tests {
     }
 
     #[test]
+    fn a_hidden_directory_is_never_chosen_as_a_destination() {
+        // Found against a real Google Drive: its root is read-only and `.Trash`
+        // sorts before `Mi unidad`, so the first writable child was the trash.
+        // Backups written there get deleted, which is worse than none.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("readonly-root");
+        fs::create_dir_all(root.join(".Trash")).unwrap();
+        fs::create_dir_all(root.join("Mi unidad")).unwrap();
+        assert_eq!(writable_child(&root), Some(root.join("Mi unidad")));
+    }
+
+    #[test]
+    fn a_directory_that_refuses_writes_is_not_offered() {
+        // `is_dir()` is not enough: Google Drive's root is a real directory
+        // that rejects every write.
+        let tmp = tempfile::tempdir().unwrap();
+        let good = tmp.path().join("good");
+        fs::create_dir_all(&good).unwrap();
+        assert!(writable(&good));
+        assert!(!writable(&tmp.path().join("absent")));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let locked = tmp.path().join("locked");
+            fs::create_dir_all(&locked).unwrap();
+            fs::set_permissions(&locked, fs::Permissions::from_mode(0o500)).unwrap();
+            assert!(!writable(&locked), "a read-only directory was offered");
+            // Leave it removable by the tempdir teardown.
+            fs::set_permissions(&locked, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+    }
+
+    #[test]
+    fn the_probe_leaves_nothing_behind() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(writable(tmp.path()));
+        let leftovers: Vec<String> = fs::read_dir(tmp.path())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(leftovers.is_empty(), "the write probe was not cleaned up: {leftovers:?}");
+    }
+
+    #[test]
+    fn dropbox_is_read_from_its_own_record_rather_than_guessed() {
+        // `~/Dropbox` is wrong for anybody who moved it, and Dropbox writes the
+        // real answer into info.json.
+        let tmp = tempfile::tempdir().unwrap();
+        let moved = tmp.path().join("Somewhere Else");
+        fs::create_dir_all(&moved).unwrap();
+        fs::create_dir_all(tmp.path().join(".dropbox")).unwrap();
+        fs::write(
+            tmp.path().join(".dropbox").join("info.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "personal": { "path": moved.to_string_lossy(), "host": 1 }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(dropbox_paths(tmp.path()), vec![moved]);
+
+        // No file, no guess.
+        let empty = tempfile::tempdir().unwrap();
+        assert!(dropbox_paths(empty.path()).is_empty());
+    }
+
+    #[test]
+    fn a_nextcloud_config_yields_every_folder_it_syncs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join(".config").join("Nextcloud");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("nextcloud.cfg"),
+            "[Accounts]\n0\\Folders\\1\\localPath=/home/ana/Nextcloud/\n\
+             0\\Folders\\2\\localPath=/home/ana/Novelas/\n",
+        )
+        .unwrap();
+        let found = sync_client_paths(tmp.path(), "nextcloud.cfg", "Nextcloud");
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(found.contains(&PathBuf::from("/home/ana/Novelas/")));
+    }
+
+    #[test]
     fn destinations_are_reported_even_when_absent() {
         // Every entry names a kind the UI can translate, and a path.
         for destination in destinations() {
             assert!(!destination.kind.is_empty());
             assert!(!destination.path.is_empty());
             assert_eq!(destination.available, Path::new(&destination.path).is_dir());
+        }
+    }
+}
+
+#[cfg(test)]
+mod live_detection {
+    /// What this machine really offers. Prints rather than asserts: the answer
+    /// depends on which sync clients are installed.
+    #[test]
+    #[ignore = "reports the sync folders installed on this machine"]
+    fn live_what_this_machine_offers() {
+        for d in super::destinations() {
+            eprintln!("{:<12} available={:<5} {}", d.kind, d.available, d.path);
         }
     }
 }
