@@ -82,6 +82,12 @@ jobs:
       # Test code included. It used to carry pre-existing warnings, which is why
       # this was scoped to shipped code; those are fixed, so the stricter form is
       # the one worth keeping.
+      #
+      # `-D warnings` on a floating `stable` toolchain means a Rust release can
+      # turn this red with no change from anybody — a new lint landed in 1.98 and
+      # flagged a `format!` that 1.97 accepted. That is the accepted cost: pinning
+      # the toolchain would make CI reproducible and the lint set stale, and a
+      # lint nobody ever sees is not a lint.
       - name: Clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
