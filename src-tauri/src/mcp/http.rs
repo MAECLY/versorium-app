@@ -51,20 +51,27 @@ pub fn endpoint_file() -> Result<PathBuf, String> {
     crate::paths::app_data_dir().map(|dir| dir.join("mcp-http.json"))
 }
 
-/// A bearer token for this run.
+/// A bearer token for this run: 256 bits from the operating system's CSPRNG.
 ///
-/// Not a password anybody types: it is written to a file beside the port so a
-/// client can read both, and it exists so that guessing the port is not enough.
-fn mint_token() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    // Two independent sources so the value is not derivable from the clock
-    // alone: the address of a heap allocation is randomised by ASLR.
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
-    let boxed = Box::new(0u8);
-    let addr = std::ptr::addr_of!(*boxed) as usize;
-    let pid = std::process::id() as u128;
-    let mixed = now ^ (addr as u128) << 17 ^ pid << 61;
-    format!("{mixed:032x}")
+/// Not a password anybody types — it is written to a file beside the port so a
+/// client can read both — but it is what stands between a local process and
+/// tools that can rewrite a manuscript, so it has to be unguessable.
+///
+/// An earlier version mixed the clock, a heap address and the pid. That was
+/// wrong: someone who knows roughly when the app started narrows the clock to a
+/// small window, ASLR gives far less entropy than its width suggests, and a pid
+/// is a few thousand values. Derived entropy is not entropy.
+///
+/// Failure is fatal rather than falling back. A weaker token would still open
+/// the port, and quietly serving a guessable one is worse than not serving.
+fn mint_token() -> Result<String, String> {
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).map_err(|_| "mcp_http_no_entropy".to_string())?;
+    Ok(bytes.iter().fold(String::with_capacity(64), |mut out, byte| {
+        use std::fmt::Write;
+        let _ = write!(out, "{byte:02x}");
+        out
+    }))
 }
 
 /// A running listener.
@@ -338,7 +345,7 @@ pub fn serve(client: String) -> Result<Endpoint, String> {
     let listener = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0))
         .map_err(|_| "mcp_http_bind_failed".to_string())?;
     let port = listener.local_addr().map_err(|_| "mcp_http_bind_failed".to_string())?.port();
-    let token = mint_token();
+    let token = mint_token()?;
 
     write_endpoint_file(port, &token)?;
 
@@ -648,12 +655,24 @@ mod tests {
     }
 
     #[test]
-    fn the_token_is_not_predictable_from_one_run_to_the_next() {
-        let a = mint_token();
-        let b = mint_token();
-        assert_ne!(a, b, "two tokens in the same process collided");
-        assert_eq!(a.len(), 32);
+    fn the_token_carries_real_entropy_from_the_operating_system() {
+        let a = mint_token().expect("the OS must provide entropy");
+        let b = mint_token().expect("the OS must provide entropy");
+        assert_ne!(a, b, "two tokens collided");
+        // 32 bytes as hex. An earlier version produced 16 bytes derived from the
+        // clock, a heap address and the pid, which is guessable by anyone who
+        // knows roughly when the app started.
+        assert_eq!(a.len(), 64);
         assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+
+        // A crude check that it is not a counter or a timestamp: a thousand
+        // tokens must all differ, and the bytes must not be mostly zero.
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..1000 {
+            assert!(seen.insert(mint_token().unwrap()), "a token repeated");
+        }
+        let zeros = a.matches('0').count();
+        assert!(zeros < 32, "suspiciously many zero nibbles: {a}");
     }
 
     /// Speaks real HTTP to a real listener. Ignored because it binds a port and
