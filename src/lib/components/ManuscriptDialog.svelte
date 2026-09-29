@@ -12,7 +12,7 @@
 
   type Tab = "export" | "import";
   const TABS: Tab[] = ["export", "import"];
-  const FORMATS: ExportFormat[] = ["md", "docx", "epub", "pdf"];
+  const FORMATS: ExportFormat[] = ["md", "docx", "epub", "pdf", "scriv"];
   /** Spec §9: these two print the surname in every running head. */
   const NEEDS_AUTHOR: ExportFormat[] = ["docx", "pdf"];
 

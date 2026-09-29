@@ -211,7 +211,8 @@
     "git_behind_remote": "The copy on GitHub has changes this one does not. Pull first.",
     "git_diverged": "Both copies changed separately. Versorium cannot merge that yet — open the folder in a git tool.",
     "no_remote": "This novel has no GitHub backup set up yet.",
-    "not_signed_in": "Connect your GitHub account first."
+    "not_signed_in": "Connect your GitHub account first.",
+    "export_scrivener_scenes_flattened": "Scene breaks become a separator: Scrivener has no scene inside a document."
   },
   "languages": {
     "en": "English",
@@ -429,13 +430,15 @@
         "md": "The canonical format. Nothing is lost.",
         "docx": "Standard manuscript format: 12pt serif, double-spaced, 1-inch margins, surname / title / page in the header.",
         "epub": "An ebook readers accept.",
-        "pdf": "Print preview, with chapter openings and running heads."
+        "pdf": "Print preview, with chapter openings and running heads.",
+        "scriv": "A Scrivener 3 project folder, one document per chapter."
       },
       "formatNames": {
         "md": "Markdown",
         "docx": "Word (DOCX)",
         "epub": "EPUB 3",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "scriv": "Scrivener"
       },
       "author": "Author",
       "authorPlaceholder": "Ursula K. Le Guin",
