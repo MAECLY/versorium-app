@@ -6,6 +6,7 @@
   import RenameDialog from "$lib/binder/RenameDialog.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import ProjectSettingsDialog from "$lib/binder/ProjectSettingsDialog.svelte";
+  import CoverPreview from "$lib/components/CoverPreview.svelte";
 
   let { onRequestNewChapter }: { onRequestNewChapter: () => void } = $props();
 
@@ -90,8 +91,19 @@
         disabled={store.loading}
         onclick={() => store.openProject(p.path)}
       >
-        <span style="font-size: 13px;">{p.meta.title}</span>
-        <span class="v-muted" style="margin-left: auto; font-size: 11px;">
+        <!-- The cover, small. A list of titles is a filing cabinet; seeing the
+             book you are making is the thing that gets somebody back to it. -->
+        <CoverPreview
+          title={p.meta.title}
+          author={p.meta.author}
+          width={26}
+          compact
+          dimmed={!p.meta.exportCover}
+        />
+        <span style="font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis;">
+          {p.meta.title}
+        </span>
+        <span class="v-muted" style="margin-left: auto; font-size: 11px; flex-shrink: 0;">
           {t("binder.wordCount", { words: p.chapters.reduce((a, c) => a + c.words, 0) })}
         </span>
       </button>
