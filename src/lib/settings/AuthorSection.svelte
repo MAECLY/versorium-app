@@ -3,6 +3,9 @@
   import { t } from "$lib/i18n";
   import { api, isTauri, AUTHOR_ROLES, type AuthorProfile, type AuthorProfiles } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
+  import Select from "$lib/components/forms/Select.svelte";
+  import TextField from "$lib/components/forms/TextField.svelte";
+  import Checkbox from "$lib/components/forms/Checkbox.svelte";
 
   /**
    * Who the manuscript is by, as the exported file will say it.
@@ -98,58 +101,43 @@
 
     <div class="flex flex-col gap-3">
       {#each FIELDS as field (field)}
-        <!-- The destination is a description, not part of the name: inside the
-             label it becomes the field's accessible name, and a screen reader
-             announces a paragraph where a writer expects "Name". -->
-        <div class="flex flex-col gap-1">
-          <label class="flex flex-col gap-1" style="font-size: 13px;" for="author-{field}">
-            {t(`author.fields.${field}`)}
-          </label>
-          {#if field === "role"}
-            <span class="v-select" style="max-width: 280px;">
-            <select
-              id="author-{field}"
-              aria-describedby="author-where-{field}"
-              value={current.role}
-              onchange={(e) => edit("role", (e.currentTarget as HTMLSelectElement).value, true)}
-            >
-              <option value="">{t("author.roles.none")}</option>
-              {#each AUTHOR_ROLES as code (code)}
-                <option value={code}>{t(`author.roles.${code}`)}</option>
-              {/each}
-            </select>
-            </span>
-          {:else}
-            <input
-              id="author-{field}"
-              aria-describedby="author-where-{field}"
-              type="text"
-              value={current[field]}
-              placeholder={field === "sortAs" ? sortGuess : ""}
-              oninput={(e) => edit(field, (e.currentTarget as HTMLInputElement).value, false)}
-              onchange={(e) => edit(field, (e.currentTarget as HTMLInputElement).value, true)}
-              onblur={(e) => edit(field, (e.currentTarget as HTMLInputElement).value, true)}
-            />
-          {/if}
-          <span id="author-where-{field}" class="v-muted" style="font-size: 11.5px; line-height: 1.5;">
-            {t(`author.where.${field}`)}
-          </span>
-        </div>
+        {#if field === "role"}
+          <Select
+            label={t("author.fields.role")}
+            hint={t("author.where.role")}
+            value={current.role}
+            minWidth="280px"
+            options={[
+              { value: "", label: t("author.roles.none") },
+              ...AUTHOR_ROLES.map((code) => ({ value: code, label: t(`author.roles.${code}`) })),
+            ]}
+            onChange={(next) => edit("role", next, true)}
+          />
+        {:else}
+          <TextField
+            label={t(`author.fields.${field}`)}
+            hint={t(`author.where.${field}`)}
+            value={current[field]}
+            placeholder={field === "sortAs" ? sortGuess : undefined}
+            onInput={(next) => edit(field, next, false)}
+            onCommit={(next) => edit(field, next, true)}
+          />
+        {/if}
       {/each}
+
     </div>
 
-    <label class="v-row mt-3" style="gap: 8px; font-size: 13px;">
-      <input
-        type="checkbox"
+    <div class="mt-3">
+      <Checkbox
+        label={t("author.useForExports", { profile: t(`author.profiles.${editing}`) })}
         checked={active === editing}
         disabled={active === editing}
-        onchange={() => {
+        onChange={() => {
           active = editing;
           void save();
         }}
       />
-      {t("author.useForExports", { profile: t(`author.profiles.${editing}`) })}
-    </label>
+    </div>
 
     <p class="v-muted m-0 mt-3" style="font-size: 11.5px; line-height: 1.6;">{t("author.privacy")}</p>
     {#if saved}

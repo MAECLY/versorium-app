@@ -365,6 +365,116 @@ input[type="number"] {
   font-variant-numeric: tabular-nums;
 }
 
+/* ------------------------------------------------------------ field shell
+
+   The label/control/hint/error shape the form primitives render into. The one
+   rule it exists to enforce: the hint and the error are SIBLINGS of the label,
+   never inside it, because a label that encloses its hint makes the whole
+   paragraph the control's accessible name.
+--------------------------------------------------------------------------- */
+
+.v-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.v-field-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.v-field > input,
+.v-field > select,
+.v-field > textarea,
+.v-field > .v-select,
+.v-field > .v-number {
+  width: 100%;
+}
+
+.v-field-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v-field-inline > .v-field-label {
+  flex: none;
+}
+
+.v-field-inline > input,
+.v-field-inline > select,
+.v-field-inline > .v-select,
+.v-field-inline > .v-number {
+  width: auto;
+}
+
+/* Hint and error take the next line rather than crowding the control. */
+.v-field-inline > .v-field-hint,
+.v-field-inline > .v-field-error {
+  flex-basis: 100%;
+}
+
+.v-field-label {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.v-field-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-mute);
+}
+
+.v-field-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--warn);
+}
+
+/* A checkbox row: the box, its label, and an optional live readout that sits
+   outside the label so it never becomes part of the name. */
+.v-check {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.v-check-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.v-check-label {
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.v-check-suffix {
+  font-size: 12px;
+}
+
+/* With a hint below it the box should sit against the first line of the label
+   rather than float in the middle of two. */
+.v-check:has(> .v-field-hint) > .v-check-row > input[type="checkbox"] {
+  align-self: start;
+  margin-top: 0.15em;
+}
+
+.v-number {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
 /* ---------------------------------------------------------------- chrome */
 
 .v-btn {
@@ -426,6 +536,15 @@ input[type="number"] {
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
+}
+
+/* Placed after `.v-card` on purpose: both are single-class selectors, so source
+   order is the only thing that decides, and up in the controls block these
+   would have been silently overridden. */
+.v-btn-step {
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .v-muted {
