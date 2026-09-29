@@ -387,7 +387,8 @@
         "mid": "El punto dulce en un portátil normal.",
         "midPlus": "Prosa notablemente mejor, y ya pesa.",
         "high": "El mejor de aquí, y pide bastante memoria."
-      }
+      },
+      "details": "Detalles"
     },
     "speeds": {
       "fast": "Rápido",
@@ -450,6 +451,21 @@
       "failed": "llama.cpp no pudo iniciarse en esta máquina.",
       "cpuOnly": "CPU",
       "noGpuBuild": "· esta versión no trae backend de GPU, así que la velocidad es la de CPU"
+    },
+    "filter": {
+      "search": "Buscar modelos",
+      "sort": "Ordenar",
+      "sorts": {
+        "recommended": "Orden recomendado",
+        "smallest": "Más pequeños primero",
+        "largest": "Más grandes primero",
+        "name": "Por nombre"
+      },
+      "family": "Familia",
+      "allFamilies": "Todas las familias",
+      "fits": "Funciona en esta máquina",
+      "showing": "Mostrando {shown} de {total}",
+      "noMatch": "Ningún modelo coincide. Borra la búsqueda o los filtros."
     }
   },
   "manuscript": {
