@@ -144,6 +144,20 @@
 
 /* ---------------------------------------------------------------- base */
 
+/* Which set of built-in colours the browser paints with.
+   Never set until now, so WebKit rendered every native widget internal — the
+   checkbox tick, the select popup, the scrollbars, the focus rings inside
+   controls — in the operating system's appearance, regardless of which of the
+   six themes was active. A dark Versorium theme on a light-mode Mac got light
+   scrollbars and a light dropdown. */
+[data-theme$="-light"] {
+  color-scheme: light;
+}
+
+[data-theme$="-dark"] {
+  color-scheme: dark;
+}
+
 html,
 body {
   height: 100%;
@@ -178,21 +192,177 @@ button {
   cursor: pointer;
 }
 
-input,
-select {
-  font: inherit;
+/* ---------------------------------------------------------------- controls
+
+   These rules are deliberately on element selectors rather than on classes.
+   Every checkbox, select and input in the app is fixed the day this lands —
+   including the ones written next month by somebody who never reads this file.
+   A component that set `accent-color` would fix the six checkboxes that use it
+   and leave the seventh broken forever.
+
+   Source order from here down is load-bearing: base, hover, invalid, disabled.
+   The negations sit in :where() so they add no specificity and the state rules
+   can still win on a single attribute.
+--------------------------------------------------------------------------- */
+
+input:where(:not([type="checkbox"], [type="radio"])),
+select,
+textarea {
+  font-family: inherit;
+  /* Owned, not inherited. A field was 13px only because some ancestor label
+     happened to carry an inline font-size; delete that and the control jumped
+     to the 16px user-agent default. */
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--text);
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   padding: 6px 10px;
+  transition: border-color 150ms ease-out, opacity 150ms ease-out;
+}
+
+input:where(:not([type="checkbox"], [type="radio"], :disabled)):hover,
+select:where(:not(:disabled)):hover,
+textarea:where(:not(:disabled)):hover {
+  border-color: var(--accent);
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--warn);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The one piece of user-facing text in the app with no token behind it. */
+::placeholder {
+  color: var(--text-mute);
+  opacity: 1;
 }
 
 input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* A checkbox is not a small text box.
+   The rule above used to catch these too, so every checkbox and radio in the
+   app was given 6px/10px of padding, a border and a corner radius — a text
+   field with a tick sitting in the middle of it. `accent-color` is the whole
+   fix for the macOS-blue tick: the app's accent is Needle Teal, and until now
+   not one checkbox knew that. 1.15em rather than a pixel size so the glyph
+   tracks whatever type scale its label is set in. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+  width: 1.15em;
+  height: 1.15em;
+  margin: 0;
+  flex: none;
+  cursor: pointer;
+}
+
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* The select keeps its OS popup on purpose — that popup escapes the dialog's
+   overflow and the panel's scroll container, it carries keyboard type-ahead
+   and optgroups for free, and a JavaScript listbox would have to reimplement
+   all three and would still be clipped. What goes is the OS arrow on the
+   closed control, which is the part that looks borrowed.
+
+   The chevron hangs off a wrapper because WebKit gives a <select> no reliable
+   ::after, and it is drawn with borders rather than an SVG data URI because a
+   data URI cannot resolve var() — a baked-in stroke colour is exactly how this
+   would break in one of the six themes and nobody would notice. */
+.v-select {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.v-select > select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 0;
+  padding-right: 28px;
+  text-overflow: ellipsis;
+}
+
+.v-select::after {
+  content: "";
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  margin-top: -4px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-mute);
+  border-bottom: 1.5px solid var(--text-mute);
+  transform: rotate(45deg);
+  pointer-events: none;
+  transition: border-color 150ms ease-out;
+}
+
+/* Only the accent tint depends on :has(). Where it is unsupported the chevron
+   simply stays muted, which is a missing flourish rather than a broken
+   control. */
+.v-select:has(> select:hover:not(:disabled))::after,
+.v-select:has(> select:focus-visible)::after {
+  border-color: var(--accent);
+}
+
+.v-select:has(> select:disabled)::after {
+  opacity: 0.55;
+}
+
+/* WebKit's search field ships its own ✕ in its own grey. Drawn as a mask
+   rather than a background image, so the colour is a token like everything
+   else. */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  background-color: var(--text-mute);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 2.5 9.5 9.5M9.5 2.5 2.5 9.5' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 2.5 9.5 9.5M9.5 2.5 2.5 9.5' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+input[type="search"]::-webkit-search-cancel-button:hover {
+  background-color: var(--text);
+}
+
+/* Hiding the OS spinner does not remove stepping: ArrowUp and ArrowDown still
+   work and the role stays spinbutton. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------------------------------------------------------------- chrome */
