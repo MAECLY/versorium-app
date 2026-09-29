@@ -72,7 +72,7 @@
     },
     "nav": "Settings sections",
     "backToWriting": "← Back to the manuscript",
-    "themeHint": "Folio is paper-warm, Quarry is cool grey, Needle is dark. Each one follows light, dark, or your system.",
+    "themeHint": "Folio is paper-warm, Quarry is cool grey, Needle is dark and green. Each one has a light and a dark version; the mode below decides which you see.",
     "languageHint": "Changes the interface only. It never touches the language your novel is written in.",
     "groups": {
       "writing": "Writing",
@@ -89,6 +89,11 @@
       "backup": "Your novel's history on this disk, and an optional private copy on GitHub. Versorium never mixes it with its own repository.",
       "assistants": "Outside AI tools that can reach your novel, and exactly how much each one is allowed to do.",
       "app": "Versorium itself: the version you are running, how it updates, and what it records when it crashes."
+    },
+    "themes": {
+      "folio": "Folio",
+      "quarry": "Quarry",
+      "needle": "Needle"
     }
   },
   "statusbar": {

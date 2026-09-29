@@ -18,8 +18,7 @@ function isSystemDark(): boolean {
 
 function apply(): void {
   const resolvedMode = mode === "follow" ? (isSystemDark() ? "dark" : "light") : mode;
-  const resolvedTheme = mode === "follow" && resolvedMode === "dark" ? "needle" : theme;
-  document.documentElement.dataset.theme = `${resolvedTheme}-${resolvedMode}`;
+  document.documentElement.dataset.theme = `${theme}-${resolvedMode}`;
 }
 
 function syncMedia(): void {
@@ -45,7 +44,13 @@ export function setThemeMode(m: ThemeMode): void {
   if (isTauri()) void api.setSettings({ themeMode: m });
 }
 
-/** Apply persisted theme at startup. Default: Folio day / Needle night / follow system. */
+/**
+ * Apply the persisted theme at startup.
+ *
+ * A fresh install is Folio following the system, which is spec §5's default
+ * pair. What the writer picks afterwards is what they get: the theme is never
+ * substituted for another one behind their back.
+ */
 export async function initTheme(): Promise<void> {
   if (isTauri()) {
     try {
