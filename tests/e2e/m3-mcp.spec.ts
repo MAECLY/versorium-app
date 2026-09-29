@@ -93,3 +93,23 @@ test("the MCP panel is translated", async ({ page }) => {
   await expect(settings.getByRole("button", { name: "Conectar" }).first()).toBeVisible();
   await expect(settings.getByRole("checkbox", { name: "Permitir escritura" }).first()).toBeVisible();
 });
+
+test("HTTP is off until asked for, and then says where and how", async ({ page }) => {
+  const { mcp } = await openMcpPanel(page);
+
+  // Off by default: a listener on a machine whose MCP tools can write to a
+  // manuscript is a deliberate choice, not a default.
+  await expect(mcp.getByText(/Assistants reach Versorium by starting it/)).toBeVisible();
+  const toggle = mcp.getByRole("checkbox", { name: "Serve over HTTP too" });
+  await expect(toggle).not.toBeChecked();
+
+  await toggle.check();
+  // What a client needs, and where the token is — never the token itself.
+  await expect(mcp.getByText("http://127.0.0.1:52341/mcp")).toBeVisible();
+  await expect(mcp.getByText(/mcp-http\.json/)).toBeVisible();
+  await expect(mcp.getByText(/only you can open/)).toBeVisible();
+
+  // Turning it off cannot retract a listener mid-request, and says so.
+  await toggle.uncheck();
+  await expect(mcp.getByText(/Assistants reach Versorium by starting it/)).toBeVisible();
+});

@@ -54,6 +54,17 @@ pub fn run() {
             // for a rewrite in the first few seconds of a session.
             llama::warm_up();
 
+            // Serve MCP over HTTP too, if the writer asked for it. Off by
+            // default: it opens a listener on a machine whose MCP tools can
+            // write to a manuscript.
+            {
+                let enabled = app
+                    .state::<commands::settings::SettingsStore>()
+                    .get()
+                    .mcp_http_enabled;
+                mcp::http::start_if_enabled(enabled, mcp::DEFAULT_CLIENT.to_string());
+            }
+
             // Move any token still in settings.json into the OS credential
             // store. Blocking and possibly prompt-raising, so not on the path
             // that opens the window.
@@ -127,6 +138,8 @@ pub fn run() {
             commands::mcp::mcp_uninstall_client,
             commands::mcp::mcp_log,
             commands::mcp::mcp_set_active_project,
+            commands::mcp::mcp_http_status,
+            commands::mcp::mcp_set_http,
             commands::models::models_view,
             commands::models::models_download,
             commands::models::models_cancel,

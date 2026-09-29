@@ -237,6 +237,14 @@ export interface StudioView {
   enabled: boolean;
 }
 
+/** MCP over HTTP as well as stdio. The token is absent on purpose: it lives in
+ *  a file only the user can read. */
+export interface McpHttpStatus {
+  enabled: boolean;
+  url: string | null;
+  endpointFile: string | null;
+}
+
 export type SecretSlot = "updates" | "novel";
 
 /** Which credentials exist. Never their values: the token only travels inward. */
@@ -474,6 +482,9 @@ export const api = {
 
   updateProgress: () => invoke<InstallProgress | null>("update_progress"),
   updateRelaunch: () => invoke<void>("update_relaunch"),
+
+  mcpHttpStatus: () => invoke<McpHttpStatus>("mcp_http_status"),
+  mcpSetHttp: (enabled: boolean) => invoke<McpHttpStatus>("mcp_set_http", { enabled }),
 
   // --- credentials, kept in the OS store; the token never comes back out ---
   secretsStatus: () => invoke<SecretsStatus>("secrets_status"),

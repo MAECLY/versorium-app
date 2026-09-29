@@ -213,7 +213,8 @@
     "no_remote": "Esta novela todavía no tiene respaldo en GitHub configurado.",
     "not_signed_in": "Conecta tu cuenta de GitHub primero.",
     "export_scrivener_scenes_flattened": "Los saltos de escena se vuelven un separador: Scrivener no tiene escenas dentro de un documento.",
-    "import_epub_styles_dropped": "El estilo del libro no se conserva: un capítulo de Versorium es Markdown."
+    "import_epub_styles_dropped": "El estilo del libro no se conserva: un capítulo de Versorium es Markdown.",
+    "mcp_http_bind_failed": "Versorium no pudo abrir un puerto local para HTTP."
   },
   "languages": {
     "en": "English",
@@ -290,7 +291,13 @@
       "claude-desktop": "Claude Desktop",
       "codex": "Codex",
       "opencode": "OpenCode"
-    }
+    },
+    "httpTitle": "Servir también por HTTP",
+    "httpHint": "Algunos asistentes no pueden arrancar un programa y necesitan una URL. Versorium escucha solo en esta máquina, en un puerto que elige él, y un cliente debe presentar un token que lee de un archivo que solo tú puedes abrir.",
+    "httpOff": "Apagado. Los asistentes llegan a Versorium arrancándolo, que no necesita red en absoluto.",
+    "httpUrl": "Dirección",
+    "httpFile": "La URL y el token están aquí",
+    "httpRestart": "Apagarlo surte efecto la próxima vez que arranque Versorium."
   },
   "localAi": {
     "title": "IA local",

@@ -1,7 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { t, getLocale } from "$lib/i18n";
-  import { isTauri, type AgentInfo, type McpClient, type McpLogEntry } from "$lib/tauri";
+  import {
+    api,
+    isTauri,
+    type AgentInfo,
+    type McpClient,
+    type McpHttpStatus,
+    type McpLogEntry,
+  } from "$lib/tauri";
+  import { errorMessage } from "$lib/i18n/errors";
   import { detectAgents } from "$lib/ai/agents";
   import { mcp } from "$lib/mcp/state.svelte";
 
@@ -32,6 +40,26 @@
 
   let mcpNotice = $state<{ id: string; text: string } | null>(null);
 
+  // MCP over HTTP, for assistants that cannot start a program. Off by default
+  // because it opens a listener on a machine whose MCP tools can write.
+  let http = $state<McpHttpStatus | null>(null);
+
+  async function loadHttp(): Promise<void> {
+    try {
+      http = await api.mcpHttpStatus();
+    } catch {
+      http = null;
+    }
+  }
+
+  async function setHttp(enabled: boolean): Promise<void> {
+    try {
+      http = await api.mcpSetHttp(enabled);
+    } catch (e) {
+      mcpNotice = { id: "http", text: errorMessage(e) };
+    }
+  }
+
   async function toggleClient(client: McpClient): Promise<void> {
     mcpNotice = null;
     const wasInstalled = client.installed;
@@ -54,6 +82,7 @@
     if (!isTauri()) return;
     void load(false);
     void mcp.load();
+    void loadHttp();
   });
 </script>
 
@@ -195,6 +224,40 @@
         {/each}
       </ul>
     {/if}
+
+    <div class="v-card mb-3 p-3">
+      <label class="v-row" style="gap: 8px; font-size: 13px;">
+        <input
+          type="checkbox"
+          checked={http?.enabled ?? false}
+          onchange={(e) => void setHttp((e.currentTarget as HTMLInputElement).checked)}
+        />
+        {t("mcp.httpTitle")}
+      </label>
+      <p class="v-muted m-0 mt-1" style="font-size: 12px; line-height: 1.6;">{t("mcp.httpHint")}</p>
+      {#if http?.enabled}
+        {#if http.url}
+          <p class="m-0 mt-2" style="font-size: 12px;">
+            {t("mcp.httpUrl")}:
+            <code style="font-family: var(--font-mono, ui-monospace, monospace);">{http.url}</code>
+          </p>
+        {/if}
+        {#if http.endpointFile}
+          <p
+            class="v-muted m-0 mt-1"
+            style="font-size: 11px; font-family: var(--font-mono, ui-monospace, monospace); overflow-wrap: anywhere;"
+          >
+            {t("mcp.httpFile")}: {http.endpointFile}
+          </p>
+        {/if}
+        <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("mcp.httpRestart")}</p>
+      {:else}
+        <p class="v-muted m-0 mt-2" style="font-size: 12px;">{t("mcp.httpOff")}</p>
+      {/if}
+      {#if mcpNotice && mcpNotice.id === "http"}
+        <p role="alert" class="m-0 mt-2" style="font-size: 12px; color: var(--warn);">{mcpNotice.text}</p>
+      {/if}
+    </div>
 
     <div class="v-row mb-1" style="justify-content: space-between;">
       <b style="font-size: 13px;">{t("mcp.log")}</b>

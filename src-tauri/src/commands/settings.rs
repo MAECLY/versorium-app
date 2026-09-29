@@ -122,6 +122,10 @@ pub struct Settings {
     pub backup_dir: Option<String>,
     /// How many archives to keep before the oldest is dropped.
     pub backup_keep: usize,
+    /// Serve MCP over HTTP as well as stdio. Off by default: it opens a listener
+    /// on a machine whose MCP tools can write to a manuscript, so it is a
+    /// deliberate choice rather than a default.
+    pub mcp_http_enabled: bool,
 }
 
 impl Default for Settings {
@@ -149,6 +153,7 @@ impl Default for Settings {
             onboarded: false,
             backup_dir: None,
             backup_keep: crate::backup::DEFAULT_KEEP,
+            mcp_http_enabled: false,
         }
     }
 }
