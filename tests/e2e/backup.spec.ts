@@ -30,10 +30,22 @@ test("a synced folder is offered, and one that is not installed says so", async 
   await expect(backup.getByText("not found on this machine")).toBeVisible();
 
   // And the promise that makes this safe at all.
-  await expect(backup.getByText(/a live repository inside a synced folder gets corrupted/)).toBeVisible();
+  await expect(backup.getByText(/live repository inside a synced folder gets corrupted/)).toBeVisible();
 });
 
-test("choosing a destination then backing up lists the archive", async ({ page }) => {
+test("a destination says whether it actually leaves the machine", async ({ page }) => {
+  await withProject(page);
+  const backup = await openBackup(page);
+
+  // The distinction the whole rule turns on: a second disk survives a dead
+  // drive, not a burnt flat, and calling both "backup" hides that.
+  const icloud = backup.locator(".v-card").filter({ hasText: "iCloud Drive" });
+  await expect(icloud.getByText("leaves this machine")).toBeVisible();
+  const disk = backup.locator(".v-card").filter({ hasText: "Another disk" });
+  await expect(disk.getByText("same room as the novel")).toBeVisible();
+});
+
+test("choosing a destination then backing up lists the archive under its name", async ({ page }) => {
   await withProject(page);
   const backup = await openBackup(page);
 
@@ -42,17 +54,74 @@ test("choosing a destination then backing up lists the archive", async ({ page }
   await expect(backup.getByRole("button", { name: "Back up now" })).toHaveCount(0);
 
   await backup.getByRole("button", { name: "Use this" }).first().click();
-  await expect(backup.getByText("Backups will go here.")).toBeVisible();
+  await expect(backup.getByText("Backups will go here too.")).toBeVisible();
 
   await backup.getByRole("button", { name: "Back up now" }).click();
-  await expect(backup.getByText(/^Saved, /)).toBeVisible();
-  await expect(backup.getByText("Stored backups")).toBeVisible();
+  // Every message names its destination, because there can be three.
+  await expect(backup.getByText(/^iCloud Drive: saved, /)).toBeVisible();
   await expect(backup.getByRole("button", { name: "Restore" })).toHaveCount(1);
 
   // Restoring never writes over the original, and says so where it is offered.
   await expect(backup.getByText(/extracts a copy beside this novel/)).toBeVisible();
   await backup.getByRole("button", { name: "Restore" }).click();
   await expect(backup.getByText(/^Restored to /)).toBeVisible();
+});
+
+test("a destination that is gone does not fail the ones that are there", async ({ page }) => {
+  await withProject(page);
+  const backup = await openBackup(page);
+
+  await backup.locator(".v-card").filter({ hasText: "iCloud Drive" }).getByRole("button").click();
+  // The mock treats this one as an unplugged drive.
+  await backup.locator(".v-card").filter({ hasText: "Another disk" }).getByRole("button").click();
+  await backup.getByRole("button", { name: "Back up now" }).click();
+
+  await expect(backup.getByText(/^iCloud Drive: saved, /)).toBeVisible();
+  // Reported as its own outcome, and as "next time" rather than as an error:
+  // an unplugged disk is not a failure.
+  await expect(backup.getByText(/^Another disk: not reachable right now/)).toBeVisible();
+  await expect(backup.getByRole("alert")).toHaveCount(0);
+});
+
+test("three copies on one disk are not reported as three", async ({ page }) => {
+  await withProject(page);
+  const backup = await openBackup(page);
+
+  // A folder on the novel's own disk: the mistake the rule exists to catch.
+  await backup.locator(".v-card").filter({ hasText: "Folder" }).getByRole("button").click();
+  await expect(backup.getByText("2 copies")).toBeVisible();
+  await expect(backup.getByText("on 1 separate disks")).toBeVisible();
+  await expect(backup.getByText("none of them off this machine")).toBeVisible();
+  await expect(backup.getByText(/is on the same disk as the novel/)).toBeVisible();
+
+  // Adding the provider fixes both halves of it.
+  await backup.locator(".v-card").filter({ hasText: "iCloud Drive" }).getByRole("button").click();
+  await expect(backup.getByText("3 copies")).toBeVisible();
+  await expect(backup.getByText("one of them off this machine")).toBeVisible();
+});
+
+test("a fourth destination is refused rather than silently dropped", async ({ page }) => {
+  await withProject(page);
+  const backup = await openBackup(page);
+
+  for (const label of ["iCloud Drive", "Another disk", "Folder"]) {
+    await backup.locator(".v-card").filter({ hasText: label }).getByRole("button").click();
+  }
+  // Four counting the novel, which is what the rule counts.
+  await expect(backup.getByText("4 copies")).toBeVisible();
+  // The folder picker is the only other way in, and it closes too.
+  await expect(backup.getByRole("button", { name: "Choose a folder…" })).toBeDisabled();
+});
+
+test("an archive can be checked, and says what checking means", async ({ page }) => {
+  await withProject(page);
+  const backup = await openBackup(page);
+  await backup.getByRole("button", { name: "Use this" }).first().click();
+  await backup.getByRole("button", { name: "Back up now" }).click();
+
+  await expect(backup.getByText(/reads every file back/)).toBeVisible();
+  await backup.getByRole("button", { name: "Check" }).click();
+  await expect(backup.getByText("Read back in full and intact.")).toBeVisible();
 });
 
 test("an absent destination cannot be chosen", async ({ page }) => {

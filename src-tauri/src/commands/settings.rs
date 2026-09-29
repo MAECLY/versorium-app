@@ -116,11 +116,14 @@ pub struct Settings {
     pub typewriter: bool,
     /// Whether the first-run tour has been completed or dismissed.
     pub onboarded: bool,
-    /// Folder a novel is archived into — typically one the OS already syncs.
-    /// `None` means backups are off, which is the default: writing a novel
+    /// Folders a novel is archived into — typically ones the OS already syncs.
+    /// Empty means backups are off, which is the default: writing a novel
     /// somewhere the writer never chose is not a sensible default.
-    pub backup_dir: Option<String>,
-    /// How many archives to keep before the oldest is dropped.
+    ///
+    /// A list because 3-2-1 asks for copies on different media, and one folder
+    /// can only ever be one.
+    pub backup_dirs: Vec<String>,
+    /// How many archives to keep in each, before the oldest is dropped.
     pub backup_keep: usize,
     /// Serve MCP over HTTP as well as stdio. Off by default: it opens a listener
     /// on a machine whose MCP tools can write to a manuscript, so it is a
@@ -151,7 +154,7 @@ impl Default for Settings {
             focus_mode: false,
             typewriter: false,
             onboarded: false,
-            backup_dir: None,
+            backup_dirs: Vec::new(),
             backup_keep: crate::backup::DEFAULT_KEEP,
             mcp_http_enabled: false,
         }

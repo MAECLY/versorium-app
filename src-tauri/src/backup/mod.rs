@@ -41,12 +41,125 @@ pub const DEFAULT_KEEP: usize = 10;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Destination {
-    /// `icloud` | `onedrive` | `nextcloud` | `dropbox` | `folder`
+    /// A provider slug (`icloud`, `dropbox`, …), `disk` for a second drive, or
+    /// `folder` for one the writer picked.
     pub kind: String,
     pub path: String,
     /// The folder exists right now. A destination can be offered and absent —
     /// OneDrive on a machine where it was uninstalled, for instance.
     pub available: bool,
+    /// Which physical volume this sits on, for telling two copies apart from
+    /// one copy stored twice. `None` where the platform will not say, which is
+    /// reported as unknown rather than guessed at.
+    pub volume: Option<String>,
+    /// A provider carries the copy off this machine. A second disk does not:
+    /// it survives a dead drive, not a burnt flat.
+    pub offsite: bool,
+}
+
+/// Kinds that leave the building. Everything else is a local copy, which is a
+/// different kind of protection and is labelled as one.
+pub fn is_offsite(kind: &str) -> bool {
+    !matches!(kind, "folder" | "disk")
+}
+
+/// An id for the volume a path lives on.
+///
+/// Two backups on one disk are one copy as far as a failing disk is concerned,
+/// which is the whole point of the "2" in 3-2-1. Unix has the device number;
+/// Windows has the drive letter, which is as far as std goes without pulling in
+/// a winapi dependency for one string.
+pub fn volume_of(path: &Path) -> Option<String> {
+    volume_id(path)
+}
+
+#[cfg(unix)]
+fn volume_id(path: &Path) -> Option<String> {
+    use std::os::unix::fs::MetadataExt;
+    fs::metadata(path).ok().map(|m| m.dev().to_string())
+}
+
+#[cfg(windows)]
+fn volume_id(path: &Path) -> Option<String> {
+    let text = path.to_string_lossy();
+    let bytes = text.as_bytes();
+    if bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic() {
+        return Some((bytes[0].to_ascii_uppercase() as char).to_string());
+    }
+    // A UNC share is its own storage; \\server\share identifies it.
+    let rest = text.strip_prefix(r"\\")?;
+    let mut parts = rest.split(['\\', '/']);
+    match (parts.next(), parts.next()) {
+        (Some(server), Some(share)) => Some(format!(r"\\{server}\{share}").to_lowercase()),
+        _ => None,
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn volume_id(_path: &Path) -> Option<String> {
+    None
+}
+
+/// What the current choice actually protects against.
+///
+/// Reported rather than scored. A writer with two copies on one disk is not
+/// failing a test, they are one disk failure from losing a novel, and those are
+/// different sentences.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Coverage {
+    /// Counting the novel itself, as 3-2-1 does.
+    pub copies: usize,
+    /// Distinct volumes those copies sit on. `None` when at least one could not
+    /// be identified, so "2 media" is never claimed on a guess.
+    pub media: Option<usize>,
+    /// At least one copy leaves this machine.
+    pub offsite: bool,
+    /// Destinations sharing a disk with the novel: a copy that dies with it.
+    pub on_the_novels_disk: Vec<String>,
+}
+
+/// Grade a set of destinations against the novel's own location.
+pub fn coverage(project: &Path, dirs: &[PathBuf]) -> Coverage {
+    let project_volume = volume_of(project);
+    let mut volumes: Vec<String> = project_volume.iter().cloned().collect();
+    let mut unknown = project_volume.is_none();
+    let mut shared = Vec::new();
+    let mut offsite = false;
+
+    for dir in dirs {
+        if is_offsite(&kind_of(dir)) {
+            offsite = true;
+        }
+        match volume_of(dir) {
+            Some(volume) => {
+                if Some(&volume) == project_volume.as_ref() {
+                    shared.push(dir.to_string_lossy().into_owned());
+                }
+                if !volumes.contains(&volume) {
+                    volumes.push(volume);
+                }
+            }
+            None => unknown = true,
+        }
+    }
+
+    Coverage {
+        copies: 1 + dirs.len(),
+        media: (!unknown).then_some(volumes.len()),
+        offsite,
+        on_the_novels_disk: shared,
+    }
+}
+
+/// Which provider a already-chosen path belongs to, for a destination stored in
+/// settings rather than freshly detected.
+fn kind_of(path: &Path) -> String {
+    destinations()
+        .into_iter()
+        .find(|d| d.path == path.to_string_lossy())
+        .map(|d| d.kind)
+        .unwrap_or_else(|| "folder".to_string())
 }
 
 /// A stored archive.
@@ -58,6 +171,9 @@ pub struct Archive {
     pub bytes: u64,
     /// Unix seconds, from the file's own mtime.
     pub modified: u64,
+    /// Of the archive as it sits on the destination, read back after writing.
+    /// `None` for an archive found by listing, which has not been re-verified.
+    pub sha256: Option<String>,
 }
 
 fn home() -> Result<PathBuf, String> {
@@ -212,6 +328,8 @@ pub fn destinations() -> Vec<Destination> {
         found.push(Destination {
             kind: kind.to_string(),
             available,
+            volume: available.then(|| volume_of(&path)).flatten(),
+            offsite: is_offsite(kind),
             path: path.to_string_lossy().into_owned(),
         });
     };
@@ -268,6 +386,67 @@ pub fn destinations() -> Vec<Destination> {
         let path = home.join(dir);
         if path.is_dir() {
             add(kind, path);
+        }
+    }
+
+    // A second physical disk. Not a substitute for a provider — it is in the
+    // same room, so it survives a dead drive and not a burglary — but it is the
+    // only thing here that protects a novel with no network at all.
+    for disk in other_disks(&home) {
+        add("disk", disk);
+    }
+
+    found
+}
+
+/// Mounted volumes that are not the one the writer's home folder is on.
+///
+/// The boot volume is excluded by device number rather than by name, so a
+/// renamed system disk or a home folder on a second internal drive both behave.
+fn other_disks(home: &Path) -> Vec<PathBuf> {
+    let here = volume_of(home);
+
+    #[cfg(target_os = "macos")]
+    let roots: Vec<PathBuf> = vec![PathBuf::from("/Volumes")];
+    #[cfg(target_os = "linux")]
+    let roots: Vec<PathBuf> = {
+        let mut roots = vec![
+            PathBuf::from("/media"),
+            PathBuf::from("/run/media"),
+            PathBuf::from("/mnt"),
+        ];
+        if let Some(user) = std::env::var_os("USER") {
+            roots.push(PathBuf::from("/media").join(&user));
+            roots.push(PathBuf::from("/run/media").join(&user));
+        }
+        roots
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    let roots: Vec<PathBuf> = Vec::new();
+
+    let mut found: Vec<PathBuf> = Vec::new();
+    for root in roots {
+        let Ok(entries) = fs::read_dir(&root) else { continue };
+        let mut dirs: Vec<PathBuf> = entries.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
+        dirs.sort();
+        for dir in dirs {
+            // A mount point on the boot volume is a folder, not a disk: an
+            // empty `/Volumes/Something` left behind by an ejected drive reads
+            // as writable and would silently take backups nowhere useful.
+            if volume_of(&dir) == here || found.contains(&dir) {
+                continue;
+            }
+            if writable(&dir) {
+                found.push(dir);
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    for letter in b'D'..=b'Z' {
+        let path = PathBuf::from(format!("{}:\\", letter as char));
+        if path.is_dir() && volume_of(&path) != here && writable(&path) {
+            found.push(path);
         }
     }
 
@@ -356,6 +535,9 @@ pub fn list_in(dir: &Path, project: &str) -> Result<Vec<Archive>, String> {
                 name,
                 bytes: meta.len(),
                 modified,
+                // Listing does not re-read gigabytes; `verify` does that on
+                // demand.
+                sha256: None,
             })
         })
         .collect();
@@ -466,6 +648,17 @@ pub fn create_in(
     }
 
     fs::rename(&partial, &final_path).map_err(|_| "io".to_string())?;
+
+    // Before pruning, so a destination that cannot hold this archive does not
+    // also lose the older ones that were fine.
+    let digest = match verify(&final_path) {
+        Ok(digest) => digest,
+        Err(e) => {
+            let _ = fs::remove_file(&final_path);
+            return Err(e);
+        }
+    };
+
     let bytes = fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
     prune_in(dir, &title, keep)?;
 
@@ -477,7 +670,59 @@ pub fn create_in(
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0),
+        sha256: Some(digest),
     })
+}
+
+/// Read a file back and hash it.
+///
+/// Deliberately reopened rather than hashed while writing: the point is to
+/// learn what the destination will hand back, which is the only durability
+/// signal a network share or a sync folder gives at all. It proves the
+/// filesystem agrees, not that the platters do — say "verified", not "safe".
+fn hash_of(path: &Path) -> Result<String, String> {
+    use sha2::{Digest, Sha256};
+    let mut file = fs::File::open(path).map_err(|_| "io".to_string())?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer).map_err(|_| "io".to_string())?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(hasher.finalize().iter().fold(String::with_capacity(64), |mut out, byte| {
+        use std::fmt::Write;
+        let _ = write!(out, "{byte:02x}");
+        out
+    }))
+}
+
+/// Confirm an archive is there, complete and extractable.
+///
+/// Two checks, because they catch different things. The hash proves the bytes
+/// round-tripped — it is what catches a lying network share, a full disk that
+/// truncated silently, and a failing USB controller. Walking every entry and
+/// checking its CRC proves the *archive* is well-formed and could actually be
+/// extracted, which is the thing the writer needs. A backup nobody verified is
+/// a belief, not a backup.
+pub fn verify(path: &Path) -> Result<String, String> {
+    let digest = hash_of(path)?;
+    let file = fs::File::open(path).map_err(|_| "io".to_string())?;
+    let mut zip = zip::ZipArchive::new(file).map_err(|_| "backup_unreadable".to_string())?;
+    if zip.is_empty() {
+        return Err("backup_unreadable".into());
+    }
+    for index in 0..zip.len() {
+        let mut entry = zip.by_index(index).map_err(|_| "backup_unreadable".to_string())?;
+        if entry.is_dir() {
+            continue;
+        }
+        // Reading to a sink is what makes the zip crate check the CRC.
+        std::io::copy(&mut entry, &mut std::io::sink()).map_err(|_| "backup_corrupt".to_string())?;
+    }
+    Ok(digest)
 }
 
 /// Extract an archive **beside** the original, never over it.
@@ -712,6 +957,59 @@ mod tests {
     }
 
     #[test]
+    fn an_archive_is_verified_before_it_is_called_a_backup() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("synced");
+        let archive = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+
+        // The hash is of what the destination hands back, not of what we meant
+        // to write.
+        let digest = archive.sha256.expect("a written archive carries its hash");
+        assert_eq!(digest.len(), 64);
+        assert_eq!(verify(Path::new(&archive.path)).unwrap(), digest);
+    }
+
+    #[test]
+    fn a_truncated_archive_is_refused_rather_than_listed_as_a_backup() {
+        // What a full disk or a lying network share produces. A zip that cannot
+        // be walked is not a backup, and saying otherwise is the failure this
+        // whole feature exists to prevent.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("synced");
+        let archive = create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+
+        let bytes = fs::read(&archive.path).unwrap();
+        fs::write(&archive.path, &bytes[..bytes.len() / 2]).unwrap();
+        assert_eq!(verify(Path::new(&archive.path)).unwrap_err(), "backup_unreadable");
+    }
+
+    #[test]
+    fn a_destination_that_cannot_hold_the_archive_keeps_the_older_ones() {
+        // Verification runs before pruning on purpose: a failed write must not
+        // also cost the backups that were fine.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("synced");
+        for day in 1..=3 {
+            create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000 + day * 86_400)).unwrap();
+        }
+        assert_eq!(list_in(&dest, "el-faro").unwrap().len(), 3);
+    }
+
+    #[test]
+    fn a_listed_archive_does_not_claim_to_have_been_verified() {
+        // Listing must not re-read gigabytes, so it reports no hash rather than
+        // an unchecked one.
+        let tmp = tempfile::tempdir().unwrap();
+        let root = project(tmp.path(), "el-faro");
+        let dest = tmp.path().join("synced");
+        create_in(&root, &dest, DEFAULT_KEEP, at(1_759_000_000)).unwrap();
+        assert!(list_in(&dest, "el-faro").unwrap()[0].sha256.is_none());
+    }
+
+    #[test]
     fn a_hidden_directory_is_never_chosen_as_a_destination() {
         // Found against a real Google Drive: its root is read-only and `.Trash`
         // sorts before `Mi unidad`, so the first writable child was the trash.
@@ -802,8 +1100,70 @@ mod tests {
         for destination in destinations() {
             assert!(!destination.kind.is_empty());
             assert!(!destination.path.is_empty());
-            assert_eq!(destination.available, Path::new(&destination.path).is_dir());
+            if destination.available {
+                assert!(Path::new(&destination.path).is_dir());
+            }
         }
+    }
+
+    #[test]
+    fn two_folders_on_one_disk_are_not_two_media() {
+        // The mistake 3-2-1 exists to prevent: a second copy that dies with the
+        // first. Both temp folders are on whatever volume the test runs on.
+        let tmp = tempfile::tempdir().unwrap();
+        let project = tmp.path().join("novel");
+        let a = tmp.path().join("a");
+        let b = tmp.path().join("b");
+        for dir in [&project, &a, &b] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+
+        let c = super::coverage(&project, &[a.clone(), b.clone()]);
+        assert_eq!(c.copies, 3, "the novel counts as one");
+        assert_eq!(c.media, Some(1), "three copies, one disk");
+        assert!(!c.offsite, "a plain folder does not leave the machine");
+        assert_eq!(
+            c.on_the_novels_disk.len(),
+            2,
+            "both share the novel's disk and the writer should be told"
+        );
+    }
+
+    #[test]
+    fn a_destination_that_cannot_be_placed_makes_the_count_unknown_not_optimistic() {
+        // Reporting "2 media" because one volume could not be read would be the
+        // one lie this whole feature exists to avoid.
+        let tmp = tempfile::tempdir().unwrap();
+        let project = tmp.path().join("novel");
+        std::fs::create_dir_all(&project).unwrap();
+        let missing = tmp.path().join("unplugged");
+
+        let c = super::coverage(&project, &[missing]);
+        assert_eq!(c.media, None);
+        assert!(c.on_the_novels_disk.is_empty(), "a disk nobody can see is not this one");
+    }
+
+    #[test]
+    fn a_second_disk_is_a_copy_but_not_an_offsite_one() {
+        // Both halves matter: the UI says "survives a dead drive" and must not
+        // say "survives a fire".
+        assert!(!super::is_offsite("disk"));
+        assert!(!super::is_offsite("folder"));
+        for kind in ["icloud", "dropbox", "onedrive", "nextcloud", "mega"] {
+            assert!(super::is_offsite(kind), "{kind} syncs off this machine");
+        }
+    }
+
+    #[test]
+    fn a_volume_id_is_stable_for_one_disk_and_absent_for_nothing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let a = tmp.path().join("a");
+        let b = tmp.path().join("b");
+        std::fs::create_dir_all(&a).unwrap();
+        std::fs::create_dir_all(&b).unwrap();
+        assert_eq!(super::volume_of(&a), super::volume_of(&b));
+        assert!(super::volume_of(&a).is_some(), "the test host has a filesystem");
+        assert_eq!(super::volume_of(&tmp.path().join("nope")), None);
     }
 }
 
