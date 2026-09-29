@@ -551,6 +551,9 @@ export const api = {
   /** Snapshots the project first, so this is recoverable from its history. */
   deleteChapter: (path: string, file: string) =>
     invoke<ChapterMeta[]>("delete_chapter", { path, file }),
+  /** Put the chapters in this order. Nothing on disk moves. */
+  reorderChapters: (path: string, ids: string[]) =>
+    invoke<ChapterMeta[]>("reorder_chapters", { path, ids }),
 
   mcpHttpStatus: () => invoke<McpHttpStatus>("mcp_http_status"),
   mcpSetHttp: (enabled: boolean) => invoke<McpHttpStatus>("mcp_set_http", { enabled }),

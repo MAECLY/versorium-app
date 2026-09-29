@@ -20,8 +20,57 @@ pub fn list_chapters_inner(root: &Path) -> Result<Vec<ChapterMeta>, String> {
             out.push(cm);
         }
     }
-    out.sort_by(|a, b| a.id.cmp(&b.id));
+    sort_chapters(root, &mut out);
     Ok(out)
+}
+
+/// Reading order: the project's own list first, then everything it never heard
+/// of, by id.
+///
+/// The fallback is what makes the list safe to store. A chapter added by hand
+/// or restored from a backup is not in it, and has to appear somewhere rather
+/// than vanish; putting it after the ordered ones is the only placement that
+/// does not claim to know where the writer wanted it.
+fn sort_chapters(root: &Path, chapters: &mut [ChapterMeta]) {
+    let order = crate::commands::project::load_meta(root)
+        .map(|m| m.chapter_order)
+        .unwrap_or_default();
+    chapters.sort_by(|a, b| {
+        let rank = |id: &str| order.iter().position(|o| o == id).unwrap_or(usize::MAX);
+        rank(&a.id).cmp(&rank(&b.id)).then_with(|| a.id.cmp(&b.id))
+    });
+}
+
+/// Put the chapters in this order.
+///
+/// Nothing on disk moves. `ids` may name a prefix of the novel rather than all
+/// of it — moving the first chapter down is a two-element change — and an id
+/// that is not a chapter of this project is refused rather than stored, because
+/// a stored one would silently reorder a chapter that does not exist.
+#[tauri::command]
+pub fn reorder_chapters(path: PathBuf, ids: Vec<String>) -> Result<Vec<ChapterMeta>, String> {
+    let mut meta = crate::commands::project::load_meta(&path).ok_or_else(|| "not_found".to_string())?;
+    let existing = list_chapters_inner(&path)?;
+
+    let mut seen: Vec<String> = Vec::new();
+    for id in ids {
+        if !existing.iter().any(|c| c.id == id) {
+            return Err("not_found".into());
+        }
+        if !seen.contains(&id) {
+            seen.push(id);
+        }
+    }
+    // Whatever was not named keeps the order it already had, after the rest.
+    for chapter in &existing {
+        if !seen.contains(&chapter.id) {
+            seen.push(chapter.id.clone());
+        }
+    }
+
+    meta.chapter_order = seen;
+    crate::commands::project::write_meta(&path, &meta)?;
+    list_chapters_inner(&path)
 }
 
 fn parse_chapter_file(path: &Path) -> Option<ChapterMeta> {
@@ -111,6 +160,16 @@ mod tests {
         })
         .unwrap();
         PathBuf::from(p.path)
+    }
+
+    /// A project with `n` chapters, `ch-01`..`ch-0n`. `create_project` already
+    /// makes the first one, named after the novel.
+    fn seeded(dir: &Path, n: u32) -> PathBuf {
+        let root = project(dir, "El largo invierno");
+        for i in 2..=n {
+            crate::commands::project::create_chapter(root.clone(), format!("Capítulo {i}")).unwrap();
+        }
+        root
     }
 
     #[test]
@@ -288,6 +347,75 @@ mod tests {
         assert!(raw.contains("tags: [night, rain]\nsummary: |\n  Keep this line\n"));
         assert!(raw.ends_with("---\nnew body"));
         assert!(save_chapter(root, "../outside.md".into(), "bad".into(), None).is_err());
+    }
+
+    #[test]
+    fn reordering_moves_nothing_on_disk() {
+        // The whole reason order is a list and not a numbering: git follows
+        // paths, and `.versorium/ops/<id>` is keyed by the id the name encodes.
+        let dir = tempfile::tempdir().unwrap();
+        let root = seeded(dir.path(), 3);
+        let before: Vec<String> = list_chapters_inner(&root).unwrap().iter().map(|c| c.file.clone()).collect();
+
+        let after = reorder_chapters(root.clone(), vec!["ch-03".into(), "ch-01".into()]).unwrap();
+        assert_eq!(
+            after.iter().map(|c| c.id.as_str()).collect::<Vec<_>>(),
+            ["ch-03", "ch-01", "ch-02"],
+            "named ids come first, the rest keep their order"
+        );
+        let files: Vec<String> = after.iter().map(|c| c.file.clone()).collect();
+        assert_eq!(
+            files.iter().collect::<std::collections::HashSet<_>>(),
+            before.iter().collect::<std::collections::HashSet<_>>(),
+            "no file was renamed"
+        );
+        for file in &before {
+            assert!(root.join(file).exists(), "{file} moved");
+        }
+    }
+
+    #[test]
+    fn a_chapter_nobody_ordered_still_appears() {
+        // A chapter restored from a backup, or written by hand into the folder,
+        // is not in the list. Vanishing would be the worst possible answer.
+        let dir = tempfile::tempdir().unwrap();
+        let root = seeded(dir.path(), 2);
+        reorder_chapters(root.clone(), vec!["ch-02".into(), "ch-01".into()]).unwrap();
+
+        fs::write(
+            root.join("manuscript/ch-09-hallado.md"),
+            render_chapter("ch-09", "Hallado", "draft", 0, "Apareció.\n"),
+        )
+        .unwrap();
+        let listed = list_chapters_inner(&root).unwrap();
+        assert_eq!(
+            listed.iter().map(|c| c.id.as_str()).collect::<Vec<_>>(),
+            ["ch-02", "ch-01", "ch-09"]
+        );
+    }
+
+    #[test]
+    fn an_id_that_is_not_a_chapter_here_is_refused_rather_than_stored() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = seeded(dir.path(), 2);
+        assert_eq!(
+            reorder_chapters(root.clone(), vec!["ch-99".into()]).unwrap_err(),
+            "not_found"
+        );
+        // And the order that was there is untouched.
+        assert!(crate::commands::project::load_meta(&root).unwrap().chapter_order.is_empty());
+    }
+
+    #[test]
+    fn the_same_id_twice_is_one_position() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = seeded(dir.path(), 3);
+        let after =
+            reorder_chapters(root, vec!["ch-02".into(), "ch-02".into(), "ch-01".into()]).unwrap();
+        assert_eq!(
+            after.iter().map(|c| c.id.as_str()).collect::<Vec<_>>(),
+            ["ch-02", "ch-01", "ch-03"]
+        );
     }
 }
 

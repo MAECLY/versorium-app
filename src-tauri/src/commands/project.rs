@@ -22,6 +22,19 @@ pub struct ProjectMeta {
     pub default_chapter_pattern: String,
     pub censorship: String,
     pub remote: Option<String>,
+    /// Chapter ids in reading order, when it differs from their numbering.
+    ///
+    /// Order lives here rather than in the filenames on purpose. Renumbering
+    /// files to reorder them would rename every file after the moved one, and a
+    /// chapter's path is what git history follows, what a backup archive
+    /// contains and what `.versorium/ops/<id>` is keyed by — so a reorder would
+    /// quietly orphan every keystroke ever recorded for half the novel.
+    ///
+    /// An override, not the whole truth: anything missing from this list still
+    /// sorts by id, so a chapter dropped into `manuscript/` by hand appears
+    /// rather than disappearing.
+    #[serde(default)]
+    pub chapter_order: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,6 +149,7 @@ pub fn create_project(args: CreateProjectArgs) -> Result<Project, String> {
         default_chapter_pattern: "ch-{n}-{slug}.md".into(),
         censorship: "off".into(),
         remote: None,
+        chapter_order: Vec::new(),
     };
     fs::write(
         root.join("versorium.json"),
@@ -424,6 +438,7 @@ mod tests {
             default_chapter_pattern: "ch-{n}-{slug}.md".into(),
             censorship: "off".into(),
             remote: None,
+            chapter_order: Vec::new(),
         };
         assert_eq!(
             chapter_path_for(&meta, 7, "The Door"),
@@ -488,6 +503,7 @@ mod tests {
             default_chapter_pattern: "ch-{n}-{slug}.md".into(),
             censorship: "off".into(),
             remote: None,
+            chapter_order: Vec::new(),
         };
         fs::write(root.join("versorium.json"), serde_json::to_string_pretty(&meta).unwrap()).unwrap();
         let (id, file) = chapter_path_for(&meta, 1, title);

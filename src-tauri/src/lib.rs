@@ -101,6 +101,7 @@ pub fn run() {
             commands::chapters::read_chapter,
             commands::chapters::save_chapter,
             commands::chapters::update_chapter,
+            commands::chapters::reorder_chapters,
             commands::chapters::delete_chapter,
             commands::settings::get_settings,
             commands::settings::set_settings,

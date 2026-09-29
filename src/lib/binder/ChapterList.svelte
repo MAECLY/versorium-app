@@ -20,8 +20,14 @@
 
   /** Only the statuses it is not already, so the menu never offers a no-op. */
   function chapterActions(chapter: ChapterMeta) {
+    const chapters = store.project?.chapters ?? [];
+    const at = chapters.findIndex((c) => c.file === chapter.file);
     return [
       { id: "rename", label: t("binder.menu.renameChapter") },
+      // Omitted rather than disabled at the ends: a menu item that cannot do
+      // anything is a thing to read and then work out why.
+      ...(at > 0 ? [{ id: "up", label: t("binder.menu.moveUp") }] : []),
+      ...(at >= 0 && at < chapters.length - 1 ? [{ id: "down", label: t("binder.menu.moveDown") }] : []),
       ...STATUSES.filter((s) => s !== chapter.status).map((s) => ({
         id: `status:${s}`,
         label: t("binder.menu.markAs", { status: t(`binder.status.${s}`) }),
@@ -37,6 +43,8 @@
 
   function onChapterAction(chapter: ChapterMeta, action: string): void {
     if (action === "rename") renaming = { kind: "chapter", id: chapter.file, title: chapter.title };
+    else if (action === "up") void store.moveChapter(chapter.file, -1);
+    else if (action === "down") void store.moveChapter(chapter.file, 1);
     else if (action === "delete") confirming = { kind: "chapter", id: chapter.file, title: chapter.title };
     else if (action.startsWith("status:")) {
       void store.updateChapter(chapter.file, undefined, action.slice(7) as ChapterStatus);
