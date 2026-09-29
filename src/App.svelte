@@ -259,7 +259,7 @@
       {:else}
         <EmptyState
           onRequestNew={() => (showNewProject = true)}
-          onRequestSetup={() => void onboarding.start()}
+          onRequestTour={() => void onboarding.start()}
         />
       {/if}
     </main>

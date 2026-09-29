@@ -9,8 +9,14 @@
   "empty": {
     "title": "Un escritorio tranquilo, una aguja fina.",
     "body": "Crea un proyecto para empezar a escribir. Todo queda en esta máquina.",
-    "cta": "Crear tu primer proyecto",
-    "setup": "Configurar Versorium"
+    "cta": "Crear tu primera novela",
+    "openFolder": "Abrir una carpeta…",
+    "tour": "Ver la guía rápida",
+    "backTitle": "Dónde lo dejamos.",
+    "backBody": "Lo último escrito, en {novel}.",
+    "resumeChapter": "Continuar «{chapter}»",
+    "resume": "Abrir {novel}",
+    "newNovel": "Nueva novela"
   },
   "binder": {
     "projects": "Proyectos",
@@ -636,7 +642,9 @@
     "skip": "Saltar configuración",
     "start": "Empezar a escribir",
     "working": "Trabajando…",
-    "none": "La configuración corre dentro de la app de escritorio."
+    "none": "La configuración corre dentro de la app de escritorio.",
+    "replay": "Ver la guía otra vez",
+    "replayHint": "El recorrido corto de la primera vez: esta máquina, lo que encontró, y una novela por la que empezar."
   },
   "typography": {
     "intro": "Con qué letra te muestra el editor tu prosa.",

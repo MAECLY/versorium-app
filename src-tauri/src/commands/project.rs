@@ -109,8 +109,19 @@ pub fn list_projects(path: PathBuf) -> Result<Vec<Project>, String> {
             chapters,
         });
     }
-    out.sort_by(|a, b| b.path.cmp(&a.path));
+    // Most recently written first. The sidebar is called recent projects and
+    // was sorted by path descending, which is reverse-alphabetical dressed up
+    // as recency — it put "Zafiro" above the novel somebody edited an hour ago.
+    out.sort_by(|a, b| touched(b).cmp(&touched(a)).then_with(|| a.meta.title.cmp(&b.meta.title)));
     Ok(out)
+}
+
+/// When a project was last written to: the newest mtime among its chapters.
+///
+/// The folder's own mtime is no good — it changes when anything inside is
+/// added or removed, including a backup archive being written beside it.
+fn touched(project: &Project) -> i64 {
+    project.chapters.iter().map(|c| c.mtime).max().unwrap_or(0)
 }
 
 #[tauri::command]
@@ -512,6 +523,38 @@ mod tests {
         assert!(root.join("versorium.json").exists());
         assert!(root.join(&file).exists());
         assert_eq!(load_meta(&root).unwrap().title, title);
+    }
+
+
+    #[test]
+    fn the_recent_list_is_actually_ordered_by_recency() {
+        // It used to sort by path descending, which is reverse-alphabetical
+        // dressed up as recency: "Zafiro" sat above the novel edited an hour
+        // ago.
+        let dir = tempfile::tempdir().unwrap();
+        for title in ["Alfa", "Zafiro"] {
+            create_project(CreateProjectArgs {
+                path: dir.path().to_path_buf(),
+                title: title.into(),
+                language: "es".into(),
+            })
+            .unwrap();
+        }
+
+        // Touch Alfa's chapter so it is the most recently written.
+        let alfa = dir.path().join("alfa");
+        let chapters = crate::commands::chapters::list_chapters_inner(&alfa).unwrap();
+        let file = alfa.join(&chapters[0].file);
+        // Set the mtime explicitly rather than rewriting and hoping: two writes
+        // in the same second are indistinguishable on a one-second filesystem.
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(120);
+        fs::File::options().write(true).open(&file).unwrap().set_modified(later).unwrap();
+
+        let listed = list_projects(dir.path().to_path_buf()).unwrap();
+        assert_eq!(
+            listed.iter().map(|p| p.meta.title.as_str()).collect::<Vec<_>>(),
+            ["Alfa", "Zafiro"]
+        );
     }
 }
 

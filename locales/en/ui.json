@@ -9,8 +9,14 @@
   "empty": {
     "title": "A quiet desk, a sharp needle.",
     "body": "Create a project to start writing. Everything stays on this machine.",
-    "cta": "Create your first project",
-    "setup": "Set up Versorium"
+    "cta": "Create your first novel",
+    "openFolder": "Open a folder…",
+    "tour": "Take the tour",
+    "backTitle": "Where were we.",
+    "backBody": "Last written in {novel}.",
+    "resumeChapter": "Continue “{chapter}”",
+    "resume": "Open {novel}",
+    "newNovel": "New novel"
   },
   "binder": {
     "projects": "Projects",
@@ -636,7 +642,9 @@
     "skip": "Skip setup",
     "start": "Start writing",
     "working": "Working…",
-    "none": "Setup runs inside the desktop app."
+    "none": "Setup runs inside the desktop app.",
+    "replay": "Show the guide again",
+    "replayHint": "The short tour from the first run: this machine, what it found, and a novel to start from."
   },
   "typography": {
     "intro": "What the editor renders your prose in.",

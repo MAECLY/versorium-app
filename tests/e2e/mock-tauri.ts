@@ -355,7 +355,17 @@ function appendOps(p: ProjectState, chapterId: string, ops: Op[]): Op[] {
 const commands: Record<string, (args: Args) => unknown> = {
   app_info: () => ({ version: "0.1.0-mock", os: "mock", family: "unix" }),
   default_projects_dir: () => PROJECTS_DIR,
-  list_projects: () => [...projects.values()].map(publicProject),
+  // Most recently written first, as the Rust command sorts. The sidebar is
+  // called recent projects, and "Continue where you left off" reads the head of
+  // this list, so insertion order would make the mock disagree with the app.
+  list_projects: () =>
+    [...projects.values()]
+      .map(publicProject)
+      .sort((a, b) => {
+        const touched = (p: { chapters: { mtime: number }[] }) =>
+          p.chapters.reduce((newest, c) => Math.max(newest, c.mtime), 0);
+        return touched(b) - touched(a) || a.meta.title.localeCompare(b.meta.title);
+      }),
 
   create_project: ({ args }) => {
     const { path, title, language } = args as { path: string; title: string; language: string };
@@ -994,6 +1004,21 @@ declare global {
       /** True once the app was asked to restart into the new version. */
       relaunched: boolean;
     };
+  }
+}
+
+// `?mock=tauri&seed=2` starts with novels already on disk and none open — the
+// state a returning writer actually sees, which no test could reach before
+// because creating a project also opens it.
+{
+  const seed = Number(new URLSearchParams(location.search).get("seed") ?? 0);
+  for (let i = 0; i < seed; i += 1) {
+    const created = commands.create_project({
+      args: { path: PROJECTS_DIR, title: `Novela ${i + 1}`, language: "es" },
+    }) as { path: string };
+    // Staggered so "most recently written" has an unambiguous answer.
+    const p = projects.get(created.path);
+    if (p) for (const c of p.chapters) c.mtime = 1_790_000_000 + i * 3600;
   }
 }
 

@@ -21,7 +21,7 @@ async function mockState(page: Page) {
 
 async function createProject(page: Page, title: string): Promise<void> {
   await page.goto("/?mock=tauri");
-  await page.getByRole("button", { name: "Create your first project" }).click();
+  await page.getByRole("button", { name: "Create your first novel" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Title").fill(title);
   await dialog.getByRole("button", { name: "Create" }).click();

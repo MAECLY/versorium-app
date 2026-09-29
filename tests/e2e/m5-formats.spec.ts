@@ -6,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function openManuscript(page: Page) {
   await page.goto("/?mock=tauri");
-  await page.getByRole("button", { name: "Create your first project" }).click();
+  await page.getByRole("button", { name: "Create your first novel" }).click();
   const newProject = page.getByRole("dialog", { name: "New project" });
   await newProject.getByLabel("Title").fill("The Long Winter");
   await newProject.getByRole("button", { name: "Create" }).click();

@@ -7,7 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function withProject(page: Page, title = "El largo invierno") {
   await page.goto("/?mock=tauri");
-  await page.getByRole("button", { name: "Create your first project" }).click();
+  await page.getByRole("button", { name: "Create your first novel" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Title").fill(title);
   await dialog.getByRole("button", { name: "Create" }).click();
@@ -191,3 +191,31 @@ test("the ends of the list do not offer a move that goes nowhere", async ({ page
   await expect(page.getByRole("menuitem", { name: "Move up" })).toBeVisible();
 });
 
+
+test("with novels on disk the screen asks where you were, not whether to begin", async ({ page }) => {
+  // The old screen rendered whenever no project was *open*, so somebody with
+  // three novels in the sidebar was told to create their first one.
+  await page.goto("/?mock=tauri&seed=2");
+
+  await expect(page.getByText("Create a project to start writing")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Create your first novel" })).toHaveCount(0);
+  await expect(page.getByText("Where were we.")).toBeVisible();
+
+  // The primary action is the last thing written, which the list is now
+  // ordered by.
+  const resume = page.getByRole("button", { name: /^Continue “/ });
+  await expect(resume).toBeVisible();
+  await expect(page.getByText("Last written in Novela 2.")).toBeVisible();
+  await resume.click();
+  await expect(page.locator(".cm-content")).toBeVisible();
+});
+
+test("a first run still says so, and offers the tour", async ({ page }) => {
+  await page.goto("/?mock=tauri");
+  await expect(page.getByText("Everything stays on this machine")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create your first novel" })).toBeVisible();
+  // Named for what it is. It used to read "Set up Versorium", which is settings.
+  await expect(page.getByRole("button", { name: "Take the tour" })).toBeVisible();
+  // And somebody arriving from another machine has a way in.
+  await expect(page.getByRole("button", { name: "Open a folder…" })).toBeVisible();
+});
