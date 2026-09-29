@@ -705,12 +705,41 @@ const commands: Record<string, (args: Args) => unknown> = {
     diskUsedBytes: models.filter((m) => m.state === "ready").reduce((a, m) => a + m.sizeBytes, 0),
     modelsDir: "/mock/Library/versorium/models",
   }),
+  // Resolves only when the file is on disk, exactly as the Rust command does:
+  // `download::start` awaits the whole transfer. The mock used to return
+  // immediately, which is precisely why the missing progress bar survived the
+  // suite — a mock that lies about a command's shape tests a program nobody
+  // ships.
   models_download: ({ id }) => {
     const model = models.find((m) => m.id === id);
     if (!model) throw "not_found";
     if (downloadProgress && !downloadProgress.done) throw "download_busy";
     model.state = "partial";
-    downloadProgress = { id: String(id), received: model.sizeBytes / 2, total: model.sizeBytes, done: false };
+    downloadProgress = { id: String(id), received: 0, total: model.sizeBytes, done: false };
+
+    return new Promise<void>((resolve) => {
+      let received = 0;
+      // Slower than one poll interval on purpose: a real download takes
+      // minutes, and a mock that finishes inside 700ms would let a panel that
+      // shows nothing during a transfer pass this suite.
+      const step = model.sizeBytes / 12;
+      const timer = setInterval(() => {
+        // Cancelled: the command rejects and the caller stops polling.
+        if (downloadProgress?.id !== id) {
+          clearInterval(timer);
+          resolve();
+          return;
+        }
+        received = Math.min(model.sizeBytes, received + step);
+        downloadProgress = { id: String(id), received, total: model.sizeBytes, done: false };
+        if (received >= model.sizeBytes) {
+          clearInterval(timer);
+          model.state = "ready";
+          downloadProgress = { id: String(id), received, total: model.sizeBytes, done: true };
+          resolve();
+        }
+      }, 150);
+    });
   },
   models_cancel: ({ id }) => {
     if (downloadProgress?.id === id) downloadProgress = null;

@@ -52,15 +52,40 @@ export class ModelsStore {
   }
 
   async download(id: string): Promise<void> {
-    await this.run(async () => {
-      await api.modelsDownload(id);
-      this.startPolling();
-    });
-    if (!this.error) await this.refresh();
+    // `models_download` does not resolve until the file is on disk, so polling
+    // has to begin BEFORE the await. It used to start after, which is the
+    // moment the download finished — so a writer pressing Download watched a
+    // greyed-out button and nothing else for however long a 3 GB file takes.
+    const card = this.models.find((m) => m.id === id);
+    if (this.view) {
+      // Seeded rather than waited for: the first poll is 700ms away, and a
+      // button that does nothing for most of a second reads as broken.
+      this.view = {
+        ...this.view,
+        progress: { id, received: card?.receivedBytes ?? 0, total: card?.sizeBytes ?? 0, done: false },
+      };
+    }
+    this.startPolling();
+    await this.run(() => api.modelsDownload(id));
+    this.stopPolling();
+    await this.refresh();
   }
 
+  /**
+   * Stop a download in flight.
+   *
+   * Deliberately not routed through `run`: that guard returns early while
+   * `loading` is set, and `loading` is set for the entire length of the
+   * download — so the Cancel button was dead for exactly as long as it was the
+   * only button on screen.
+   */
   async cancel(id: string): Promise<void> {
-    await this.run(() => api.modelsCancel(id));
+    if (!isTauri()) return;
+    try {
+      await api.modelsCancel(id);
+    } catch (e) {
+      this.error = errorMessage(e);
+    }
     this.stopPolling();
     await this.refresh();
   }

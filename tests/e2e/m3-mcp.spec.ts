@@ -10,7 +10,7 @@ async function openMcpPanel(page: Page) {
   await page.getByRole("button", { name: "Settings" }).click();
   const settings = page.getByRole("region", { name: "Settings" });
   await settings.getByRole("button", { name: "Assistants" }).click();
-  return { settings, mcp: settings.getByRole("region", { name: "MCP" }) };
+  return { settings, mcp: settings.getByRole("region", { name: "What they are allowed to do" }) };
 }
 
 async function mcpClients(page: Page) {

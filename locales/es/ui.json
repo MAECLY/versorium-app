@@ -120,9 +120,9 @@
       "writing": "Cómo se siente la página mientras escribes: la tipografía y el tamaño del manuscrito.",
       "author": "De quién es el manuscrito, tal como lo dirá el archivo exportado.",
       "appearance": "Cómo se ve Versorium, y en qué idioma habla su propia interfaz.",
-      "localAi": "Modelos que corren en esta máquina, y cuál hace cada tarea. Nada de aquí envía tu prosa a ningún lado.",
+      "localAi": "Qué modelo hace cada trabajo, y de dónde salen esos modelos. Nada de aquí manda tu prosa a ninguna parte.",
       "backup": "El historial de tu novela en este disco, y una copia privada opcional en GitHub. Versorium nunca lo mezcla con su propio repositorio.",
-      "assistants": "Herramientas de IA externas que pueden llegar a tu novela, y exactamente cuánto puede hacer cada una.",
+      "assistants": "Asistentes que entran en tu novela desde fuera, y exactamente cuánto se le permite a cada uno.",
       "app": "Versorium misma: la versión que usas, cómo se actualiza, y qué registra cuando falla."
     },
     "themes": {
@@ -283,8 +283,8 @@
     "configuredSuffix": "(configurado)"
   },
   "agents": {
-    "title": "Agentes",
-    "hint": "Cada agente gestiona su propio inicio de sesión. Versorium nunca guarda sus claves.",
+    "title": "Asistentes en esta máquina",
+    "hint": "Encontrados, no configurados: cada uno guarda su propia sesión y Versorium nunca almacena sus claves. Versorium puede pasarle una tarea a uno de ellos cuando no tiene un modelo local asignado.",
     "recheck": "Volver a comprobar",
     "checking": "Comprobando…",
     "connected": "Conectado",
@@ -304,8 +304,8 @@
     "off": "Desactivada"
   },
   "mcp": {
-    "title": "MCP",
-    "intro": "Un servidor local en esta máquina (stdio). Los agentes se conectan para leer tu manuscrito. Solo lectura hasta que permitas escritura.",
+    "title": "Qué se les permite hacer",
+    "intro": "Aquí la flecha va al revés: un asistente se conecta a Versorium y lee tu manuscrito a través de él. Un servidor local en esta máquina (stdio), de solo lectura hasta que permitas escribir, cliente a cliente.",
     "command": "Comando",
     "commandHint": "Los clientes conectados lo ejecutan. Nada queda a la escucha en la red.",
     "connect": "Conectar",
@@ -350,9 +350,9 @@
     "diskUsed": "Los modelos descargados ocupan {size}.",
     "modelsDir": "Guardados en",
     "tabs": {
-      "writing": "Escritura",
+      "writing": "Integrados",
       "ollama": "Ollama",
-      "studio": "Studio",
+      "studio": "Servidor local",
       "dictation": "Dictado"
     },
     "wizard": {
@@ -401,7 +401,9 @@
         "midPlus": "Prosa notablemente mejor, y ya pesa.",
         "high": "El mejor de aquí, y pide bastante memoria."
       },
-      "details": "Detalles"
+      "details": "Detalles",
+      "progress": "{done} de {total} · {percent}%",
+      "downloading": "Descargando {label}"
     },
     "speeds": {
       "fast": "Rápido",
@@ -479,6 +481,20 @@
       "fits": "Funciona en esta máquina",
       "showing": "Mostrando {shown} de {total}",
       "noMatch": "Ningún modelo coincide. Borra la búsqueda o los filtros."
+    },
+    "tasks": {
+      "title": "Qué usa cada tarea",
+      "intro": "Cinco trabajos, y el modelo con el que corre cada uno. Una tarea sin modelo recurre a un asistente conectado — y si no hay ninguno, lo dice en vez de no hacer nada."
+    },
+    "sources": {
+      "title": "De dónde salen los modelos",
+      "intro": "Cuatro maneras de tener un modelo en esta máquina. No necesitas todas; necesitas una a la que las tareas de arriba puedan apuntar."
+    },
+    "runsOn": {
+      "none": "sin modelo todavía",
+      "builtin": "corre en Versorium",
+      "ollama": "corre en Ollama",
+      "cli": "corre en un asistente"
     }
   },
   "manuscript": {
