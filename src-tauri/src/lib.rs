@@ -16,6 +16,7 @@ mod mcp;
 mod models;
 pub mod paths;
 mod secrets;
+mod spelling;
 mod storage;
 mod text;
 mod update;
@@ -32,6 +33,9 @@ pub fn run() {
     if let Some(options) = mcp::parse_cli(std::env::args()) {
         std::process::exit(mcp::serve_stdio(options));
     }
+    // Before the builder, not in `setup`: the window in tauri.conf.json is
+    // built before `setup` runs, and WebKit reads the default as it starts.
+    spelling::enable_as_you_type();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())

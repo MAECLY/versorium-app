@@ -62,6 +62,20 @@ getrandom = "0.3"
 # has to be the one the writer already knows how to use.
 trash = "5"
 
+# WKWebView checks spelling only when the app's defaults ask for it, and asking
+# goes through NSUserDefaults (`src/spelling.rs`). Both crates are already in
+# the macOS tree through tauri and wry at these versions, so declaring them adds
+# nothing to the build and nothing to THIRD-PARTY-NOTICES.md.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+  "std",
+  "NSDictionary",
+  "NSString",
+  "NSUserDefaults",
+  "NSValue",
+] }
+
 [features]
 # GPU offload on Windows and Linux. Off by default and switched on only in the
 # release workflow for those two targets, because it needs the Vulkan SDK at
