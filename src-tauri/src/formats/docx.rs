@@ -61,6 +61,7 @@ fn content_types() -> String {
          \x20 <Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>\n\
          \x20 <Override PartName=\"/word/header1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml\"/>\n\
          \x20 <Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>\n\
+         \x20 <Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>\n\
          </Types>\n",
         XML_DECL
     )
@@ -73,6 +74,7 @@ fn root_rels() -> String {
         "{XML_DECL}\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n\
          \x20 <Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/>\n\
          \x20 <Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/>\n\
+         \x20 <Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\" Target=\"docProps/app.xml\"/>\n\
          </Relationships>\n"
     )
 }
@@ -87,15 +89,57 @@ fn document_rels() -> String {
 }
 
 fn core_props(manuscript: &Manuscript) -> String {
+    // `cp:lastModifiedBy` is the field Word shows as "Last saved by" and the one
+    // reviewers notice. Leaving it to Word would stamp whoever opens the file.
+    let rights = if manuscript.byline.rights.trim().is_empty() {
+        String::new()
+    } else {
+        format!("  <dc:description>{}</dc:description>\n", esc(manuscript.byline.rights.trim()))
+    };
     format!(
         "{XML_DECL}\n<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" \
          xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" \
          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n\
-         \x20 <dc:title>{}</dc:title>\n  <dc:creator>{}</dc:creator>\n\
+         \x20 <dc:title>{title}</dc:title>\n  <dc:creator>{author}</dc:creator>\n\
+         \x20 <cp:lastModifiedBy>{author}</cp:lastModifiedBy>\n\
+         \x20 <dc:language>{lang}</dc:language>\n{rights}\
          </cp:coreProperties>\n",
-        esc(&manuscript.title),
-        esc(&manuscript.author)
+        title = esc(&manuscript.title),
+        author = esc(&manuscript.author),
+        lang = esc(&manuscript.language),
+        rights = rights,
     )
+}
+
+/// `docProps/app.xml`: the half of a DOCX's metadata that names the tool.
+///
+/// Word writes one and readers expect it. Without it, "Application" reads as
+/// unknown, which for a manuscript sent to a publisher looks like a file that
+/// came from nowhere.
+fn app_props(manuscript: &Manuscript) -> String {
+    let company = if manuscript.byline.organization.trim().is_empty() {
+        String::new()
+    } else {
+        format!("  <Company>{}</Company>\n", esc(manuscript.byline.organization.trim()))
+    };
+    format!(
+        "{XML_DECL}\n<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\" \
+         xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">\n\
+         \x20 <Application>Versorium</Application>\n\
+         \x20 <AppVersion>{version}</AppVersion>\n{company}\
+         </Properties>\n",
+        version = app_version(),
+        company = company,
+    )
+}
+
+/// `AppVersion` must be `XX.YYYY`: Word rejects anything else, and a semver
+/// string with a patch component is anything else.
+fn app_version() -> String {
+    let mut parts = env!("CARGO_PKG_VERSION").split('.');
+    let major: u32 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
+    let minor: u32 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
+    format!("{major:02}.{minor:04}")
 }
 
 /// Standard manuscript format lives almost entirely here: 12pt Times
@@ -171,6 +215,23 @@ fn styles(language: &str) -> String {
       <w:jc w:val="center"/>
     </w:pPr>
   </w:style>
+  <w:style w:type="paragraph" w:styleId="TitlePage">
+    <w:name w:val="Title Page"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:ind w:firstLine="0"/>
+      <w:jc w:val="center"/>
+      <w:spacing w:line="240" w:lineRule="auto" w:after="240"/>
+    </w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Colophon">
+    <w:name w:val="Colophon"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr>
+      <w:ind w:firstLine="0"/>
+      <w:spacing w:line="240" w:lineRule="auto"/>
+    </w:pPr>
+  </w:style>
   <w:style w:type="paragraph" w:styleId="Header">
     <w:name w:val="header"/>
     <w:basedOn w:val="Normal"/>
@@ -226,8 +287,50 @@ fn header(manuscript: &Manuscript) -> String {
     )
 }
 
+/// A paragraph that also ends the page.
+///
+/// `w:br w:type="page"` inside the run, not a pile of empty paragraphs: a
+/// manuscript whose title page is held down by blank lines re-flows the moment
+/// anybody changes the font.
+fn page_break_after(style: &str, text: &str) -> String {
+    format!(
+        "  <w:p>\n    <w:pPr>\n      <w:pStyle w:val=\"{style}\"/>\n    </w:pPr>\n\
+         \x20   <w:r>\n      <w:t xml:space=\"preserve\">{}</w:t>\n    </w:r>\n\
+         \x20   <w:r>\n      <w:br w:type=\"page\"/>\n    </w:r>\n  </w:p>\n",
+        esc(text)
+    )
+}
+
 fn document(manuscript: &Manuscript) -> String {
     let mut body = String::new();
+
+    // Standard manuscript format puts the title and the byline on a page of
+    // their own. `w:titlePg` in the section properties already suppresses the
+    // running head there, so this fills a page the layout was expecting.
+    if manuscript.matter.cover {
+        body.push_str(&paragraph("TitlePage", &manuscript.title));
+        let mut lines: Vec<&str> = Vec::new();
+        if !manuscript.author.trim().is_empty() {
+            lines.push(manuscript.author.trim());
+        }
+        for extra in [&manuscript.byline.organization, &manuscript.byline.rights] {
+            if !extra.trim().is_empty() {
+                lines.push(extra.trim());
+            }
+        }
+        match lines.split_last() {
+            // The last line carries the break, so no empty paragraph is left
+            // sitting at the top of chapter one.
+            Some((last, rest)) => {
+                for line in rest {
+                    body.push_str(&paragraph("TitlePage", line));
+                }
+                body.push_str(&page_break_after("TitlePage", last));
+            }
+            None => body.push_str(&page_break_after("TitlePage", "")),
+        }
+    }
+
     for chapter in &manuscript.chapters {
         body.push_str(&paragraph("Heading1", &chapter.title));
         for (index, scene) in chapter.scenes.iter().enumerate() {
@@ -247,6 +350,20 @@ fn document(manuscript: &Manuscript) -> String {
             }
         }
     }
+    if manuscript.matter.colophon {
+        // Behind a page break, at the very end, where a colophon belongs.
+        body.push_str(&page_break_after("Colophon", ""));
+        body.push_str(&paragraph("Colophon", manuscript.matter.labels.get("heading")));
+        for (key, value) in crate::formats::colophon_lines(manuscript) {
+            body.push_str(&paragraph(
+                "Colophon",
+                &format!("{}: {value}", manuscript.matter.labels.get(&key)),
+            ));
+        }
+        body.push_str(&paragraph("Colophon", &crate::formats::colophon_credit()));
+        body.push_str(&paragraph("Colophon", manuscript.matter.labels.get("thanks")));
+    }
+
     format!(
         "{XML_DECL}\n<w:document {W} {R}>\n<w:body>\n{body}\
          \x20 <w:sectPr>\n\
@@ -262,7 +379,7 @@ fn document(manuscript: &Manuscript) -> String {
 /// The seven parts, in OPC order. `[Content_Types].xml` goes first by
 /// convention; no reader tested actually required it.
 pub fn build(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
-    let parts: [(&str, String); 7] = [
+    let parts: [(&str, String); 8] = [
         ("[Content_Types].xml", content_types()),
         ("_rels/.rels", root_rels()),
         ("word/document.xml", document(manuscript)),
@@ -270,6 +387,7 @@ pub fn build(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
         ("word/styles.xml", styles(&manuscript.language)),
         ("word/header1.xml", header(manuscript)),
         ("docProps/core.xml", core_props(manuscript)),
+        ("docProps/app.xml", app_props(manuscript)),
     ];
     let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
@@ -319,6 +437,15 @@ const HEADING_ONE: [&str; 11] = [
     "heading1", "titulo1", "ttulo1", "titre1", "uberschrift1", "berschrift1", "titolo1", "kop1",
     "rubrik1", "overskrift1", "nagowek1",
 ];
+
+/// Paragraph styles this app writes for pages that are not the novel.
+///
+/// Matched on the style id, which is what carries the intent. A DOCX from
+/// elsewhere will not use these ids, so nothing of a stranger's manuscript is
+/// ever dropped by this.
+fn is_apparatus(style: &Option<String>) -> bool {
+    matches!(style.as_deref(), Some("TitlePage") | Some("Colophon"))
+}
 
 fn is_heading_one(style: &str) -> bool {
     HEADING_ONE.contains(&normalize_style(style).as_str())
@@ -528,6 +655,13 @@ pub fn import_bytes(bytes: &[u8]) -> Result<Imported, String> {
     };
 
     for para in &paras {
+        // The title page and the colophon are apparatus, not prose. Without
+        // this, re-importing a DOCX this app wrote turns its own title page
+        // into the opening paragraphs of chapter one — which is how the
+        // round-trip test found it.
+        if is_apparatus(&para.style) {
+            continue;
+        }
         if heading(&para.style) {
             if title.is_some() || !body.is_empty() {
                 if title.is_none() {
@@ -582,6 +716,8 @@ mod tests {
         Manuscript {
             title: "La Casa de Niebla".into(),
             author: "María Fernández".into(),
+            byline: Default::default(),
+            matter: Default::default(),
             language: "es-ES".into(),
             chapters: vec![
                 Chapter {
@@ -877,6 +1013,53 @@ mod tests {
         assert!(markdown.contains("La puerta se abrió — y nadie había llamado."));
         assert!(markdown.contains("🌙"), "an emoji survives the trip through Word's format");
     }
+
+    /// Export to a temp file and reopen it: the package is only ever produced
+    /// by writing one, so a test that assembled its own would test a fiction.
+    fn written(book: &Manuscript) -> zip::ZipArchive<Cursor<Vec<u8>>> {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("book.docx");
+        export_to(book, &dest).unwrap();
+        zip::ZipArchive::new(Cursor::new(std::fs::read(&dest).unwrap())).unwrap()
+    }
+
+    #[test]
+    fn the_package_names_the_tool_that_wrote_it() {
+        let mut book = manuscript();
+        book.byline.organization = "Minotauro".into();
+        let mut zip = written(&book);
+
+        let app = read_member(&mut zip, "docProps/app.xml").expect("app.xml");
+        assert!(app.contains("<Application>Versorium</Application>"));
+        assert!(app.contains("<Company>Minotauro</Company>"));
+        // Word rejects an AppVersion that is not XX.YYYY, and rejecting the
+        // file is how it says so.
+        let start = app.find("<AppVersion>").unwrap() + "<AppVersion>".len();
+        let version = &app[start..start + app[start..].find('<').unwrap()];
+        let (major, minor) = version.split_once('.').expect("XX.YYYY");
+        assert_eq!(major.len(), 2);
+        assert_eq!(minor.len(), 4);
+        assert!(version.chars().all(|c| c.is_ascii_digit() || c == '.'));
+    }
+
+    #[test]
+    fn a_part_nobody_declared_would_be_a_part_word_ignores() {
+        // Both the content types and the package relationships have to name
+        // app.xml, or Word treats the file as having no extended properties.
+        let mut zip = written(&manuscript());
+        let types = read_member(&mut zip, "[Content_Types].xml").unwrap();
+        assert!(types.contains("/docProps/app.xml"));
+        let rels = read_member(&mut zip, "_rels/.rels").unwrap();
+        assert!(rels.contains("docProps/app.xml"));
+    }
+
+    #[test]
+    fn the_file_says_who_last_saved_it_rather_than_letting_word_decide() {
+        let mut zip = written(&manuscript());
+        let core = read_member(&mut zip, "docProps/core.xml").unwrap();
+        assert!(core.contains("<cp:lastModifiedBy>María Fernández</cp:lastModifiedBy>"));
+        assert!(core.contains("<dc:language>es-ES</dc:language>"));
+    }
 }
 
 /// Standard manuscript format has no place for a scene title: a break is a
@@ -906,6 +1089,8 @@ mod warning_tests {
         Manuscript {
             title: "T".into(),
             author: "A B".into(),
+            byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![Chapter {
                 id: "ch-01".into(),

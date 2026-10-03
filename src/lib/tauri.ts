@@ -13,12 +13,30 @@ export interface ProjectMeta {
   defaultChapterPattern: string;
   censorship: string;
   remote: string | null;
+  /** Chapter ids in reading order, when it differs from their numbering. */
+  chapterOrder: string[];
+  /** Open an export with a title page. */
+  exportCover: boolean;
+  /** Close it with the project's own record and a line of thanks. */
+  exportColophon: boolean;
 }
+
+/**
+ * Wording that ends up inside an exported file.
+ *
+ * Supplied by the frontend because Rust has no dictionary, and written in the
+ * manuscript's language rather than the app's: it is read by whoever opens the
+ * book, not by whoever exported it.
+ */
+export type ExportLabels = Record<string, string>;
+
+/** Mirrors `commands::chapters::STATUSES`; anything else is refused by Rust. */
+export type ChapterStatus = "draft" | "revised" | "final";
 
 export interface ChapterMeta {
   id: string;
   title: string;
-  status: string;
+  status: ChapterStatus;
   words: number;
   file: string;
   mtime: number;
@@ -49,7 +67,41 @@ export interface AppSettings {
   typewriter: boolean;
   /** False until the first run is done or skipped. */
   onboarded: boolean;
+  /** Folders archives are written to; empty means backups are off. */
+  backupDirs: string[];
+  backupKeep: number;
+  /** Two author identities; exports use whichever `authorProfile` names. */
+  authorProfiles: AuthorProfiles;
+  /** `work` or `hobby`. */
+  authorProfile: string;
 }
+
+/**
+ * One author identity, as it will appear inside an exported file.
+ *
+ * Every field lands somewhere real — no field here is stored only to be looked
+ * at, and none of them travels anywhere but into the file being written.
+ */
+export interface AuthorProfile {
+  /** The byline. Creator in every format that has one. */
+  name: string;
+  /** "Le Guin, Ursula K." — EPUB `file-as`. Guessed when blank. */
+  sortAs: string;
+  /** A MARC relator: `aut`, `edt`, `trl`. EPUB only. */
+  role: string;
+  /** `dc:publisher` in EPUB, `Company` in DOCX. */
+  organization: string;
+  /** The copyright line. `dc:rights` in EPUB, `/Subject` in PDF. */
+  rights: string;
+}
+
+export interface AuthorProfiles {
+  work: AuthorProfile;
+  hobby: AuthorProfile;
+}
+
+/** The relator codes offered. A free-text role produces codes nothing reads. */
+export const AUTHOR_ROLES = ["aut", "edt", "trl"] as const;
 
 export interface ChapterDoc {
   frontmatter: Record<string, string>;
@@ -234,6 +286,87 @@ export interface StudioView {
   enabled: boolean;
 }
 
+/** MCP over HTTP as well as stdio. The token is absent on purpose: it lives in
+ *  a file only the user can read. */
+export interface McpHttpStatus {
+  enabled: boolean;
+  url: string | null;
+  endpointFile: string | null;
+}
+
+export type SecretSlot = "updates" | "novel";
+
+/** Which credentials exist. Never their values: the token only travels inward. */
+export interface SecretsStatus {
+  store: { usable: boolean; reason: string | null };
+  updates: boolean;
+  novel: boolean;
+}
+
+export interface BackupDestination {
+  /** A provider slug (`icloud`, `dropbox`, …), `disk`, or `folder`. */
+  kind: string;
+  path: string;
+  /** The folder is there right now; an absent one is still offered, and says so. */
+  available: boolean;
+  /** Which physical disk this is on. Null where the platform will not say. */
+  volume: string | null;
+  /** A provider carries the copy off this machine; a second disk does not. */
+  offsite: boolean;
+}
+
+export interface BackupArchive {
+  path: string;
+  name: string;
+  bytes: number;
+  /** Unix seconds from the file's own mtime — not what to show a writer. */
+  modified: number;
+  /** When the backup was asked for, read out of the name. Show this one. */
+  stamped: number | null;
+  /** Which state of the novel it holds. Null for one written before this existed. */
+  print: string | null;
+  /** Of the archive as the destination handed it back. Null when only listed. */
+  sha256: string | null;
+}
+
+/** Grades the current choice against the three-copy rule. Never scored. */
+export interface BackupCoverage {
+  /** Counting the novel itself, as the rule does. */
+  copies: number;
+  /** Distinct disks. Null when one could not be identified, never guessed. */
+  media: number | null;
+  offsite: boolean;
+  /** Destinations sharing a disk with the novel: a copy that dies with it. */
+  onTheNovelsDisk: string[];
+}
+
+/** What happened at one destination. A missing disk is not a failure. */
+export type BackupOutcome =
+  | { state: "ok"; path: string; archive: BackupArchive; pruned: number }
+  | { state: "copy"; path: string; archive: BackupArchive; pruned: number }
+  | { state: "unchanged"; path: string; archive: BackupArchive; pruned: number }
+  | {
+      state: "repaired";
+      path: string;
+      archive: BackupArchive;
+      pruned: number;
+      reason: string;
+      damaged: string;
+    }
+  | { state: "unavailable"; path: string }
+  | { state: "failed"; path: string; reason: string };
+
+/** How far along an install is. The phases are the real steps, not an
+ *  animation: downloading has byte counts, verifying is the two signature
+ *  checks, installing hands the bytes to the platform, ready means restart. */
+export interface InstallProgress {
+  phase: "downloading" | "verifying" | "installing" | "ready" | "failed";
+  received: number;
+  /** Absent when the server sends no length; show indeterminate, not zero. */
+  total: number | null;
+  error: string | null;
+}
+
 /** Which device llama.cpp will use. Asked for separately from the model cards:
  *  the backend is a property of the machine, not of a model. */
 export interface LlamaBackendState {
@@ -269,7 +402,7 @@ export interface LocalAiView {
 
 // --- M5: formats ---
 
-export type ExportFormat = "md" | "docx" | "epub" | "pdf";
+export type ExportFormat = "md" | "docx" | "epub" | "pdf" | "scriv";
 export type ImportFormat = "md" | "docx" | "scriv";
 
 export interface ExportResult {
@@ -433,6 +566,58 @@ export const api = {
   studioSave: (host: string, port: number, enabled: boolean) =>
     invoke<StudioView>("studio_save", { host, port, enabled }),
 
+  updateProgress: () => invoke<InstallProgress | null>("update_progress"),
+  updateRelaunch: () => invoke<void>("update_relaunch"),
+
+  // --- editing a novel and its chapters ---
+  updateProject: (
+    path: string,
+    title?: string,
+    author?: string,
+    exportCover?: boolean,
+    exportColophon?: boolean,
+  ) =>
+    invoke<ProjectMeta>("update_project", { path, title, author, exportCover, exportColophon }),
+  /** Moves the folder to the system trash; returns what is left. */
+  deleteProject: (path: string, parent: string) =>
+    invoke<Project[]>("delete_project", { path, parent }),
+  updateChapter: (path: string, file: string, title?: string, status?: ChapterStatus) =>
+    invoke<ChapterMeta>("update_chapter", { path, file, title, status }),
+  /** Snapshots the project first, so this is recoverable from its history. */
+  deleteChapter: (path: string, file: string) =>
+    invoke<ChapterMeta[]>("delete_chapter", { path, file }),
+  /** Put the chapters in this order. Nothing on disk moves. */
+  reorderChapters: (path: string, ids: string[]) =>
+    invoke<ChapterMeta[]>("reorder_chapters", { path, ids }),
+
+  mcpHttpStatus: () => invoke<McpHttpStatus>("mcp_http_status"),
+  mcpSetHttp: (enabled: boolean) => invoke<McpHttpStatus>("mcp_set_http", { enabled }),
+
+  // --- credentials, kept in the OS store; the token never comes back out ---
+  secretsStatus: () => invoke<SecretsStatus>("secrets_status"),
+  secretsConnect: (slot: SecretSlot, token: string) =>
+    invoke<string>("secrets_connect", { slot, token }),
+  secretsForget: (slot: SecretSlot) => invoke<void>("secrets_forget", { slot }),
+
+  // --- backup to a synced folder ---
+  backupDestinations: () => invoke<BackupDestination[]>("backup_destinations"),
+  backupConfigure: (paths: string[], keep: number) =>
+    invoke<void>("backup_configure", { paths, keep }),
+  /** One outcome per destination; never collapsed into a single result. */
+  backupNow: (path: string) => invoke<BackupOutcome[]>("backup_now", { path }),
+  backupList: (path: string) => invoke<[string, BackupArchive[]][]>("backup_list", { path }),
+  /** Read an archive back and confirm it is complete and extractable. */
+  backupVerify: (archive: string) => invoke<string>("backup_verify", { archive }),
+  /** What the configured destinations protect this novel against. */
+  backupCoverage: (path: string) => invoke<BackupCoverage>("backup_coverage", { path }),
+  backupRestore: (archive: string, project: string, label: string) =>
+    invoke<string>("backup_restore", { archive, project, label }),
+
+  // --- network git ---
+  gitPush: (path: string, remote?: string) => invoke<string>("git_push", { path, remote }),
+  gitPull: (path: string, remote?: string) =>
+    invoke<{ branch: string; changed: boolean }>("git_pull", { path, remote }),
+
   // --- the in-process engine ---
   llamaBackend: () => invoke<LlamaBackendState>("llama_backend"),
   llamaProgress: () => invoke<LlamaProgress | null>("llama_progress"),
@@ -440,8 +625,8 @@ export const api = {
   llamaUnload: () => invoke<void>("llama_unload"),
 
   // --- M5: formats ---
-  exportManuscript: (path: string, format: ExportFormat, dest: string) =>
-    invoke<ExportResult>("export_manuscript", { path, format, dest }),
+  exportManuscript: (path: string, format: ExportFormat, dest: string, labels?: ExportLabels) =>
+    invoke<ExportResult>("export_manuscript", { path, format, dest, labels }),
   importPreview: (source: string) => invoke<Imported>("import_preview", { source }),
   importApply: (source: string, title: string) =>
     invoke<Project>("import_apply", { source, title }),
@@ -474,7 +659,7 @@ export const api = {
   pickImportFile: () =>
     open({
       multiple: false,
-      filters: [{ name: "Manuscript", extensions: ["md", "markdown", "docx"] }],
+      filters: [{ name: "Manuscript", extensions: ["md", "markdown", "docx", "epub"] }],
     }),
   /** A Scrivener project, which is a .scriv bundle directory on macOS. */
   pickImportProject: () => open({ directory: true, multiple: false }),

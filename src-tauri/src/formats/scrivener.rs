@@ -9,7 +9,7 @@
 //! research, snapshots). Everything this import leaves behind is reported, so
 //! the writer learns it from the preview rather than from a gap months later.
 
-use super::{Imported, ImportedChapter};
+use super::{Chapter, Imported, ImportedChapter, Manuscript};
 use quick_xml::events::Event;
 use quick_xml::XmlVersion;
 use quick_xml::Reader;
@@ -158,7 +158,6 @@ fn locate(bundle: &Path, id: &str, what: Text) -> Option<PathBuf> {
 /// manuscript is a sequence of chapters however the writer filed them.
 fn parse_binder(xml: &str) -> Result<Vec<BinderEntry>, String> {
     let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
 
     let mut entries: Vec<BinderEntry> = Vec::new();
     let mut in_binder = false;
@@ -194,14 +193,13 @@ fn parse_binder(xml: &str) -> Result<Vec<BinderEntry>, String> {
                         }
                     }
                     "Title" if awaiting_title == Some(depth - 1) => {
-                        if let Ok(Event::Text(text)) = reader.read_event() {
-                            if let Some(&idx) = stack.last() {
-                                if idx != usize::MAX {
-                                    entries[idx].title = text.xml10_content().trim().to_string();
-                                }
+                        let title = read_title(&mut reader);
+                        if let Some(&idx) = stack.last() {
+                            if idx != usize::MAX {
+                                entries[idx].title = title;
                             }
                         }
-                        // The matching </Title> is consumed by the loop below.
+                        // The matching </Title> is consumed by `read_title`.
                         depth -= 1;
                         awaiting_title = None;
                         continue;
@@ -226,6 +224,43 @@ fn parse_binder(xml: &str) -> Result<Vec<BinderEntry>, String> {
         }
     }
     Ok(entries)
+}
+
+/// Read everything up to `</Title>`.
+///
+/// It used to take a single `Event::Text` and stop, which truncated any title at
+/// its first escaped character — quick-xml reports `&amp;` as an event of its
+/// own rather than folding it into the surrounding text, so "El faro & la
+/// niebla" imported as "El faro". The same mistake was already found and fixed
+/// in the DOCX reader; this is that fix applied here.
+fn read_title(reader: &mut Reader<&[u8]>) -> String {
+    let mut title = String::new();
+    loop {
+        match reader.read_event() {
+            Ok(Event::Text(text)) => title.push_str(&text.xml10_content()),
+            Ok(Event::GeneralRef(e)) => {
+                let resolved = match e.resolve_char_ref() {
+                    Ok(Some(c)) => Some(c),
+                    _ => match e.into_inner().as_ref() {
+                        "amp" => Some('&'),
+                        "lt" => Some('<'),
+                        "gt" => Some('>'),
+                        "quot" => Some('"'),
+                        "apos" => Some('\''),
+                        _ => None,
+                    },
+                };
+                if let Some(c) = resolved {
+                    title.push(c);
+                }
+            }
+            // `</Title>`, end of input, or a malformed document: either way the
+            // title is as complete as it is going to get.
+            Ok(Event::End(_)) | Ok(Event::Eof) | Err(_) => break,
+            _ => {}
+        }
+    }
+    title.trim().to_string()
 }
 
 fn attr(tag: &quick_xml::events::BytesStart<'_>, name: &str) -> Option<String> {
@@ -435,9 +470,173 @@ fn tidy(text: &str) -> String {
     lines.join("\n").trim().to_string()
 }
 
+// --- export ---
+
+/// A Scrivener 3 project is a directory, not a file, so this writes a bundle
+/// rather than returning bytes like every other writer here.
+///
+/// Only the manuscript is written: one Text document per chapter under the Draft
+/// folder, in order. Labels, keywords, snapshots, collections and compile
+/// settings are Scrivener's own bookkeeping — inventing them would produce a
+/// project that claims structure the novel never had.
+///
+/// The v3 layout is the target (`Files/Data/<UUID>/content.rtf`). v2 is still
+/// read on import for older bundles, but writing the format Scrivener 3 actually
+/// creates is what makes the output openable today.
+pub fn export_to(manuscript: &Manuscript, dest: &Path) -> Result<u64, String> {
+    // A UUID per document, derived rather than random so exporting the same
+    // manuscript twice produces the same bundle and a diff stays readable.
+    let ids: Vec<String> = (0..manuscript.chapters.len()).map(document_uuid).collect();
+
+    let data = dest.join("Files").join("Data");
+    std::fs::create_dir_all(&data).map_err(|_| "io".to_string())?;
+
+    let mut written = 0u64;
+    for (chapter, id) in manuscript.chapters.iter().zip(&ids) {
+        let folder = data.join(id);
+        std::fs::create_dir_all(&folder).map_err(|_| "io".to_string())?;
+        let rtf = chapter_rtf(chapter);
+        let path = folder.join("content.rtf");
+        std::fs::write(&path, rtf.as_bytes()).map_err(|_| "io".to_string())?;
+        written += rtf.len() as u64;
+
+        // Scrivener shows the synopsis on the corkboard card. The first sentence
+        // of the chapter is a better card than an empty one.
+        if let Some(synopsis) = synopsis_of(chapter) {
+            let path = folder.join("synopsis.txt");
+            std::fs::write(&path, synopsis.as_bytes()).map_err(|_| "io".to_string())?;
+            written += synopsis.len() as u64;
+        }
+    }
+
+    let scrivx = binder_xml(manuscript, &ids);
+    // Scrivener names the project file after the bundle, and opens the bundle by
+    // finding it; a mismatched name makes the project unopenable.
+    let stem = dest
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "Novel".into());
+    let path = dest.join(format!("{stem}.scrivx"));
+    std::fs::write(&path, scrivx.as_bytes()).map_err(|_| "io".to_string())?;
+    written += scrivx.len() as u64;
+
+    Ok(written)
+}
+
+/// What the manuscript carries that a Scrivener project cannot hold.
+pub fn export_warnings(manuscript: &Manuscript) -> Vec<String> {
+    let mut warnings = Vec::new();
+    // Scene headings become a horizontal separator in the RTF, which is what
+    // Scrivener's own compile does, but they stop being addressable structure.
+    if manuscript.chapters.iter().any(|c| c.scenes.iter().any(|s| s.heading.is_some())) {
+        warnings.push(WARN_EXPORT_SCENES.to_string());
+    }
+    warnings
+}
+
+pub const WARN_EXPORT_SCENES: &str = "export_scrivener_scenes_flattened";
+
+/// Stable per-position identifiers in Scrivener's UUID shape.
+///
+/// Scrivener accepts any unique string, and a derived one keeps a re-export
+/// byte-identical where a random one would rewrite every file.
+fn document_uuid(index: usize) -> String {
+    let n = index + 1;
+    format!("5645524F-0000-4000-8000-{n:012X}")
+}
+
+fn xml_escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+fn binder_xml(manuscript: &Manuscript, ids: &[String]) -> String {
+    let mut children = String::new();
+    for (chapter, id) in manuscript.chapters.iter().zip(ids) {
+        children.push_str(&format!(
+            "        <BinderItem UUID=\"{id}\" Type=\"Text\"><Title>{}</Title></BinderItem>\n",
+            xml_escape(&chapter.title)
+        ));
+    }
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+         <ScrivenerProject Version=\"2.0\" Creator=\"Versorium\">\n\
+         \x20 <Binder>\n\
+         \x20   <BinderItem UUID=\"5645524F-0000-4000-8000-000000000000\" Type=\"DraftFolder\"><Title>{}</Title>\n\
+         \x20     <Children>\n{children}\
+         \x20     </Children>\n\
+         \x20   </BinderItem>\n\
+         \x20 </Binder>\n\
+         </ScrivenerProject>\n",
+        xml_escape(&manuscript.title)
+    )
+}
+
+/// The first sentence of a chapter, for the corkboard card.
+fn synopsis_of(chapter: &Chapter) -> Option<String> {
+    let first = chapter.scenes.iter().flat_map(|s| s.paragraphs.iter()).next()?;
+    let sentence = first.split_inclusive(['.', '?', '!']).next().unwrap_or(first).trim();
+    (!sentence.is_empty()).then(|| sentence.chars().take(200).collect())
+}
+
+/// RTF escaping: the four reserved characters, then anything outside ASCII as a
+/// `\uN?` escape.
+///
+/// RTF's `\u` takes a *signed 16-bit* code unit, so astral characters are
+/// written as a surrogate pair — an emoji emitted as one oversized number is
+/// what a naive escape gets wrong, and Scrivener renders it as garbage.
+fn rtf_escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '{' => out.push_str("\\{"),
+            '}' => out.push_str("\\}"),
+            c if c.is_ascii() => out.push(c),
+            c => {
+                for unit in c.encode_utf16(&mut [0u16; 2]).iter() {
+                    // Reinterpreted as signed, which is what the spec asks for.
+                    out.push_str(&format!("\\u{}?", *unit as i16));
+                }
+            }
+        }
+    }
+    out
+}
+
+fn chapter_rtf(chapter: &Chapter) -> String {
+    let mut body = String::new();
+    for (index, scene) in chapter.scenes.iter().enumerate() {
+        // A scene break is what Scrivener's own compile emits: a centred
+        // separator, not a heading, because a scene is not a document here.
+        if index > 0 {
+            body.push_str("\\par\\qc #\\par\\ql\n");
+        }
+        for paragraph in &scene.paragraphs {
+            body.push_str(&rtf_escape(paragraph));
+            body.push_str("\\par\n");
+        }
+    }
+    format!(
+        "{{\\rtf1\\ansi\\ansicpg1252\\deff0\n\
+         {{\\fonttbl{{\\f0\\froman Times New Roman;}}}}\n\
+         \\f0\\fs24\n{body}}}\n"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::formats::Scene;
     use std::fs;
 
     fn bundle(dir: &Path, name: &str, scrivx: &str) -> PathBuf {
@@ -479,6 +678,141 @@ mod tests {
     </BinderItem>
   </Binder>
 </ScrivenerProject>"#;
+
+    // --- export ---
+    //
+    // Validated by reading it back through this file's own importer. That is the
+    // strongest check available without Scrivener installed: a bundle the
+    // importer cannot parse is one Scrivener would not open either, and the
+    // importer was itself built against real v2 and v3 bundles.
+
+    fn sample() -> Manuscript {
+        Manuscript {
+            title: "El largo invierno".into(),
+            author: "Ana Ruiz".into(),
+            byline: Default::default(),
+            matter: Default::default(),
+            language: "es".into(),
+            chapters: vec![
+                Chapter {
+                    id: "ch-01".into(),
+                    title: "La llegada".into(),
+                    scenes: vec![
+                        Scene {
+                            heading: None,
+                            paragraphs: vec!["La niña esperó junto a la ventana.".into()],
+                        },
+                        Scene {
+                            heading: Some("Después".into()),
+                            paragraphs: vec!["Nadie vino.".into(), "Amaneció.".into()],
+                        },
+                    ],
+                },
+                Chapter {
+                    id: "ch-02".into(),
+                    title: "El faro & la niebla".into(),
+                    scenes: vec![Scene {
+                        heading: None,
+                        paragraphs: vec!["La luz giraba sobre el agua.".into()],
+                    }],
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn what_it_writes_is_what_this_files_own_importer_can_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("El largo invierno.scriv");
+        export_to(&sample(), &bundle).unwrap();
+
+        let back = import_file(&bundle).expect("the bundle it wrote must be readable");
+        assert_eq!(back.title, "El largo invierno");
+        let titles: Vec<&str> = back.chapters.iter().map(|c| c.title.as_str()).collect();
+        assert_eq!(titles, vec!["La llegada", "El faro & la niebla"]);
+        // Accents survive the RTF escape round trip, which is the thing a naive
+        // writer gets wrong.
+        assert!(back.chapters[0].body.contains("La niña esperó"), "{}", back.chapters[0].body);
+        assert!(back.chapters[1].body.contains("La luz giraba"));
+    }
+
+    #[test]
+    fn the_project_file_is_named_after_the_bundle_or_scrivener_cannot_open_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("Mi novela.scriv");
+        export_to(&sample(), &bundle).unwrap();
+        assert!(bundle.join("Mi novela.scrivx").is_file(), "the .scrivx must match the bundle name");
+    }
+
+    #[test]
+    fn every_chapter_gets_a_document_and_a_corkboard_card() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("N.scriv");
+        export_to(&sample(), &bundle).unwrap();
+
+        let data = bundle.join("Files").join("Data");
+        let folders: Vec<_> = std::fs::read_dir(&data).unwrap().flatten().collect();
+        assert_eq!(folders.len(), 2, "one folder per chapter");
+        for folder in folders {
+            assert!(folder.path().join("content.rtf").is_file());
+            // An empty card on the corkboard is a worse default than the first
+            // sentence.
+            assert!(folder.path().join("synopsis.txt").is_file());
+        }
+    }
+
+    #[test]
+    fn re_exporting_the_same_manuscript_produces_the_same_bundle() {
+        // Identifiers are derived from position, not random, so a re-export does
+        // not rewrite every file and a diff stays readable.
+        let dir = tempfile::tempdir().unwrap();
+        let first = dir.path().join("A.scriv");
+        let second = dir.path().join("A.scriv");
+        export_to(&sample(), &first).unwrap();
+        let before = std::fs::read_to_string(first.join("A.scrivx")).unwrap();
+        export_to(&sample(), &second).unwrap();
+        let after = std::fs::read_to_string(second.join("A.scrivx")).unwrap();
+        assert_eq!(before, after);
+    }
+
+    #[test]
+    fn xml_and_rtf_reserved_characters_cannot_break_the_bundle() {
+        let mut manuscript = sample();
+        manuscript.title = "A & B <c> \"d\"".into();
+        manuscript.chapters[0].title = "Braces {and} back\\slash".into();
+        manuscript.chapters[0].scenes[0].paragraphs =
+            vec!["Un {grupo} y una \\barra, más un emoji 🌙.".into()];
+
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("X.scriv");
+        export_to(&manuscript, &bundle).unwrap();
+
+        // The binder must still parse, which is what escaping is for. The project
+        // title comes from the folder name on import, so only the chapter titles
+        // make the round trip through XML.
+        let back = import_file(&bundle).expect("reserved characters broke the binder");
+        assert_eq!(back.title, "X");
+        assert_eq!(back.chapters[0].title, "Braces {and} back\\slash");
+        // An astral character is a surrogate pair in RTF; emitted as one
+        // oversized number it renders as garbage.
+        assert!(back.chapters[0].body.contains('🌙'), "emoji lost: {}", back.chapters[0].body);
+    }
+
+    #[test]
+    fn a_scene_heading_is_reported_as_flattened_rather_than_silently_dropped() {
+        // Scrivener has no scene inside a document, so the heading becomes a
+        // separator. Saying so is the difference between a limitation and a bug.
+        let warnings = export_warnings(&sample());
+        assert_eq!(warnings, vec![WARN_EXPORT_SCENES]);
+
+        let mut flat = sample();
+        for chapter in &mut flat.chapters {
+            for scene in &mut chapter.scenes {
+                scene.heading = None;
+            }
+        }
+        assert!(export_warnings(&flat).is_empty(), "nothing to warn about without scenes");
+    }
 
     #[test]
     fn the_binder_order_survives_and_nesting_flattens() {

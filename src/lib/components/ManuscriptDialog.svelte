@@ -12,7 +12,7 @@
 
   type Tab = "export" | "import";
   const TABS: Tab[] = ["export", "import"];
-  const FORMATS: ExportFormat[] = ["md", "docx", "epub", "pdf"];
+  const FORMATS: ExportFormat[] = ["md", "docx", "epub", "pdf", "scriv"];
   /** Spec §9: these two print the surname in every running head. */
   const NEEDS_AUTHOR: ExportFormat[] = ["docx", "pdf"];
 
@@ -65,7 +65,7 @@
         // A failed save must not block an export that does not need the name.
       }
     }
-    await formats.exportAs(path, format, project?.meta.title ?? "manuscript");
+    await formats.exportAs(path, format, project?.meta.title ?? "manuscript", project?.meta.language ?? "en");
   }
 
   async function doImport(): Promise<void> {

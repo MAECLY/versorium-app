@@ -3,6 +3,7 @@
   import AppearanceGroup from "$lib/settings/groups/AppearanceGroup.svelte";
   import AppGroup from "$lib/settings/groups/AppGroup.svelte";
   import AssistantsGroup from "$lib/settings/groups/AssistantsGroup.svelte";
+  import AuthorGroup from "$lib/settings/groups/AuthorGroup.svelte";
   import BackupGroup from "$lib/settings/groups/BackupGroup.svelte";
   import LocalAiGroup from "$lib/settings/groups/LocalAiGroup.svelte";
   import WritingGroup from "$lib/settings/groups/WritingGroup.svelte";
@@ -15,7 +16,7 @@
    * label and the line under the heading are for: a setting nobody can place is
    * a setting nobody trusts.
    */
-  const GROUPS = ["writing", "appearance", "localAi", "backup", "assistants", "app"] as const;
+  const GROUPS = ["writing", "author", "appearance", "localAi", "backup", "assistants", "app"] as const;
   type Group = (typeof GROUPS)[number];
 
   let active = $state<Group>("writing");
@@ -82,6 +83,8 @@
 
       {#if active === "writing"}
         <WritingGroup />
+      {:else if active === "author"}
+        <AuthorGroup />
       {:else if active === "appearance"}
         <AppearanceGroup />
       {:else if active === "localAi"}

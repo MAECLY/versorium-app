@@ -24,8 +24,34 @@ pub struct ExportResult {
 const NEEDS_AUTHOR: [&str; 2] = ["docx", "pdf"];
 
 #[tauri::command]
-pub fn export_manuscript(path: PathBuf, format: String, dest: PathBuf) -> Result<ExportResult, String> {
-    let manuscript = formats::read_manuscript(&path)?;
+pub fn export_manuscript(
+    state: tauri::State<crate::commands::settings::SettingsStore>,
+    path: PathBuf,
+    format: String,
+    dest: PathBuf,
+    labels: Option<formats::Labels>,
+) -> Result<ExportResult, String> {
+    export_with(&state.get().active_author().clone(), path, format, dest, labels)
+}
+
+/// The command body without Tauri's `State`, which cannot be built in a test.
+fn export_with(
+    profile: &crate::commands::settings::AuthorProfile,
+    path: PathBuf,
+    format: String,
+    dest: PathBuf,
+    labels: Option<formats::Labels>,
+) -> Result<ExportResult, String> {
+    // The project's own author still wins; the profile fills in what a project
+    // file has never had a place for, and supplies a name when it has none.
+    let mut manuscript =
+        formats::read_manuscript(&path)?.with_byline(&profile.name, profile.byline());
+    // Colophon wording arrives from the frontend, the only side with a
+    // dictionary. It is read by whoever opens the book, so it follows the
+    // manuscript's language rather than the app's.
+    if let Some(labels) = labels {
+        manuscript.matter.labels = labels;
+    }
     if manuscript.chapters.iter().all(|c| c.scenes.is_empty()) {
         return Err("empty_manuscript".into());
     }
@@ -43,6 +69,11 @@ pub fn export_manuscript(path: PathBuf, format: String, dest: PathBuf) -> Result
             formats::pdf::export_to(&manuscript, &dest)?,
             formats::pdf::export_warnings(&manuscript),
         ),
+        // A directory, not a file: Scrivener projects are bundles.
+        "scriv" => (
+            formats::scrivener::export_to(&manuscript, &dest)?,
+            formats::scrivener::export_warnings(&manuscript),
+        ),
         _ => return Err("bad_format".into()),
     };
     Ok(ExportResult { path: dest.to_string_lossy().into_owned(), bytes, format, warnings })
@@ -58,6 +89,7 @@ fn importer_for(source: &Path) -> Option<Importer> {
         "md" | "markdown" | "txt" => Some(formats::markdown::import_file),
         "docx" => Some(formats::docx::import_file),
         "scriv" => Some(formats::scrivener::import_file),
+        "epub" => Some(formats::epub::import_file),
         _ => None,
     }
 }
@@ -108,8 +140,7 @@ pub fn import_apply(source: PathBuf, title: String) -> Result<Project, String> {
 pub fn set_author(path: PathBuf, author: String) -> Result<ProjectMeta, String> {
     let mut meta = load_meta(&path).ok_or_else(|| "not_found".to_string())?;
     meta.author = author.trim().to_string();
-    let json = serde_json::to_string_pretty(&meta).map_err(|_| "io".to_string())?;
-    crate::storage::atomic_write(&path.join("versorium.json"), json)?;
+    crate::commands::project::write_meta(&path, &meta)?;
     Ok(meta)
 }
 
@@ -145,10 +176,10 @@ mod tests {
         let root = project(dir.path(), "No Author");
         with_text(&root);
         // Markdown has no running head, so it does not care.
-        assert!(export_manuscript(root.clone(), "md".into(), dir.path().join("a.md")).is_ok());
+        assert!(export_with(&Default::default(), root.clone(), "md".into(), dir.path().join("a.md"), None).is_ok());
         for format in NEEDS_AUTHOR {
             assert_eq!(
-                export_manuscript(root.clone(), format.into(), dir.path().join("a.out")).unwrap_err(),
+                export_with(&Default::default(), root.clone(), format.into(), dir.path().join("a.out"), None).unwrap_err(),
                 "no_author",
                 "{format} prints the surname in every header"
             );
@@ -161,7 +192,7 @@ mod tests {
         let root = project(dir.path(), "Empty");
         let dest = dir.path().join("empty.md");
         assert_eq!(
-            export_manuscript(root, "md".into(), dest.clone()).unwrap_err(),
+            export_with(&Default::default(), root, "md".into(), dest.clone(), None).unwrap_err(),
             "empty_manuscript"
         );
         assert!(!dest.exists(), "nothing may be written for a refused export");
@@ -173,7 +204,7 @@ mod tests {
         let root = project(dir.path(), "Formats");
         with_text(&root);
         assert_eq!(
-            export_manuscript(root, "rtf".into(), dir.path().join("a.rtf")).unwrap_err(),
+            export_with(&Default::default(), root, "rtf".into(), dir.path().join("a.rtf"), None).unwrap_err(),
             "bad_format"
         );
         assert_eq!(
@@ -206,5 +237,21 @@ mod tests {
         // import_apply writes into the real projects dir, so it is covered by
         // the e2e mock rather than here; this pins the preview contract it uses.
         assert_eq!(imported.chapters[0].title, "One");
+    }
+
+    #[test]
+    fn a_profile_supplies_the_author_a_project_never_got() {
+        use crate::commands::settings::AuthorProfile;
+        let dir = tempfile::tempdir().unwrap();
+        let root = project(dir.path(), "La Casa");
+        with_text(&root);
+        // Exporting to PDF is refused without an author, so a profile that did
+        // not reach the export would make this fail.
+        let profile = AuthorProfile { name: "Ana Ruiz".into(), ..Default::default() };
+        let dest = dir.path().join("a.pdf");
+        export_with(&profile, root, "pdf".into(), dest.clone(), None).unwrap();
+
+        let pdf = std::fs::read(&dest).unwrap();
+        assert!(String::from_utf8_lossy(&pdf).contains("/Author (Ana Ruiz)"));
     }
 }

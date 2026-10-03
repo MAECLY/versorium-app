@@ -14,6 +14,60 @@ use tauri_plugin_updater::UpdaterExt;
 
 pub const CHANNELS: [&str; 2] = ["stable", "beta"];
 
+/// How far along an install is, so the writer sees the machine working.
+///
+/// The phases are the real ones this function performs, not a decorative
+/// animation: `downloading` has byte counts, `verifying` is the two signature
+/// checks, `installing` hands the bytes to the platform, and `ready` means the
+/// app must restart to become the new version. On macOS there is no installer
+/// step at all — Tauri swaps the bundle in place — so `installing` is brief
+/// there and long on Windows, where it runs the real installer.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallProgress {
+    /// `downloading` | `verifying` | `installing` | `ready` | `failed`
+    pub phase: String,
+    pub received: u64,
+    /// Absent when the server sends no length, which the UI shows as
+    /// indeterminate rather than as zero.
+    pub total: Option<u64>,
+    /// Set only when `phase` is `failed`: an error code, never prose.
+    pub error: Option<String>,
+}
+
+impl InstallProgress {
+    fn at(phase: &str) -> Self {
+        Self { phase: phase.into(), received: 0, total: None, error: None }
+    }
+}
+
+fn install_progress() -> &'static Mutex<Option<InstallProgress>> {
+    static PROGRESS: OnceLock<Mutex<Option<InstallProgress>>> = OnceLock::new();
+    PROGRESS.get_or_init(|| Mutex::new(None))
+}
+
+fn set_progress(next: InstallProgress) {
+    if let Ok(mut guard) = install_progress().lock() {
+        *guard = Some(next);
+    }
+}
+
+fn advance(received: u64, total: Option<u64>) {
+    if let Ok(mut guard) = install_progress().lock() {
+        if let Some(current) = guard.as_mut() {
+            current.received = received;
+            current.total = total.or(current.total);
+        }
+    }
+}
+
+/// Polled by the dialog. Follows the download manager's shape rather than
+/// introducing this codebase's first Tauri event.
+#[tauri::command]
+pub fn update_progress() -> Option<InstallProgress> {
+    install_progress().lock().ok().and_then(|g| g.clone())
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AvailableUpdate {
@@ -72,8 +126,19 @@ fn hide_if_skipped(
 }
 
 fn status_from(state: &SettingsStore) -> UpdateStatus {
+    // Cheap and non-blocking: whether a credential exists, not its value. The
+    // keyring read happens in `signed_in`, off the async thread.
+    status_with(state, signed_in(state))
+}
+
+/// Whether an updates token exists anywhere. Blocking (it may touch the OS
+/// credential store), so async callers wrap it.
+fn signed_in(state: &SettingsStore) -> bool {
+    crate::secrets::updates_token(state).is_some()
+}
+
+fn status_with(state: &SettingsStore, signed_in: bool) -> UpdateStatus {
     let settings = state.get();
-    let token = settings.github_updates_token.as_deref().unwrap_or_default();
     let (available, last_error) = last_check()
         .lock()
         .map(|s| (s.available.clone(), s.error.clone()))
@@ -83,7 +148,7 @@ fn status_from(state: &SettingsStore) -> UpdateStatus {
         available: hide_if_skipped(available, settings.update_skipped.as_deref()),
         channel: settings.update_channel,
         automatic: settings.update_automatic,
-        signed_in: !token.trim().is_empty(),
+        signed_in,
         // The command has returned, so by definition it is no longer checking;
         // the frontend owns its own in-flight state.
         checking: false,
@@ -156,7 +221,7 @@ pub async fn update_check(
     state: tauri::State<'_, SettingsStore>,
 ) -> Result<UpdateStatus, String> {
     let settings = state.get();
-    let token = settings.github_updates_token.clone().unwrap_or_default();
+    let token = crate::secrets::updates_token(&state).unwrap_or_default();
     if token.trim().is_empty() {
         // Spec §11: no token, no check. The UI shows a sign-in prompt instead
         // of looping against an endpoint that can only refuse us.
@@ -193,13 +258,30 @@ pub async fn update_install(
     state: tauri::State<'_, SettingsStore>,
 ) -> Result<(), String> {
     let settings = state.get();
-    let token = settings.github_updates_token.clone().unwrap_or_default();
+    let token = crate::secrets::updates_token(&state).unwrap_or_default();
     if token.trim().is_empty() {
         return Err("not_signed_in".into());
     }
 
-    let assets = update::latest_release_assets(&token, &settings.update_channel).await?;
-    let updater = updater_for(&app, &token, &settings.update_channel).await?;
+    // Every early return past this point has to record the failure, or the
+    // dialog would sit on a stale phase forever.
+    set_progress(InstallProgress::at("downloading"));
+    let outcome = install_inner(&app, &token, &settings.update_channel).await;
+    if let Err(code) = &outcome {
+        let mut failed = InstallProgress::at("failed");
+        failed.error = Some(code.clone());
+        set_progress(failed);
+    }
+    outcome
+}
+
+async fn install_inner(
+    app: &tauri::AppHandle,
+    token: &str,
+    channel: &str,
+) -> Result<(), String> {
+    let assets = update::latest_release_assets(token, channel).await?;
+    let updater = updater_for(app, token, channel).await?;
     let update = updater
         .check()
         .await
@@ -210,16 +292,41 @@ pub async fn update_install(
     // before install(), is what makes the spec's "reject if they do not match"
     // real rather than aspirational — download_and_install() would leave no
     // window to look.
+    // The two callbacks were discarded, which is why the dialog had nothing to
+    // show between "Update" and either a relaunch or an error.
+    let mut received = 0u64;
     let bytes = update
-        .download(|_, _| {}, || {})
+        .download(
+            |chunk, total| {
+                received += chunk as u64;
+                advance(received, total);
+            },
+            || set_progress(InstallProgress::at("verifying")),
+        )
         .await
         .map_err(|e| plugin_code(&e))?;
 
     let file_name = update::asset_name_for(&assets, update.download_url.as_str())
         .ok_or_else(|| "no_checksums".to_string())?;
-    update::verify_sha256(&token, &assets, &file_name, &update::sha256_of(&bytes)).await?;
+    update::verify_sha256(token, &assets, &file_name, &update::sha256_of(&bytes)).await?;
 
-    update.install(bytes).map_err(|e| plugin_code(&e))
+    set_progress(InstallProgress::at("installing"));
+    update.install(bytes).map_err(|e| plugin_code(&e))?;
+    // Reached only where install() returns rather than replacing the process:
+    // macOS swaps the bundle and comes back here, so the writer is told to
+    // restart instead of being left looking at "installing".
+    set_progress(InstallProgress::at("ready"));
+    Ok(())
+}
+
+/// Restart into the version that was just installed.
+///
+/// `AppHandle::restart()` is native to Tauri 2, so this needs no process
+/// plugin. It never returns, which is why the command is typed as returning
+/// nothing rather than a Result nobody could read.
+#[tauri::command]
+pub fn update_relaunch(app: tauri::AppHandle) {
+    app.restart();
 }
 
 #[tauri::command]

@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { flushSync, mount, unmount } from "svelte";
-import { api, type ChapterMeta, type Project } from "$lib/tauri";
+import { api, type ChapterMeta, type ChapterStatus, type Project } from "$lib/tauri";
 import { store } from "$lib/binder/store.svelte";
 import Corkboard from "./Corkboard.svelte";
 
@@ -13,7 +13,7 @@ vi.mock("$lib/tauri", async () => {
   };
 });
 
-const chapter = (id: string, title: string, words: number, status: string): ChapterMeta => ({
+const chapter = (id: string, title: string, words: number, status: ChapterStatus): ChapterMeta => ({
   id,
   title,
   status,

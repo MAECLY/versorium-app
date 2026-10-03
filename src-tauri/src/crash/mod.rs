@@ -20,7 +20,7 @@ const MAX_CRASHES: usize = 20;
 /// Where a report is filed. Declared here rather than imported because
 /// `update`'s constants are private to that module; the test below reads its
 /// source so the two cannot drift apart unnoticed.
-const ISSUES_OWNER: &str = "maecly";
+const ISSUES_OWNER: &str = "MAECLY";
 const ISSUES_REPO: &str = "versorium-app";
 
 /// A run of this many plain words reads as a sentence, not a diagnostic.
@@ -420,7 +420,7 @@ mod tests {
 
     #[test]
     fn an_entry_is_scrubbed_by_construction() {
-        let e = entry("panic", PROSE, &[format!("/Users/ana/novela/manuscript/ch-01.md:12:4")]);
+        let e = entry("panic", PROSE, &["/Users/ana/novela/manuscript/ch-01.md:12:4".to_string()]);
         assert!(!e.message.contains("invierno"));
         assert!(!e.stack[0].contains("ana"));
         assert_eq!(e.version, env!("CARGO_PKG_VERSION"));

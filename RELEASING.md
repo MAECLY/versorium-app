@@ -152,8 +152,10 @@ deliberately not configurable at runtime: anything that lets an environment
 variable or a setting redirect where updates come from is a way to make the app
 install someone else's signed code. Changing it is a code change and a rebuild.
 
-At the time of writing the spec names `maecly/versorium-app` while the git
-remote is a personal fork. Those constants are the one place to reconcile that.
+The repo was transferred from a personal account to the **MAECLY** org on
+2026-09-28 and stays private, so the constants and the remote now agree. They
+match the org's casing exactly rather than relying on GitHub being
+case-insensitive about owners.
 
 ## Troubleshooting
 

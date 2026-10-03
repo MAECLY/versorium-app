@@ -74,6 +74,21 @@ fn handle_line(line: &str, dispatch: &mut dyn FnMut(&str, Value, Value) -> Optio
 
 /// Read lines until EOF. `dispatch` returns the message to send, or `None` for
 /// notifications it absorbed.
+/// Handle exactly one JSON-RPC message.
+///
+/// `Some` is the reply to send, `None` means the message was a notification or a
+/// response — nothing is owed. Exists so the HTTP transport reuses the same
+/// parse and error rules as stdio rather than growing its own.
+pub fn handle_one(
+    text: &str,
+    dispatch: &mut dyn FnMut(&str, Value, Value) -> Option<Value>,
+) -> Option<Value> {
+    match handle_line(text, dispatch) {
+        Handled::Reply(message) => Some(message),
+        Handled::Silent => None,
+    }
+}
+
 pub fn serve_with<R, W, F>(input: R, mut output: W, mut dispatch: F) -> i32
 where
     R: BufRead,

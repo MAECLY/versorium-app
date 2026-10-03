@@ -36,10 +36,12 @@
 
     <label class="flex flex-col gap-1" style="font-size: 13px;">
       {t("dialog.language")}
+      <span class="v-select">
       <select bind:value={language}>
         <option value="es">{t("languages.es")}</option>
         <option value="en">{t("languages.en")}</option>
       </select>
+      </span>
     </label>
 
     {#if store.error}<p role="alert" class="m-0">{store.error}</p>{/if}

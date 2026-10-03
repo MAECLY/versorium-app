@@ -6,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function openManuscript(page: Page) {
   await page.goto("/?mock=tauri");
-  await page.getByRole("button", { name: "Create your first project" }).click();
+  await page.getByRole("button", { name: "Create your first novel" }).click();
   const newProject = page.getByRole("dialog", { name: "New project" });
   await newProject.getByLabel("Title").fill("The Long Winter");
   await newProject.getByRole("button", { name: "Create" }).click();
@@ -107,4 +107,19 @@ test("the Manuscript dialog is translated", async ({ page }) => {
   const es = page.getByRole("dialog", { name: "Manuscrito" });
   await expect(es.getByRole("tab", { name: "Exportar" })).toBeVisible();
   await expect(es.getByRole("tab", { name: "Importar" })).toBeVisible();
+});
+
+test("Scrivener export asks for a folder, because a project is one", async ({ page }) => {
+  const dialog = await openManuscript(page);
+  await dialog.getByRole("radio", { name: /Scrivener/ }).check();
+  await dialog.getByRole("button", { name: "Export" }).click();
+
+  // A save-file dialog would offer to overwrite a file that is about to be a
+  // folder, so the bundle is named after the novel inside a chosen directory.
+  const exported = await lastExport(page);
+  expect(exported?.format).toBe("scriv");
+  expect(exported?.path).toMatch(/The Long Winter\.scriv$/);
+
+  // The one loss worth naming, rather than a silent reshaping.
+  await expect(dialog.getByText(/Scene breaks become a separator/)).toBeVisible();
 });

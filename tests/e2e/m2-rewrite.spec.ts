@@ -21,7 +21,7 @@ async function mockState(page: Page) {
 
 async function createProject(page: Page, title: string): Promise<void> {
   await page.goto("/?mock=tauri");
-  await page.getByRole("button", { name: "Create your first project" }).click();
+  await page.getByRole("button", { name: "Create your first novel" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Title").fill(title);
   await dialog.getByRole("button", { name: "Create" }).click();
@@ -105,7 +105,7 @@ test("settings: agents cards and censorship toggle persist", async ({ page }) =>
   const settings = page.getByRole("region", { name: "Settings" });
   await settings.getByRole("button", { name: "Assistants" }).click();
   // Scoped to the Agents landmark: the MCP panel lists the same client names.
-  const agents = settings.getByRole("region", { name: "Agents" });
+  const agents = settings.getByRole("region", { name: "Assistants on this machine" });
 
   await expect(agents.getByText("Claude Code")).toBeVisible();
   await expect(agents.getByText("Connected", { exact: true })).toHaveCount(4);
@@ -130,7 +130,7 @@ test("the whole M2 surface is translated", async ({ page }) => {
   await page.getByRole("button", { name: "Ajustes" }).click();
   const settings = page.getByRole("region", { name: "Ajustes" });
   await settings.getByRole("button", { name: "Asistentes" }).click();
-  await expect(settings.getByRole("region", { name: "Agentes" }).getByText("Conectado", { exact: true }).first()).toBeVisible();
+  await expect(settings.getByRole("region", { name: "Asistentes en esta máquina" }).getByText("Conectado", { exact: true }).first()).toBeVisible();
   await settings.getByRole("button", { name: "IA local" }).click();
   await expect(settings.getByRole("checkbox", { name: "Censura" })).toBeVisible();
 });

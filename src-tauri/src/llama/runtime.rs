@@ -43,6 +43,10 @@ pub const LOAD_FAILED: &str = "llama_load_failed";
 pub const CANCELLED: &str = "llama_cancelled";
 pub const FAILED: &str = "llama_failed";
 
+/// Set to keep ggml's own logging, which is the only place a backend that
+/// failed to load explains itself.
+pub const VERBOSE_ENV: &str = "VERSORIUM_LLAMA_VERBOSE";
+
 /// Sampling. Deliberately middling: a rewrite must stay recognisably the
 /// writer's sentence, and a high temperature turns editing into invention.
 const TOP_K: i32 = 40;
@@ -75,8 +79,12 @@ pub fn backend() -> Result<&'static LlamaBackend, String> {
         LlamaBackend::init().map_err(|e| format!("{LOAD_FAILED} {e}")).map(|mut b| {
             // ggml logs a wall of device and kernel detail to stderr. A desktop
             // app has nowhere to put it, and it is not diagnostics anybody asked
-            // for.
-            b.void_logs();
+            // for — but it is also where "failed to load the Vulkan backend"
+            // would appear, so it stays reachable rather than being unavoidably
+            // discarded.
+            if std::env::var_os(VERBOSE_ENV).is_none() {
+                b.void_logs();
+            }
             b
         })
     }) {

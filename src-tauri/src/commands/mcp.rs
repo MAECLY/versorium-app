@@ -194,3 +194,29 @@ mod tests {
         assert_eq!(store.get().mcp_write_clients, vec!["opencode".to_string()]);
     }
 }
+
+/// Whether MCP is also served over HTTP, and where.
+///
+/// The token is deliberately absent: it lives in a file only the user can read,
+/// and sending it to the webview would undo that.
+#[tauri::command]
+pub fn mcp_http_status(state: tauri::State<SettingsStore>) -> crate::mcp::http::HttpStatus {
+    crate::mcp::http::status(state.get().mcp_http_enabled)
+}
+
+/// Turn the HTTP listener on or off.
+///
+/// Turning it on starts it immediately; turning it off takes effect on the next
+/// launch, because a listener already accepted connections and tearing it down
+/// mid-request would drop somebody's tool call.
+#[tauri::command]
+pub fn mcp_set_http(
+    state: tauri::State<SettingsStore>,
+    enabled: bool,
+) -> crate::mcp::http::HttpStatus {
+    state.update(|s| s.mcp_http_enabled = enabled);
+    if enabled {
+        crate::mcp::http::start_if_enabled(true, crate::mcp::DEFAULT_CLIENT.to_string());
+    }
+    crate::mcp::http::status(enabled)
+}

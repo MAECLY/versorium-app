@@ -1,0 +1,186 @@
+name: CI
+
+# There was no test workflow at all until now: `release.yml` only fires on a
+# tag, so nothing verified a push or a pull request. Every milestone merged on
+# somebody running the suites by hand, which works right up until it doesn't.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A second push to the same branch makes the first run's answer irrelevant.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The frontend is fast and catches most mistakes, so it runs alone and first.
+  frontend:
+    name: Types and components
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # No `version` input: package.json pins pnpm through `packageManager`, and
+      # supplying both makes the action refuse with "Multiple versions of pnpm
+      # specified".
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: svelte-check
+        run: pnpm check
+
+      - name: Component tests
+        run: pnpm test:ui
+
+      - name: Locale parity
+        run: pnpm locales
+
+  rust:
+    name: Rust
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # webkit2gtk-4.1 is the Tauri 2 requirement. cmake and libclang-dev are
+      # for llama.cpp: it builds from vendored C++ sources and bindgen dlopens
+      # libclang, which is not part of build-essential.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            libclang-dev \
+            cmake \
+            patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # Test code included. It used to carry pre-existing warnings, which is why
+      # this was scoped to shipped code; those are fixed, so the stricter form is
+      # the one worth keeping.
+      #
+      # `-D warnings` on a floating `stable` toolchain means a Rust release can
+      # turn this red with no change from anybody — a new lint landed in 1.98 and
+      # flagged a `format!` that 1.97 accepted. That is the accepted cost: pinning
+      # the toolchain would make CI reproducible and the lint set stale, and a
+      # lint nobody ever sees is not a lint.
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      # The `live_` tests are excluded by being #[ignore]: they reach the
+      # network, the Ollama daemon, pandoc, poppler and a real GGUF. None of
+      # that belongs in CI, and pretending otherwise produces a flaky gate.
+      - name: Tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  # The Vulkan build is slow enough (shader compilation) that running it on every
+  # pull request would make CI something people wait on rather than trust. But
+  # leaving it unbuilt until a tag is exactly how the GGML_CPU_ALL_VARIANTS
+  # mistake reached main, so it runs on main and on demand.
+  vulkan:
+    name: GPU build (Vulkan)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            libclang-dev \
+            cmake \
+            patchelf
+
+      # LunarG's repository, not the distro packages: 22.04's Vulkan headers are
+      # too old for ggml's shader build.
+      - name: Install Vulkan SDK
+        run: |
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc > /dev/null
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list \
+            https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
+          sudo apt-get update -y
+          sudo apt-get install -y vulkan-sdk
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: vulkan
+
+      # `check` rather than `build`: the C++ and the shaders still compile, which
+      # is where a break would be, without linking a binary nothing will run.
+      - name: Check with the GPU backend
+        run: cargo check --manifest-path src-tauri/Cargo.toml --features vulkan
+
+  e2e:
+    name: End to end
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # No `version` input: package.json pins pnpm through `packageManager`, and
+      # supplying both makes the action refuse with "Multiple versions of pnpm
+      # specified".
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Runs against the in-browser IPC mock, so no Rust build is needed. The
+      # local config drives system Chrome; CI has none, so Playwright installs
+      # its own Chromium and PLAYWRIGHT_CHANNEL tells the config to use it.
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: pnpm test:e2e
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
+
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

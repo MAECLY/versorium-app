@@ -89,20 +89,6 @@ struct GhRepo {
     private: bool,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_github_repository_fields_without_renaming_them() {
-        let repo: GhRepo = serde_json::from_str(r#"{"full_name":"writer/novel","private":true}"#).unwrap();
-        assert_eq!(repo.full_name, "writer/novel");
-        assert!(repo.private);
-        let owner = serde_json::to_value(GhOwner { login: "writer".into(), kind: "user" }).unwrap();
-        assert_eq!(owner["kind"], "user");
-    }
-}
-
 /// First page of the token's repos (user + orgs it belongs to).
 pub async fn list_repos(token: &str) -> Result<Vec<(String, bool)>, String> {
     let r = client().await
@@ -116,4 +102,18 @@ pub async fn list_repos(token: &str) -> Result<Vec<(String, bool)>, String> {
     }
     let repos: Vec<GhRepo> = r.json().await.map_err(|_| "network".to_string())?;
     Ok(repos.into_iter().map(|r| (r.full_name, r.private)).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_github_repository_fields_without_renaming_them() {
+        let repo: GhRepo = serde_json::from_str(r#"{"full_name":"writer/novel","private":true}"#).unwrap();
+        assert_eq!(repo.full_name, "writer/novel");
+        assert!(repo.private);
+        let owner = serde_json::to_value(GhOwner { login: "writer".into(), kind: "user" }).unwrap();
+        assert_eq!(owner["kind"], "user");
+    }
 }

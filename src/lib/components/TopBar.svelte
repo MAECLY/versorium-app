@@ -1,4 +1,5 @@
 <script lang="ts">
+  import VMark from "$lib/components/VMark.svelte";
   import { t } from "$lib/i18n";
   import { api, isTauri } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
@@ -44,11 +45,7 @@
   style="border-color: var(--border); height: 48px; gap: 12px;"
 >
   <!-- Needle mark (favicon shape) -->
-  <svg width="20" height="20" viewBox="0 0 100 100" aria-hidden="true">
-    <circle cx="50" cy="50" r="44" fill="none" stroke="var(--accent)" stroke-width="6" />
-    <path d="M50 10 L62 50 L50 90 L38 50 Z" fill="var(--accent)" transform="rotate(45 50 50)" />
-    <circle cx="50" cy="50" r="8" fill="var(--bg-app)" />
-  </svg>
+  <VMark size={20} />
 
   <span style="font-weight: 600; letter-spacing: 0.01em;">{t("app.name")}</span>
 

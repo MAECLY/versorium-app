@@ -182,8 +182,33 @@ struct Line {
 
 /// Lay the manuscript out into pages. Each chapter opens a new page, which is
 /// what makes this a print preview rather than a text dump.
+/// A page of centred lines, vertically settled about a third down.
+///
+/// Where a title page sits in standard manuscript format, and far enough from
+/// the top that it does not read as a heading somebody forgot to follow.
+fn centred_page(lines: &[String]) -> Vec<Line> {
+    let mut out = Vec::new();
+    let mut y = text_top() - CHAPTER_DROP;
+    for text in lines {
+        out.push(Line { x: (PAGE_W - width_of(text)) / 2.0, y, text: text.clone() });
+        y -= LEADING * 2.0;
+    }
+    out
+}
+
 fn paginate(manuscript: &Manuscript) -> Vec<Vec<Line>> {
     let mut pages: Vec<Vec<Line>> = Vec::new();
+
+    if manuscript.matter.cover {
+        let mut lines = vec![manuscript.title.clone()];
+        for extra in [&manuscript.author, &manuscript.byline.organization, &manuscript.byline.rights] {
+            if !extra.trim().is_empty() {
+                lines.push(extra.trim().to_string());
+            }
+        }
+        pages.push(centred_page(&lines));
+    }
+
     for chapter in &manuscript.chapters {
         if chapter.scenes.is_empty() {
             continue;
@@ -222,6 +247,28 @@ fn paginate(manuscript: &Manuscript) -> Vec<Vec<Line>> {
         }
         pages.push(page);
     }
+    if manuscript.matter.colophon {
+        let labels = &manuscript.matter.labels;
+        let mut lines = vec![labels.get("heading").to_string()];
+        for (key, value) in crate::formats::colophon_lines(manuscript) {
+            lines.push(format!("{}: {value}", labels.get(&key)));
+        }
+        lines.push(crate::formats::colophon_credit());
+        lines.push(labels.get("thanks").to_string());
+        // Left-aligned rather than centred: it is a list of facts, and a
+        // centred list of facts reads as a poem.
+        let mut y = text_top() - CHAPTER_DROP;
+        let page = lines
+            .into_iter()
+            .map(|text| {
+                let line = Line { x: MARGIN, y, text };
+                y -= LEADING;
+                line
+            })
+            .collect();
+        pages.push(page);
+    }
+
     pages
 }
 
@@ -244,7 +291,51 @@ fn content_stream(manuscript: &Manuscript, page: &[Line], number: usize) -> Vec<
     out
 }
 
+/// The document information dictionary.
+///
+/// A PDF without one shows an empty Title and Author in every reader's
+/// properties panel, and a manuscript sent to an agent is exactly the file
+/// somebody checks the properties of. `/Producer` names the tool; `/Creator`
+/// names it too, because here they are the same program.
+fn info_dict(manuscript: &Manuscript) -> Vec<u8> {
+    let mut out = b"<< /Title ".to_vec();
+    out.extend_from_slice(&pdf_string(&manuscript.title));
+    out.extend_from_slice(b" /Author ");
+    out.extend_from_slice(&pdf_string(&manuscript.author));
+    if !manuscript.byline.rights.trim().is_empty() {
+        out.extend_from_slice(b" /Subject ");
+        out.extend_from_slice(&pdf_string(manuscript.byline.rights.trim()));
+    }
+    out.extend_from_slice(b" /Creator (Versorium) /Producer (Versorium) /CreationDate ");
+    out.extend_from_slice(pdf_date().as_bytes());
+    out.extend_from_slice(b" >>");
+    out
+}
+
+/// `D:YYYYMMDDHHmmSSZ`. UTC, so the file does not disclose a time zone the
+/// writer did not choose to disclose.
+fn pdf_date() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let (year, month, day) = crate::formats::epub::civil_from_secs(secs as i64);
+    let rest = secs % 86_400;
+    format!(
+        "(D:{year:04}{month:02}{day:02}{:02}{:02}{:02}Z)",
+        rest / 3600,
+        (rest % 3600) / 60,
+        rest % 60
+    )
+}
+
 pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
+    // Emptiness is a property of the manuscript, not of the page count. With a
+    // title page switched on, a novel with no words in it would otherwise
+    // export as a perfectly valid one-page PDF of its own title.
+    if manuscript.chapters.iter().all(|c| c.scenes.is_empty()) {
+        return Err("empty_manuscript".into());
+    }
     let pages = paginate(manuscript);
     if pages.is_empty() {
         return Err("empty_manuscript".into());
@@ -253,7 +344,8 @@ pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
     const CATALOG: usize = 1;
     const PAGES: usize = 2;
     const FONT: usize = 3;
-    let first = 4;
+    const INFO: usize = 4;
+    let first = 5;
     let page_obj = |i: usize| first + 2 * i;
     let content_obj = |i: usize| first + 2 * i + 1;
 
@@ -269,6 +361,7 @@ pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>"
             .to_vec(),
     ));
+    objects.push((INFO, info_dict(manuscript)));
     for (i, page) in pages.iter().enumerate() {
         objects.push((
             page_obj(i),
@@ -310,7 +403,9 @@ pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
         buffer.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
     }
     buffer.extend_from_slice(
-        format!("trailer\n<< /Size {size} /Root {CATALOG} 0 R >>\nstartxref\n{xref_at}\n%%EOF\n")
+        format!(
+            "trailer\n<< /Size {size} /Root {CATALOG} 0 R /Info {INFO} 0 R >>\nstartxref\n{xref_at}\n%%EOF\n"
+        )
             .as_bytes(),
     );
     Ok(buffer)
@@ -341,6 +436,8 @@ mod tests {
         Manuscript {
             title: "La Casa de Niebla".into(),
             author: "María Fernández".into(),
+            byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -412,9 +509,51 @@ mod tests {
         assert!(size > 4);
     }
 
+    /// No title page, no colophon: for tests about the prose itself.
+    fn bare() -> crate::formats::Matter {
+        crate::formats::Matter { cover: false, colophon: false, ..Default::default() }
+    }
+
+    #[test]
+    fn the_title_page_comes_first_and_the_colophon_last() {
+        let mut m = book();
+        m.byline.rights = "© 2026 María Fernández".into();
+        m.matter.labels = crate::formats::Labels::from_pairs(&[
+            ("heading", "Sobre este libro"),
+            ("thanks", "Gracias por escribirlo aquí."),
+        ]);
+        let pages = paginate(&m);
+        assert_eq!(pages.len(), 4, "title page, two chapters, colophon");
+
+        assert_eq!(pages[0][0].text, m.title);
+        assert!(pages[0].iter().any(|l| l.text == "María Fernández"));
+        assert!(pages[0].iter().any(|l| l.text == "© 2026 María Fernández"));
+        assert_eq!(pages[1][0].text, "Capítulo 1. El umbral", "chapter one still opens a page");
+
+        let last = pages.last().unwrap();
+        assert_eq!(last[0].text, "Sobre este libro");
+        assert!(last.iter().any(|l| l.text.starts_with("Written in Versorium")));
+        assert!(last.iter().any(|l| l.text == "Gracias por escribirlo aquí."));
+    }
+
+    #[test]
+    fn a_novel_with_no_words_is_refused_even_with_a_title_page_switched_on() {
+        // Otherwise a novel nobody has written yet exports as a perfectly valid
+        // one-page PDF of its own title.
+        let empty = Manuscript {
+            title: "La Casa de Niebla".into(),
+            chapters: vec![Chapter { id: "ch-01".into(), title: "Uno".into(), scenes: vec![] }],
+            ..book()
+        };
+        assert!(empty.matter.cover, "the setting that made this possible");
+        assert_eq!(render(&empty).unwrap_err(), "empty_manuscript");
+    }
+
     #[test]
     fn each_chapter_opens_a_new_page() {
-        let manuscript = book();
+        // Apparatus off: this is about how prose paginates, and counting around
+        // a title page would hide the thing it checks.
+        let manuscript = Manuscript { matter: bare(), ..book() };
         let pages = paginate(&manuscript);
         assert_eq!(pages.len(), 2, "two short chapters, two pages");
         // The first line of each page is the centred chapter title.
@@ -428,11 +567,11 @@ mod tests {
 
     #[test]
     fn a_long_chapter_spills_onto_further_pages() {
-        let mut manuscript = book();
+        let mut manuscript = Manuscript { matter: bare(), ..book() };
         let prose = manuscript.chapters[0].scenes[0].paragraphs[0].clone();
         manuscript.chapters[0].scenes = vec![scene(
             None,
-            &std::iter::repeat(prose.as_str()).take(40).collect::<Vec<_>>(),
+            &vec![prose.as_str(); 40],
         )];
         manuscript.chapters.truncate(1);
         let pages = paginate(&manuscript);
@@ -509,6 +648,8 @@ mod tests {
         let manuscript = Manuscript {
             title: "Empty".into(),
             author: "A B".into(),
+            byline: Default::default(),
+            matter: Default::default(),
             language: "en".into(),
             chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![] }],
         };
@@ -554,6 +695,29 @@ mod tests {
         assert!(text.contains("Fernández / La Casa de Niebla / 1"), "running head missing");
         assert!(text.contains("nadie había llamado"), "prose missing");
     }
+
+    #[test]
+    fn a_reader_asking_for_the_properties_gets_an_answer() {
+        let mut book = book();
+        book.byline.rights = "© 2026 María Fernández".into();
+        let pdf = render(&book).unwrap();
+        let text = String::from_utf8_lossy(&pdf);
+
+        assert!(text.contains("/Info 4 0 R"), "the trailer has to point at it");
+        assert!(text.contains("/Producer (Versorium)"));
+        // Non-ASCII is escaped octally, as every other string in the file is.
+        assert!(text.contains("/Author (Mar\\355a Fern\\341ndez)"), "{text}");
+        assert!(text.contains("/Subject ("));
+        assert!(text.contains("/CreationDate (D:"));
+    }
+
+    #[test]
+    fn adding_an_object_did_not_break_the_table_every_reader_walks() {
+        // The xref is the one place an error is fatal, and inserting an object
+        // renumbers every page after it.
+        let pdf = render(&book()).unwrap();
+        verify_xref(&pdf);
+    }
 }
 
 /// Characters this encoding cannot carry, named before the export runs.
@@ -588,6 +752,8 @@ mod warning_tests {
         Manuscript {
             title: "T".into(),
             author: "A B".into(),
+            byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![Chapter {
                 id: "ch-01".into(),

@@ -15,7 +15,7 @@ EPUBCHECK_DIR := /tmp/m5/epubcheck-$(EPUBCHECK_VERSION)
 DEV_URL := http://localhost:1420
 
 .DEFAULT_GOAL := help
-.PHONY: help dev devtools web mock bundle deps check test test-ui test-e2e \
+.PHONY: help dev devtools web mock bundle deps check locales icons icons-preview test test-ui test-e2e \
         test-e2e-ui test-live verify clippy fmt fmt-check lint mcp tools clean
 
 help: ## Show this list
@@ -48,11 +48,14 @@ deps: ## Install the Node dependencies
 
 # --- verification ---
 
-verify: check test-ui test clippy test-e2e ## The full gate: everything below, fast first
+verify: check locales test-ui test clippy test-e2e ## The full gate: everything below, fast first
 	@printf '\n\033[32mAll green.\033[0m Live tests are separate: make test-live\n'
 
 check: ## Type-check the frontend (must be 0 errors, 0 warnings)
 	$(PNPM) check
+
+locales: ## Check EN/ES key parity and that no error code holds a space
+	$(PNPM) locales
 
 test: ## Rust unit + integration tests
 	cargo test --manifest-path $(CARGO_MANIFEST)
@@ -91,6 +94,12 @@ fmt-check: ## Report what rustfmt would change (non-zero until fmt is adopted)
 
 mcp: ## Run Versorium as a stdio MCP server (read-only until granted in Settings)
 	cargo run --manifest-path $(CARGO_MANIFEST) -- mcp
+
+icons: ## Regenerate the whole app icon set from one source
+	python3 tests/icons/generate.py --variant paper
+
+icons-preview: ## Contact sheet of both variants, to judge before committing
+	python3 tests/icons/generate.py --preview --out /tmp/versorium-icons
 
 tools: ## Fetch epubcheck, which test-live needs and /tmp loses on reboot
 	@if [ ! -f "$(EPUBCHECK_DIR)/epubcheck.jar" ]; then \

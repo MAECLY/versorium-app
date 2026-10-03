@@ -146,11 +146,13 @@
     <div class="v-row mb-2" style="gap: 8px; flex-wrap: wrap;">
       <label class="v-row" style="gap: 8px; font-size: 13px;">
         {t("ai.provider")}
-        <select bind:value={picked} style="min-width: 180px;" disabled={busy || applying}>
+        <span class="v-select" style="min-width: 180px;">
+        <select bind:value={picked} disabled={busy || applying}>
           {#each choices as c (key(c))}
             <option value={key(c)}>{c.configured ? `${c.label} ${t("ai.configuredSuffix")}` : c.label}</option>
           {/each}
         </select>
+        </span>
       </label>
       <button class="v-btn" disabled={busy || applying || !selected} onclick={() => void doRewrite()}>
         {busy ? t("ai.busy") : t("ai.rewrite")}

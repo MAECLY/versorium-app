@@ -44,6 +44,9 @@ interface ProjectState {
     defaultChapterPattern: string;
     censorship: string;
     remote: string | null;
+    chapterOrder: string[];
+    exportCover: boolean;
+    exportColophon: boolean;
   };
   chapters: Chapter[];
   commits: Commit[];
@@ -126,6 +129,11 @@ const settings = {
   // Already onboarded, so the tour does not sit on top of every other spec.
   // `?mock=tauri&fresh=1` simulates a first run instead.
   onboarded: !new URLSearchParams(location.search).has("fresh"),
+  authorProfiles: {
+    work: { name: "", sortAs: "", role: "", organization: "", rights: "" },
+    hobby: { name: "", sortAs: "", role: "", organization: "", rights: "" },
+  },
+  authorProfile: "work",
 };
 
 const projects = new Map<string, ProjectState>();
@@ -228,6 +236,51 @@ const mcpLog: McpLogEntry[] = [
 
 /** The in-process engine's state. `warming` for the first call only, so a test
  *  can see the "starting" copy the real app shows while Metal shaders compile. */
+/** Queued install phases, drained one per poll. */
+let installPhases: { phase: string; received: number; total: number | null; error: string | null }[] = [];
+let relaunched = false;
+
+/** Which credentials exist. Never their values, matching the real command. */
+const storedSecrets = new Set<string>();
+
+// One reachable provider, one absent, one second disk, and one folder that
+// happens to be on the novel's own disk — the four cases the panel renders
+// differently.
+const backupDestinations = [
+  {
+    kind: "icloud",
+    path: "/mock/Library/Mobile Documents/com~apple~CloudDocs",
+    available: true,
+    volume: "1",
+    offsite: true,
+  },
+  { kind: "dropbox", path: "/mock/Dropbox", available: false, volume: null, offsite: true },
+  { kind: "disk", path: "/mock/Volumes/Respaldo", available: true, volume: "2", offsite: false },
+  { kind: "folder", path: "/mock/novels/backups", available: true, volume: "1", offsite: false },
+];
+/** The novel lives here, so a destination on volume 1 shares its disk. */
+const projectVolume = "1";
+let backupDirs: string[] = [];
+let backupKeep = 10;
+type MockArchive = {
+  path: string;
+  name: string;
+  bytes: number;
+  modified: number;
+  stamped: number | null;
+  print: string | null;
+  sha256: string | null;
+};
+/** Which state of the novel each destination is already holding, and how many
+    copies of it — the mock's stand-in for reading the archives back. */
+const backupHeld = new Map<string, { print: string; copies: number }>();
+/** Bumped by any command that changes the manuscript, so the mock can tell an
+    unchanged press from a real one without hashing anything. */
+let manuscriptRevision = 0;
+const backupArchives = new Map<string, MockArchive[]>();
+
+let mcpHttpEnabled = false;
+
 let llamaWarmCalls = 0;
 let llamaBusy = false;
 
@@ -319,7 +372,17 @@ function appendOps(p: ProjectState, chapterId: string, ops: Op[]): Op[] {
 const commands: Record<string, (args: Args) => unknown> = {
   app_info: () => ({ version: "0.1.0-mock", os: "mock", family: "unix" }),
   default_projects_dir: () => PROJECTS_DIR,
-  list_projects: () => [...projects.values()].map(publicProject),
+  // Most recently written first, as the Rust command sorts. The sidebar is
+  // called recent projects, and "Continue where you left off" reads the head of
+  // this list, so insertion order would make the mock disagree with the app.
+  list_projects: () =>
+    [...projects.values()]
+      .map(publicProject)
+      .sort((a, b) => {
+        const touched = (p: { chapters: { mtime: number }[] }) =>
+          p.chapters.reduce((newest, c) => Math.max(newest, c.mtime), 0);
+        return touched(b) - touched(a) || a.meta.title.localeCompare(b.meta.title);
+      }),
 
   create_project: ({ args }) => {
     const { path, title, language } = args as { path: string; title: string; language: string };
@@ -338,6 +401,10 @@ const commands: Record<string, (args: Args) => unknown> = {
         defaultChapterPattern: "ch-{n}-{slug}.md",
         censorship: "off",
         remote: null,
+        chapterOrder: [],
+        // On by default, exactly as a fresh versorium.json has them.
+        exportCover: true,
+        exportColophon: true,
       },
       chapters: [newChapter(1, clean)],
       commits: [],
@@ -375,6 +442,8 @@ const commands: Record<string, (args: Args) => unknown> = {
   save_chapter: ({ path, file, body, status }) => {
     const p = project(path);
     const c = chapter(p, file);
+    // What makes the next "Back up now" a real backup rather than a no-op.
+    manuscriptRevision += 1;
     c.body = String(body);
     c.words = countWords(c.body);
     if (typeof status === "string") c.status = status;
@@ -383,12 +452,74 @@ const commands: Record<string, (args: Args) => unknown> = {
     return publicChapter(c);
   },
 
-  get_settings: () => ({ ...settings }),
+  get_settings: () => ({ ...settings, backupDirs: [...backupDirs], backupKeep }),
   set_settings: ({ patch }) => {
     Object.assign(settings, patch as Partial<typeof settings>);
     // Saving the Updates token is what signs the updater in.
     update.signedIn = Boolean(settings.githubUpdatesToken);
     return { ...settings };
+  },
+
+  update_project: ({ path, title, author, exportCover, exportColophon }) => {
+    const p = project(String(path));
+    if (title !== undefined && title !== null) {
+      if (!String(title).trim()) throw "empty_title";
+      p.meta.title = String(title).trim();
+    }
+    if (author !== undefined && author !== null) p.meta.author = String(author).trim();
+    if (exportCover !== undefined && exportCover !== null) p.meta.exportCover = Boolean(exportCover);
+    if (exportColophon !== undefined && exportColophon !== null) {
+      p.meta.exportColophon = Boolean(exportColophon);
+    }
+    if (title == null && author == null && exportCover == null && exportColophon == null) {
+      throw "bad_args";
+    }
+    return { ...p.meta };
+  },
+  // Mirrors the real command: the folder goes to the system trash, and what
+  // comes back is the remaining projects.
+  delete_project: ({ path }) => {
+    if (!projects.has(String(path))) throw "not_found";
+    projects.delete(String(path));
+    return [...projects.values()].map((p) => ({ path: p.path, meta: { ...p.meta }, chapters: p.chapters.map((c) => ({ ...c })) }));
+  },
+  update_chapter: ({ path, file, title, status }) => {
+    const p = project(String(path));
+    const c = chapter(p, String(file));
+    if (title == null && status == null) throw "bad_args";
+    if (title !== undefined && title !== null) {
+      if (!String(title).trim()) throw "empty_title";
+      c.title = String(title).trim();
+    }
+    if (status !== undefined && status !== null) {
+      if (!["draft", "revised", "final"].includes(String(status))) throw "bad_args";
+      c.status = String(status);
+    }
+    return { ...c };
+  },
+  reorder_chapters: ({ path, ids }) => {
+    const p = project(String(path));
+    const wanted = (ids as string[] | undefined) ?? [];
+    for (const id of wanted) {
+      if (!p.chapters.some((c) => c.id === id)) throw "not_found";
+    }
+    // Named ids first, in the order given; everything else keeps its place
+    // after them, exactly as the Rust command does.
+    const named = p.chapters.filter((c) => wanted.includes(c.id));
+    named.sort((a, b) => wanted.indexOf(a.id) - wanted.indexOf(b.id));
+    p.chapters = [...named, ...p.chapters.filter((c) => !wanted.includes(c.id))];
+    return p.chapters.map((c) => ({ ...c }));
+  },
+
+  delete_chapter: ({ path, file }) => {
+    const p = project(String(path));
+    const index = p.chapters.findIndex((c) => c.file === String(file));
+    if (index < 0) throw "not_found";
+    // The real command snapshots before removing, which is what makes this
+    // recoverable; the mock records the commit so a test can see it happened.
+    commit(p, `checkpoint: before deleting ${file}`);
+    p.chapters.splice(index, 1);
+    return p.chapters.map((c) => ({ ...c }));
   },
 
   git_status: ({ path }) => {
@@ -490,7 +621,32 @@ const commands: Record<string, (args: Args) => unknown> = {
     update.lastError = null;
     return { ...update };
   },
-  update_install: () => undefined,
+  update_install: () => {
+    const MB = 1024 * 1024;
+    installPhases = [
+      ...[2, 5, 8, 11].map((mb) => ({
+        phase: "downloading",
+        received: mb * MB,
+        total: 12 * MB,
+        error: null,
+      })),
+      { phase: "verifying", received: 12 * MB, total: 12 * MB, error: null },
+      { phase: "installing", received: 12 * MB, total: 12 * MB, error: null },
+      { phase: "ready", received: 12 * MB, total: 12 * MB, error: null },
+    ];
+    return new Promise((resolve) => setTimeout(resolve, 2600));
+  },
+  // Each poll advances one phase and the last one sticks, so a test can watch
+  // the sequence without racing a timer.
+  update_progress: () => {
+    if (installPhases.length === 0) return null;
+    const next = installPhases.length > 1 ? installPhases.shift()! : installPhases[0];
+    return next;
+  },
+  update_relaunch: () => {
+    relaunched = true;
+    return undefined;
+  },
   update_skip: ({ version }) => {
     if (update.available?.version === version) update.available = null;
     return { ...update };
@@ -510,17 +666,20 @@ const commands: Record<string, (args: Args) => unknown> = {
   export_manuscript: ({ path, format, dest }) => {
     const project = projects.get(String(path));
     if (!project) throw "not_found";
-    if (!["md", "docx", "epub", "pdf"].includes(String(format))) throw "bad_format";
+    if (!["md", "docx", "epub", "pdf", "scriv"].includes(String(format))) throw "bad_format";
     if (!project.chapters.some((c) => c.body.trim())) throw "empty_manuscript";
     // PDF cannot carry every character, and the UI has to say so.
     const warnings = format === "pdf" ? ["export_pdf_characters_replaced"]
-                   : format === "docx" ? ["export_docx_scene_titles_dropped"] : [];
+                   : format === "docx" ? ["export_docx_scene_titles_dropped"]
+                   // Scrivener has no scene inside a document, so a heading
+                   // becomes a separator and the UI has to say so.
+                   : format === "scriv" ? ["export_scrivener_scenes_flattened"] : [];
     lastExport = { path: String(dest), bytes: 48_231, format: String(format), warnings };
     return { ...lastExport };
   },
   import_preview: ({ source }) => {
     const name = String(source);
-    if (!/\.(md|markdown|docx|scriv)$/i.test(name)) throw "unsupported_source";
+    if (!/\.(md|markdown|docx|scriv|epub)$/i.test(name)) throw "unsupported_source";
     return JSON.parse(JSON.stringify(importPreview));
   },
   import_apply: ({ source: _source, title }) =>
@@ -546,12 +705,41 @@ const commands: Record<string, (args: Args) => unknown> = {
     diskUsedBytes: models.filter((m) => m.state === "ready").reduce((a, m) => a + m.sizeBytes, 0),
     modelsDir: "/mock/Library/versorium/models",
   }),
+  // Resolves only when the file is on disk, exactly as the Rust command does:
+  // `download::start` awaits the whole transfer. The mock used to return
+  // immediately, which is precisely why the missing progress bar survived the
+  // suite — a mock that lies about a command's shape tests a program nobody
+  // ships.
   models_download: ({ id }) => {
     const model = models.find((m) => m.id === id);
     if (!model) throw "not_found";
     if (downloadProgress && !downloadProgress.done) throw "download_busy";
     model.state = "partial";
-    downloadProgress = { id: String(id), received: model.sizeBytes / 2, total: model.sizeBytes, done: false };
+    downloadProgress = { id: String(id), received: 0, total: model.sizeBytes, done: false };
+
+    return new Promise<void>((resolve) => {
+      let received = 0;
+      // Slower than one poll interval on purpose: a real download takes
+      // minutes, and a mock that finishes inside 700ms would let a panel that
+      // shows nothing during a transfer pass this suite.
+      const step = model.sizeBytes / 12;
+      const timer = setInterval(() => {
+        // Cancelled: the command rejects and the caller stops polling.
+        if (downloadProgress?.id !== id) {
+          clearInterval(timer);
+          resolve();
+          return;
+        }
+        received = Math.min(model.sizeBytes, received + step);
+        downloadProgress = { id: String(id), received, total: model.sizeBytes, done: false };
+        if (received >= model.sizeBytes) {
+          clearInterval(timer);
+          model.state = "ready";
+          downloadProgress = { id: String(id), received, total: model.sizeBytes, done: true };
+          resolve();
+        }
+      }, 150);
+    });
   },
   models_cancel: ({ id }) => {
     if (downloadProgress?.id === id) downloadProgress = null;
@@ -574,6 +762,111 @@ const commands: Record<string, (args: Args) => unknown> = {
     slots[name] = kind === "none" ? { kind: "none", id: "" } : { kind: String(kind), id: String(id) };
     return { ...slots };
   },
+  // Credentials live in the OS store; the mock keeps presence only, because the
+  // whole point is that the value never comes back to the frontend.
+  secrets_status: () => ({
+    store: { usable: true, reason: null },
+    updates: storedSecrets.has("updates"),
+    novel: storedSecrets.has("novel"),
+  }),
+  secrets_connect: ({ slot, token }) => {
+    const name = String(slot);
+    if (!["updates", "novel"].includes(name)) throw "bad_args";
+    if (!String(token ?? "").trim()) throw "bad_args";
+    storedSecrets.add(name);
+    // The updater reads the same store, so signing in here signs it in too.
+    if (name === "updates") update.signedIn = true;
+    return "versorium-writer";
+  },
+  secrets_forget: ({ slot }) => {
+    const name = String(slot);
+    if (!["updates", "novel"].includes(name)) throw "bad_args";
+    storedSecrets.delete(name);
+    if (name === "updates") update.signedIn = false;
+    return undefined;
+  },
+
+  backup_destinations: () => backupDestinations.map((d) => ({ ...d })),
+  backup_configure: ({ paths, keep }) => {
+    const kept: string[] = [];
+    for (const raw of (paths as string[] | undefined) ?? []) {
+      const dir = String(raw ?? "").trim();
+      if (!dir) continue;
+      if (!backupDestinations.some((d) => d.path === dir && d.available)) throw "backup_dest_missing";
+      if (!kept.includes(dir)) kept.push(dir);
+    }
+    backupDirs = kept.slice(0, 3);
+    backupKeep = Math.min(200, Math.max(1, Number(keep ?? 10)));
+    return undefined;
+  },
+  backup_now: () => {
+    if (backupDirs.length === 0) throw "backup_not_configured";
+    // `/mock/Volumes/Respaldo` stands in for an unplugged drive: the case the
+    // whole per-destination reporting exists for.
+    const print = `state${manuscriptRevision}`.padEnd(16, "0");
+    return backupDirs.map((dir) => {
+      if (dir === "/mock/Volumes/Respaldo") return { state: "unavailable", path: dir };
+      const stored = backupArchives.get(dir) ?? [];
+      const held = backupHeld.get(dir);
+
+      // Mirrors the real rule: two copies of a state, then nothing.
+      if (held?.print === print && held.copies >= 2) {
+        return { state: "unchanged", path: dir, archive: { ...stored[0] }, pruned: 0 };
+      }
+      const copy = held?.print === print;
+      const stamp = `2026-09-28-01000${stored.length}`;
+      const archive: MockArchive = {
+        path: `${dir}/versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
+        name: `versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
+        bytes: 1_240_000,
+        modified: 1_790_553_600 + stored.length,
+        stamped: 1_790_553_600 + stored.length,
+        print,
+        sha256: "a".repeat(64),
+      };
+      const next = [archive, ...stored];
+      const pruned = Math.max(0, next.length - backupKeep);
+      backupArchives.set(dir, next.slice(0, backupKeep));
+      backupHeld.set(dir, { print, copies: copy ? (held?.copies ?? 0) + 1 : 1 });
+      return { state: copy ? "copy" : "ok", path: dir, archive: { ...archive }, pruned };
+    });
+  },
+  backup_list: () =>
+    backupDirs.map((dir) => [dir, (backupArchives.get(dir) ?? []).map((a) => ({ ...a }))]),
+  backup_verify: () => "a".repeat(64),
+  backup_coverage: () => {
+    const volumes = new Set<string>([projectVolume]);
+    let unknown = false;
+    const onTheNovelsDisk: string[] = [];
+    for (const dir of backupDirs) {
+      const known = backupDestinations.find((d) => d.path === dir);
+      if (!known?.volume) {
+        unknown = true;
+        continue;
+      }
+      if (known.volume === projectVolume) onTheNovelsDisk.push(dir);
+      volumes.add(known.volume);
+    }
+    return {
+      copies: 1 + backupDirs.length,
+      media: unknown ? null : volumes.size,
+      offsite: backupDirs.some((dir) => backupDestinations.find((d) => d.path === dir)?.offsite),
+      onTheNovelsDisk,
+    };
+  },
+  backup_restore: ({ project, label }) => `${String(project)}-${String(label)}`,
+
+  git_push: ({ path }) => {
+    if (!storedSecrets.has("novel")) throw "not_signed_in";
+    if (!project(String(path)).remotes.length) throw "no_remote";
+    return "main";
+  },
+  git_pull: ({ path }) => {
+    if (!storedSecrets.has("novel")) throw "not_signed_in";
+    if (!project(String(path)).remotes.length) throw "no_remote";
+    return { branch: "main", changed: false };
+  },
+
   llama_backend: () => {
     // The real backend reports `warming` while it compiles Metal shaders; the
     // first call here does too so the UI state is reachable in a test.
@@ -629,6 +922,17 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
   mcp_log: ({ limit }) => mcpLog.slice(-Number(limit ?? 50)).reverse(),
   mcp_set_active_project: () => undefined,
+  // Off by default, like the real setting: it opens a listener on a machine
+  // whose MCP tools can write.
+  mcp_http_status: () => ({
+    enabled: mcpHttpEnabled,
+    url: mcpHttpEnabled ? "http://127.0.0.1:52341/mcp" : null,
+    endpointFile: "/mock/Library/versorium/mcp-http.json",
+  }),
+  mcp_set_http: ({ enabled }) => {
+    mcpHttpEnabled = Boolean(enabled);
+    return commands.mcp_http_status({});
+  },
 
   // Mirrors agents::rewrite: dispatch on the assignment, never on `kind` alone.
   ai_rewrite: ({ kind, id, text }) => {
@@ -768,7 +1072,24 @@ declare global {
       lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null;
       update: UpdateStatus;
       crashes: CrashEntry[];
+      /** True once the app was asked to restart into the new version. */
+      relaunched: boolean;
     };
+  }
+}
+
+// `?mock=tauri&seed=2` starts with novels already on disk and none open — the
+// state a returning writer actually sees, which no test could reach before
+// because creating a project also opens it.
+{
+  const seed = Number(new URLSearchParams(location.search).get("seed") ?? 0);
+  for (let i = 0; i < seed; i += 1) {
+    const created = commands.create_project({
+      args: { path: PROJECTS_DIR, title: `Novela ${i + 1}`, language: "es" },
+    }) as { path: string };
+    // Staggered so "most recently written" has an unambiguous answer.
+    const p = projects.get(created.path);
+    if (p) for (const c of p.chapters) c.mtime = 1_790_000_000 + i * 3600;
   }
 }
 
@@ -777,6 +1098,9 @@ window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined 
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
     projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update, crashes,
+    get relaunched() {
+      return relaunched;
+    },
     get lastExport() {
       return lastExport;
     },

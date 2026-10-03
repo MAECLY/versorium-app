@@ -22,6 +22,38 @@ pub struct ProjectMeta {
     pub default_chapter_pattern: String,
     pub censorship: String,
     pub remote: Option<String>,
+    /// Chapter ids in reading order, when it differs from their numbering.
+    ///
+    /// Order lives here rather than in the filenames on purpose. Renumbering
+    /// files to reorder them would rename every file after the moved one, and a
+    /// chapter's path is what git history follows, what a backup archive
+    /// contains and what `.versorium/ops/<id>` is keyed by — so a reorder would
+    /// quietly orphan every keystroke ever recorded for half the novel.
+    ///
+    /// An override, not the whole truth: anything missing from this list still
+    /// sorts by id, so a chapter dropped into `manuscript/` by hand appears
+    /// rather than disappearing.
+    #[serde(default)]
+    pub chapter_order: Vec<String>,
+    /// Put a title page at the front of an export.
+    ///
+    /// On by default: a manuscript that arrives with no title page makes the
+    /// reader work out whose it is from the filename. Per project rather than
+    /// per app, because the same writer submits a bare manuscript to an agent
+    /// who asked for one and a bound-looking file to everybody else.
+    #[serde(default = "yes")]
+    pub export_cover: bool,
+    /// Close an export with the project's own record and a line of thanks.
+    ///
+    /// Also on by default, and also refusable: nobody should have to ship an
+    /// advert for their writing software inside their novel.
+    #[serde(default = "yes")]
+    pub export_colophon: bool,
+}
+
+/// `true`, as a function, because serde's `default` wants a path.
+fn yes() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,8 +128,19 @@ pub fn list_projects(path: PathBuf) -> Result<Vec<Project>, String> {
             chapters,
         });
     }
-    out.sort_by(|a, b| b.path.cmp(&a.path));
+    // Most recently written first. The sidebar is called recent projects and
+    // was sorted by path descending, which is reverse-alphabetical dressed up
+    // as recency — it put "Zafiro" above the novel somebody edited an hour ago.
+    out.sort_by(|a, b| touched(b).cmp(&touched(a)).then_with(|| a.meta.title.cmp(&b.meta.title)));
     Ok(out)
+}
+
+/// When a project was last written to: the newest mtime among its chapters.
+///
+/// The folder's own mtime is no good — it changes when anything inside is
+/// added or removed, including a backup archive being written beside it.
+fn touched(project: &Project) -> i64 {
+    project.chapters.iter().map(|c| c.mtime).max().unwrap_or(0)
 }
 
 #[tauri::command]
@@ -136,6 +179,9 @@ pub fn create_project(args: CreateProjectArgs) -> Result<Project, String> {
         default_chapter_pattern: "ch-{n}-{slug}.md".into(),
         censorship: "off".into(),
         remote: None,
+        chapter_order: Vec::new(),
+        export_cover: true,
+        export_colophon: true,
     };
     fs::write(
         root.join("versorium.json"),
@@ -221,6 +267,16 @@ pub fn create_chapter(path: PathBuf, title: String) -> Result<ChapterMeta, Strin
 }
 
 // ---------------------------------------------------------------- helpers
+
+/// Persist a novel's metadata.
+///
+/// The one place `versorium.json` is written. It used to be inlined in
+/// `commands::formats::set_author`, which is a strange home for the record of
+/// what a novel is called.
+pub fn write_meta(root: &Path, meta: &ProjectMeta) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(meta).map_err(|_| "io".to_string())?;
+    crate::storage::atomic_write(&root.join("versorium.json"), json)
+}
 
 pub fn load_meta(root: &Path) -> Option<ProjectMeta> {
     fs::read_to_string(root.join("versorium.json"))
@@ -315,6 +371,88 @@ mod tests {
     use super::*;
 
     #[test]
+    fn renaming_a_novel_leaves_its_folder_where_everything_points_at_it() {
+        // The folder is a git repository, it may already be a GitHub remote,
+        // and the backup archives are named after it. A title is what the
+        // writer reads; a folder name is an address.
+        let dir = tempfile::tempdir().unwrap();
+        let created = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "El faro".into(),
+            language: "es".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&created.path);
+
+        let meta = update_project(root.clone(), Some("La niebla".into()), None, None, None).unwrap();
+        assert_eq!(meta.title, "La niebla");
+        assert!(root.is_dir(), "the folder moved");
+        assert_eq!(load_meta(&root).unwrap().title, "La niebla", "the rename did not persist");
+        // And the git repository is still the same one.
+        assert!(root.join(".git").exists());
+    }
+
+    #[test]
+    fn a_novel_can_be_renamed_and_attributed_in_one_go_or_separately() {
+        let dir = tempfile::tempdir().unwrap();
+        let created = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "Sin autor".into(),
+            language: "en".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&created.path);
+
+        let both = update_project(root.clone(), Some("Con autor".into()), Some("  Ana Ruiz  ".into()), None, None).unwrap();
+        assert_eq!(both.title, "Con autor");
+        assert_eq!(both.author, "Ana Ruiz", "surrounding space is not part of a name");
+
+        // Author alone leaves the title alone.
+        let only_author = update_project(root.clone(), None, Some("Otra".into()), None, None).unwrap();
+        assert_eq!(only_author.title, "Con autor");
+
+        assert_eq!(update_project(root.clone(), None, None, None, None).unwrap_err(), "bad_args");
+        assert_eq!(update_project(root, Some(" ".into()), None, None, None).unwrap_err(), "empty_title");
+    }
+
+    #[test]
+    fn deleting_refuses_anything_that_is_not_a_versorium_project() {
+        // This moves a whole folder to the trash. A path that is not a novel
+        // must never reach that call — somebody's Documents folder is one bad
+        // argument away.
+        let dir = tempfile::tempdir().unwrap();
+        let stranger = dir.path().join("not-a-novel");
+        std::fs::create_dir_all(&stranger).unwrap();
+        std::fs::write(stranger.join("taxes.pdf"), b"important").unwrap();
+
+        assert_eq!(
+            delete_project(stranger.clone(), dir.path().to_path_buf()).unwrap_err(),
+            "not_found"
+        );
+        assert!(stranger.join("taxes.pdf").exists(), "trashed a folder that was not a project");
+    }
+
+    /// Really moves a folder to this machine's trash, so it is opt-in.
+    #[test]
+    #[ignore = "moves a folder to the system trash"]
+    fn live_deleting_a_novel_sends_it_to_the_trash_rather_than_destroying_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let created = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "Versorium trash test".into(),
+            language: "en".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&created.path);
+        assert!(root.is_dir());
+
+        let left = delete_project(root.clone(), dir.path().to_path_buf()).unwrap();
+        assert!(left.is_empty(), "the novel is gone from the list");
+        assert!(!root.exists(), "the folder is gone from where it was");
+        eprintln!("check the trash for: {}", root.display());
+    }
+
+    #[test]
     fn slugifies_titles() {
         assert_eq!(slugify("The Long Winter"), "the-long-winter");
         assert_eq!(slugify("  ¡Hola, Mundo! "), "hola-mundo");
@@ -332,6 +470,9 @@ mod tests {
             default_chapter_pattern: "ch-{n}-{slug}.md".into(),
             censorship: "off".into(),
             remote: None,
+            chapter_order: Vec::new(),
+            export_cover: true,
+            export_colophon: true,
         };
         assert_eq!(
             chapter_path_for(&meta, 7, "The Door"),
@@ -396,6 +537,9 @@ mod tests {
             default_chapter_pattern: "ch-{n}-{slug}.md".into(),
             censorship: "off".into(),
             remote: None,
+            chapter_order: Vec::new(),
+            export_cover: true,
+            export_colophon: true,
         };
         fs::write(root.join("versorium.json"), serde_json::to_string_pretty(&meta).unwrap()).unwrap();
         let (id, file) = chapter_path_for(&meta, 1, title);
@@ -405,4 +549,94 @@ mod tests {
         assert!(root.join(&file).exists());
         assert_eq!(load_meta(&root).unwrap().title, title);
     }
+
+
+    #[test]
+    fn the_recent_list_is_actually_ordered_by_recency() {
+        // It used to sort by path descending, which is reverse-alphabetical
+        // dressed up as recency: "Zafiro" sat above the novel edited an hour
+        // ago.
+        let dir = tempfile::tempdir().unwrap();
+        for title in ["Alfa", "Zafiro"] {
+            create_project(CreateProjectArgs {
+                path: dir.path().to_path_buf(),
+                title: title.into(),
+                language: "es".into(),
+            })
+            .unwrap();
+        }
+
+        // Touch Alfa's chapter so it is the most recently written.
+        let alfa = dir.path().join("alfa");
+        let chapters = crate::commands::chapters::list_chapters_inner(&alfa).unwrap();
+        let file = alfa.join(&chapters[0].file);
+        // Set the mtime explicitly rather than rewriting and hoping: two writes
+        // in the same second are indistinguishable on a one-second filesystem.
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(120);
+        fs::File::options().write(true).open(&file).unwrap().set_modified(later).unwrap();
+
+        let listed = list_projects(dir.path().to_path_buf()).unwrap();
+        assert_eq!(
+            listed.iter().map(|p| p.meta.title.as_str()).collect::<Vec<_>>(),
+            ["Alfa", "Zafiro"]
+        );
+    }
+}
+
+/// Rename a novel, or set its author, or both.
+///
+/// Only `versorium.json` changes. The folder keeps its name: it is a git
+/// repository, it may already be a GitHub remote, and the backup archives are
+/// named after it. A title is what the writer reads; a folder name is an
+/// address, and quietly changing an address breaks whatever pointed at it.
+#[tauri::command]
+pub fn update_project(
+    path: PathBuf,
+    title: Option<String>,
+    author: Option<String>,
+    export_cover: Option<bool>,
+    export_colophon: Option<bool>,
+) -> Result<ProjectMeta, String> {
+    let title = match title {
+        Some(t) if t.trim().is_empty() => return Err("empty_title".into()),
+        Some(t) => Some(t.trim().to_string()),
+        None => None,
+    };
+    if title.is_none() && author.is_none() && export_cover.is_none() && export_colophon.is_none() {
+        return Err("bad_args".into());
+    }
+    let mut meta = load_meta(&path).ok_or_else(|| "not_found".to_string())?;
+    if let Some(title) = title {
+        meta.title = title;
+    }
+    if let Some(author) = author {
+        meta.author = author.trim().to_string();
+    }
+    if let Some(cover) = export_cover {
+        meta.export_cover = cover;
+    }
+    if let Some(colophon) = export_colophon {
+        meta.export_colophon = colophon;
+    }
+    write_meta(&path, &meta)?;
+    Ok(meta)
+}
+
+/// Move a novel to the system trash.
+///
+/// Not `remove_dir_all`. Git cannot help here — deleting the folder takes the
+/// repository and every snapshot in it — so the recovery has to be the one the
+/// writer already knows: their own desktop's trash, where the folder sits until
+/// they empty it.
+///
+/// Returns the remaining projects so the caller does not have to re-scan.
+#[tauri::command]
+pub fn delete_project(path: PathBuf, parent: PathBuf) -> Result<Vec<Project>, String> {
+    if load_meta(&path).is_none() {
+        // Refusing anything that is not a Versorium project is what stops a bad
+        // path from trashing a folder full of something else.
+        return Err("not_found".into());
+    }
+    trash::delete(&path).map_err(|_| "trash_failed".to_string())?;
+    list_projects(parent)
 }

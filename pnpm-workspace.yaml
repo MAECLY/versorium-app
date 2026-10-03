@@ -1,0 +1,9 @@
+# Which dependencies may run install scripts. This is a security decision about
+# what executes on a contributor's machine and on CI, so it belongs in version
+# control — it used to be gitignored, which meant the answer existed only where
+# somebody had already answered it, and `pnpm install --frozen-lockfile` failed
+# everywhere else with ERR_PNPM_IGNORED_BUILDS.
+allowBuilds:
+  # Vite's bundler. Its install script links the platform-specific binary, and
+  # without it there is no dev server and no build.
+  esbuild: true

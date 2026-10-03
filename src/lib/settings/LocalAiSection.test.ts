@@ -78,9 +78,18 @@ beforeEach(() => {
 it("renders the ladder, the wizard and the per-task slots", async () => {
   const { target, app } = await render();
 
-  // The card carries everything spec §6.2 asks a card to say.
+  // The row says what it takes to decide: name, badge, size, what it is for.
   expect(target.textContent).toContain("Balanced");
   expect(target.textContent).toContain("2.3 GB");
+  // The rest is folded away, because a catalogue of eleven models rendered in
+  // full is a scroll, not a list.
+  expect(target.textContent).not.toContain("Q4_K_M");
+  const details = [...target.querySelectorAll<HTMLButtonElement>("button")].filter(
+    (b) => b.textContent?.trim() === "Details",
+  );
+  expect(details.length).toBe(2);
+  details[1].click();
+  flushSync();
   expect(target.textContent).toContain("Q4_K_M");
   expect(target.textContent).toContain("needs 3.5 GB RAM");
   // A slot points at it, so it reads Selected rather than merely Ready.
@@ -91,7 +100,11 @@ it("renders the ladder, the wizard and the per-task slots", async () => {
   expect(target.textContent).toContain("balanced pack is the largest that fits");
   expect(api.modelsDownload).not.toHaveBeenCalled();
 
-  const slotSelect = target.querySelector<HTMLSelectElement>('select[aria-label="Rewrite"]');
+  // The task list leads the panel now, so the picker is above the catalogue
+  // rather than buried under it.
+  const slotSelect = [...target.querySelectorAll<HTMLSelectElement>("select")].find(
+    (el) => el.labels?.[0]?.textContent?.trim() === "Rewrite",
+  );
   expect(slotSelect?.value).toBe("builtin:qwen3-4b");
   // Only downloaded models may be picked.
   expect([...(slotSelect?.querySelectorAll("option") ?? [])].map((o) => o.value)).toEqual([
@@ -107,7 +120,15 @@ it("renders the ladder, the wizard and the per-task slots", async () => {
 it("switches tabs and keeps exactly one panel visible", async () => {
   const { target, app } = await render();
   const tabs = [...target.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-  expect(tabs.map((b) => b.textContent?.trim())).toEqual(["Writing", "Ollama", "Studio", "Dictation"]);
+    // Named for what they are — sources of models — rather than for tasks.
+  // "Writing" collided with the Writing settings group, and "Studio" meant
+  // nothing on its own.
+  expect(tabs.map((b) => b.textContent?.trim())).toEqual([
+    "Built in",
+    "Ollama",
+    "Local server",
+    "Dictation",
+  ]);
   expect(tabs[0].getAttribute("aria-selected")).toBe("true");
 
   const panels = () => [...target.querySelectorAll<HTMLElement>('[role="tabpanel"]')].filter((p) => !p.hidden);
@@ -152,6 +173,68 @@ it("deleting asks first", async () => {
   [...target.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Delete for good?")?.click();
   flushSync();
   expect(api.modelsDelete).toHaveBeenCalledWith("qwen3-4b");
+
+  await unmount(app);
+  target.remove();
+});
+
+it("finding a model does not mean scrolling past every model", async () => {
+  const { target, app } = await render();
+  // Scoped to the panel: the slot pickers at the bottom list every ready model
+  // by name, and matching those would make the filter look broken.
+  const panel = target.querySelector("#localai-panel-writing")!;
+  const showing = () => panel.textContent?.match(/Showing (\d+) of (\d+)/)?.slice(1, 3);
+  expect(showing()).toEqual(["2", "2"]);
+
+  const search = target.querySelector<HTMLInputElement>('input[type="search"]')!;
+  search.value = "gemma";
+  search.dispatchEvent(new Event("input", { bubbles: true }));
+  flushSync();
+  expect(showing()).toEqual(["1", "2"]);
+  expect(panel.textContent).not.toContain("Qwen3 4B Instruct");
+
+  // A family chip is the same question asked the other way round.
+  search.value = "";
+  search.dispatchEvent(new Event("input", { bubbles: true }));
+  flushSync();
+  const qwen = [...target.querySelectorAll<HTMLButtonElement>("button")].find(
+    (b) => b.textContent?.trim() === "Qwen",
+  )!;
+  qwen.click();
+  flushSync();
+  expect(panel.textContent).not.toContain("Gemma 3 1B");
+  expect(qwen.getAttribute("aria-pressed")).toBe("true");
+
+  await unmount(app);
+  target.remove();
+});
+
+it("a search that matches nothing says so instead of showing an empty list", async () => {
+  const { target, app } = await render();
+  const search = target.querySelector<HTMLInputElement>('input[type="search"]')!;
+  search.value = "llama";
+  search.dispatchEvent(new Event("input", { bubbles: true }));
+  flushSync();
+  // Distinct from "the catalogue is empty", which is a different problem with a
+  // different fix.
+  expect(target.textContent).toContain("No model matches that");
+  expect(target.textContent).not.toContain("Nothing downloads on its own. Pick a model when you want it. Empty");
+
+  await unmount(app);
+  target.remove();
+});
+
+it("sorting by size reorders the list rather than filtering it", async () => {
+  const { target, app } = await render();
+  const names = () =>
+    [...target.querySelectorAll("#localai-panel-writing li.v-card b")].map((b) => b.textContent?.trim());
+  expect(names()).toEqual(["Gemma 3 1B", "Qwen3 4B Instruct"]);
+
+  const sort = target.querySelector<HTMLSelectElement>('select[aria-label="Sort"]')!;
+  sort.value = "largest";
+  sort.dispatchEvent(new Event("change", { bubbles: true }));
+  flushSync();
+  expect(names()).toEqual(["Qwen3 4B Instruct", "Gemma 3 1B"]);
 
   await unmount(app);
   target.remove();

@@ -9,8 +9,14 @@
   "empty": {
     "title": "A quiet desk, a sharp needle.",
     "body": "Create a project to start writing. Everything stays on this machine.",
-    "cta": "Create your first project",
-    "setup": "Set up Versorium"
+    "cta": "Create your first novel",
+    "openFolder": "Open a folder…",
+    "tour": "Take the tour",
+    "backTitle": "Where were we.",
+    "backBody": "Last written in {novel}.",
+    "resumeChapter": "Continue “{chapter}”",
+    "resume": "Open {novel}",
+    "newNovel": "New novel"
   },
   "binder": {
     "projects": "Projects",
@@ -27,7 +33,33 @@
     "corkboard": "Corkboard",
     "corkboardHint": "See the chapters as cards.",
     "corkboardLoading": "Reading chapters…",
-    "corkboardEmpty": "Nothing written yet."
+    "corkboardEmpty": "Nothing written yet.",
+    "menu": {
+      "forProject": "Actions for the novel {title}",
+      "forChapter": "Actions for chapter {title}",
+      "renameProject": "Rename novel…",
+      "deleteProject": "Move to Trash",
+      "renameChapter": "Rename chapter…",
+      "deleteChapter": "Delete chapter",
+      "markAs": "Mark as {status}",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "projectSettings": "Project settings…"
+    },
+    "rename": {
+      "project": "Rename novel",
+      "chapter": "Rename chapter",
+      "label": "Title",
+      "action": "Rename",
+      "projectHint": "Only the title changes. The folder keeps its name, so your backups and any GitHub remote still point at it.",
+      "chapterHint": "Only the title changes. The file keeps its name, which is what holds the chapter's position and its writing history."
+    },
+    "confirm": {
+      "projectTitle": "Move “{title}” to the Trash?",
+      "projectBody": "The whole folder goes to your system Trash, including its history. You can put it back from there until you empty it.",
+      "chapterTitle": "Delete “{title}”?",
+      "chapterBody": "Versorium saves a snapshot first, so this chapter stays in the novel's history and can be brought back."
+    }
   },
   "editor": {
     "placeholder": "Start writing…",
@@ -49,7 +81,8 @@
     "cancel": "Cancel",
     "newChapter": "New chapter",
     "chapterTitle": "Chapter title",
-    "chapterTitlePlaceholder": "The long winter"
+    "chapterTitlePlaceholder": "The long winter",
+    "done": "Done"
   },
   "settings": {
     "title": "Settings",
@@ -72,10 +105,11 @@
     },
     "nav": "Settings sections",
     "backToWriting": "← Back to the manuscript",
-    "themeHint": "Folio is paper-warm, Quarry is cool grey, Needle is dark. Each one follows light, dark, or your system.",
+    "themeHint": "Folio is paper-warm, Quarry is cool grey, Needle is dark and green. Each one has a light and a dark version; the mode below decides which you see.",
     "languageHint": "Changes the interface only. It never touches the language your novel is written in.",
     "groups": {
       "writing": "Writing",
+      "author": "Author",
       "appearance": "Appearance",
       "localAi": "Local AI",
       "backup": "History & backup",
@@ -84,11 +118,17 @@
     },
     "purpose": {
       "writing": "How the page feels while you write: the typeface and size of the manuscript itself.",
+      "author": "Who the manuscript is by, as the exported file will say it.",
       "appearance": "How Versorium looks, and what language its own buttons speak.",
-      "localAi": "Models that run on this machine, and which one does each job. Nothing here sends your prose anywhere.",
+      "localAi": "Which model does each job, and where those models come from. Nothing here sends your prose anywhere.",
       "backup": "Your novel's history on this disk, and an optional private copy on GitHub. Versorium never mixes it with its own repository.",
-      "assistants": "Outside AI tools that can reach your novel, and exactly how much each one is allowed to do.",
+      "assistants": "Assistants that reach into your novel from outside, and exactly how much each one is allowed to do.",
       "app": "Versorium itself: the version you are running, how it updates, and what it records when it crashes."
+    },
+    "themes": {
+      "folio": "Folio",
+      "quarry": "Quarry",
+      "needle": "Needle"
     }
   },
   "statusbar": {
@@ -131,14 +171,22 @@
     "changedCount": "{count} changed",
     "snapshotOf": "Snapshot of {when}",
     "restore": "↩ Restore",
-    "restoreHint": "Put the selection back as it was, or the word under the cursor when nothing is selected."
+    "restoreHint": "Put the selection back as it was, or the word under the cursor when nothing is selected.",
+    "stored": "Connected.",
+    "forget": "Forget",
+    "push": "Send to GitHub",
+    "pull": "Bring from GitHub",
+    "pushed": "Sent {branch} to GitHub.",
+    "pulled": "Brought the latest changes.",
+    "alreadyCurrent": "Already up to date.",
+    "storedWhere": "Stored in your system's credential store, never in a file."
   },
   "errors": {
     "generic": "Something went wrong.",
     "projectExists": "A project with that name already exists.",
     "notFound": "Project not found.",
     "project_exists": "A project with that name already exists.",
-    "empty_title": "The title is empty.",
+    "empty_title": "A title cannot be blank.",
     "no_repo": "This folder is not keeping history yet.",
     "no_commits": "No snapshots yet.",
     "nothing_to_commit": "Nothing has changed since the last snapshot.",
@@ -198,7 +246,18 @@
     "model_too_large": "That model needs more memory than this machine has. Pick a smaller one.",
     "continuity_busy": "A rewrite is running. The continuity check waits rather than competing for the model.",
     "continuity_model_too_large": "The model chosen for Continuity needs more memory than this machine has.",
-    "hardware_gpu_pending": "starting…"
+    "hardware_gpu_pending": "starting…",
+    "git_auth_failed": "GitHub refused that token. Check it under Settings → History & backup.",
+    "git_behind_remote": "The copy on GitHub has changes this one does not. Pull first.",
+    "git_diverged": "Both copies changed separately. Versorium cannot merge that yet — open the folder in a git tool.",
+    "no_remote": "This novel has no GitHub backup set up yet.",
+    "not_signed_in": "Connect your GitHub account first.",
+    "export_scrivener_scenes_flattened": "Scene breaks become a separator: Scrivener has no scene inside a document.",
+    "import_epub_styles_dropped": "The book's styling is not kept: a Versorium chapter is Markdown.",
+    "mcp_http_bind_failed": "Versorium could not open a local port for HTTP.",
+    "mcp_http_no_entropy": "Versorium could not get random bytes from the operating system, so it will not open an HTTP port with a guessable token.",
+    "trash_failed": "Versorium could not move that to the Trash.",
+    "remote_not_github": "This project's remote is not a GitHub address, so the token was not sent. Versorium only signs in to github.com over https."
   },
   "languages": {
     "en": "English",
@@ -224,8 +283,8 @@
     "configuredSuffix": "(configured)"
   },
   "agents": {
-    "title": "Agents",
-    "hint": "Harnesses keep their own login. Versorium never stores their keys.",
+    "title": "Assistants on this machine",
+    "hint": "Found, not configured: each one keeps its own login and Versorium never stores their keys. Versorium can hand a task to one of these when no local model is assigned to it.",
     "recheck": "Re-check",
     "checking": "Checking…",
     "connected": "Connected",
@@ -245,8 +304,8 @@
     "off": "Off"
   },
   "mcp": {
-    "title": "MCP",
-    "intro": "A local server on this machine (stdio). Agents connect to it to read your manuscript. Read-only until you allow writing.",
+    "title": "What they are allowed to do",
+    "intro": "The arrow points the other way here: an assistant connects to Versorium and reads your manuscript through it. A local server on this machine (stdio), read-only until you allow writing, per client.",
     "command": "Command",
     "commandHint": "Connected clients spawn this. Nothing listens on the network.",
     "connect": "Connect",
@@ -275,7 +334,13 @@
       "claude-desktop": "Claude Desktop",
       "codex": "Codex",
       "opencode": "OpenCode"
-    }
+    },
+    "httpTitle": "Serve over HTTP too",
+    "httpHint": "Some assistants cannot start a program and need a URL instead. Versorium listens on this machine only, on a port it picks, and a client must present a token it reads from a file only you can open.",
+    "httpOff": "Off. Assistants reach Versorium by starting it, which needs no network at all.",
+    "httpUrl": "Address",
+    "httpFile": "The URL and token are here",
+    "httpRestart": "Turning this off takes effect next time Versorium starts."
   },
   "localAi": {
     "title": "Local AI",
@@ -285,9 +350,9 @@
     "diskUsed": "Downloaded models use {size}.",
     "modelsDir": "Stored in",
     "tabs": {
-      "writing": "Writing",
+      "writing": "Built in",
       "ollama": "Ollama",
-      "studio": "Studio",
+      "studio": "Local server",
       "dictation": "Dictation"
     },
     "wizard": {
@@ -335,7 +400,10 @@
         "mid": "The sweet spot on an ordinary laptop.",
         "midPlus": "Noticeably better prose, and it is heavy.",
         "high": "The best here, and it asks for a lot of memory."
-      }
+      },
+      "details": "Details",
+      "progress": "{done} of {total} · {percent}%",
+      "downloading": "Downloading {label}"
     },
     "speeds": {
       "fast": "Fast",
@@ -398,6 +466,35 @@
       "failed": "llama.cpp could not start on this machine.",
       "cpuOnly": "CPU",
       "noGpuBuild": "· this build has no GPU backend, so speeds are CPU speeds"
+    },
+    "filter": {
+      "search": "Search models",
+      "sort": "Sort",
+      "sorts": {
+        "recommended": "Recommended order",
+        "smallest": "Smallest first",
+        "largest": "Largest first",
+        "name": "By name"
+      },
+      "family": "Family",
+      "allFamilies": "All families",
+      "fits": "Runs on this machine",
+      "showing": "Showing {shown} of {total}",
+      "noMatch": "No model matches that. Clear the search or the filters."
+    },
+    "tasks": {
+      "title": "What each task uses",
+      "intro": "Five jobs, and the model each one runs on. A task with no model falls back to a connected assistant — and if there is none, it says so rather than doing nothing."
+    },
+    "sources": {
+      "title": "Where models come from",
+      "intro": "Four ways to have a model on this machine. You do not need all of them; you need one that the tasks above can point at."
+    },
+    "runsOn": {
+      "none": "no model yet",
+      "builtin": "runs in Versorium",
+      "ollama": "runs in Ollama",
+      "cli": "runs in an assistant"
     }
   },
   "manuscript": {
@@ -416,13 +513,15 @@
         "md": "The canonical format. Nothing is lost.",
         "docx": "Standard manuscript format: 12pt serif, double-spaced, 1-inch margins, surname / title / page in the header.",
         "epub": "An ebook readers accept.",
-        "pdf": "Print preview, with chapter openings and running heads."
+        "pdf": "Print preview, with chapter openings and running heads.",
+        "scriv": "A Scrivener 3 project folder, one document per chapter."
       },
       "formatNames": {
         "md": "Markdown",
         "docx": "Word (DOCX)",
         "epub": "EPUB 3",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "scriv": "Scrivener"
       },
       "author": "Author",
       "authorPlaceholder": "Ursula K. Le Guin",
@@ -482,7 +581,18 @@
       "install": "Download & Install",
       "installing": "Installing…",
       "later": "Later",
-      "skip": "Skip this version"
+      "skip": "Skip this version",
+      "restart": "Restart now"
+    },
+    "phase": {
+      "downloading": "Downloading…",
+      "verifying": "Checking the signature…",
+      "installing": "Installing…",
+      "ready": "Installed",
+      "failed": "Could not finish",
+      "bytes": "{received} of {total} MB",
+      "bytesUnknown": "{received} MB",
+      "readyHint": "Restart to open the new version."
     }
   },
   "onboarding": {
@@ -551,7 +661,9 @@
     "skip": "Skip setup",
     "start": "Start writing",
     "working": "Working…",
-    "none": "Setup runs inside the desktop app."
+    "none": "Setup runs inside the desktop app.",
+    "replay": "Show the guide again",
+    "replayHint": "The short tour from the first run: this machine, what it found, and a novel to start from."
   },
   "typography": {
     "intro": "What the editor renders your prose in.",
@@ -581,5 +693,131 @@
     "clean": "Nothing contradictory found.",
     "noProject": "Open a novel first.",
     "none": "The continuity check runs inside the desktop app."
+  },
+  "backup": {
+    "title": "Backup",
+    "intro": "Three copies of a manuscript, on two kinds of storage, one of them somewhere else. That rule is older than cloud sync and it is still the whole of it. Versorium keeps the first copy as the novel's own history, and writes dated archives — history included — into every folder you pick below.",
+    "none": "Backups need the desktop app.",
+    "kinds": {
+      "icloud": "iCloud Drive",
+      "onedrive": "OneDrive",
+      "googledrive": "Google Drive",
+      "dropbox": "Dropbox",
+      "box": "Box",
+      "protondrive": "Proton Drive",
+      "nextcloud": "Nextcloud",
+      "owncloud": "ownCloud",
+      "mega": "MEGA",
+      "pcloud": "pCloud",
+      "seafile": "Seafile",
+      "koofr": "Koofr",
+      "syncthing": "Syncthing",
+      "disk": "Another disk",
+      "folder": "Folder"
+    },
+    "notFound": "not found on this machine",
+    "choose": "Use this",
+    "chosenLabel": "Stop using",
+    "chosen": "Backups will go here too.",
+    "pickFolder": "Choose a folder…",
+    "turnOff": "Turn backups off",
+    "turnedOff": "Backups are off.",
+    "keep": "Keep the newest",
+    "now": "Back up now",
+    "working": "Working…",
+    "written": "Saved, {size}.",
+    "stored": "Stored backups",
+    "restore": "Restore",
+    "restoreHint": "Restoring extracts a copy beside this novel. Nothing you have now is overwritten.",
+    "restored": "Restored to {path}",
+    "restoredSuffix": "restored",
+    "advanced": "GitHub backup (advanced)",
+    "offsite": "leaves this machine",
+    "onsite": "same room as the novel",
+    "limit": "Pick up to {n}. Past that, the slowest one decides how long every backup takes.",
+    "full": "Three destinations is the limit. Remove one to add another.",
+    "layerHistory": "1 · In the novel itself",
+    "layerHistoryHint": "Every snapshot you save is kept inside the novel's folder. It survives a mistake, not a lost laptop.",
+    "layerDestinations": "2 · Copies elsewhere",
+    "layerGithub": "3 · GitHub",
+    "coverage": "What this protects against",
+    "copies": "{n} copies",
+    "media": "on {n} separate disks",
+    "mediaUnknown": "disks could not be identified",
+    "hasOffsite": "one of them off this machine",
+    "noOffsite": "none of them off this machine",
+    "sameDisk": "{path} is on the same disk as the novel — if that disk fails, both go.",
+    "allSet": "This meets the three-copy rule.",
+    "resultOk": "{name}: saved, {size}.",
+    "resultUnavailable": "{name}: not reachable right now. It will be written next time.",
+    "resultFailed": "{name}: could not be written — {reason}",
+    "verify": "Check",
+    "verified": "Read back in full and intact.",
+    "verifyHint": "Checking opens the archive and reads every file back. An archive that has sat on a disk for a year is the one this is for.",
+    "liveRepoHint": "The novel itself stays where it is. A live repository inside a synced folder gets corrupted — these services copy file by file, with no regard for the order git needs.",
+    "resultUnchanged": "{name}: nothing has changed since {when}. Nothing new was written; that copy was read back in full and is intact.",
+    "resultCopy": "{name}: nothing has changed, so this is a second copy of the same state, {size}. There will not be a third.",
+    "resultRepaired": "{name}: the copy that was there could not be read back in full. A new one was written, {size}. The damaged file was left where it is.",
+    "alsoPruned": "{n} older ones were deleted to stay within the number you keep.",
+    "onlyWhenChanged": "Back up now writes a new archive only when the novel has changed. It keeps two copies of each state at each destination, then tells you instead of writing — pressing it again cannot fill the folder.",
+    "damaged": "could not be read back",
+    "keepHint": "Archives, not days. With two copies of each state, ten archives is at least five different states of the novel."
+  },
+  "author": {
+    "title": "Author",
+    "intro": "What goes inside the exported file, not on the page. Readers, libraries and publishers all look here first, and a file with an empty author is one nobody can attribute.",
+    "none": "Author details need the desktop app.",
+    "which": "Profile",
+    "profiles": {
+      "work": "Work",
+      "hobby": "Personal",
+      "workHint": "The name on a contract: legal name, publisher, the copyright line they gave you.",
+      "hobbyHint": "A pen name, a pseudonym, work that is nobody's business but yours."
+    },
+    "inUseShort": "in use",
+    "useForExports": "Use {profile} for exports",
+    "fields": {
+      "name": "Name",
+      "sortAs": "Sort as",
+      "role": "Role",
+      "organization": "Publisher or company",
+      "rights": "Copyright line"
+    },
+    "where": {
+      "name": "The byline. Written as the author into EPUB, DOCX, PDF and Markdown. A project that already has its own author keeps it.",
+      "sortAs": "How a library shelves it — surname first. EPUB only. Left blank, it is guessed from the name.",
+      "role": "EPUB only, as a MARC relator code. Nothing else has anywhere to put it.",
+      "organization": "The publisher in EPUB, the company in DOCX.",
+      "rights": "The rights line in EPUB, the subject in PDF, the description in DOCX."
+    },
+    "roles": {
+      "none": "Not stated",
+      "aut": "Author",
+      "edt": "Editor",
+      "trl": "Translator"
+    },
+    "privacy": "These fields are written into files you export and nowhere else. Nothing here is sent anywhere, and no address or account is asked for, because no export format has a place to put one.",
+    "saved": "Saved."
+  },
+  "project": {
+    "title": "Project",
+    "intro": "Settings that belong to this novel, not to the app. They travel with the folder.",
+    "coverLabel": "Open exports with a title page",
+    "coverHint": "The title, your byline, and the publisher and rights lines when your author profile has them. A manuscript that arrives without one makes the reader work out whose it is from the filename.",
+    "colophonLabel": "Close exports with this novel's record",
+    "colophonHint": "The title, author, language, chapter and word count, and one line saying it was written here. Turn it off and nothing of Versorium appears anywhere in the file.",
+    "preview": "Title page",
+    "previewEmpty": "Add an author in Settings → Author and it will appear here.",
+    "colophonHeading": "About this book",
+    "colophonThanks": "Thank you for writing it here.",
+    "keys": {
+      "title": "Title",
+      "author": "Author",
+      "publisher": "Publisher",
+      "rights": "Rights",
+      "language": "Language",
+      "chapters": "Chapters",
+      "words": "Words"
+    }
   }
 }

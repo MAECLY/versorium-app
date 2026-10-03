@@ -153,7 +153,9 @@ mod tests {
         // An empty catalog is a stub, not a shippable list.
         assert_eq!(validate(&fixture_catalog(vec![])).unwrap_err(), "bad_catalog");
 
-        let broken: Vec<(&str, fn(&mut ModelEntry))> = vec![
+        /// A named mutation and the edit that breaks an entry that way.
+        type Break = (&'static str, fn(&mut ModelEntry));
+        let broken: Vec<Break> = vec![
             ("short sha", |m| m.sha256.truncate(10)),
             ("uppercase sha", |m| m.sha256 = m.sha256.to_uppercase()),
             ("non-hex sha", |m| m.sha256 = "z".repeat(64)),

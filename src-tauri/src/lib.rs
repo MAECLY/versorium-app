@@ -3,6 +3,7 @@
 //! Business logic that touches files, git, models, or MCP lives in Rust.
 //! The frontend talks to these modules through Tauri commands.
 
+mod backup;
 mod commands;
 mod continuity;
 mod crash;
@@ -14,6 +15,7 @@ mod ops;
 mod mcp;
 mod models;
 pub mod paths;
+mod secrets;
 mod storage;
 mod text;
 mod update;
@@ -52,6 +54,26 @@ pub fn run() {
             // for a rewrite in the first few seconds of a session.
             llama::warm_up();
 
+            // Serve MCP over HTTP too, if the writer asked for it. Off by
+            // default: it opens a listener on a machine whose MCP tools can
+            // write to a manuscript.
+            {
+                let enabled = app
+                    .state::<commands::settings::SettingsStore>()
+                    .get()
+                    .mcp_http_enabled;
+                mcp::http::start_if_enabled(enabled, mcp::DEFAULT_CLIENT.to_string());
+            }
+
+            // Move any token still in settings.json into the OS credential
+            // store. Blocking and possibly prompt-raising, so not on the path
+            // that opens the window.
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let store = handle.state::<commands::settings::SettingsStore>();
+                secrets::migrate_from_settings(&store);
+            });
+
             // The window starts hidden (tauri.conf.json) and the frontend shows it
             // once mounted: no white flash, and WebKit starts painting from a
             // visible state. If the frontend never reports, show it anyway.
@@ -73,11 +95,26 @@ pub fn run() {
             commands::project::create_project,
             commands::project::open_project,
             commands::project::create_chapter,
+            commands::project::update_project,
+            commands::project::delete_project,
             commands::chapters::list_chapters,
             commands::chapters::read_chapter,
             commands::chapters::save_chapter,
+            commands::chapters::update_chapter,
+            commands::chapters::reorder_chapters,
+            commands::chapters::delete_chapter,
             commands::settings::get_settings,
             commands::settings::set_settings,
+            commands::secrets::secrets_status,
+            commands::secrets::secrets_connect,
+            commands::secrets::secrets_forget,
+            commands::backup::backup_destinations,
+            commands::backup::backup_configure,
+            commands::backup::backup_now,
+            commands::backup::backup_list,
+            commands::backup::backup_restore,
+            commands::backup::backup_verify,
+            commands::backup::backup_coverage,
             commands::git::git_status,
             commands::git::git_log,
             commands::git::git_diff,
@@ -89,6 +126,8 @@ pub fn run() {
             commands::git::git_remotes,
             commands::git::git_remote_add,
             commands::git::git_remote_remove,
+            commands::git::git_push,
+            commands::git::git_pull,
             commands::git::github_me,
             commands::git::github_owners,
             commands::git::github_create_repo,
@@ -106,6 +145,8 @@ pub fn run() {
             commands::mcp::mcp_uninstall_client,
             commands::mcp::mcp_log,
             commands::mcp::mcp_set_active_project,
+            commands::mcp::mcp_http_status,
+            commands::mcp::mcp_set_http,
             commands::models::models_view,
             commands::models::models_download,
             commands::models::models_cancel,
@@ -127,6 +168,8 @@ pub fn run() {
             commands::update::update_status,
             commands::update::update_check,
             commands::update::update_install,
+            commands::update::update_progress,
+            commands::update::update_relaunch,
             commands::update::update_skip,
             commands::update::update_set_channel,
             commands::update::update_set_automatic,

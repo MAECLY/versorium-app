@@ -1,4 +1,4 @@
-import { api, isTauri, type UpdateStatus } from "$lib/tauri";
+import { api, isTauri, type InstallProgress, type UpdateStatus } from "$lib/tauri";
 import { errorMessage } from "$lib/i18n/errors";
 
 /**
@@ -12,6 +12,12 @@ export class UpdateStore {
   status = $state<UpdateStatus | null>(null);
   busy = $state(false);
   error = $state<string | null>(null);
+  /** Null until an install starts. Polled, like a model download's bytes. */
+  progress = $state<InstallProgress | null>(null);
+
+  /** Often enough to look live without hammering a command that takes a lock. */
+  private static readonly POLL_MS = 400;
+  private timer: ReturnType<typeof setInterval> | undefined;
 
   get available(): UpdateStatus["available"] {
     return this.status?.available ?? null;
@@ -53,12 +59,44 @@ export class UpdateStore {
     if (!isTauri() || this.busy) return;
     this.busy = true;
     this.error = null;
+    this.progress = { phase: "downloading", received: 0, total: null, error: null };
+    this.startPolling();
     try {
       await api.updateInstall();
+      // On macOS the bundle is swapped in place and control returns here, so
+      // the dialog asks for a restart. On Windows the installer may replace the
+      // process and this line is never reached — both are correct.
+      this.progress = await api.updateProgress();
     } catch (e) {
       this.error = errorMessage(e);
+      this.progress = null;
+    } finally {
+      this.stopPolling();
       this.busy = false;
     }
+  }
+
+  /** Restart into the version that was just installed. */
+  async relaunch(): Promise<void> {
+    if (!isTauri()) return;
+    await api.updateRelaunch();
+  }
+
+  private startPolling(): void {
+    this.stopPolling();
+    this.timer = setInterval(() => {
+      void api
+        .updateProgress()
+        .then((p) => {
+          if (this.busy) this.progress = p;
+        })
+        .catch(() => this.stopPolling());
+    }, UpdateStore.POLL_MS);
+  }
+
+  private stopPolling(): void {
+    if (this.timer !== undefined) clearInterval(this.timer);
+    this.timer = undefined;
   }
 
   /**

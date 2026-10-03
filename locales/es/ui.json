@@ -9,8 +9,14 @@
   "empty": {
     "title": "Un escritorio tranquilo, una aguja fina.",
     "body": "Crea un proyecto para empezar a escribir. Todo queda en esta máquina.",
-    "cta": "Crear tu primer proyecto",
-    "setup": "Configurar Versorium"
+    "cta": "Crear tu primera novela",
+    "openFolder": "Abrir una carpeta…",
+    "tour": "Ver la guía rápida",
+    "backTitle": "Dónde lo dejamos.",
+    "backBody": "Lo último escrito, en {novel}.",
+    "resumeChapter": "Continuar «{chapter}»",
+    "resume": "Abrir {novel}",
+    "newNovel": "Nueva novela"
   },
   "binder": {
     "projects": "Proyectos",
@@ -27,7 +33,33 @@
     "corkboard": "Fichas",
     "corkboardHint": "Mira los capítulos como fichas en un tablero.",
     "corkboardLoading": "Leyendo capítulos…",
-    "corkboardEmpty": "Todavía sin escribir."
+    "corkboardEmpty": "Todavía sin escribir.",
+    "menu": {
+      "forProject": "Acciones de la novela {title}",
+      "forChapter": "Acciones del capítulo {title}",
+      "renameProject": "Renombrar novela…",
+      "deleteProject": "Mover a la papelera",
+      "renameChapter": "Renombrar capítulo…",
+      "deleteChapter": "Borrar capítulo",
+      "markAs": "Marcar como {status}",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "projectSettings": "Ajustes del proyecto…"
+    },
+    "rename": {
+      "project": "Renombrar novela",
+      "chapter": "Renombrar capítulo",
+      "label": "Título",
+      "action": "Renombrar",
+      "projectHint": "Solo cambia el título. La carpeta conserva su nombre, así que tus respaldos y el remoto de GitHub siguen apuntando a ella.",
+      "chapterHint": "Solo cambia el título. El archivo conserva su nombre, que es lo que sostiene la posición del capítulo y su historial de escritura."
+    },
+    "confirm": {
+      "projectTitle": "¿Mover «{title}» a la papelera?",
+      "projectBody": "La carpeta entera va a la papelera de tu sistema, con todo su historial. Puedes devolverla desde ahí hasta que la vacíes.",
+      "chapterTitle": "¿Borrar «{title}»?",
+      "chapterBody": "Versorium guarda una instantánea antes, así que el capítulo queda en el historial de la novela y se puede recuperar."
+    }
   },
   "editor": {
     "placeholder": "Empieza a escribir…",
@@ -49,7 +81,8 @@
     "cancel": "Cancelar",
     "newChapter": "Nuevo capítulo",
     "chapterTitle": "Título del capítulo",
-    "chapterTitlePlaceholder": "El largo invierno"
+    "chapterTitlePlaceholder": "El largo invierno",
+    "done": "Listo"
   },
   "settings": {
     "title": "Ajustes",
@@ -72,10 +105,11 @@
     },
     "nav": "Secciones de ajustes",
     "backToWriting": "← Volver al manuscrito",
-    "themeHint": "Folio es papel cálido, Quarry es gris frío, Needle es oscuro. Cada uno sigue claro, oscuro o tu sistema.",
+    "themeHint": "Folio es papel cálido, Quarry es gris frío, Needle es oscuro y verde. Cada uno tiene versión clara y oscura; el modo de abajo decide cuál ves.",
     "languageHint": "Cambia solo la interfaz. Nunca toca el idioma en que escribes tu novela.",
     "groups": {
       "writing": "Escritura",
+      "author": "Autor",
       "appearance": "Apariencia",
       "localAi": "IA local",
       "backup": "Historial y respaldo",
@@ -84,11 +118,17 @@
     },
     "purpose": {
       "writing": "Cómo se siente la página mientras escribes: la tipografía y el tamaño del manuscrito.",
+      "author": "De quién es el manuscrito, tal como lo dirá el archivo exportado.",
       "appearance": "Cómo se ve Versorium, y en qué idioma habla su propia interfaz.",
-      "localAi": "Modelos que corren en esta máquina, y cuál hace cada tarea. Nada de aquí envía tu prosa a ningún lado.",
+      "localAi": "Qué modelo hace cada trabajo, y de dónde salen esos modelos. Nada de aquí manda tu prosa a ninguna parte.",
       "backup": "El historial de tu novela en este disco, y una copia privada opcional en GitHub. Versorium nunca lo mezcla con su propio repositorio.",
-      "assistants": "Herramientas de IA externas que pueden llegar a tu novela, y exactamente cuánto puede hacer cada una.",
+      "assistants": "Asistentes que entran en tu novela desde fuera, y exactamente cuánto se le permite a cada uno.",
       "app": "Versorium misma: la versión que usas, cómo se actualiza, y qué registra cuando falla."
+    },
+    "themes": {
+      "folio": "Folio",
+      "quarry": "Quarry",
+      "needle": "Needle"
     }
   },
   "statusbar": {
@@ -131,14 +171,22 @@
     "changedCount": "{count} con cambios",
     "snapshotOf": "Instantánea del {when}",
     "restore": "↩ Restaurar",
-    "restoreHint": "Devuelve la selección a como estaba, o la palabra bajo el cursor si no hay nada seleccionado."
+    "restoreHint": "Devuelve la selección a como estaba, o la palabra bajo el cursor si no hay nada seleccionado.",
+    "stored": "Conectado.",
+    "forget": "Olvidar",
+    "push": "Enviar a GitHub",
+    "pull": "Traer de GitHub",
+    "pushed": "Enviado {branch} a GitHub.",
+    "pulled": "Traídos los últimos cambios.",
+    "alreadyCurrent": "Ya está al día.",
+    "storedWhere": "Se guarda en el almacén de credenciales de tu sistema, nunca en un archivo."
   },
   "errors": {
     "generic": "Algo salió mal.",
     "projectExists": "Ya existe un proyecto con ese nombre.",
     "notFound": "Proyecto no encontrado.",
     "project_exists": "Ya existe un proyecto con ese nombre.",
-    "empty_title": "El título está vacío.",
+    "empty_title": "El título no puede estar vacío.",
     "no_repo": "Esta carpeta aún no lleva historial.",
     "no_commits": "Aún no hay instantáneas.",
     "nothing_to_commit": "No ha cambiado nada desde la última instantánea.",
@@ -198,7 +246,18 @@
     "model_too_large": "Ese modelo necesita más memoria de la que tiene esta máquina. Elige uno más pequeño.",
     "continuity_busy": "Hay una reescritura en marcha. La comprobación de continuidad espera en vez de competir por el modelo.",
     "continuity_model_too_large": "El modelo elegido para Continuidad necesita más memoria de la que tiene esta máquina.",
-    "hardware_gpu_pending": "iniciando…"
+    "hardware_gpu_pending": "iniciando…",
+    "git_auth_failed": "GitHub rechazó ese token. Revísalo en Ajustes → Historial y respaldo.",
+    "git_behind_remote": "La copia en GitHub tiene cambios que esta no. Trae primero.",
+    "git_diverged": "Las dos copias cambiaron por separado. Versorium aún no sabe fusionar eso — abre la carpeta con una herramienta de git.",
+    "no_remote": "Esta novela todavía no tiene respaldo en GitHub configurado.",
+    "not_signed_in": "Conecta tu cuenta de GitHub primero.",
+    "export_scrivener_scenes_flattened": "Los saltos de escena se vuelven un separador: Scrivener no tiene escenas dentro de un documento.",
+    "import_epub_styles_dropped": "El estilo del libro no se conserva: un capítulo de Versorium es Markdown.",
+    "mcp_http_bind_failed": "Versorium no pudo abrir un puerto local para HTTP.",
+    "mcp_http_no_entropy": "Versorium no pudo obtener bytes aleatorios del sistema operativo, así que no abrirá un puerto HTTP con un token adivinable.",
+    "trash_failed": "Versorium no pudo mover eso a la papelera.",
+    "remote_not_github": "El remoto de este proyecto no es una dirección de GitHub, así que el token no se envió. Versorium solo se identifica en github.com por https."
   },
   "languages": {
     "en": "English",
@@ -224,8 +283,8 @@
     "configuredSuffix": "(configurado)"
   },
   "agents": {
-    "title": "Agentes",
-    "hint": "Cada agente gestiona su propio inicio de sesión. Versorium nunca guarda sus claves.",
+    "title": "Asistentes en esta máquina",
+    "hint": "Encontrados, no configurados: cada uno guarda su propia sesión y Versorium nunca almacena sus claves. Versorium puede pasarle una tarea a uno de ellos cuando no tiene un modelo local asignado.",
     "recheck": "Volver a comprobar",
     "checking": "Comprobando…",
     "connected": "Conectado",
@@ -245,8 +304,8 @@
     "off": "Desactivada"
   },
   "mcp": {
-    "title": "MCP",
-    "intro": "Un servidor local en esta máquina (stdio). Los agentes se conectan para leer tu manuscrito. Solo lectura hasta que permitas escritura.",
+    "title": "Qué se les permite hacer",
+    "intro": "Aquí la flecha va al revés: un asistente se conecta a Versorium y lee tu manuscrito a través de él. Un servidor local en esta máquina (stdio), de solo lectura hasta que permitas escribir, cliente a cliente.",
     "command": "Comando",
     "commandHint": "Los clientes conectados lo ejecutan. Nada queda a la escucha en la red.",
     "connect": "Conectar",
@@ -275,7 +334,13 @@
       "claude-desktop": "Claude Desktop",
       "codex": "Codex",
       "opencode": "OpenCode"
-    }
+    },
+    "httpTitle": "Servir también por HTTP",
+    "httpHint": "Algunos asistentes no pueden arrancar un programa y necesitan una URL. Versorium escucha solo en esta máquina, en un puerto que elige él, y un cliente debe presentar un token que lee de un archivo que solo tú puedes abrir.",
+    "httpOff": "Apagado. Los asistentes llegan a Versorium arrancándolo, que no necesita red en absoluto.",
+    "httpUrl": "Dirección",
+    "httpFile": "La URL y el token están aquí",
+    "httpRestart": "Apagarlo surte efecto la próxima vez que arranque Versorium."
   },
   "localAi": {
     "title": "IA local",
@@ -285,9 +350,9 @@
     "diskUsed": "Los modelos descargados ocupan {size}.",
     "modelsDir": "Guardados en",
     "tabs": {
-      "writing": "Escritura",
+      "writing": "Integrados",
       "ollama": "Ollama",
-      "studio": "Studio",
+      "studio": "Servidor local",
       "dictation": "Dictado"
     },
     "wizard": {
@@ -335,7 +400,10 @@
         "mid": "El punto dulce en un portátil normal.",
         "midPlus": "Prosa notablemente mejor, y ya pesa.",
         "high": "El mejor de aquí, y pide bastante memoria."
-      }
+      },
+      "details": "Detalles",
+      "progress": "{done} de {total} · {percent}%",
+      "downloading": "Descargando {label}"
     },
     "speeds": {
       "fast": "Rápido",
@@ -398,6 +466,35 @@
       "failed": "llama.cpp no pudo iniciarse en esta máquina.",
       "cpuOnly": "CPU",
       "noGpuBuild": "· esta versión no trae backend de GPU, así que la velocidad es la de CPU"
+    },
+    "filter": {
+      "search": "Buscar modelos",
+      "sort": "Ordenar",
+      "sorts": {
+        "recommended": "Orden recomendado",
+        "smallest": "Más pequeños primero",
+        "largest": "Más grandes primero",
+        "name": "Por nombre"
+      },
+      "family": "Familia",
+      "allFamilies": "Todas las familias",
+      "fits": "Funciona en esta máquina",
+      "showing": "Mostrando {shown} de {total}",
+      "noMatch": "Ningún modelo coincide. Borra la búsqueda o los filtros."
+    },
+    "tasks": {
+      "title": "Qué usa cada tarea",
+      "intro": "Cinco trabajos, y el modelo con el que corre cada uno. Una tarea sin modelo recurre a un asistente conectado — y si no hay ninguno, lo dice en vez de no hacer nada."
+    },
+    "sources": {
+      "title": "De dónde salen los modelos",
+      "intro": "Cuatro maneras de tener un modelo en esta máquina. No necesitas todas; necesitas una a la que las tareas de arriba puedan apuntar."
+    },
+    "runsOn": {
+      "none": "sin modelo todavía",
+      "builtin": "corre en Versorium",
+      "ollama": "corre en Ollama",
+      "cli": "corre en un asistente"
     }
   },
   "manuscript": {
@@ -416,13 +513,15 @@
         "md": "El formato canónico. No se pierde nada.",
         "docx": "Formato de manuscrito estándar: serif de 12pt, doble espacio, márgenes de una pulgada y apellido / título / página en la cabecera.",
         "epub": "Un ebook que los lectores aceptan.",
-        "pdf": "Vista de impresión, con aperturas de capítulo y cabeceras."
+        "pdf": "Vista de impresión, con aperturas de capítulo y cabeceras.",
+        "scriv": "Una carpeta de proyecto de Scrivener 3, un documento por capítulo."
       },
       "formatNames": {
         "md": "Markdown",
         "docx": "Word (DOCX)",
         "epub": "EPUB 3",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "scriv": "Scrivener"
       },
       "author": "Autoría",
       "authorPlaceholder": "Ursula K. Le Guin",
@@ -482,7 +581,18 @@
       "install": "Descargar e instalar",
       "installing": "Instalando…",
       "later": "Más tarde",
-      "skip": "Omitir esta versión"
+      "skip": "Omitir esta versión",
+      "restart": "Reiniciar ahora"
+    },
+    "phase": {
+      "downloading": "Descargando…",
+      "verifying": "Comprobando la firma…",
+      "installing": "Instalando…",
+      "ready": "Instalada",
+      "failed": "No se pudo terminar",
+      "bytes": "{received} de {total} MB",
+      "bytesUnknown": "{received} MB",
+      "readyHint": "Reinicia para abrir la versión nueva."
     }
   },
   "onboarding": {
@@ -551,7 +661,9 @@
     "skip": "Saltar configuración",
     "start": "Empezar a escribir",
     "working": "Trabajando…",
-    "none": "La configuración corre dentro de la app de escritorio."
+    "none": "La configuración corre dentro de la app de escritorio.",
+    "replay": "Ver la guía otra vez",
+    "replayHint": "El recorrido corto de la primera vez: esta máquina, lo que encontró, y una novela por la que empezar."
   },
   "typography": {
     "intro": "Con qué letra te muestra el editor tu prosa.",
@@ -581,5 +693,131 @@
     "clean": "No se encontró nada contradictorio.",
     "noProject": "Abre una novela primero.",
     "none": "La revisión de continuidad corre dentro de la app de escritorio."
+  },
+  "backup": {
+    "title": "Respaldo",
+    "intro": "Tres copias de un manuscrito, en dos tipos de almacenamiento, una de ellas en otro sitio. Esa regla es más antigua que la nube y sigue siendo todo lo que hay que saber. Versorium guarda la primera copia como el historial de la propia novela, y escribe archivos con fecha — historial incluido — en cada carpeta que elijas abajo.",
+    "none": "Los respaldos necesitan la app de escritorio.",
+    "kinds": {
+      "icloud": "iCloud Drive",
+      "onedrive": "OneDrive",
+      "googledrive": "Google Drive",
+      "dropbox": "Dropbox",
+      "box": "Box",
+      "protondrive": "Proton Drive",
+      "nextcloud": "Nextcloud",
+      "owncloud": "ownCloud",
+      "mega": "MEGA",
+      "pcloud": "pCloud",
+      "seafile": "Seafile",
+      "koofr": "Koofr",
+      "syncthing": "Syncthing",
+      "disk": "Otro disco",
+      "folder": "Carpeta"
+    },
+    "notFound": "no está en esta máquina",
+    "choose": "Usar este",
+    "chosenLabel": "Dejar de usar",
+    "chosen": "Los respaldos también irán aquí.",
+    "pickFolder": "Elegir carpeta…",
+    "turnOff": "Desactivar respaldos",
+    "turnedOff": "Respaldos desactivados.",
+    "keep": "Conservar los más recientes",
+    "now": "Respaldar ahora",
+    "working": "Trabajando…",
+    "written": "Guardado, {size}.",
+    "stored": "Respaldos guardados",
+    "restore": "Restaurar",
+    "restoreHint": "Restaurar extrae una copia al lado de esta novela. No se sobrescribe nada de lo que tienes.",
+    "restored": "Restaurado en {path}",
+    "restoredSuffix": "restaurado",
+    "advanced": "Respaldo en GitHub (avanzado)",
+    "offsite": "sale de esta máquina",
+    "onsite": "misma habitación que la novela",
+    "limit": "Elige hasta {n}. A partir de ahí, la más lenta decide cuánto tarda cada respaldo.",
+    "full": "Tres destinos es el límite. Quita uno para añadir otro.",
+    "layerHistory": "1 · En la propia novela",
+    "layerHistoryHint": "Cada instantánea que guardas se queda dentro de la carpeta de la novela. Sobrevive a un error, no a un portátil perdido.",
+    "layerDestinations": "2 · Copias en otro sitio",
+    "layerGithub": "3 · GitHub",
+    "coverage": "De qué te protege esto",
+    "copies": "{n} copias",
+    "media": "en {n} discos distintos",
+    "mediaUnknown": "no se pudo identificar los discos",
+    "hasOffsite": "una de ellas fuera de esta máquina",
+    "noOffsite": "ninguna fuera de esta máquina",
+    "sameDisk": "{path} está en el mismo disco que la novela — si ese disco falla, se van las dos.",
+    "allSet": "Esto cumple la regla de las tres copias.",
+    "resultOk": "{name}: guardado, {size}.",
+    "resultUnavailable": "{name}: no accesible ahora mismo. Se escribirá la próxima vez.",
+    "resultFailed": "{name}: no se pudo escribir — {reason}",
+    "verify": "Comprobar",
+    "verified": "Leído entero y sin daños.",
+    "verifyHint": "Comprobar abre el archivo y vuelve a leer cada fichero. Un archivo que lleva un año en un disco es justo para lo que esto sirve.",
+    "liveRepoHint": "La novela se queda donde está. Un repositorio vivo dentro de una carpeta sincronizada se corrompe — estos servicios copian fichero a fichero, sin respetar el orden que git necesita.",
+    "resultUnchanged": "{name}: no ha cambiado nada desde {when}. No se ha escrito nada nuevo; esa copia se ha vuelto a leer entera y está intacta.",
+    "resultCopy": "{name}: no ha cambiado nada, así que esta es una segunda copia del mismo estado, {size}. No habrá una tercera.",
+    "resultRepaired": "{name}: la copia que había no se pudo volver a leer entera. He escrito una nueva, {size}. El archivo dañado se queda donde está.",
+    "alsoPruned": "Se han borrado {n} más antiguas para no pasar del número que conservas.",
+    "onlyWhenChanged": "Respaldar ahora escribe un archivo nuevo solo si la novela ha cambiado. Guarda dos copias de cada estado en cada destino, y a partir de ahí te lo dice en vez de escribir — pulsarlo otra vez no puede llenar la carpeta.",
+    "damaged": "no se pudo leer entera",
+    "keepHint": "Archivos, no días. Con dos copias de cada estado, diez archivos son al menos cinco estados distintos de la novela."
+  },
+  "author": {
+    "title": "Autor",
+    "intro": "Lo que va dentro del archivo exportado, no en la página. Lectores, bibliotecas y editoriales miran aquí primero, y un archivo sin autor es un archivo que nadie puede atribuir.",
+    "none": "Los datos del autor necesitan la app de escritorio.",
+    "which": "Perfil",
+    "profiles": {
+      "work": "Trabajo",
+      "hobby": "Personal",
+      "workHint": "El nombre de un contrato: nombre legal, editorial, la línea de copyright que te dieron.",
+      "hobbyHint": "Un seudónimo, un nombre de pluma, obra que no es asunto de nadie más."
+    },
+    "inUseShort": "en uso",
+    "useForExports": "Usar {profile} al exportar",
+    "fields": {
+      "name": "Nombre",
+      "sortAs": "Ordenar como",
+      "role": "Rol",
+      "organization": "Editorial o empresa",
+      "rights": "Línea de copyright"
+    },
+    "where": {
+      "name": "La firma. Se escribe como autor en EPUB, DOCX, PDF y Markdown. Un proyecto que ya tiene su propio autor lo conserva.",
+      "sortAs": "Cómo lo coloca una biblioteca — apellido primero. Solo EPUB. Si lo dejas vacío, se deduce del nombre.",
+      "role": "Solo EPUB, como código MARC. Ningún otro formato tiene dónde ponerlo.",
+      "organization": "La editorial en EPUB, la empresa en DOCX.",
+      "rights": "La línea de derechos en EPUB, el asunto en PDF, la descripción en DOCX."
+    },
+    "roles": {
+      "none": "Sin indicar",
+      "aut": "Autor",
+      "edt": "Editor",
+      "trl": "Traductor"
+    },
+    "privacy": "Estos campos se escriben en los archivos que exportas y en ningún otro sitio. Nada de esto se envía a ninguna parte, y no se pide ninguna dirección ni cuenta, porque ningún formato de exportación tiene dónde ponerla.",
+    "saved": "Guardado."
+  },
+  "project": {
+    "title": "Proyecto",
+    "intro": "Ajustes que pertenecen a esta novela, no a la app. Viajan con la carpeta.",
+    "coverLabel": "Abrir las exportaciones con una portada",
+    "coverHint": "El título, tu firma, y la editorial y los derechos si tu perfil de autor los tiene. Un manuscrito que llega sin ella obliga al lector a deducir de quién es por el nombre del archivo.",
+    "colophonLabel": "Cerrar las exportaciones con la ficha de esta novela",
+    "colophonHint": "Título, autor, idioma, número de capítulos y de palabras, y una línea diciendo que se escribió aquí. Si lo desactivas, no queda rastro de Versorium en el archivo.",
+    "preview": "Portada",
+    "previewEmpty": "Añade un autor en Ajustes → Autor y aparecerá aquí.",
+    "colophonHeading": "Sobre este libro",
+    "colophonThanks": "Gracias por escribirlo aquí.",
+    "keys": {
+      "title": "Título",
+      "author": "Autor",
+      "publisher": "Editorial",
+      "rights": "Derechos",
+      "language": "Idioma",
+      "chapters": "Capítulos",
+      "words": "Palabras"
+    }
   }
 }

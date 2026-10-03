@@ -27,6 +27,18 @@ export function t(key: string, params?: Record<string, string | number>): string
   return s;
 }
 
+/**
+ * Translate into a named language rather than the one the app is showing.
+ *
+ * For text that ends up inside an exported file. The colophon of a Spanish
+ * novel says "Capítulos" even when the writer has the app in English, because
+ * it is read by whoever opens the book.
+ */
+export function tIn(language: string, key: string): string {
+  const which: Locale = language.toLowerCase().startsWith("es") ? "es" : "en";
+  return lookup(dicts[which], key) ?? lookup(dicts.en, key) ?? key;
+}
+
 export function getLocale(): Locale {
   return locale;
 }

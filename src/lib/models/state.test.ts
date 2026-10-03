@@ -104,23 +104,67 @@ it("hides uncensored models only while censorship is on", async () => {
   expect(store.writing.map((m) => m.id)).toEqual(["qwen3-4b", "spicy"]);
 });
 
-it("a download starts the poll and the poll stops once it reports done", async () => {
+it("the poll runs DURING the download, which is the only time it is useful", async () => {
   await store.load();
-  vi.mocked(api.modelsDownload).mockResolvedValue(undefined);
+  // `models_download` does not resolve until the file is on disk. Polling used
+  // to start after that await — the moment the download finished — so the panel
+  // showed nothing at all for the whole transfer.
+  let finish: () => void = () => {};
+  vi.mocked(api.modelsDownload).mockReturnValue(new Promise<void>((r) => (finish = r)));
   vi.mocked(api.modelsProgress).mockResolvedValue({ id: "qwen3-4b", received: 10, total: 100, done: false });
 
-  await store.download("qwen3-4b");
+  const running = store.download("qwen3-4b");
+
+  // Seeded before the first poll, because 700ms of a dead button reads as broken.
+  expect(store.view?.progress?.id).toBe("qwen3-4b");
+
   await vi.advanceTimersByTimeAsync(700);
   expect(api.modelsProgress).toHaveBeenCalledTimes(1);
   expect(store.view?.progress?.received).toBe(10);
 
-  vi.mocked(api.modelsProgress).mockResolvedValue({ id: "qwen3-4b", received: 100, total: 100, done: true });
   await vi.advanceTimersByTimeAsync(700);
   expect(api.modelsProgress).toHaveBeenCalledTimes(2);
 
-  // Nothing left to poll, so the interval must be gone.
+  finish();
+  await running;
+
+  // The download is over, so there is nothing left to ask about.
   await vi.advanceTimersByTimeAsync(2100);
   expect(api.modelsProgress).toHaveBeenCalledTimes(2);
+});
+
+it("a download that finishes mid-poll stops the interval itself", async () => {
+  await store.load();
+  let finish: () => void = () => {};
+  vi.mocked(api.modelsDownload).mockReturnValue(new Promise<void>((r) => (finish = r)));
+  vi.mocked(api.modelsProgress).mockResolvedValue({ id: "qwen3-4b", received: 100, total: 100, done: true });
+
+  const running = store.download("qwen3-4b");
+  await vi.advanceTimersByTimeAsync(700);
+  expect(api.modelsProgress).toHaveBeenCalledTimes(1);
+
+  // `done` came back, so the poller stands down without waiting for the command.
+  await vi.advanceTimersByTimeAsync(2100);
+  expect(api.modelsProgress).toHaveBeenCalledTimes(1);
+  finish();
+  await running;
+});
+
+it("cancelling works while the download holds the store busy", async () => {
+  await store.load();
+  let finish: () => void = () => {};
+  vi.mocked(api.modelsDownload).mockReturnValue(new Promise<void>((r) => (finish = r)));
+  vi.mocked(api.modelsProgress).mockResolvedValue({ id: "qwen3-4b", received: 10, total: 100, done: false });
+
+  const running = store.download("qwen3-4b");
+  // Cancel used to be routed through the same guard that is held for the whole
+  // download, so it was dead for exactly as long as it was the only button on
+  // screen.
+  await store.cancel("qwen3-4b");
+  expect(api.modelsCancel).toHaveBeenCalledWith("qwen3-4b");
+
+  finish();
+  await running;
 });
 
 it("a failed download localizes the error and keeps the previous view", async () => {
@@ -159,11 +203,14 @@ it("reopening the panel revives a disposed store", async () => {
 
   // Closing Settings and opening it again must poll like the first time.
   await store.load();
-  vi.mocked(api.modelsDownload).mockResolvedValue(undefined);
+  let finish: () => void = () => {};
+  vi.mocked(api.modelsDownload).mockReturnValue(new Promise<void>((r) => (finish = r)));
   vi.mocked(api.modelsProgress).mockResolvedValue({ id: "qwen3-4b", received: 5, total: 100, done: false });
-  await store.download("qwen3-4b");
+  const running = store.download("qwen3-4b");
   await vi.advanceTimersByTimeAsync(700);
   expect(api.modelsProgress).toHaveBeenCalled();
+  finish();
+  await running;
 });
 
 it("formats sizes and percentages without lying", () => {

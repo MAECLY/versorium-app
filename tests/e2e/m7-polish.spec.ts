@@ -6,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function withProject(page: Page, title = "El largo invierno") {
   await page.goto("/?mock=tauri");
-  await page.getByRole("button", { name: "Create your first project" }).click();
+  await page.getByRole("button", { name: "Create your first novel" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Title").fill(title);
   await dialog.getByRole("button", { name: "Create" }).click();

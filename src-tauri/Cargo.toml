@@ -20,7 +20,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dirs = "6"
 thiserror = "2"
-git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2"] }
+git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "https"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 sha2 = "0.11.0"
 sysinfo = "0.39.6"
@@ -39,6 +39,33 @@ llama-cpp-2 = { version = "=0.1.157", default-features = false, features = ["com
 # one so an accented character split across two tokens survives. The deprecated
 # `token_to_str` makes a fresh decoder per call and loses exactly that.
 encoding_rs = "0.8.35"
+# Credentials in the OS store instead of settings.json. The default `v1`
+# feature is exactly the three native stores (Keychain, Credential Manager,
+# Secret Service); `cli` would pull in nine. No new system packages: the Linux
+# backend is zbus, pure Rust.
+keyring = "4"
+# The OS CSPRNG, for the MCP HTTP bearer token. Already in the tree transitively,
+# so declaring it adds nothing to the binary — but a token gating tools that can
+# write to a manuscript must come from a real random source, not from mixing the
+# clock with a heap address.
+getrandom = "0.3"
+# Deleting a novel sends it to the system trash, not to oblivion. Git protects a
+# deleted chapter; nothing protects a deleted project folder, so the recovery
+# has to be the one the writer already knows how to use.
+trash = "5"
+
+[features]
+# GPU offload on Windows and Linux. Off by default and switched on only in the
+# release workflow for those two targets, because it needs the Vulkan SDK at
+# build time and adds roughly 42 MB to the artifact.
+#
+# macOS must never get this: Metal is already on there via llama.cpp's own APPLE
+# CMake default, and Vulkan would be a second backend nobody asked for.
+#
+# One Vulkan backend covers NVIDIA, AMD and Intel. CUDA is deliberately not
+# offered: it needs the full toolkit on every runner and ships ~390 MB of
+# redistributables, for hardware Vulkan already reaches.
+vulkan = ["llama-cpp-2/vulkan"]
 
 [dev-dependencies]
 tempfile = "3"

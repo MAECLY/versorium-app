@@ -76,6 +76,7 @@
 
     <label class="v-row mt-3" style="gap: 8px; font-size: 13px;">
       {t("updates.channel")}
+      <span class="v-select">
       <select
         value={status?.channel ?? "stable"}
         disabled={updates.busy}
@@ -85,6 +86,7 @@
           <option value={channel}>{t(`updates.channels.${channel}`)}</option>
         {/each}
       </select>
+      </span>
     </label>
     <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("updates.channelHint")}</p>
 

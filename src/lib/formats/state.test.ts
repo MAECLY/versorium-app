@@ -38,10 +38,17 @@ it("keeps the result of an export the user chose a destination for", async () =>
   vi.mocked(api.pickExportTarget).mockResolvedValue("/out/novel.docx");
   vi.mocked(api.exportManuscript).mockResolvedValue(written);
 
-  await formats.exportAs("/novel", "docx", "The Long Winter");
+  await formats.exportAs("/novel", "docx", "The Long Winter", "en");
 
   expect(api.pickExportTarget).toHaveBeenCalledWith("The Long Winter.docx", "Word", "docx");
-  expect(api.exportManuscript).toHaveBeenCalledWith("/novel", "docx", "/out/novel.docx");
+  expect(api.exportManuscript).toHaveBeenCalledWith(
+    "/novel",
+    "docx",
+    "/out/novel.docx",
+    // The colophon's wording travels with the call, in the manuscript's own
+    // language rather than the interface's.
+    expect.objectContaining({ chapters: "Chapters", thanks: expect.any(String) }),
+  );
   expect(formats.result).toEqual(written);
   expect(formats.busy).toBe(false);
   expect(formats.error).toBeNull();
@@ -50,7 +57,7 @@ it("keeps the result of an export the user chose a destination for", async () =>
 it("backing out of the save dialog is not a failure", async () => {
   vi.mocked(api.pickExportTarget).mockResolvedValue(null);
 
-  await formats.exportAs("/novel", "md", "Novel");
+  await formats.exportAs("/novel", "md", "Novel", "en");
 
   expect(api.exportManuscript).not.toHaveBeenCalled();
   expect(formats.error).toBeNull();
@@ -61,7 +68,7 @@ it("a failed export surfaces a localized error and stops being busy", async () =
   vi.mocked(api.pickExportTarget).mockResolvedValue("/out/novel.pdf");
   vi.mocked(api.exportManuscript).mockRejectedValue("no_author");
 
-  await formats.exportAs("/novel", "pdf", "Novel");
+  await formats.exportAs("/novel", "pdf", "Novel", "en");
 
   expect(formats.error).toBe("This format needs an author for its running heads.");
   expect(formats.busy).toBe(false);

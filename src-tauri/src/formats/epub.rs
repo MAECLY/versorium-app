@@ -6,7 +6,7 @@
 //! Spec §9 makes passing epubcheck the acceptance bar, so the structure here
 //! mirrors a package that was validated against epubcheck 5.2.1.
 
-use super::{Chapter, Manuscript, Scene};
+use super::{Chapter, Imported, ImportedChapter, Manuscript, Scene};
 use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::path::Path;
@@ -48,7 +48,7 @@ fn utc_now() -> String {
 }
 
 /// Days-to-civil, the same algorithm the ops log uses for its pack names.
-fn civil_from_secs(secs: i64) -> (i64, u32, u32) {
+pub fn civil_from_secs(secs: i64) -> (i64, u32, u32) {
     let z = secs.div_euclid(86_400) + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z - era * 146_097;
@@ -134,6 +134,83 @@ fn chapter_xhtml(chapter: &Chapter, language: &str) -> String {
     )
 }
 
+/// The title page.
+///
+/// A manuscript that arrives with no title page makes the reader work out whose
+/// it is from the filename. Only what the writer actually filled in appears —
+/// an empty publisher line is a blank stripe on the first page somebody sees.
+fn cover_xhtml(manuscript: &Manuscript) -> String {
+    let mut lines = String::new();
+    if !manuscript.author.trim().is_empty() {
+        lines.push_str(&format!("    <p class=\"byline\">{}</p>\n", esc(&manuscript.author)));
+    }
+    for value in [&manuscript.byline.organization, &manuscript.byline.rights] {
+        if !value.trim().is_empty() {
+            lines.push_str(&format!("    <p class=\"imprint\">{}</p>\n", esc(value.trim())));
+        }
+    }
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}" lang="{lang}">
+  <head>
+    <meta charset="utf-8"/>
+    <title>{title}</title>
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+  </head>
+  <body>
+    <section epub:type="titlepage" role="doc-tithead" class="cover">
+    <h1 class="cover-title">{title}</h1>
+{lines}    </section>
+  </body>
+</html>
+"#,
+        lang = esc(&manuscript.language),
+        title = esc(&manuscript.title),
+        lines = lines
+    )
+}
+
+/// The project's own record, and one line of thanks.
+///
+/// Last, and refusable. A tool that puts its name on the title page has
+/// mistaken whose book it is.
+fn colophon_xhtml(manuscript: &Manuscript) -> String {
+    let labels = &manuscript.matter.labels;
+    let rows: String = crate::formats::colophon_lines(manuscript)
+        .into_iter()
+        .map(|(key, value)| {
+            format!(
+                "      <div class=\"row\"><span class=\"key\">{}</span><span>{}</span></div>\n",
+                esc(labels.get(&key)),
+                esc(&value)
+            )
+        })
+        .collect();
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}" lang="{lang}">
+  <head>
+    <meta charset="utf-8"/>
+    <title>{heading}</title>
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+  </head>
+  <body>
+    <section epub:type="colophon" role="doc-afterword" class="colophon">
+      <h1>{heading}</h1>
+{rows}      <p class="credit">{credit}</p>
+      <p class="thanks">{thanks}</p>
+    </section>
+  </body>
+</html>
+"#,
+        lang = esc(&manuscript.language),
+        heading = esc(labels.get("heading")),
+        rows = rows,
+        credit = esc(&crate::formats::colophon_credit()),
+        thanks = esc(labels.get("thanks"))
+    )
+}
+
 fn nav_xhtml(chapters: &[(usize, &Chapter)], language: &str) -> String {
     let items: String = chapters
         .iter()
@@ -167,7 +244,37 @@ fn nav_xhtml(chapters: &[(usize, &Chapter)], language: &str) -> String {
     )
 }
 
+/// An element only when there is something to put in it.
+///
+/// An empty `<dc:publisher/>` is worse than none: a reader shows a blank
+/// publisher rather than falling back to nothing.
+fn optional_element(name: &str, value: &str) -> String {
+    let value = value.trim();
+    if value.is_empty() {
+        return String::new();
+    }
+    format!("    <{name}>{}</{name}>\n", esc(value))
+}
+
 fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified: &str) -> String {
+    // Front and back matter sit in the manifest and the spine like any other
+    // document; a reading system that skipped them would be skipping pages.
+    let mut extra_manifest = String::new();
+    let mut before = String::new();
+    let mut after = String::new();
+    if manuscript.matter.cover {
+        extra_manifest.push_str(
+            "    <item id=\"cover\" href=\"cover.xhtml\" media-type=\"application/xhtml+xml\"/>\n",
+        );
+        before.push_str("    <itemref idref=\"cover\"/>\n");
+    }
+    if manuscript.matter.colophon {
+        extra_manifest.push_str(
+            "    <item id=\"colophon\" href=\"colophon.xhtml\" media-type=\"application/xhtml+xml\"/>\n",
+        );
+        after.push_str("    <itemref idref=\"colophon\"/>\n");
+    }
+
     let manifest: String = chapters
         .iter()
         .map(|(index, _)| {
@@ -182,14 +289,32 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
         .iter()
         .map(|(index, _)| format!("    <itemref idref=\"ch{}\"/>\n", index + 1))
         .collect();
+    let spine = format!("{before}{spine}{after}");
+    // `file-as` and `role` are refinements of `dc:creator`, so they are only
+    // legal when there is a creator to refine: epubcheck rejects a `refines=`
+    // pointing at nothing.
     let creator = if manuscript.author.trim().is_empty() {
         String::new()
     } else {
-        format!(
+        let byline = &manuscript.byline;
+        let mut out = format!(
             "    <dc:creator id=\"creator\">{}</dc:creator>\n",
             esc(&manuscript.author)
-        )
+        );
+        out.push_str(&format!(
+            "    <meta refines=\"#creator\" property=\"file-as\">{}</meta>\n",
+            esc(&byline.sort_as_or_guess(&manuscript.author))
+        ));
+        if crate::formats::ROLES.contains(&byline.role.as_str()) {
+            out.push_str(&format!(
+                "    <meta refines=\"#creator\" property=\"role\" scheme=\"marc:relators\">{}</meta>\n",
+                esc(&byline.role)
+            ));
+        }
+        out
     };
+    let publisher = optional_element("dc:publisher", &manuscript.byline.organization);
+    let rights = optional_element("dc:rights", &manuscript.byline.rights);
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id" xml:lang="{lang}">
@@ -197,12 +322,12 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
     <dc:identifier id="pub-id">{id}</dc:identifier>
     <dc:title>{title}</dc:title>
     <dc:language>{lang}</dc:language>
-{creator}    <meta property="dcterms:modified">{modified}</meta>
+{creator}{publisher}{rights}    <meta property="dcterms:modified">{modified}</meta>
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="css" href="style.css" media-type="text/css"/>
-{manifest}  </manifest>
+{extra_manifest}{manifest}  </manifest>
   <spine>
 {spine}  </spine>
 </package>
@@ -211,8 +336,11 @@ fn package_opf(manuscript: &Manuscript, chapters: &[(usize, &Chapter)], modified
         id = stable_uuid(manuscript),
         title = esc(&manuscript.title),
         creator = creator,
+        publisher = publisher,
+        rights = rights,
         modified = modified,
         manifest = manifest,
+        extra_manifest = extra_manifest,
         spine = spine
     )
 }
@@ -226,6 +354,14 @@ const CONTAINER: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 "#;
 
 const STYLE: &str = r#"body { margin: 0 5%; line-height: 1.4; }
+.cover { text-align: center; margin-top: 30%; }
+.cover-title { font-size: 2em; margin: 0 0 1.5em; }
+.byline { text-indent: 0; font-size: 1.15em; margin: 0 0 2em; }
+.imprint { text-indent: 0; font-size: 0.85em; margin: 0.4em 0; }
+.colophon .row { margin: 0.3em 0; }
+.colophon .key { display: inline-block; min-width: 9em; font-variant: small-caps; }
+.colophon .credit { text-indent: 0; margin-top: 2em; }
+.colophon .thanks { text-indent: 0; font-size: 0.9em; }
 h1 { text-align: center; margin: 2em 0 1em; }
 h2 { text-align: center; font-size: 1em; font-weight: normal; margin: 1.5em 0 0.5em; }
 p { text-indent: 1.5em; margin: 0; }
@@ -265,6 +401,12 @@ pub fn export_to(manuscript: &Manuscript, dest: &Path) -> Result<u64, String> {
         put("OEBPS/package.opf", &package_opf(manuscript, &chapters, &modified))?;
         put("OEBPS/nav.xhtml", &nav_xhtml(&chapters, &manuscript.language))?;
         put("OEBPS/style.css", STYLE)?;
+        if manuscript.matter.cover {
+            put("OEBPS/cover.xhtml", &cover_xhtml(manuscript))?;
+        }
+        if manuscript.matter.colophon {
+            put("OEBPS/colophon.xhtml", &colophon_xhtml(manuscript))?;
+        }
         for (index, chapter) in &chapters {
             put(
                 &format!("OEBPS/{}", chapter_href(*index)),
@@ -276,6 +418,449 @@ pub fn export_to(manuscript: &Manuscript, dest: &Path) -> Result<u64, String> {
     let bytes = buffer.len() as u64;
     crate::storage::atomic_write(dest, buffer)?;
     Ok(bytes)
+}
+
+// --- import ---
+
+/// Text an EPUB carries that a Versorium project does not.
+pub const WARN_IMAGES: &str = "import_images_dropped";
+pub const WARN_STYLES: &str = "import_epub_styles_dropped";
+
+/// `epub:type` values that mark a page as apparatus rather than as a chapter.
+/// Straight from the EPUB 3 structural semantics vocabulary, so this skips the
+/// front and back matter of books this app never wrote.
+const NOT_A_CHAPTER: [&str; 8] = [
+    "toc",
+    "titlepage",
+    "colophon",
+    "cover",
+    "copyright-page",
+    "dedication",
+    "acknowledgments",
+    "landmarks",
+];
+
+pub fn import_file(path: &Path) -> Result<Imported, String> {
+    let bytes = std::fs::read(path).map_err(|_| "not_found".to_string())?;
+    import_bytes(&bytes)
+}
+
+/// Read an EPUB into chapters.
+///
+/// The **spine** decides order, not the file names inside the zip and not the
+/// table of contents: the spine is the reading order the publisher declared, and
+/// alphabetical filenames put chapter 10 before chapter 2.
+pub fn import_bytes(bytes: &[u8]) -> Result<Imported, String> {
+    use std::io::{Cursor, Read};
+    let mut zip = zip::ZipArchive::new(Cursor::new(bytes.to_vec()))
+        .map_err(|_| "unsupported_source".to_string())?;
+
+    let read = |zip: &mut zip::ZipArchive<Cursor<Vec<u8>>>, name: &str| -> Option<String> {
+        let mut file = zip.by_name(name).ok()?;
+        let mut text = String::new();
+        file.read_to_string(&mut text).ok()?;
+        Some(text)
+    };
+
+    // The only file whose path an EPUB guarantees; everything else is found
+    // through it.
+    let container = read(&mut zip, "META-INF/container.xml")
+        .ok_or_else(|| "unsupported_source".to_string())?;
+    let opf_path = attr_of(&container, "rootfile", "full-path")
+        .ok_or_else(|| "unsupported_source".to_string())?;
+    let opf = read(&mut zip, &opf_path).ok_or_else(|| "unsupported_source".to_string())?;
+
+    // Hrefs in the OPF are relative to the OPF's own directory, not to the zip
+    // root. Getting this wrong is why some readers fail on nested layouts.
+    let base = opf_path.rsplit_once('/').map(|(dir, _)| format!("{dir}/")).unwrap_or_default();
+
+    let title = opf_text(&opf, "dc:title")
+        .or_else(|| opf_text(&opf, "title"))
+        .unwrap_or_default();
+    let manifest = manifest_of(&opf);
+    let spine = spine_of(&opf);
+
+    let mut chapters: Vec<ImportedChapter> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+    if manifest.values().any(|href| is_image(href)) {
+        warnings.push(WARN_IMAGES.to_string());
+    }
+    if manifest.values().any(|href| href.ends_with(".css")) {
+        warnings.push(WARN_STYLES.to_string());
+    }
+
+    for id in &spine {
+        let Some(href) = manifest.get(id) else { continue };
+        // A nav document is the table of contents, not a chapter.
+        if href.contains("nav") && spine.len() > 1 && chapters.is_empty() && spine.first() == Some(id) {
+            if let Some(html) = read(&mut zip, &format!("{base}{href}")) {
+                if html.contains("epub:type=\"toc\"") || html.contains("epub:type='toc'") {
+                    continue;
+                }
+            }
+        }
+        let Some(html) = read(&mut zip, &format!("{base}{href}")) else { continue };
+        // Front and back matter are pages of the book, not chapters of the
+        // novel. Without this, re-importing an EPUB this app wrote hands the
+        // writer a title page and a colophon as two new chapters — which the
+        // round-trip test is how we found out.
+        //
+        // Matched on `epub:type`, the structural semantics every conforming
+        // EPUB carries, rather than on a filename, which is ours alone.
+        if NOT_A_CHAPTER.iter().any(|kind| {
+            html.contains(&format!("epub:type=\"{kind}\"")) || html.contains(&format!("epub:type='{kind}'"))
+        }) {
+            continue;
+        }
+        let (heading, body) = html_to_chapter(&html);
+        if body.trim().is_empty() {
+            continue;
+        }
+        let number = chapters.len() + 1;
+        chapters.push(ImportedChapter {
+            title: heading.unwrap_or_else(|| format!("{number}")),
+            body,
+            // EPUB has no synopsis field; the corkboard derives its own.
+            synopsis: None,
+        });
+    }
+
+    if chapters.is_empty() {
+        return Err("empty_manuscript".into());
+    }
+    Ok(Imported { title, chapters, warnings })
+}
+
+fn is_image(href: &str) -> bool {
+    let lower = href.to_lowercase();
+    [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"].iter().any(|e| lower.ends_with(e))
+}
+
+/// One attribute of the first element with this name. Hand-rolled because the
+/// only shapes needed are `<rootfile full-path="...">` and the manifest.
+fn attr_of(xml: &str, element: &str, name: &str) -> Option<String> {
+    let needle = format!("<{element}");
+    let start = find_element(xml, &needle)?;
+    let rest = &xml[start..];
+    let end = rest.find('>')?;
+    let tag = &rest[..end];
+    let key = format!("{name}=");
+    let at = tag.find(&key)? + key.len();
+    let quote = tag[at..].chars().next()?;
+    let value = &tag[at + 1..];
+    let close = value.find(quote)?;
+    Some(unescape(&value[..close]))
+}
+
+/// The offset of `<name`, where the next character actually ends the name.
+///
+/// Without this, `<rootfiles>` matches a search for `<rootfile` — and since
+/// every EPUB wraps the singular in the plural, that is the first hit in every
+/// real book.
+fn find_element(xml: &str, needle: &str) -> Option<usize> {
+    let mut from = 0;
+    while let Some(at) = xml[from..].find(needle) {
+        let start = from + at;
+        let after = xml[start + needle.len()..].chars().next();
+        if matches!(after, Some(c) if c.is_whitespace() || c == '>' || c == '/') {
+            return Some(start);
+        }
+        from = start + needle.len();
+    }
+    None
+}
+
+fn opf_text(xml: &str, element: &str) -> Option<String> {
+    let open = format!("<{element}");
+    let start = xml.find(&open)?;
+    let rest = &xml[start..];
+    let content_start = rest.find('>')? + 1;
+    let close = format!("</{element}>");
+    let content_end = rest.find(&close)?;
+    if content_end < content_start {
+        return None;
+    }
+    let text = unescape(rest[content_start..content_end].trim());
+    (!text.is_empty()).then_some(text)
+}
+
+/// `id` to `href` for every manifest item.
+fn manifest_of(opf: &str) -> std::collections::HashMap<String, String> {
+    let mut out = std::collections::HashMap::new();
+    for chunk in opf.split("<item ").skip(1) {
+        let Some(end) = chunk.find('>') else { continue };
+        let tag = &chunk[..end];
+        if let (Some(id), Some(href)) = (tag_attr(tag, "id"), tag_attr(tag, "href")) {
+            out.insert(id, href);
+        }
+    }
+    out
+}
+
+/// Spine idrefs, in order. This is the reading order.
+fn spine_of(opf: &str) -> Vec<String> {
+    let Some(start) = opf.find("<spine") else { return Vec::new() };
+    let section = &opf[start..];
+    let end = section.find("</spine>").unwrap_or(section.len());
+    section[..end]
+        .split("<itemref")
+        .skip(1)
+        .filter_map(|chunk| {
+            let stop = chunk.find('>')?;
+            tag_attr(&chunk[..stop], "idref")
+        })
+        .collect()
+}
+
+fn tag_attr(tag: &str, name: &str) -> Option<String> {
+    for key in [format!("{name}=\""), format!("{name}='")] {
+        if let Some(at) = tag.find(&key) {
+            let value = &tag[at + key.len()..];
+            let quote = key.chars().next_back()?;
+            if let Some(close) = value.find(quote) {
+                return Some(unescape(&value[..close]));
+            }
+        }
+    }
+    None
+}
+
+fn unescape(text: &str) -> String {
+    text.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        // Last, or an escaped entity like `&amp;lt;` would be double-decoded.
+        .replace("&amp;", "&")
+}
+
+/// Turn one XHTML document into a heading and a Markdown body.
+///
+/// Block-level tags become paragraph breaks and everything else is dropped,
+/// which is the same contract the DOCX reader offers: the prose survives, the
+/// presentation does not.
+fn html_to_chapter(html: &str) -> (Option<String>, String) {
+    let body = html
+        .find("<body")
+        .and_then(|start| html[start..].find('>').map(|o| start + o + 1))
+        .map(|start| {
+            let rest = &html[start..];
+            let end = rest.find("</body>").unwrap_or(rest.len());
+            &rest[..end]
+        })
+        .unwrap_or(html);
+
+    let mut heading: Option<String> = None;
+    let mut blocks: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut in_tag = false;
+    let mut tag = String::new();
+    // Script and style hold text that is not prose.
+    let mut skipping = false;
+
+    let flush = |current: &mut String, blocks: &mut Vec<String>| {
+        let text = collapse(current);
+        if !text.is_empty() {
+            blocks.push(text);
+        }
+        current.clear();
+    };
+
+    for c in body.chars() {
+        if c == '<' {
+            in_tag = true;
+            tag.clear();
+            continue;
+        }
+        if c == '>' {
+            in_tag = false;
+            let lower = tag.to_lowercase();
+            let name = lower.trim_start_matches('/').split([' ', '\t', '\n', '/']).next().unwrap_or("");
+            if matches!(name, "script" | "style") {
+                skipping = !lower.starts_with('/');
+            }
+            // `br` inside a paragraph is a line break, not a new paragraph, and
+            // every format here re-wraps anyway.
+            if matches!(name, "p" | "div" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "li" | "blockquote" | "section") {
+                if name.starts_with('h') && heading.is_none() && lower.starts_with('/') {
+                    let text = collapse(&current);
+                    if !text.is_empty() {
+                        heading = Some(text);
+                        current.clear();
+                        continue;
+                    }
+                }
+                flush(&mut current, &mut blocks);
+            }
+            continue;
+        }
+        if in_tag {
+            tag.push(c);
+        } else if !skipping {
+            current.push(c);
+        }
+    }
+    flush(&mut current, &mut blocks);
+
+    (heading, blocks.join("\n\n"))
+}
+
+/// Fold whitespace and resolve entities, which is what turns XHTML text into a
+/// paragraph.
+fn collapse(text: &str) -> String {
+    let decoded = unescape(&text.replace("&#160;", " ").replace("&nbsp;", " "));
+    decoded.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+#[cfg(test)]
+mod import_tests {
+    use super::*;
+
+    // Read back through this file's own writer, which is the strongest check
+    // available without a reader installed: the writer was itself validated
+    // against epubcheck (see the `live_` test below).
+
+    fn sample() -> Manuscript {
+        Manuscript {
+            title: "El largo invierno".into(),
+            author: "Ana Ruiz".into(),
+            byline: Default::default(),
+            matter: Default::default(),
+            language: "es".into(),
+            chapters: vec![
+                Chapter {
+                    id: "ch-01".into(),
+                    title: "La llegada".into(),
+                    scenes: vec![Scene {
+                        heading: None,
+                        paragraphs: vec![
+                            "La niña esperó junto a la ventana.".into(),
+                            "Nadie vino.".into(),
+                        ],
+                    }],
+                },
+                Chapter {
+                    id: "ch-02".into(),
+                    title: "El faro & la niebla".into(),
+                    scenes: vec![Scene {
+                        heading: None,
+                        paragraphs: vec!["La luz giraba sobre el agua.".into()],
+                    }],
+                },
+            ],
+        }
+    }
+
+    fn written(manuscript: &Manuscript) -> Vec<u8> {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("book.epub");
+        export_to(manuscript, &path).unwrap();
+        std::fs::read(&path).unwrap()
+    }
+
+    #[test]
+    fn an_epub_this_app_wrote_reads_back_with_its_chapters_in_order() {
+        let imported = import_bytes(&written(&sample())).unwrap();
+        assert_eq!(imported.title, "El largo invierno");
+        let titles: Vec<&str> = imported.chapters.iter().map(|c| c.title.as_str()).collect();
+        assert_eq!(titles, vec!["La llegada", "El faro & la niebla"]);
+        // Accents and an escaped ampersand both survive.
+        assert!(imported.chapters[0].body.contains("La niña esperó"), "{}", imported.chapters[0].body);
+        assert!(imported.chapters[1].body.contains("La luz giraba"));
+    }
+
+    #[test]
+    fn paragraphs_stay_separate_rather_than_running_together() {
+        let imported = import_bytes(&written(&sample())).unwrap();
+        // Two paragraphs, blank line between: that is what makes them paragraphs
+        // again on the way back in.
+        assert_eq!(
+            imported.chapters[0].body,
+            "La niña esperó junto a la ventana.\n\nNadie vino."
+        );
+    }
+
+    #[test]
+    fn the_table_of_contents_is_not_imported_as_a_chapter() {
+        // The nav document is in the spine and is not prose; importing it would
+        // give every book a first chapter listing its own chapters.
+        let imported = import_bytes(&written(&sample())).unwrap();
+        assert_eq!(imported.chapters.len(), 2, "{:?}", imported.chapters.iter().map(|c| &c.title).collect::<Vec<_>>());
+        assert!(!imported.chapters.iter().any(|c| c.body.contains("La llegada") && c.body.contains("El faro")));
+    }
+
+    #[test]
+    fn the_spine_decides_order_not_the_file_names() {
+        // Alphabetical hrefs would put chapter 10 before chapter 2, which is why
+        // the spine is what is walked.
+        let opf = r#"<package><manifest>
+            <item id="c10" href="ch-10.xhtml" media-type="application/xhtml+xml"/>
+            <item id="c2" href="ch-02.xhtml" media-type="application/xhtml+xml"/>
+        </manifest><spine><itemref idref="c2"/><itemref idref="c10"/></spine></package>"#;
+        assert_eq!(spine_of(opf), vec!["c2", "c10"]);
+        let manifest = manifest_of(opf);
+        assert_eq!(manifest.get("c2").map(String::as_str), Some("ch-02.xhtml"));
+    }
+
+    #[test]
+    fn hrefs_resolve_against_the_opf_directory_not_the_zip_root() {
+        // A nested layout (OEBPS/content.opf with hrefs like "text/ch-01.xhtml")
+        // is common and is where a naive reader fails.
+        let container = r#"<container><rootfiles><rootfile full-path="OEBPS/content.opf"
+            media-type="application/oebps-package+xml"/></rootfiles></container>"#;
+        let opf_path = attr_of(container, "rootfile", "full-path").unwrap();
+        assert_eq!(opf_path, "OEBPS/content.opf");
+        let base = opf_path.rsplit_once('/').map(|(d, _)| format!("{d}/")).unwrap_or_default();
+        assert_eq!(base, "OEBPS/");
+    }
+
+    #[test]
+    fn something_that_is_not_an_epub_is_refused_rather_than_guessed_at() {
+        assert_eq!(import_bytes(b"not a zip").unwrap_err(), "unsupported_source");
+        // A zip with no container.xml is not an EPUB either.
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        {
+            let mut zip = zip::ZipWriter::new(&mut buffer);
+            zip.start_file("hello.txt", zip::write::SimpleFileOptions::default()).unwrap();
+            use std::io::Write;
+            zip.write_all(b"hi").unwrap();
+            zip.finish().unwrap();
+        }
+        assert_eq!(import_bytes(&buffer.into_inner()).unwrap_err(), "unsupported_source");
+    }
+
+    #[test]
+    fn entities_decode_once_and_in_the_right_order() {
+        // `&amp;lt;` must come back as the text "&lt;", not as "<": decoding
+        // `&amp;` first would double-decode it.
+        assert_eq!(unescape("a &amp;lt; b"), "a &lt; b");
+        assert_eq!(unescape("&lt;p&gt; &amp; &quot;q&quot;"), "<p> & \"q\"");
+    }
+
+    #[test]
+    fn markup_and_scripts_do_not_become_prose() {
+        let html = r#"<html><body><h1>Título</h1>
+            <style>p { color: red; }</style>
+            <script>var x = 1;</script>
+            <p>Primer <em>párrafo</em>.</p><p>Segundo.</p></body></html>"#;
+        let (heading, body) = html_to_chapter(html);
+        assert_eq!(heading.as_deref(), Some("Título"));
+        assert_eq!(body, "Primer párrafo.\n\nSegundo.");
+        assert!(!body.contains("color"), "a stylesheet reached the manuscript");
+        assert!(!body.contains("var x"), "a script reached the manuscript");
+    }
+
+    #[test]
+    fn losses_are_reported_when_the_book_has_them() {
+        // A book with a cover and a stylesheet loses both, and says so.
+        let opf = r#"<package><metadata><dc:title>T</dc:title></metadata><manifest>
+            <item id="cover" href="cover.jpg" media-type="image/jpeg"/>
+            <item id="css" href="style.css" media-type="text/css"/>
+        </manifest><spine></spine></package>"#;
+        let manifest = manifest_of(opf);
+        assert!(manifest.values().any(|h| is_image(h)));
+        assert!(manifest.values().any(|h| h.ends_with(".css")));
+    }
 }
 
 #[cfg(test)]
@@ -294,6 +879,8 @@ mod tests {
         Manuscript {
             title: "Niebla & \"Sombra\" <1>".into(),
             author: "María Fernández".into(),
+            byline: Default::default(),
+            matter: Default::default(),
             language: "es".into(),
             chapters: vec![
                 Chapter {
@@ -449,6 +1036,8 @@ mod tests {
         let manuscript = Manuscript {
             title: "Empty".into(),
             author: "A".into(),
+            byline: Default::default(),
+            matter: Default::default(),
             language: "en".into(),
             chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![] }],
         };
@@ -500,5 +1089,115 @@ mod tests {
         eprintln!("{report}");
         assert!(out.status.success(), "epubcheck rejected the file:\n{report}");
         assert!(!report.contains("ERROR"), "epubcheck reported errors:\n{report}");
+    }
+
+    #[test]
+    fn an_author_profile_reaches_the_package_document() {
+        let mut book = book();
+        book.byline = crate::formats::Byline {
+            sort_as: "Ruiz, Ana".into(),
+            role: "aut".into(),
+            organization: "Minotauro".into(),
+            rights: "© 2026 Ana Ruiz".into(),
+        };
+        let opf = package_opf(&book, &book.chapters.iter().enumerate().collect::<Vec<_>>(), "2026-01-01T00:00:00Z");
+
+        assert!(opf.contains(r##"<meta refines="#creator" property="file-as">Ruiz, Ana</meta>"##));
+        assert!(opf.contains(r##"property="role" scheme="marc:relators">aut<"##));
+        assert!(opf.contains("<dc:publisher>Minotauro</dc:publisher>"));
+        assert!(opf.contains("<dc:rights>© 2026 Ana Ruiz</dc:rights>"));
+    }
+
+    #[test]
+    fn nothing_is_written_for_a_profile_nobody_filled_in() {
+        // An empty <dc:publisher/> shows as a blank publisher in a reader,
+        // which is worse than the reader falling back to nothing.
+        let opf = package_opf(&book(), &[], "2026-01-01T00:00:00Z");
+        assert!(!opf.contains("<dc:publisher"));
+        assert!(!opf.contains("<dc:rights"));
+        assert!(!opf.contains("marc:relators"), "an invented role code is worse than none");
+        // file-as is still written, from the guess, because a shelf has to sort
+        // somehow and "Ruiz, Ana" beats sorting on "Ana".
+        assert!(opf.contains(r##"property="file-as""##));
+    }
+
+    #[test]
+    fn a_refinement_is_never_left_pointing_at_a_creator_that_is_not_there() {
+        // epubcheck rejects a refines= with no target, so an anonymous
+        // manuscript must write neither the creator nor its refinements.
+        let anonymous = Manuscript { author: String::new(), ..book() };
+        let opf = package_opf(&anonymous, &[], "2026-01-01T00:00:00Z");
+        assert!(!opf.contains("dc:creator"));
+        assert!(!opf.contains("refines"));
+    }
+
+    #[test]
+    fn a_title_page_and_a_colophon_are_real_pages_of_the_book() {
+        let mut m = book();
+        m.byline.organization = "Minotauro".into();
+        m.byline.rights = "© 2026 María Fernández".into();
+        m.matter.labels = crate::formats::Labels::from_pairs(&[
+            ("heading", "Sobre este libro"),
+            ("chapters", "Capítulos"),
+            ("thanks", "Gracias por escribirlo aquí."),
+        ]);
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("b.epub");
+        export_to(&m, &dest).unwrap();
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(std::fs::read(&dest).unwrap())).unwrap();
+
+        let cover = read(&mut zip, "OEBPS/cover.xhtml");
+        assert!(cover.contains(&esc(&m.title)), "the title page carries the title");
+        assert!(cover.contains("María Fernández"));
+        assert!(cover.contains("Minotauro"));
+        assert!(cover.contains("epub:type=\"titlepage\""));
+
+        let colophon = read(&mut zip, "OEBPS/colophon.xhtml");
+        assert!(colophon.contains("Sobre este libro"), "labels come from the caller");
+        assert!(colophon.contains("Capítulos"));
+        assert!(colophon.contains("Gracias por escribirlo aquí."));
+        assert!(colophon.contains("Written in Versorium"));
+
+        // A page nothing points at is a page nobody reads.
+        let opf = read(&mut zip, "OEBPS/package.opf");
+        assert!(opf.contains(r#"<item id="cover" href="cover.xhtml""#));
+        assert!(opf.contains(r#"<itemref idref="cover"/>"#));
+        assert!(opf.contains(r#"<itemref idref="colophon"/>"#));
+        // And in the right order: title page first, colophon last.
+        assert!(opf.find("idref=\"cover\"").unwrap() < opf.find("idref=\"ch1\"").unwrap());
+        assert!(opf.find("idref=\"colophon\"").unwrap() > opf.find("idref=\"ch1\"").unwrap());
+    }
+
+    #[test]
+    fn a_writer_who_refuses_them_gets_a_book_with_neither() {
+        // Nobody should have to ship an advert for their writing software
+        // inside their novel.
+        let mut m = book();
+        m.matter = crate::formats::Matter { cover: false, colophon: false, ..Default::default() };
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("b.epub");
+        export_to(&m, &dest).unwrap();
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(std::fs::read(&dest).unwrap())).unwrap();
+
+        assert!(zip.by_name("OEBPS/cover.xhtml").is_err());
+        assert!(zip.by_name("OEBPS/colophon.xhtml").is_err());
+        let opf = read(&mut zip, "OEBPS/package.opf");
+        assert!(!opf.contains("cover.xhtml"));
+        assert!(!opf.contains("Versorium"), "not even a trace in the metadata");
+    }
+
+    #[test]
+    fn a_line_the_writer_left_empty_is_not_a_blank_stripe_on_the_title_page() {
+        let m = book();
+        let cover = cover_xhtml(&m);
+        assert!(!cover.contains("class=\"imprint\""), "no publisher, no line");
+    }
+
+    /// Read one member of an EPUB as text.
+    fn read(zip: &mut zip::ZipArchive<std::io::Cursor<Vec<u8>>>, name: &str) -> String {
+        let mut file = zip.by_name(name).unwrap_or_else(|_| panic!("{name} is missing"));
+        let mut out = String::new();
+        file.read_to_string(&mut out).unwrap();
+        out
     }
 }
