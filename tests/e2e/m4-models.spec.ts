@@ -132,7 +132,8 @@ test("the Local AI panel is translated", async ({ page }) => {
   await settings.getByRole("button", { name: "IA local" }).click();
   const localAi = settings.getByRole("region", { name: "IA local" });
   // The tab is named for what it is — a source of models — rather than for a
-  // task, which is what "Escritura" read as next to the Writing settings group.
+  // task: "Escritura" read as a second copy of the settings group that was then
+  // called Escritura (now Editor).
   await expect(localAi.getByRole("tab", { name: "Integrados" })).toBeVisible();
   await expect(localAi.getByRole("button", { name: "Descargar" }).first()).toBeVisible();
   await expect(localAi.getByText("Qué usa cada tarea")).toBeVisible();

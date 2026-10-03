@@ -145,6 +145,112 @@ pub struct Settings {
     pub author_profiles: AuthorProfiles,
     /// `work` or `hobby`.
     pub author_profile: String,
+    /// How the page behaves under the caret: Settings → Editor.
+    pub editor: EditorSettings,
+}
+
+pub const TEXT_SIZES: [&str; 3] = ["small", "medium", "large"];
+pub const LINE_SPACINGS: [&str; 3] = ["compact", "comfortable", "airy"];
+pub const TEXT_WIDTHS: [&str; 3] = ["narrow", "medium", "wide"];
+/// `next`: Tab leaves the editor for the next control. `indent`: it indents.
+pub const TAB_KEYS: [&str; 2] = ["next", "indent"];
+
+/// The editor's own preferences.
+///
+/// The three scales are named steps rather than numbers so the stylesheet keeps
+/// the typography: Rust stores which step, `src/lib/editor/preferences.ts`
+/// says what each step renders as.
+///
+/// Read leniently (the `Deserialize` impl below), because a refused
+/// settings.json makes `SettingsStore::load` fall back to defaults for
+/// everything — theme, backups and MCP grants included — and a derived impl
+/// refuses the file over one bad value in this block: an unknown step, a
+/// `null`, a string where a boolean goes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorSettings {
+    /// Underline what the dictionary does not know. Nothing is corrected.
+    pub spellcheck: bool,
+    pub text_size: String,
+    pub line_spacing: String,
+    pub text_width: String,
+    pub line_numbers: bool,
+    /// The faint band behind the paragraph that holds the caret.
+    pub active_line: bool,
+    pub tab_key: String,
+}
+
+impl Default for EditorSettings {
+    fn default() -> Self {
+        Self {
+            // On: the founder's decision of 2026-10-03.
+            spellcheck: true,
+            // The middle steps are what the editor rendered before it had
+            // settings (21px, 1.7, 72ch): the text keeps its size and shape.
+            text_size: "medium".into(),
+            line_spacing: "comfortable".into(),
+            text_width: "medium".into(),
+            // Off: a novel is not code. No release has shipped, so no writer
+            // loses a habit.
+            line_numbers: false,
+            active_line: true,
+            // Tab leaves the editor. Indenting prose reaches no export and two
+            // presses turn a paragraph into a Markdown code block; the reasons
+            // are spelled out next to the keymap in `src/lib/editor/preferences.ts`.
+            tab_key: "next".into(),
+        }
+    }
+}
+
+/// The block on disk goes through the same gate as a patch from the frontend,
+/// onto the defaults: each value is taken only if it has the right type and is
+/// a step this build knows, so a bad one costs itself and nothing else, and the
+/// UI is never handed a step it has no option for. Any JSON at all parses as a
+/// `Value`, so nothing inside the block can fail the file.
+impl<'de> Deserialize<'de> for EditorSettings {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = serde_json::Value::deserialize(deserializer)?;
+        let mut editor = Self::default();
+        editor.apply(&raw);
+        Ok(editor)
+    }
+}
+
+impl EditorSettings {
+    /// Apply a partial patch from the frontend: only the keys present, and only
+    /// values this build knows. Anything else is ignored, the way every other
+    /// key of `set_settings` treats a value it does not accept.
+    pub fn apply(&mut self, patch: &serde_json::Value) {
+        let flag = |key: &str| patch.get(key).and_then(|v| v.as_bool());
+        let step = |key: &str, allowed: &[&str]| {
+            patch
+                .get(key)
+                .and_then(|v| v.as_str())
+                .filter(|v| allowed.contains(v))
+                .map(str::to_string)
+        };
+        if let Some(v) = flag("spellcheck") {
+            self.spellcheck = v;
+        }
+        if let Some(v) = step("textSize", &TEXT_SIZES) {
+            self.text_size = v;
+        }
+        if let Some(v) = step("lineSpacing", &LINE_SPACINGS) {
+            self.line_spacing = v;
+        }
+        if let Some(v) = step("textWidth", &TEXT_WIDTHS) {
+            self.text_width = v;
+        }
+        if let Some(v) = flag("lineNumbers") {
+            self.line_numbers = v;
+        }
+        if let Some(v) = flag("activeLine") {
+            self.active_line = v;
+        }
+        if let Some(v) = step("tabKey", &TAB_KEYS) {
+            self.tab_key = v;
+        }
+    }
 }
 
 /// One author identity, as it will appear in an exported file.
@@ -222,6 +328,7 @@ impl Default for Settings {
             mcp_http_enabled: false,
             author_profiles: AuthorProfiles::default(),
             author_profile: "work".into(),
+            editor: EditorSettings::default(),
         }
     }
 }
@@ -313,6 +420,11 @@ pub fn set_settings(
         }
         if let Some(v) = patch.get("onboarded").and_then(|v| v.as_bool()) {
             s.onboarded = v;
+        }
+        // The editor's preferences are patchable for the same reason: each one
+        // is a look or a key, and a wrong click costs one click to undo.
+        if let Some(editor) = patch.get("editor") {
+            s.editor.apply(editor);
         }
         // mcpWriteClients / mcpActiveProject / slots / studio* / editorFont are
         // deliberately NOT patchable from here: granting write, pointing a task
@@ -475,6 +587,164 @@ mod tests {
         assert_eq!(settings.backup_keep, 7, "the rest of the file still parsed");
         assert_eq!(settings.theme, "quarry");
         assert_eq!(settings.author_profile, "work", "a missing key takes its default");
+    }
+
+    #[test]
+    fn a_fresh_install_checks_spelling_and_shows_no_line_numbers() {
+        let editor = SettingsStore::load(PathBuf::from("/nonexistent/versorium/settings.json")).get().editor;
+        assert!(editor.spellcheck, "spelling is checked out of the box");
+        assert!(!editor.line_numbers, "a novel is not code");
+        assert!(editor.active_line);
+        // The middle steps are what the page looked like before these
+        // settings existed; the frontend maps them to 21px, 1.7 and 72ch.
+        assert_eq!(editor.text_size, "medium");
+        assert_eq!(editor.line_spacing, "comfortable");
+        assert_eq!(editor.text_width, "medium");
+        assert_eq!(editor.tab_key, "next", "Tab leaves the editor unless asked to indent");
+    }
+
+    #[test]
+    fn a_settings_file_from_before_the_editor_group_loads_with_its_defaults() {
+        // An install that predates Settings → Editor has no `editor` key at
+        // all. It must keep everything it had and gain the defaults.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(&path, r#"{"uiLocale":"es","theme":"quarry","focusMode":true,"backupKeep":7}"#).unwrap();
+
+        let s = SettingsStore::load(path).get();
+        assert_eq!(s.ui_locale, "es");
+        assert_eq!(s.theme, "quarry");
+        assert!(s.focus_mode);
+        assert_eq!(s.backup_keep, 7);
+        assert_eq!(s.editor, EditorSettings::default());
+    }
+
+    #[test]
+    fn half_an_editor_block_keeps_the_rest_at_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(&path, r#"{"editor":{"textSize":"large","spellcheck":false}}"#).unwrap();
+
+        let editor = SettingsStore::load(path).get().editor;
+        assert_eq!(editor.text_size, "large");
+        assert!(!editor.spellcheck);
+        assert_eq!(editor.line_spacing, "comfortable");
+        assert_eq!(editor.tab_key, "next");
+    }
+
+    #[test]
+    fn an_unknown_editor_step_falls_back_instead_of_losing_the_file() {
+        // A typo in one value must cost that value, not the theme, the
+        // backups and the grants that share the file with it.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(
+            &path,
+            r#"{"theme":"needle","editor":{"textSize":"huge","lineSpacing":"airy","textWidth":"","tabKey":"sideways","lineNumbers":true}}"#,
+        )
+        .unwrap();
+
+        let s = SettingsStore::load(path).get();
+        assert_eq!(s.theme, "needle", "the rest of the file still parsed");
+        assert_eq!(s.editor.text_size, "medium");
+        assert_eq!(s.editor.line_spacing, "airy", "a known value is kept");
+        assert_eq!(s.editor.text_width, "medium");
+        assert_eq!(s.editor.tab_key, "next");
+        assert!(s.editor.line_numbers);
+    }
+
+    #[test]
+    fn a_wrongly_typed_editor_value_costs_that_value_and_never_the_file() {
+        // The app only ever writes what `apply` accepted, so these come from a
+        // hand edit. Each must cost what it touches: the theme beside it, and
+        // the good values inside the same block, survive.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let load = |json: &str| {
+            fs::write(&path, json).unwrap();
+            SettingsStore::load(path.clone()).get()
+        };
+
+        let s = load(r#"{"theme":"needle","editor":null}"#);
+        assert_eq!(s.theme, "needle", "a null block still lets the file parse");
+        assert_eq!(s.editor, EditorSettings::default());
+
+        let s = load(r#"{"theme":"needle","editor":"large"}"#);
+        assert_eq!(s.theme, "needle", "so does a block that is not an object");
+        assert_eq!(s.editor, EditorSettings::default());
+
+        let s = load(
+            r#"{"theme":"needle","editor":{"spellcheck":"yes","textSize":5,"lineSpacing":"airy","lineNumbers":true,"activeLine":null,"tabKey":["indent"]}}"#,
+        );
+        assert_eq!(s.theme, "needle", "the rest of the file still parsed");
+        assert!(s.editor.spellcheck, "not a boolean: the default");
+        assert_eq!(s.editor.text_size, "medium", "not a string: the default");
+        assert!(s.editor.active_line, "null: the default");
+        assert_eq!(s.editor.tab_key, "next", "not a string: the default");
+        assert_eq!(s.editor.line_spacing, "airy", "a good value beside bad ones is kept");
+        assert!(s.editor.line_numbers, "a good value beside bad ones is kept");
+    }
+
+    #[test]
+    fn the_editor_patch_takes_known_values_and_ignores_the_rest() {
+        let mut editor = EditorSettings::default();
+        editor.apply(&serde_json::json!({
+            "spellcheck": false,
+            "textSize": "small",
+            "lineSpacing": "double",
+            "textWidth": "wide",
+            "lineNumbers": "yes",
+            "activeLine": false,
+            "tabKey": "indent",
+        }));
+        assert!(!editor.spellcheck);
+        assert_eq!(editor.text_size, "small");
+        assert_eq!(editor.line_spacing, "comfortable", "not a step: ignored");
+        assert_eq!(editor.text_width, "wide");
+        assert!(!editor.line_numbers, "not a boolean: ignored");
+        assert!(!editor.active_line);
+        assert_eq!(editor.tab_key, "indent");
+
+        // A patch naming one key leaves every other one where it was.
+        editor.apply(&serde_json::json!({ "textSize": "large" }));
+        assert_eq!(editor.text_size, "large");
+        assert_eq!(editor.text_width, "wide");
+        assert_eq!(editor.tab_key, "indent");
+    }
+
+    #[test]
+    fn editor_preferences_survive_a_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let store = SettingsStore::load(path.clone());
+        store.update(|s| {
+            s.editor.apply(&serde_json::json!({
+                "spellcheck": false,
+                "textSize": "large",
+                "lineSpacing": "compact",
+                "textWidth": "narrow",
+                "lineNumbers": true,
+                "activeLine": false,
+                "tabKey": "indent",
+            }))
+        });
+
+        // Read back from disk, as the next launch does.
+        let raw = fs::read_to_string(&path).unwrap();
+        assert!(raw.contains("\"textSize\": \"large\""), "camelCase on disk: {raw}");
+        let editor = SettingsStore::load(path).get().editor;
+        assert_eq!(
+            editor,
+            EditorSettings {
+                spellcheck: false,
+                text_size: "large".into(),
+                line_spacing: "compact".into(),
+                text_width: "narrow".into(),
+                line_numbers: true,
+                active_line: false,
+                tab_key: "indent".into(),
+            }
+        );
     }
 
     #[test]

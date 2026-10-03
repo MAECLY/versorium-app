@@ -13,15 +13,16 @@
   import ChapterList from "$lib/binder/ChapterList.svelte";
   import Corkboard from "$lib/binder/Corkboard.svelte";
   import MarkdownEditor from "$lib/editor/MarkdownEditor.svelte";
+  import { editorPreferences } from "$lib/editor/state.svelte";
   import NewProjectDialog from "$lib/binder/NewProjectDialog.svelte";
   import NewChapterDialog from "$lib/binder/NewChapterDialog.svelte";
   import SettingsPage from "$lib/settings/SettingsPage.svelte";
   import RewriteDialog from "$lib/components/RewriteDialog.svelte";
   import ManuscriptDialog from "$lib/components/ManuscriptDialog.svelte";
   import UpdateDialog from "$lib/components/UpdateDialog.svelte";
-  import { detectAgents } from "$lib/ai/agents";
   import ItemActionDialogs from "$lib/binder/ItemActionDialogs.svelte";
   import { installContextMenuPolicy, installReloadKeyGuard } from "$lib/contextmenu/policy";
+  import { detectAgents } from "$lib/ai/agents";
   import { updates } from "$lib/update/state.svelte";
 
   let showSettings = $state(false);
@@ -177,6 +178,7 @@
           const saved = await api.getSettings();
           focusMode = saved.focusMode ?? false;
           typewriter = saved.typewriter ?? false;
+          editorPreferences.adopt(saved.editor);
           // Spec §14: the tour is the first run, and there is no signup.
           firstRun = saved.onboarded === false;
         } catch {
@@ -202,12 +204,12 @@
     }, 60_000);
     const poll = setInterval(() => void refreshGit(), 15_000);
     window.addEventListener("keydown", onKeydown);
-    let unlisten: (() => void) | undefined;
-    let disposed = false;
     // Here and not in main.ts: if the app never mounts, the boot-failure
     // screen keeps the engine's Reload, its only way out.
     const uninstallMenus = installContextMenuPolicy();
     const uninstallKeys = installReloadKeyGuard();
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
     if (isTauri()) void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
       const window = getCurrentWindow();
       const off = await window.onCloseRequested(async event => {
@@ -222,10 +224,10 @@
       clearInterval(checkpoint);
       clearInterval(poll);
       window.removeEventListener("keydown", onKeydown);
-      unlisten?.();
-      store.beforeLeave = undefined;
       uninstallMenus();
       uninstallKeys();
+      unlisten?.();
+      store.beforeLeave = undefined;
     };
   });
 </script>
@@ -260,6 +262,8 @@
           disabled={store.loading}
           focus={focusMode}
           typewriter={typewriter}
+          preferences={editorPreferences.current}
+          language={store.project.meta.language}
           onChange={(body) => store.updateBody(body)}
           onOps={onOps}
           onOpsError={(e) => { store.error = store.codeMessagePublic(e); }}

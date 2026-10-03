@@ -12,4 +12,8 @@ it("wraps structured Rust command arguments", async () => {
   expect(invoke).toHaveBeenLastCalledWith("ops_append", { args: { path: "/novels/test", chapter: "ch-01", body: "a", ops: [op] } });
   await api.aiApplyRewrite({ path: "/novels/test", file: "manuscript/ch-01.md", from: 0, to: 1, text: "b", provider: "claude", expected: "a" });
   expect(invoke).toHaveBeenLastCalledWith("ai_apply_rewrite", { args: { path: "/novels/test", file: "manuscript/ch-01.md", from: 0, to: 1, text: "b", provider: "claude", expected: "a" } });
+  // One editor preference travels alone, nested: Rust patches the block key by
+  // key, so the other six are left as they were.
+  await api.setSettings({ editor: { textSize: "large" } });
+  expect(invoke).toHaveBeenLastCalledWith("set_settings", { patch: { editor: { textSize: "large" } } });
 });

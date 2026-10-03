@@ -136,6 +136,15 @@ interface AgentInfo {
 
 const PROJECTS_DIR = "/mock/Documents/Versorium";
 
+/** Mirrors `EditorSettings` in Rust: its steps, and the defaults of a fresh install. */
+const EDITOR_STEPS: Record<string, readonly string[]> = {
+  textSize: ["small", "medium", "large"],
+  lineSpacing: ["compact", "comfortable", "airy"],
+  textWidth: ["narrow", "medium", "wide"],
+  tabKey: ["next", "indent"],
+};
+const EDITOR_FLAGS = ["spellcheck", "lineNumbers", "activeLine"];
+
 const settings = {
   uiLocale: "en",
   theme: "folio",
@@ -154,7 +163,45 @@ const settings = {
     hobby: { name: "", sortAs: "", role: "", organization: "", rights: "" },
   },
   authorProfile: "work",
+  editor: {
+    spellcheck: true,
+    textSize: "medium",
+    lineSpacing: "comfortable",
+    textWidth: "medium",
+    lineNumbers: false,
+    activeLine: true,
+    tabKey: "next",
+  } as Record<string, string | boolean>,
 };
+
+/**
+ * `?mock=tauri&persist=1` keeps the settings across a page reload, the way
+ * settings.json outlives a relaunch, so a spec can prove a preference is read
+ * back from storage rather than remembered by the page that set it. Off by
+ * default: every other spec starts from the same settings on every load.
+ */
+const PERSIST = new URLSearchParams(location.search).has("persist");
+const PERSISTED_SETTINGS = "versorium.mock.settings";
+if (PERSIST) {
+  const stored = sessionStorage.getItem(PERSISTED_SETTINGS);
+  if (stored) Object.assign(settings, JSON.parse(stored));
+}
+
+function persistSettings(): void {
+  if (PERSIST) sessionStorage.setItem(PERSISTED_SETTINGS, JSON.stringify(settings));
+}
+
+/**
+ * Key by key, known values only, as `EditorSettings::apply` does. A plain
+ * Object.assign would swap the whole block for whatever half of it a patch
+ * carried, and accept a step Rust refuses.
+ */
+function applyEditorPatch(patch: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(patch)) {
+    if (EDITOR_FLAGS.includes(key) && typeof value === "boolean") settings.editor[key] = value;
+    if (EDITOR_STEPS[key]?.includes(value as string)) settings.editor[key] = value as string;
+  }
+}
 
 const projects = new Map<string, ProjectState>();
 const calls: { cmd: string; args: Args }[] = [];
@@ -481,12 +528,15 @@ const commands: Record<string, (args: Args) => unknown> = {
     return publicChapter(c);
   },
 
-  get_settings: () => ({ ...settings, backupDirs: [...backupDirs], backupKeep }),
+  get_settings: () => ({ ...settings, editor: { ...settings.editor }, backupDirs: [...backupDirs], backupKeep }),
   set_settings: ({ patch }) => {
-    Object.assign(settings, patch as Partial<typeof settings>);
+    const { editor, ...rest } = (patch ?? {}) as Partial<typeof settings> & { editor?: Record<string, unknown> };
+    Object.assign(settings, rest);
+    if (editor && typeof editor === "object") applyEditorPatch(editor);
+    persistSettings();
     // The legacy settings field still counts as a saved token, as in Rust.
     update.tokenSet = Boolean(settings.githubUpdatesToken) || storedSecrets.has("updates");
-    return { ...settings };
+    return { ...settings, editor: { ...settings.editor } };
   },
 
   update_project: ({ path, title, author, exportCover, exportColophon }) => {
@@ -645,6 +695,7 @@ const commands: Record<string, (args: Args) => unknown> = {
   set_editor_font: ({ id }) => {
     if (!fonts.fonts.some((f) => f.id === id)) throw "bad_args";
     settings.editorFont = String(id);
+    persistSettings();
     return settings.editorFont;
   },
 

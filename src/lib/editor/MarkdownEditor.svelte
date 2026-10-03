@@ -4,6 +4,7 @@
   import { EditorView } from "@codemirror/view";
   import { createMarkdownState } from "./cm";
   import { createModeCompartments } from "./modes";
+  import { EDITOR_DEFAULTS, createPreferenceCompartments, type EditorPreferences } from "./preferences";
   import { t } from "$lib/i18n";
   import { OpsLogger } from "$lib/git/ops";
   import { RollbackHistory, wordRange } from "$lib/git/rollback";
@@ -18,6 +19,10 @@
     focus?: boolean;
     /** The caret's line rides at the lower third. */
     typewriter?: boolean;
+    /** Settings → Editor. */
+    preferences?: EditorPreferences;
+    /** The novel's language (`versorium.json`), not the interface's. */
+    language?: string;
     onChange: (body: string) => void;
     onOps?: (path: string, chapter: string, body: string, ops: Op[]) => Promise<unknown>;
     onOpsError?: (error: unknown) => void;
@@ -30,6 +35,8 @@
     disabled = false,
     focus = false,
     typewriter = false,
+    preferences = EDITOR_DEFAULTS,
+    language = "",
     onChange,
     onOps,
     onOpsError,
@@ -43,7 +50,9 @@
   const editing = (locked: boolean) => [EditorState.readOnly.of(locked), EditorView.editable.of(!locked)];
   // Focus and typewriter live in compartments for the same reason `editable`
   // does: toggling one must reconfigure the running editor, never rebuild it.
+  // So do the writer's preferences, and the novel's language with them.
   const modes = createModeCompartments();
+  const choices = createPreferenceCompartments();
   // Parents pass `store.project.path` / `store.currentChapter.id`; those objects are
   // reassigned on every save. A derived string only notifies when the value changes,
   // so the editor (focus, selection, undo) survives autosave.
@@ -67,6 +76,7 @@
       state: createMarkdownState(initialDoc, [
         editable.of(editing(untrack(() => disabled))),
         ...modes.initial(untrack(() => focus), untrack(() => typewriter)),
+        ...choices.initial(untrack(() => preferences), untrack(() => language)),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           const ops: Op[] = [];
@@ -129,6 +139,15 @@
 
   $effect(() => {
     view?.dispatch({ effects: modes.reconfigure(focus, typewriter) });
+  });
+
+  // Derived for the reason docKey is: the parent reads the language off
+  // `store.project`, which is replaced on every save, and an effect on the raw
+  // prop would reconfigure the editor after every autosave.
+  const novelLanguage = $derived(language);
+
+  $effect(() => {
+    view?.dispatch({ effects: choices.reconfigure(preferences, novelLanguage) });
   });
 
   function rollback(from: number, to: number): boolean {

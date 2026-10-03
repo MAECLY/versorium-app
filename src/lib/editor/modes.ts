@@ -91,9 +91,11 @@ export function typewriterMode(): Extension {
 }
 
 /**
- * Focus mode, editor side. The measure is already 72ch in the stylesheet, so
- * what this adds is air: the column is the only thing left on screen once the
- * chrome fades, and it should not start hard against the top edge.
+ * Focus mode, editor side. The measure is already the writer's (Settings →
+ * Editor, 72ch unless changed), so what this adds is air: the column is the
+ * only thing left on screen once the chrome fades, and it should not start
+ * hard against the top edge. Neither the air nor the 1.02em renders yet
+ * (TODO.md, "Focus mode's editor half never renders").
  */
 export function focusMode(): Extension {
   return EditorView.theme({

@@ -89,14 +89,14 @@ test("the author section is translated", async ({ page }) => {
   await expect(author.getByText(/Solo EPUB, como código MARC/)).toBeVisible();
 });
 
-test("the author settings are their own group, not a second heading under Writing", async ({ page }) => {
+test("the author settings are their own group, not a second heading under Editor", async ({ page }) => {
   await page.goto("/?mock=tauri");
   await page.getByRole("button", { name: "Settings" }).click();
   const settings = page.getByRole("region", { name: "Settings" });
 
   // Typography is what a manuscript looks like; this is who it is by. Two
   // questions, two entries in the rail.
-  await settings.getByRole("button", { name: "Writing" }).click();
+  await settings.getByRole("button", { name: "Editor", exact: true }).click();
   await expect(settings.getByRole("region", { name: "Author" })).toHaveCount(0);
 
   await settings.getByRole("button", { name: "Author", exact: true }).click();

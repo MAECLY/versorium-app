@@ -74,7 +74,31 @@ export interface AppSettings {
   authorProfiles: AuthorProfiles;
   /** `work` or `hobby`. */
   authorProfile: string;
+  /** Settings → Editor. */
+  editor: EditorSettings;
 }
+
+/**
+ * Mirrors `EditorSettings` in src-tauri/src/commands/settings.rs. The scales
+ * are named steps; `src/lib/editor/preferences.ts` says what each renders as.
+ */
+export interface EditorSettings {
+  spellcheck: boolean;
+  textSize: "small" | "medium" | "large";
+  lineSpacing: "compact" | "comfortable" | "airy";
+  textWidth: "narrow" | "medium" | "wide";
+  lineNumbers: boolean;
+  /** The band behind the paragraph that holds the caret. */
+  activeLine: boolean;
+  /** `next` moves focus to the next control; `indent` indents the paragraph. */
+  tabKey: "next" | "indent";
+}
+
+/**
+ * What `set_settings` accepts. The editor block is patched key by key in Rust,
+ * so a change to one preference sends that preference alone.
+ */
+export type SettingsPatch = Partial<Omit<AppSettings, "editor">> & { editor?: Partial<EditorSettings> };
 
 /**
  * One author identity, as it will appear inside an exported file.
@@ -514,7 +538,7 @@ export const api = {
   saveChapter: (path: string, file: string, body: string, status?: string) =>
     invoke<ChapterMeta>("save_chapter", { path, file, body, status }),
   getSettings: () => invoke<AppSettings>("get_settings"),
-  setSettings: (patch: Partial<AppSettings>) => invoke<AppSettings>("set_settings", { patch }),
+  setSettings: (patch: SettingsPatch) => invoke<AppSettings>("set_settings", { patch }),
   pickDirectory: () => open({ directory: true, multiple: false }),
 
   // --- M1: git + ops ---

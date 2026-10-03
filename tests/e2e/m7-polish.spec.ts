@@ -14,10 +14,10 @@ async function withProject(page: Page, title = "El largo invierno") {
 }
 
 /** `group` is a rail entry: a group's controls exist only while it is current. */
-async function openSettings(page: Page, group = "Writing") {
+async function openSettings(page: Page, group = "Editor") {
   await page.getByRole("button", { name: "Settings" }).click();
   const settings = page.getByRole("region", { name: "Settings" });
-  await settings.getByRole("button", { name: group }).click();
+  await settings.getByRole("button", { name: group, exact: true }).click();
   return settings;
 }
 

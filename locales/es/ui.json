@@ -108,7 +108,7 @@
     "themeHint": "Folio es papel cálido, Quarry es gris frío, Needle es oscuro y verde. Cada uno tiene versión clara y oscura; el modo de abajo decide cuál ves.",
     "languageHint": "Cambia solo la interfaz. Nunca toca el idioma en que escribes tu novela.",
     "groups": {
-      "writing": "Escritura",
+      "editor": "Editor",
       "author": "Autor",
       "appearance": "Apariencia",
       "localAi": "IA local",
@@ -117,7 +117,7 @@
       "app": "Aplicación"
     },
     "purpose": {
-      "writing": "Cómo se siente la página mientras escribes: la tipografía y el tamaño del manuscrito.",
+      "editor": "Cómo se ve y se comporta la página mientras escribes: la tipografía, la ortografía, el tamaño y el espaciado del texto, los números de línea, el resaltado del párrafo actual y qué hace la tecla Tab.",
       "author": "De quién es el manuscrito, tal como lo dirá el archivo exportado.",
       "appearance": "Cómo se ve Versorium, y en qué idioma habla su propia interfaz.",
       "localAi": "Qué modelo hace cada trabajo, y de dónde salen esos modelos. Nada de aquí manda tu prosa a ninguna parte.",
@@ -679,6 +679,51 @@
     "systemFace": "ya está en esta máquina",
     "downloadLater": "Las familias descargables llegan con el gestor de fuentes en una versión posterior. Nada de esto necesita descarga.",
     "none": "La tipografía la gestiona la app de escritorio."
+  },
+  "editorSettings": {
+    "spelling": {
+      "title": "Ortografía",
+      "label": "Revisar la ortografía mientras escribes",
+      "hint": "El corrector ortográfico de tu sistema subraya las palabras que no conoce. Nada se cambia por ti: haz clic derecho en una palabra para ver sugerencias.",
+      "hintLinux": "En Linux todavía no se subraya nada: Versorium aún no activa allí el corrector ortográfico del sistema. Tu elección se guarda para cuando lo haga."
+    },
+    "text": {
+      "title": "Texto",
+      "size": "Tamaño del texto",
+      "sizes": {
+        "small": "Pequeño",
+        "medium": "Mediano",
+        "large": "Grande"
+      },
+      "spacing": "Interlineado",
+      "spacings": {
+        "compact": "Compacto",
+        "comfortable": "Cómodo",
+        "airy": "Holgado"
+      },
+      "width": "Ancho del texto",
+      "widths": {
+        "narrow": "Estrecho",
+        "medium": "Medio",
+        "wide": "Amplio"
+      }
+    },
+    "guides": {
+      "title": "Guías",
+      "lineNumbers": "Números de línea",
+      "lineNumbersHint": "Numera cada línea del capítulo tal como lo muestra el editor, también las vacías. Un párrafo cuenta como una línea, por mucho que ocupe.",
+      "activeLine": "Resaltar el párrafo actual",
+      "activeLineHint": "Una banda tenue detrás del párrafo donde está el cursor."
+    },
+    "keyboard": {
+      "title": "Teclado",
+      "tab": "Tecla Tab",
+      "tabs": {
+        "next": "Pasa al siguiente control",
+        "indent": "Sangra el párrafo"
+      },
+      "tabHint": "Las exportaciones ignoran la sangría. Con dos sangrías, el párrafo se vuelve un bloque de código en el archivo del capítulo y deja de mostrar las cursivas."
+    }
   },
   "crash": {
     "title": "Informes de fallo",

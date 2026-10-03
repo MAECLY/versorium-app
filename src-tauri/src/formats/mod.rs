@@ -311,6 +311,85 @@ mod tests {
         assert!(scenes[0].paragraphs.is_empty());
     }
 
+    /// One member of an exported zip, as text.
+    fn zip_member(path: &Path, name: &str) -> String {
+        use std::io::Read;
+        let mut zip = zip::ZipArchive::new(std::fs::File::open(path).unwrap()).unwrap();
+        let mut out = String::new();
+        zip.by_name(name).unwrap().read_to_string(&mut out).unwrap();
+        out
+    }
+
+    #[test]
+    fn a_paragraph_indented_with_tab_reaches_every_export_as_prose() {
+        // What the editor's Tab writes when it is set to indent: CodeMirror's
+        // indent unit, two spaces, at the start of the line, once per press
+        // (src/lib/editor/preferences.test.ts shows it). Two presses make
+        // four, and four spaces after a blank line are an indented code block
+        // to CommonMark — in the chapter file, which is what GitHub and any
+        // Markdown reader see. The exports never inherit it: all five that
+        // `export_with` routes to are built from `scenes_of`, which trims
+        // every line, and each is checked below.
+        let (once, twice) = ("  ", "    ");
+        let body = format!(
+            "{twice}Primer párrafo, sangrado dos veces.\n\n{once}Segundo, una vez.\n\n\
+             {twice}## La escena\n\n{twice}*Cursiva* sangrada."
+        );
+        let scenes = scenes_of(&body);
+        assert_eq!(scenes.len(), 2);
+        assert_eq!(scenes[0].paragraphs, vec!["Primer párrafo, sangrado dos veces.", "Segundo, una vez."]);
+        assert_eq!(scenes[1].heading.as_deref(), Some("La escena"), "an indented ## still opens a scene");
+        assert_eq!(scenes[1].paragraphs, vec!["*Cursiva* sangrada."]);
+
+        let manuscript = Manuscript {
+            title: "T".into(),
+            language: "es".into(),
+            matter: Matter { cover: false, colophon: false, labels: Labels::default() },
+            chapters: vec![Chapter { id: "ch-01".into(), title: "Uno".into(), scenes }],
+            ..Default::default()
+        };
+
+        // Markdown is rebuilt flush left: no line is four spaces in.
+        let md = markdown::export(&manuscript);
+        assert!(md.contains("\nPrimer párrafo, sangrado dos veces.\n"), "{md}");
+        assert!(md.lines().all(|line| !line.starts_with("    ")), "{md}");
+
+        // DOCX and EPUB: ordinary paragraphs that start at their first word.
+        let dir = tempfile::tempdir().unwrap();
+        let docx_file = dir.path().join("m.docx");
+        docx::export_to(&manuscript, &docx_file).unwrap();
+        let document = zip_member(&docx_file, "word/document.xml");
+        assert!(document.contains("<w:t xml:space=\"preserve\">Primer párrafo, sangrado dos veces.</w:t>"));
+        assert!(!document.contains("<w:t xml:space=\"preserve\"> "), "no leading space survives");
+
+        let epub_file = dir.path().join("m.epub");
+        epub::export_to(&manuscript, &epub_file).unwrap();
+        let chapter = zip_member(&epub_file, "OEBPS/ch-01.xhtml");
+        assert!(chapter.contains("<p class=\"first\">Primer párrafo, sangrado dos veces.</p>"), "{chapter}");
+        assert!(!chapter.contains("<pre") && !chapter.contains("<code"), "{chapter}");
+
+        // PDF: each line is drawn from its first word (á is WinAnsi 0xE1, octal 341).
+        let pdf = pdf::render(&manuscript).unwrap();
+        let drawn = |needle: &[u8]| pdf.windows(needle.len()).any(|w| w == needle);
+        assert!(drawn(b"(Primer p\\341rrafo,"));
+        assert!(drawn(b"(Segundo, una vez.)"));
+        assert!(drawn(b"(*Cursiva* sangrada.)"));
+
+        // Scrivener: one paragraph per RTF line, each from its first word (á is
+        // \u225?), and the indented `##` still breaks the scene, as the
+        // centred separator Scrivener's own compile uses.
+        let bundle = dir.path().join("m.scriv");
+        scrivener::export_to(&manuscript, &bundle).unwrap();
+        let documents: Vec<_> =
+            std::fs::read_dir(bundle.join("Files").join("Data")).unwrap().flatten().collect();
+        assert_eq!(documents.len(), 1, "one document for the one chapter");
+        let rtf = std::fs::read_to_string(documents[0].path().join("content.rtf")).unwrap();
+        assert!(rtf.contains("\nPrimer p\\u225?rrafo, sangrado dos veces.\\par\n"), "{rtf}");
+        assert!(rtf.contains("\nSegundo, una vez.\\par\n"), "{rtf}");
+        assert!(rtf.contains("\\par\\qc #\\par\\ql\n*Cursiva* sangrada.\\par\n"), "{rtf}");
+        assert!(rtf.lines().all(|line| !line.starts_with(' ')), "{rtf}");
+    }
+
     #[test]
     fn the_running_head_uses_the_last_name() {
         let one = |author: &str| Manuscript {

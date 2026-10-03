@@ -617,6 +617,11 @@ input[type="number"] {
   overflow: auto;
 }
 
+/* Size, spacing and measure come from Settings → Editor as custom properties on
+   .cm-editor (src/lib/editor/preferences.ts). The fallbacks are the values this
+   rule always had, and are what the middle steps map to. Nothing else declares
+   these three properties for the content, so the setting never has to win a
+   cascade — the way typewriter's padding once lost one to this rule. */
 .cm-editor .cm-content {
   font-family:
     "Source Serif 4",
@@ -626,10 +631,10 @@ input[type="number"] {
     "Liberation Serif",
     "Times New Roman",
     serif;
-  font-size: 21px;
-  line-height: 1.7;
+  font-size: var(--editor-text-size, 21px);
+  line-height: var(--editor-line-height, 1.7);
   padding: 48px 24px 120px;
-  max-width: 72ch;
+  max-width: var(--editor-measure, 72ch);
   margin: 0 auto;
   caret-color: var(--accent);
 }
@@ -649,12 +654,37 @@ input[type="number"] {
 
 .cm-editor .cm-gutters {
   background: transparent;
-  border-right: 1px solid var(--border);
   color: var(--text-mute);
 }
 
-.cm-editor .cm-activeLine {
-  background: transparent;
+/* A rule beside the line numbers, and none beside the fold markers alone:
+   with the numbers off it was a line down the page a few pixels from the
+   sidebar's own edge. The class comes with the numbers, from their
+   compartment in src/lib/editor/preferences.ts. Both selectors are 0,3,0, so
+   they outrank CodeMirror's own 0,2,0 gutter border on specificity, not on
+   which stylesheet loaded last. */
+.cm-editor.v-line-numbers .cm-gutters {
+  border-right: 1px solid var(--border);
+}
+
+.cm-editor:not(.v-line-numbers) .cm-gutters {
+  border-right: 0;
+}
+
+/* One manuscript line tall, so a number sits level with the first line of its
+   paragraph at every size and spacing instead of riding at the top of it. */
+.cm-editor .cm-gutterElement {
+  line-height: calc(var(--editor-text-size, 21px) * var(--editor-line-height, 1.7));
+}
+
+/* The paragraph that holds the caret: a CodeMirror line is a whole paragraph
+   once it wraps. This was `transparent`, which made highlightActiveLine draw
+   nothing at all — a setting to turn it off would have changed nothing on
+   screen. Translucent on purpose: the selection is painted in a layer
+   underneath the text, and an opaque band would hide it. 0,3,0, so it beats
+   CodeMirror's own light-blue band (0,2,0) on specificity, not on load order. */
+.cm-editor .cm-line.cm-activeLine {
+  background: color-mix(in srgb, var(--sel) 38%, transparent);
 }
 
 .cm-editor .cm-heading {

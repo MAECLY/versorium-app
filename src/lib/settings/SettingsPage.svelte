@@ -5,8 +5,8 @@
   import AssistantsGroup from "$lib/settings/groups/AssistantsGroup.svelte";
   import AuthorGroup from "$lib/settings/groups/AuthorGroup.svelte";
   import BackupGroup from "$lib/settings/groups/BackupGroup.svelte";
+  import EditorGroup from "$lib/settings/groups/EditorGroup.svelte";
   import LocalAiGroup from "$lib/settings/groups/LocalAiGroup.svelte";
-  import WritingGroup from "$lib/settings/groups/WritingGroup.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
 
@@ -16,10 +16,10 @@
    * label and the line under the heading are for: a setting nobody can place is
    * a setting nobody trusts.
    */
-  const GROUPS = ["writing", "author", "appearance", "localAi", "backup", "assistants", "app"] as const;
+  const GROUPS = ["editor", "author", "appearance", "localAi", "backup", "assistants", "app"] as const;
   type Group = (typeof GROUPS)[number];
 
-  let active = $state<Group>("writing");
+  let active = $state<Group>("editor");
   let buttons: HTMLButtonElement[] = [];
 
   /** Up/down move through the rail, as a vertical list of tabs should. */
@@ -81,8 +81,8 @@
         </p>
       </header>
 
-      {#if active === "writing"}
-        <WritingGroup />
+      {#if active === "editor"}
+        <EditorGroup />
       {:else if active === "author"}
         <AuthorGroup />
       {:else if active === "appearance"}

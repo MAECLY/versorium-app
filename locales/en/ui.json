@@ -108,7 +108,7 @@
     "themeHint": "Folio is paper-warm, Quarry is cool grey, Needle is dark and green. Each one has a light and a dark version; the mode below decides which you see.",
     "languageHint": "Changes the interface only. It never touches the language your novel is written in.",
     "groups": {
-      "writing": "Writing",
+      "editor": "Editor",
       "author": "Author",
       "appearance": "Appearance",
       "localAi": "Local AI",
@@ -117,7 +117,7 @@
       "app": "Application"
     },
     "purpose": {
-      "writing": "How the page feels while you write: the typeface and size of the manuscript itself.",
+      "editor": "How the page looks and behaves while you write: typeface, spelling, the size and spacing of the text, line numbers, the current-paragraph highlight, and what the Tab key does.",
       "author": "Who the manuscript is by, as the exported file will say it.",
       "appearance": "How Versorium looks, and what language its own buttons speak.",
       "localAi": "Which model does each job, and where those models come from. Nothing here sends your prose anywhere.",
@@ -679,6 +679,51 @@
     "systemFace": "already on this machine",
     "downloadLater": "Downloadable families arrive with the font downloader in a later release. Nothing here needs fetching.",
     "none": "Typography is handled by the desktop app."
+  },
+  "editorSettings": {
+    "spelling": {
+      "title": "Spelling",
+      "label": "Check spelling as you type",
+      "hint": "Your system's spelling checker underlines the words it does not know. Nothing is changed for you: right-click a word to see suggestions.",
+      "hintLinux": "On Linux nothing is underlined yet: Versorium does not switch the system's spelling checker on there. Your choice is kept for when it does."
+    },
+    "text": {
+      "title": "Text",
+      "size": "Text size",
+      "sizes": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large"
+      },
+      "spacing": "Line spacing",
+      "spacings": {
+        "compact": "Compact",
+        "comfortable": "Comfortable",
+        "airy": "Airy"
+      },
+      "width": "Text width",
+      "widths": {
+        "narrow": "Narrow",
+        "medium": "Medium",
+        "wide": "Wide"
+      }
+    },
+    "guides": {
+      "title": "Guides",
+      "lineNumbers": "Line numbers",
+      "lineNumbersHint": "Numbers each line of the chapter as the editor shows it, blank ones included. A paragraph counts as one line, however far it wraps.",
+      "activeLine": "Highlight the current paragraph",
+      "activeLineHint": "A faint band behind the paragraph the cursor is in."
+    },
+    "keyboard": {
+      "title": "Keyboard",
+      "tab": "Tab key",
+      "tabs": {
+        "next": "Moves to the next control",
+        "indent": "Indents the paragraph"
+      },
+      "tabHint": "Exports ignore the indent. Indented twice, a paragraph becomes a code block in the chapter file, and its italics stop showing."
+    }
   },
   "crash": {
     "title": "Crash reports",
