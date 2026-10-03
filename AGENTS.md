@@ -123,7 +123,8 @@ once, and several have side effects on the machine running them:
   (`agents/mod.rs`, `continuity/mod.rs`);
 - download a real model (`models/download.rs`) and load a real GGUF
   (`llama/runtime.rs`);
-- call the GitHub API with the configured updates token (`update/mod.rs`);
+- call the GitHub API, with the configured updates token or anonymously when
+  there is none (`update/mod.rs`);
 - push to a real repository when `VERSORIUM_TEST_REMOTE` and
   `VERSORIUM_TEST_TOKEN` are set (`git/repo.rs`);
 - bind a localhost port and write the MCP endpoint file (`mcp/http.rs`).
@@ -133,10 +134,9 @@ To run one test, pass its name instead:
 `cargo test --manifest-path src-tauri/Cargo.toml -- --ignored live_pandoc_reads_our_chapters_back`.
 Ask the maintainer before running the whole target.
 
-`make clippy` does **not** pass `--all-targets`; CI does
-(`cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`).
-Run the CI form before pushing Rust changes, or CI can fail on a test-only lint
-that `make verify` never saw.
+`make clippy` runs exactly what CI runs
+(`cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`),
+tests included, so `make verify` catches the same lints CI would.
 
 `make fmt` is deliberately not part of `verify`: the Rust code is hand-formatted
 wider than rustfmt's defaults and there is no `rustfmt.toml`. Do not run it as a

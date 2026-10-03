@@ -251,18 +251,36 @@ depend on the secrets, and the DNS record can be added before Pages exists.
    a *draft* so a person checks `latest.json` and `SHA256SUMS` before any
    client is offered it (see `RELEASING.md`).
 
+   Before tagging, decide whether to set `"requireSignedVersion": true` under
+   `plugins.updater` in `src-tauri/tauri.conf.json` (raised in review on
+   2026-10-03, separate from the token change). Left off, as now (the
+   plugin's default), the updater accepts a signature that names no version,
+   so a tampered `latest.json` could announce a newer version for an older
+   installer signed that way. No release signature should lack one:
+   `pnpm-lock.yaml` locks `@tauri-apps/cli` 2.12.0, whose changelog says
+   `tauri build` records the app version in every updater signature, and the
+   plugin already refuses a signature whose version differs from the one
+   announced. The flag makes the version a requirement. If it is set for
+   `v0.1.0`, decode a `.sig` from the draft (it is base64) and confirm its
+   trusted comment contains `version:0.1.0` before publishing: an install with
+   the flag refuses every later release whose signature names no version.
+
 Two things in the app reach the repository directly. What going public does
 for each:
 
-- **The in-app updater still needs a token after going public, and the spec
-  says so.** `update_check` in `src-tauri/src/commands/update.rs` returns
-  early when no GitHub updates token is configured (its comment cites "Spec
-  §11: no token, no check"), and `src-tauri/src/update/mod.rs` sends the
-  token as a bearer token on every request. That is not an oversight to
-  patch: `PROMPT-VERSORIUM.md` §11 asks for private releases, a
-  `contents:read` token, and "Sin login no hay auto-update". Updating without
-  a token changes a spec requirement. The maintainer decides that and updates
-  `PROMPT-VERSORIUM.md` §11 first; only then does `update.rs` change.
+- **The in-app updater: decided and changed, not yet proven.** On 2026-10-03
+  the founder decided that once the repository is public, updates must work
+  without a token, and `PROMPT-VERSORIUM.md` §11 opens with that amendment.
+  The code follows it: `update_check` in `src-tauri/src/commands/update.rs`
+  no longer returns early without a token, and `src-tauri/src/update/mod.rs`
+  sends `Authorization` only when one is saved. A saved token is still sent,
+  for while the repository is private and to lift GitHub's anonymous rate
+  limit. Going public is what makes the anonymous check find anything: until
+  then GitHub answers it with a 404, and Settings → Updates says no published
+  version is visible yet. **To do after step 5:** on an install with no token
+  saved, press Check now and see the release offered and installed. Until
+  that is done, the anonymous path is proven only against the mocked IPC and
+  the unit tests.
 - **The crash reporter's "report" action** opens
   `https://github.com/MAECLY/versorium-app/issues/new` with a prefilled title
   and body (`report_url` in `src-tauri/src/crash/mod.rs`, owner and repo
@@ -285,8 +303,10 @@ past SmartScreen (More info → Run anyway).
 - One `cargo test` run, on an earlier and smaller suite, reported 1 failure
   without naming it in the captured output; the ten runs after it were
   reported clean (no logs of those runs are kept). Not diagnosed, so not
-  claimed fixed. A port clash is not the cause: the only test that opens a
-  socket (`live_a_real_request_over_a_real_socket_is_answered` in
+  claimed fixed. A port clash is not the cause: the only test that opened a
+  socket then (`live_a_real_request_over_a_real_socket_is_answered` in
   `src-tauri/src/mcp/http.rs`) is `#[ignore]`d, and it binds port 0 anyway.
+  The updater's two redirect tests, added since, open loopback sockets on
+  port 0 too.
   The suite measured on 2026-10-03 passed: 464 unit + 4 integration, 16
   ignored.

@@ -29,7 +29,9 @@ Project site: **https://versorium.maecly.com**
   public" in [TODO.md](TODO.md).
 - Until the repository is public, the release downloads, and the issue that the
   crash log's **Report** button opens on `MAECLY/versorium-app`, are reachable
-  only by people with access to the private repository.
+  only by people with access to the private repository. The in-app update
+  check runs without a token, but until then it sees no releases unless a
+  token that can read the repository is saved.
 - Half-done work and three specified-but-unbuilt features are in
   [TODO.md](TODO.md). That list is not complete: other parts of the spec that
   are not built are recorded, with the code they were checked against, in the
@@ -89,12 +91,22 @@ executable (`chmod +x`) if your file manager has not. The `.deb` depends on
 Settings → Application → Updates checks GitHub Releases. The updater verifies
 each download twice — the minisign signature against the public key compiled
 into the app, and the sha256 against the release's `SHA256SUMS` — and refuses
-anything that fails either check. It only fetches from `api.github.com`, and the
-owner and repository are compiled in, not configurable.
+anything that fails either check. Every request it makes goes to
+`api.github.com`, and the owner and repository are compiled in, not
+configurable. When GitHub redirects a download to its storage host, the
+updater follows that one hop and no further.
 
-Two limits today: the check needs a GitHub token (saved in the same Settings
-section), because the updater was written for a private repository; and since no
-release has been published, the update path has not yet run end to end.
+No GitHub token is needed. Without one the check is anonymous, which is all a
+public repository requires (the rule since 2026-10-03; see §11 of
+[PROMPT-VERSORIUM.md](PROMPT-VERSORIUM.md)). A token saved under Settings →
+Application → **Updates token (optional)** is still sent, and only to
+`api.github.com`. It lets the updater see releases while the repository is
+private, and it lifts GitHub's limit of 60 anonymous requests an hour per
+address. When that limit is reached, the panel says so and says when it resets.
+
+Two limits today: the repository is still private, so a check without a token
+finds nothing to see and says so; and since no release has been published, the
+update path has not yet run end to end.
 
 ## Rules this project keeps
 

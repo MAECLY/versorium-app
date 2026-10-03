@@ -111,6 +111,78 @@ and on demand, not on pull requests); it has never run on a GPU.
   changes once the certificates exist. Until then every release depends on the
   two notices above; minisign plus `SHA256SUMS` is what the updater verifies.
 
+## Updater without a token (2026-10-03, on `feat/landing-and-docs`)
+
+On 2026-10-03 the founder decided that once the repository is public, updates
+must work without a GitHub token. `PROMPT-VERSORIUM.md` §11 now opens with
+that amendment, dated, above the original text, which is kept. What changed:
+
+- **No token means an anonymous check, not no check.** `update_check` and
+  `update_install` (`src-tauri/src/commands/update.rs`) no longer return early
+  without a token, and the startup check no longer waits for one
+  (`src/lib/update/state.svelte.ts`). `update::request_headers` adds
+  `Authorization` only for a saved, non-blank token: without one there is no
+  such header at all, not an empty `Bearer`. A saved token is sent exactly as
+  before, which keeps updates working while the repository is private and
+  lifts GitHub's anonymous limit (60 requests an hour per address; a check
+  costs two: the release list and `latest.json`).
+- **Each answer GitHub can give has its own code and its own EN and ES text**
+  (`update::classify`). `update_none_visible`: a 404, so nothing is published
+  yet, or the repository is still private and no token is saved; shown as a
+  quiet line. `update_rate_limited`: a 403 with `x-ratelimit-remaining: 0` or
+  `retry-after`, or a 429; it says a token lifts the limit and, when GitHub
+  sends a reset time, when it lifts. `update_rate_limited_token`: the same with
+  a token sent, without the advice to add one. `update_token_rejected`: a 401,
+  or another 403, with a token sent. `network`: still quiet, now with a line
+  that says nothing was checked. It also covers answers that are none of the
+  above, such as a 5xx or an anonymous 403 with no rate-limit headers, so the
+  line says GitHub could not be reached *or did not answer as expected*. The
+  panel says "Not checked yet." until a check has finished. Before, it said
+  "This is the newest release." as soon as the status loaded, whether or not
+  anything had been checked, and after a failed check. `bad_signature`,
+  `no_checksums` and `unsupported_platform` had no text and showed "Something
+  went wrong."; each has its own now.
+- **A limit reached between two requests is still named.** After the release
+  list, the next request of a check (`latest.json`) and the next two of an
+  install (`latest.json`, then the installer) are the plugin's, and the plugin
+  cannot say why GitHub refused one: it reports a refused `latest.json` as "no
+  release" and a refused installer as a network failure. GitHub's answer to
+  the list already says how many requests are left this hour. When fewer are
+  left than the check (one) or the install (three, `SHA256SUMS` included)
+  still needs, the updater reports the limit there, with its reset time, and
+  sends nothing that would be refused (`update::budget_covers`). What it
+  cannot see is another program on the same address spending the last request
+  in the instant between the list and the plugin's request. That check reads
+  "No release matched this channel.", and the next one names the limit.
+- **The token cannot follow a download off `api.github.com`.** Asset downloads
+  are redirected to GitHub's storage host. reqwest — 0.12.28 for the app's own
+  client, 0.13.5 inside tauri-plugin-updater, both from `Cargo.lock` — drops
+  `Authorization` on a hop to another host, but it compares each hop only with
+  the one before it, and tower-http 0.6.11, which follows the redirects for it,
+  rebuilds each hop's headers from the original request. So a second hop that
+  stays on the storage host carries the token again.
+  `tests/updater/redirect-probe` shows this on both versions. Nothing leaked:
+  no release has ever existed, so this path never ran, and GitHub's redirect
+  for a public repository's asset, measured on 2026-10-03, is a single hop to
+  `release-assets.githubusercontent.com`, which answers itself. Both clients now
+  follow a redirect only out of `api.github.com`, and only over https
+  (`update::may_follow`, applied to the plugin's client through
+  `configure_client`). Two loopback tests show the token reaching the first
+  host and nowhere else.
+- **The installer URL is pinned before anything is downloaded.** It comes
+  from `latest.json`, which nothing signs, and the plugin sends the builder's
+  headers, the token among them, to wherever it points. Before this change, a
+  tampered `latest.json` could have pointed the token at any host; the
+  minisign check refused the bytes, but only after the token was gone.
+- **Unchanged, and tested as such:** owner, repo and host compiled in;
+  `manifest_url_for`; minisign in the plugin, with the public key and
+  `endpoints: []` pinned by a test against `tauri.conf.json`; the
+  `SHA256SUMS` comparison (`update::digest_matches`); no install on any
+  mismatch. The anonymous path goes through all of them.
+- **Settings → Application:** Check now is never disabled for want of a token,
+  the "Sign in under Settings → Application…" line is gone, and the token
+  section is "Updates token (optional)" with a one-line reason.
+
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 
 ### Backup
@@ -297,11 +369,12 @@ The full list, with file names, is `TODO.md`; the epubcheck result is in
 - **Going public**, in order: signing secrets → make the repo public → enable
   Pages with GitHub Actions as the source → the Cloudflare CNAME → tag
   `v0.1.0` and check the draft release before publishing it.
-- **The updater needs a token, even once the repo is public.** `update_check`
-  in `src-tauri/src/commands/update.rs` returns early when no GitHub updates
-  token is configured, and every request sends it as a bearer token, because
-  the updater was written for a private repository. Until that code changes,
-  an ordinary install cannot detect an update.
+- **The tokenless updater has not met a public repository yet.** The code
+  no longer needs a token (see "Updater without a token" above), but the
+  repository is still private and has no release. Today an anonymous check
+  gets GitHub's 404 and the panel says that no published version is visible.
+  Detect, verify and install without a token can only be tried after the
+  repository is public and `v0.1.0` is published.
 - **Apple notarization and Windows Authenticode.** They need purchased
   certificates and code: the release workflow and `tauri.conf.json` are not
   wired for either (see "Release readiness").
@@ -310,9 +383,11 @@ The full list, with file names, is `TODO.md`; the epubcheck result is in
 - **One unexplained test failure.** One `cargo test` run, on an earlier and
   smaller suite, reported 1 failure without naming it; the runs after it were
   reported clean, and no logs of them are kept. Not diagnosed, so not claimed
-  fixed. A port clash is not the cause: the only test that opens a socket
-  (`live_a_real_request_over_a_real_socket_is_answered` in
+  fixed. A port clash is not the cause: the only test that opened a socket
+  then (`live_a_real_request_over_a_real_socket_is_answered` in
   `src-tauri/src/mcp/http.rs`) is `#[ignore]`d, and it binds port 0 anyway.
+  The updater's two redirect tests, added since, open loopback sockets on
+  port 0 too.
 
 ---
 
@@ -576,7 +651,7 @@ app.
 - [x] Tauri updater plugin (2.13) wired, with `createUpdaterArtifacts` and the real minisign public key
 - [x] Reads GitHub Releases of the app's own repo, over the **API asset endpoint** — the only form that serves bytes from a private repository
 - [x] **minisign + sha256** — the plugin verifies the signature, and the client verifies the digest against the release's `SHA256SUMS` before installing
-- [x] Settings → Updates (now a section of Settings → Application), using the Updates token slot that has always been separate from the novel token
+- [x] Settings → Updates (now a section of Settings → Application), using the Updates token slot that has always been separate from the novel token — optional since 2026-10-03, when checking without a token became the rule (§11 amendment)
 - [x] Dialog with **Download & Install / Later / Skip this version**
 - [x] CI workflow that builds and publishes a signed release on a `vX.Y.Z` tag, plus `RELEASING.md` (it publishes a draft; it has never run, because no tag exists)
 - [x] Channels `stable` (default) and `beta`; automatic checking on by default on stable; offline never nags
@@ -637,13 +712,19 @@ look. The answer is that the endpoint is not configurable at all:
   anything that could would be arbitrary code execution carrying our own
   signature. An override "for testing" was planned and deliberately dropped for
   exactly this reason.
-- Every URL that reaches the network is re-validated to be **https on
-  `api.github.com`**, so a tampered API response cannot redirect the download.
-  Tests run hostile inputs through it, including `api.github.com.evil.example.com`.
+- Every URL the updater asks for is re-validated to be **https on
+  `api.github.com`** before anything is sent: the asset URLs in the API's
+  answer and, since 2026-10-03, the installer URL in `latest.json`. So a
+  tampered response cannot redirect the download. Tests run hostile inputs
+  through it, including `api.github.com.evil.example.com`.
+- **A redirect is followed only out of `api.github.com`**, and only over
+  https (`update::may_follow`), on the app's client and on the plugin's. The
+  storage host GitHub redirects a download to has to answer by itself, which
+  keeps the updates token, when there is one, on `api.github.com`.
 - `endpoints: []` in the config is not an omission: the plugin refuses a check
-  that did not set an endpoint at runtime, which closes the unauthenticated JS
-  path rather than opening one. A static URL could not work anyway — a private
-  repo's asset id changes with every release.
+  that did not set an endpoint at runtime, which closes the JS path around
+  these pins rather than opening one. A static URL could not work anyway — the
+  asset id changes with every release.
 - The **private** signing key lives outside the repository. Only the public half
   is committed, which is what a public key is for.
 
@@ -738,6 +819,7 @@ these is in the repo.
 
 For the release criterion, what stands in the way is the "Going public"
 sequence in `TODO.md` (signing secrets, a public repo, Pages, DNS, the first
-tag) and one code change: the updater checks only when a GitHub updates token
-is configured, so after the repo is public an ordinary install still cannot
-detect an update until `update_check` can run without one.
+tag). The code change that used to be on this list is done: the updater
+checks without a GitHub token since 2026-10-03 (see "Updater without a
+token"). Whether an ordinary install, with no token, detects, verifies and
+installs a release is the part that needs the public repository and the tag.

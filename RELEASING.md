@@ -10,6 +10,9 @@ Where things stand on 2026-10-03:
   end. The workflow (`.github/workflows/release.yml`) is written; its first real
   run will be `v0.1.0`.
 - The repository, `github.com/MAECLY/versorium-app`, is **private**.
+- The in-app updater checks without a GitHub token (spec §11, amended on
+  2026-10-03), so once the repository is public it needs no token at all
+  (section 3).
 - The signing key exists and its pair is verified (section 1). The two GitHub
   secrets are **set** — set on 2026-10-03 (17:18 UTC). GitHub never shows a secret back, so the first
   tag build is the end-to-end proof that they are right.
@@ -132,17 +135,27 @@ Each step depends on the one before it.
 The landing page is not live until steps 2, 3 (including the custom domain) and
 4 are all done.
 
-One thing going public does **not** change: the in-app updater still needs a
-GitHub token. `src-tauri/src/commands/update.rs` skips the update check entirely
-when no token is stored, and every request it makes
-carries that token (`src-tauri/src/update/mod.rs`). A user with no token gets no
-update offers, public repository or not. Downloading from the release page needs
-no token once the repository is public.
+Going public is also what makes in-app updates reach everyone. Since
+2026-10-03 the updater does not need a GitHub token (spec §11, amended): with
+none saved, `src-tauri/src/commands/update.rs` still checks, and every request
+`src-tauri/src/update/mod.rs` makes is anonymous, with no `Authorization`
+header. While the repository is private, that anonymous check gets a 404 and
+the app says that no published version is visible yet. Once the repository is
+public and a release is published, the same check finds it. Downloading from
+the release page needs no token once the repository is public either.
 
-Users enter that token in **Settings → Application**, in the section titled
-**Updates login** ("Cuenta de actualizaciones" in Spanish). It is a separate
-section from **Updates**, which sits just above it in the same group and has no
-token field. The app's own signed-out message points to Settings → Application.
+After step 5, check this once by hand: on an install with no token saved, press
+**Check now**, see the release offered (it has to be newer than the installed
+version), and let it install. That is the end-to-end proof of the anonymous
+path; until then it has only run against the mock and the unit tests.
+
+The token is still accepted, and still sent when saved. It goes in **Settings →
+Application**, in the section titled **Updates token (optional)** ("Token de
+actualizaciones (opcional)" in Spanish), below the **Updates** section, which
+has no token field. It is what keeps updates working for whoever has one while
+the repository is private, and it lifts GitHub's limit of 60 anonymous requests
+an hour per address. When that limit is reached, the panel says so, says when
+it resets, and points to the same section.
 
 ## 4. Signing that this does not cover
 
@@ -255,10 +268,12 @@ Check these four things, then publish.
    `https://api.github.com/repos/<owner>/<repo>/releases/assets/<id>`. While the
    repository is private only the API asset endpoint serves the bytes; the
    browser-style URL returns 404 even with a valid token. Once it is public both
-   forms download, but the app still needs the API form: it finds the
-   installer's line in `SHA256SUMS` from the numeric asset id at the end of the
-   URL (`asset_name_for` in `src-tauri/src/update/mod.rs`), and a URL ending in
-   a file name fails the install with `no_checksums`.
+   forms download, but the app still needs the API form. It refuses any URL
+   that is not https on `api.github.com` before downloading anything
+   (`bad_update_host`), because the updater sends its headers, a saved token
+   among them, to that URL. And it finds the installer's line in `SHA256SUMS`
+   from the numeric asset id at the end of the URL (`asset_name_for` in
+   `src-tauri/src/update/mod.rs`).
 
 3. **`SHA256SUMS` covers the installers.** The spec (§11) asks for minisign
    *and* sha256: the `.sig` files are the first half, this is the second.
@@ -366,10 +381,13 @@ as much as a tag build does (section 6).
 **A beta's Windows job fails on the MSI version.** The pre-release suffix is not
 numeric. Use a tag like `v0.2.0-1` (section 6).
 
-**Clients never see the update.** In order of likelihood: the user has no token
-in Settings → Application → Updates login; the release is still a draft; `tauri.conf.json`'s version
-was not bumped; the platform key is missing from `latest.json`; or the URLs in
-`latest.json` are not the `api.github.com` form.
+**Clients never see the update.** In order of likelihood: the repository is
+still private and the user has no token that can read it (Settings → Updates
+says no published version is visible yet); the release is still a draft;
+`tauri.conf.json`'s version was not bumped; the platform key is missing from
+`latest.json`; the URLs in `latest.json` are not the `api.github.com` form (the
+install then stops with `bad_update_host`); or GitHub's anonymous rate limit,
+which the panel names along with the time it resets.
 
 **A client downloads but refuses to install.** Either the signature did not
 verify — the build was signed with a different key than the `pubkey` in
