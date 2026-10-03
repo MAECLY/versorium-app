@@ -5353,6 +5353,8 @@ dependencies = [
  "llama-cpp-2",
  "quick-xml",
  "reqwest 0.12.28",
+ "reqwest 0.13.5",
+ "rustls",
  "serde",
  "serde_json",
  "sha2 0.11.0",

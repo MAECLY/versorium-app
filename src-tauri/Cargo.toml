@@ -27,6 +27,14 @@ sysinfo = "0.39.6"
 zip = "^5"
 quick-xml = "0.42.0"
 tauri-plugin-updater = { version = "^2", default-features = false, features = ["rustls-tls"] }
+# The updater plugin's own HTTP client is reqwest 0.13, and its redirect policy
+# can only be named through that version. The policy is what keeps the updates
+# token on api.github.com when the plugin follows an asset download to GitHub's
+# storage host (`update::plugin_client`). Already in the tree through the
+# plugin, so this adds nothing to the build. If the plugin ever moves to another
+# reqwest, `configure_client` stops compiling instead of silently losing the
+# rule.
+updater-reqwest = { package = "reqwest", version = "0.13", default-features = false }
 tauri-plugin-opener = "2.6.0"
 # In-process llama.cpp. Pinned exactly: upstream declares no MSRV, publishes
 # roughly weekly, and every bump repays the full cmake cost on all four release
@@ -69,3 +77,7 @@ vulkan = ["llama-cpp-2/vulkan"]
 
 [dev-dependencies]
 tempfile = "3"
+# Only so a test can build the plugin's reqwest client: the plugin compiles it
+# with `rustls-no-provider` and installs ring itself before every request, and
+# the redirect tests must do the same. Already in the tree, ring included.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
