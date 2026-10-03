@@ -267,7 +267,7 @@
     "rewrite": "Reescribir",
     "provider": "Agente",
     "busy": "Reescribiendo…",
-    "noProviders": "No se encontró ningún agente. Instala Claude Code, Codex, OpenCode u Ollama y vuelve a comprobar en Ajustes → Agentes.",
+    "noProviders": "No se encontró ningún asistente. Instala Claude Code, Codex, OpenCode u Ollama y vuelve a comprobarlo en Ajustes → Asistentes.",
     "preview": "Vista previa",
     "original": "Original",
     "rewritten": "Reescrito",
@@ -279,7 +279,7 @@
     "kindCli": "CLI",
     "checkpointNote": "Versorium guarda un punto de control en Git antes de aplicar. Puedes revertirlo.",
     "creative": "Continuar capítulo",
-    "creativeSoon": "El modo creativo llega en la v1.1.",
+    "creativeSoon": "El modo creativo llegará. Todavía no está disponible.",
     "configuredSuffix": "(configurado)"
   },
   "agents": {
@@ -299,13 +299,13 @@
   "safety": {
     "title": "Seguridad",
     "censorship": "Censura",
-    "censorshipHint": "Activada oculta los modelos locales sin censura y pide a los agentes en la nube que mantengan el texto limpio. Desactivada prefiere rutas sin censura. El enrutado llega con IA local.",
+    "censorshipHint": "Activado, los modelos marcados sin censura se ocultan de la lista de arriba. Es todo lo que hace hoy: no cambia lo que se le pide a ningún asistente, y nada enruta las peticiones según él.",
     "on": "Activada",
     "off": "Desactivada"
   },
   "mcp": {
     "title": "Qué se les permite hacer",
-    "intro": "Aquí la flecha va al revés: un asistente se conecta a Versorium y lee tu manuscrito a través de él. Un servidor local en esta máquina (stdio), de solo lectura hasta que permitas escribir, cliente a cliente.",
+    "intro": "Aquí la flecha va al revés: un asistente se conecta a Versorium y lee tu manuscrito a través de él. Un servidor local en esta máquina — por stdio, y por HTTP solo si lo activas abajo — de solo lectura hasta que permitas escribir, cliente a cliente.",
     "command": "Comando",
     "commandHint": "Los clientes conectados lo ejecutan. Nada queda a la escucha en la red.",
     "connect": "Conectar",
@@ -430,7 +430,7 @@
       "modified": "Actualizado {when}"
     },
     "studio": {
-      "intro": "LM Studio o llama-server: cualquier cosa que hable la API de OpenAI en esta máquina.",
+      "intro": "LM Studio o llama-server, cualquier cosa que hable la API de OpenAI en esta máquina. Ya puedes probar y guardar la conexión; asignarlo a una tarea todavía no está hecho.",
       "host": "Host",
       "port": "Puerto",
       "test": "Probar conexión",
@@ -488,7 +488,7 @@
     },
     "sources": {
       "title": "De dónde salen los modelos",
-      "intro": "Cuatro maneras de tener un modelo en esta máquina. No necesitas todas; necesitas una a la que las tareas de arriba puedan apuntar."
+      "intro": "De dónde puede salir un modelo. Los integrados y los de Ollama se pueden asignar a las tareas de arriba; un servidor local se puede configurar aquí, pero ninguna tarea puede usarlo todavía."
     },
     "runsOn": {
       "none": "sin modelo todavía",
@@ -805,7 +805,7 @@
     "coverLabel": "Abrir las exportaciones con una portada",
     "coverHint": "El título, tu firma, y la editorial y los derechos si tu perfil de autor los tiene. Un manuscrito que llega sin ella obliga al lector a deducir de quién es por el nombre del archivo.",
     "colophonLabel": "Cerrar las exportaciones con la ficha de esta novela",
-    "colophonHint": "Título, autor, idioma, número de capítulos y de palabras, y una línea diciendo que se escribió aquí. Si lo desactivas, no queda rastro de Versorium en el archivo.",
+    "colophonHint": "Título, autor, idioma, número de capítulos y de palabras, y una línea diciendo que se escribió aquí. Si lo desactivas, esa página final desaparece. Las propiedades del archivo siguen nombrando el programa que lo creó, como hace cualquier procesador de textos.",
     "preview": "Portada",
     "previewEmpty": "Añade un autor en Ajustes → Autor y aparecerá aquí.",
     "colophonHeading": "Sobre este libro",
