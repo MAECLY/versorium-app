@@ -273,15 +273,23 @@ fn paginate(manuscript: &Manuscript) -> Vec<Vec<Line>> {
 }
 
 /// `Surname / Title / page`, set flush right, as the manuscript format asks.
-fn content_stream(manuscript: &Manuscript, page: &[Line], number: usize) -> Vec<u8> {
-    let head = format!("{} / {} / {}", manuscript.surname(), manuscript.title, number);
+/// One page's drawing operators.
+///
+/// `number` is `None` for the title page and the colophon: standard manuscript
+/// format gives the title page no running head, and numbering starts at 1 on
+/// the first page of text. When the title page shipped, every page — the title
+/// page included — got "Surname / Title / N", and chapter one opened on page 2.
+fn content_stream(manuscript: &Manuscript, page: &[Line], number: Option<usize>) -> Vec<u8> {
     let mut out = Vec::new();
     out.extend_from_slice(b"BT\n/F1 12 Tf\n");
-    out.extend_from_slice(
-        format!("1 0 0 1 {:.2} {:.2} Tm\n", PAGE_W - MARGIN - width_of(&head), HEAD_Y).as_bytes(),
-    );
-    out.extend_from_slice(&pdf_string(&head));
-    out.extend_from_slice(b" Tj\n");
+    if let Some(number) = number {
+        let head = format!("{} / {} / {}", manuscript.surname(), manuscript.title, number);
+        out.extend_from_slice(
+            format!("1 0 0 1 {:.2} {:.2} Tm\n", PAGE_W - MARGIN - width_of(&head), HEAD_Y).as_bytes(),
+        );
+        out.extend_from_slice(&pdf_string(&head));
+        out.extend_from_slice(b" Tj\n");
+    }
     for line in page {
         out.extend_from_slice(format!("1 0 0 1 {:.2} {:.2} Tm\n", line.x, line.y).as_bytes());
         out.extend_from_slice(&pdf_string(&line.text));
@@ -372,7 +380,11 @@ pub fn render(manuscript: &Manuscript) -> Result<Vec<u8>, String> {
             )
             .into_bytes(),
         ));
-        let stream = content_stream(manuscript, page, i + 1);
+        // The apparatus pages sit outside the text's numbering.
+        let first_text = usize::from(manuscript.matter.cover);
+        let end_text = pages.len() - usize::from(manuscript.matter.colophon);
+        let number = (first_text..end_text).contains(&i).then(|| i - first_text + 1);
+        let stream = content_stream(manuscript, page, number);
         let mut body = format!("<< /Length {} >>\nstream\n", stream.len()).into_bytes();
         body.extend_from_slice(&stream);
         body.extend_from_slice(b"\nendstream");
@@ -515,6 +527,25 @@ mod tests {
     }
 
     #[test]
+    fn apparatus_pages_carry_no_running_head_and_text_starts_at_page_one() {
+        // Standard manuscript format: no head on the title page, and the first
+        // page of text is page 1. When the title page shipped, every page got
+        // "Surname / Title / N" and chapter one opened on page 2.
+        let m = book();
+        let pdf = String::from_utf8_lossy(&render(&m).unwrap()).into_owned();
+        assert!(pdf.contains("(Fern\\341ndez / La Casa de Niebla / 1)"), "text starts at 1");
+        assert!(pdf.contains("(Fern\\341ndez / La Casa de Niebla / 2)"));
+        assert!(
+            !pdf.contains("(Fern\\341ndez / La Casa de Niebla / 3)"),
+            "two text pages, so no page 3 — the colophon is unnumbered"
+        );
+        // Turn the apparatus off and the numbering is unchanged.
+        let bare = Manuscript { matter: bare(), ..book() };
+        let plain = String::from_utf8_lossy(&render(&bare).unwrap()).into_owned();
+        assert!(plain.contains("(Fern\\341ndez / La Casa de Niebla / 1)"));
+    }
+
+    #[test]
     fn the_title_page_comes_first_and_the_colophon_last() {
         let mut m = book();
         m.byline.rights = "© 2026 María Fernández".into();
@@ -584,7 +615,7 @@ mod tests {
     fn the_running_head_is_surname_title_and_page_number() {
         let manuscript = book();
         let pages = paginate(&manuscript);
-        let stream = content_stream(&manuscript, &pages[1], 2);
+        let stream = content_stream(&manuscript, &pages[1], Some(2));
         let text = String::from_utf8_lossy(&stream);
         // Octal escapes, since the head is written 7-bit.
         assert!(text.contains("Fern\\341ndez / La Casa de Niebla / 2"));
@@ -681,7 +712,8 @@ mod tests {
             .find_map(|line| line.strip_prefix("Pages:"))
             .and_then(|v| v.trim().parse::<usize>().ok())
             .unwrap_or_else(|| panic!("pdfinfo reported no page count: {info}"));
-        assert_eq!(pages, 2, "pdfinfo saw: {info}");
+        // Title page, two chapters, colophon — the defaults a writer gets.
+        assert_eq!(pages, 4, "pdfinfo saw: {info}");
         assert!(info.contains("letter"), "the page size is not US Letter: {info}");
 
         let out = std::process::Command::new("pdftotext")
@@ -692,8 +724,24 @@ mod tests {
         let text = String::from_utf8_lossy(&out.stdout).into_owned();
         eprintln!("{text}");
         assert!(text.contains("Capítulo 1. El umbral"), "chapter title missing");
-        assert!(text.contains("Fernández / La Casa de Niebla / 1"), "running head missing");
         assert!(text.contains("nadie había llamado"), "prose missing");
+
+        // Read page by page: what matters is WHICH page carries the head.
+        let page = |n: usize| {
+            let out = std::process::Command::new("pdftotext")
+                .args(["-f", &n.to_string(), "-l", &n.to_string()])
+                .arg(&dest)
+                .arg("-")
+                .output()
+                .expect("pdftotext");
+            String::from_utf8_lossy(&out.stdout).into_owned()
+        };
+        // The title page carries no running head, and numbering starts on the
+        // first page of text — so chapter one is page 1, not page 2.
+        assert!(!page(1).contains(" / La Casa de Niebla / "), "title page has a head: {}", page(1));
+        assert!(page(2).contains("Fernández / La Casa de Niebla / 1"), "chapter one is not page 1: {}", page(2));
+        assert!(page(3).contains("Fernández / La Casa de Niebla / 2"), "numbering skipped: {}", page(3));
+        assert!(!page(4).contains(" / La Casa de Niebla / "), "colophon has a head: {}", page(4));
     }
 
     #[test]
