@@ -102,3 +102,25 @@ test("a number field refuses nonsense instead of sending it", async ({ page }) =
   await keep.blur();
   await expect(keep).toHaveValue("200");
 });
+
+test("clearing the local server port cannot send a non-number to the backend", async ({ page }) => {
+  // It was a bound <input type="number">: Svelte binds an emptied number box
+  // as null, and studio_save takes a u16.
+  await page.goto("/?mock=tauri");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("button", { name: "Local AI" }).click();
+  await settings.getByRole("tab", { name: "Local server" }).click();
+
+  const port = settings.getByRole("spinbutton", { name: "Port" });
+  await expect(port).toHaveValue("1234");
+  await port.fill("");
+  await port.blur();
+  await expect(port).toHaveValue("1234");
+
+  await settings.getByRole("button", { name: "Save" }).click();
+  const saved = await page.evaluate(() =>
+    window.__VERSORIUM_MOCK__.calls.filter((c) => c.cmd === "studio_save").map((c) => c.args.port),
+  );
+  expect(saved.at(-1)).toBe(1234);
+});
