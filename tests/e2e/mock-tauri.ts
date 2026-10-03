@@ -546,7 +546,13 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (index < 0) throw "not_found";
     // The real command snapshots before removing, which is what makes this
     // recoverable; the mock records the commit so a test can see it happened.
-    commit(p, `checkpoint: before deleting ${file}`);
+    // A clean tree is already snapshotted, so, as in Rust, that is no reason
+    // to refuse: without this a second delete in a row failed only here.
+    try {
+      commit(p, `checkpoint: before deleting ${file}`);
+    } catch (error) {
+      if (error !== "nothing_to_commit") throw error;
+    }
     p.chapters.splice(index, 1);
     return p.chapters.map((c) => ({ ...c }));
   },
