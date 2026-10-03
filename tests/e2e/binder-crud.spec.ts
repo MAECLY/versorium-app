@@ -167,7 +167,7 @@ test("a chapter can be moved, and the file it points at does not move with it", 
   expect(await titles()).toEqual(["El largo invierno", "Segundo", "Tercero"]);
 
   await chapterMenu(page, "Tercero").click();
-  await page.getByRole("menuitem", { name: "Move up" }).click();
+  await page.getByRole("menuitem", { name: "Move earlier" }).click();
   await expect.poll(titles).toEqual(["El largo invierno", "Tercero", "Segundo"]);
 
   // Order is data, not a numbering: renaming files to reorder them would
@@ -182,13 +182,13 @@ test("the ends of the list do not offer a move that goes nowhere", async ({ page
   // A disabled item is a thing to read and then work out why; an absent one is
   // an answer.
   await chapterMenu(page, "El largo invierno").click();
-  await expect(page.getByRole("menuitem", { name: "Move up" })).toHaveCount(0);
-  await expect(page.getByRole("menuitem", { name: "Move down" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Move earlier" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Move later" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   await chapterMenu(page, "Segundo").click();
-  await expect(page.getByRole("menuitem", { name: "Move down" })).toHaveCount(0);
-  await expect(page.getByRole("menuitem", { name: "Move up" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Move later" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Move earlier" })).toBeVisible();
 });
 
 

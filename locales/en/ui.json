@@ -42,8 +42,8 @@
       "renameChapter": "Rename chapter…",
       "deleteChapter": "Delete chapter",
       "markAs": "Mark as {status}",
-      "moveUp": "Move up",
-      "moveDown": "Move down",
+      "moveEarlier": "Move earlier",
+      "moveLater": "Move later",
       "projectSettings": "Project settings…"
     },
     "rename": {

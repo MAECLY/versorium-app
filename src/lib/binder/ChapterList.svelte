@@ -1,76 +1,37 @@
 <script lang="ts">
   import { store } from "$lib/binder/store.svelte";
   import { t } from "$lib/i18n";
-  import type { ChapterMeta, ChapterStatus, Project } from "$lib/tauri";
   import ItemMenu from "$lib/binder/ItemMenu.svelte";
-  import RenameDialog from "$lib/binder/RenameDialog.svelte";
-  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
-  import ProjectSettingsDialog from "$lib/binder/ProjectSettingsDialog.svelte";
   import CoverPreview from "$lib/components/CoverPreview.svelte";
+  import { contextMenuZone } from "$lib/contextmenu/policy";
+  import {
+    chapterActions,
+    chapterKey,
+    projectActions,
+    projectKey,
+    runChapterAction,
+    runProjectAction,
+  } from "$lib/binder/itemActions.svelte";
 
   let { onRequestNewChapter }: { onRequestNewChapter: () => void } = $props();
 
-  const STATUSES: ChapterStatus[] = ["draft", "revised", "final"];
+  // One handle per row, so a right-click or Shift+F10 on the row opens that
+  // row's own ⋯ menu rather than a second copy of it. Only ever called, never
+  // rendered from, which is why it is not state.
+  const menus: Record<string, ReturnType<typeof ItemMenu> | null> = {};
 
-  let renaming = $state<{ kind: "project" | "chapter"; id: string; title: string } | null>(null);
-  let confirming = $state<{ kind: "project" | "chapter"; id: string; title: string } | null>(null);
+  /** The row whose menu is open, outlined so "Delete chapter" cannot be read as the open chapter. */
+  let menuFor = $state<string | null>(null);
 
-  let settingsFor = $state<string | null>(null);
-
-  let projectActions = $derived([
-    { id: "rename", label: t("binder.menu.renameProject") },
-    { id: "settings", label: t("binder.menu.projectSettings") },
-    { id: "delete", label: t("binder.menu.deleteProject"), destructive: true },
-  ]);
-
-  /** Only the statuses it is not already, so the menu never offers a no-op. */
-  function chapterActions(chapter: ChapterMeta) {
-    const chapters = store.project?.chapters ?? [];
-    const at = chapters.findIndex((c) => c.file === chapter.file);
-    return [
-      { id: "rename", label: t("binder.menu.renameChapter") },
-      // Omitted rather than disabled at the ends: a menu item that cannot do
-      // anything is a thing to read and then work out why.
-      ...(at > 0 ? [{ id: "up", label: t("binder.menu.moveUp") }] : []),
-      ...(at >= 0 && at < chapters.length - 1 ? [{ id: "down", label: t("binder.menu.moveDown") }] : []),
-      ...STATUSES.filter((s) => s !== chapter.status).map((s) => ({
-        id: `status:${s}`,
-        label: t("binder.menu.markAs", { status: t(`binder.status.${s}`) }),
-      })),
-      { id: "delete", label: t("binder.menu.deleteChapter"), destructive: true },
-    ];
+  function trackMenu(key: string, open: boolean): void {
+    if (open) menuFor = key;
+    else if (menuFor === key) menuFor = null;
   }
 
-  function onProjectAction(project: Project, action: string): void {
-    if (action === "rename") renaming = { kind: "project", id: project.path, title: project.meta.title };
-    if (action === "settings") settingsFor = project.path;
-    if (action === "delete") confirming = { kind: "project", id: project.path, title: project.meta.title };
-  }
-
-  function onChapterAction(chapter: ChapterMeta, action: string): void {
-    if (action === "rename") renaming = { kind: "chapter", id: chapter.file, title: chapter.title };
-    else if (action === "up") void store.moveChapter(chapter.file, -1);
-    else if (action === "down") void store.moveChapter(chapter.file, 1);
-    else if (action === "delete") confirming = { kind: "chapter", id: chapter.file, title: chapter.title };
-    else if (action.startsWith("status:")) {
-      void store.updateChapter(chapter.file, undefined, action.slice(7) as ChapterStatus);
-    }
-  }
-
-  async function doRename(title: string): Promise<void> {
-    const target = renaming;
-    if (!target) return;
-    if (target.kind === "project") await store.renameProject(target.id, title);
-    else await store.updateChapter(target.id, title);
-  }
-
-  async function doDelete(): Promise<void> {
-    const target = confirming;
-    confirming = null;
-    if (!target) return;
-    if (target.kind === "project") await store.deleteProject(target.id);
-    else await store.deleteChapter(target.id);
-  }
+  // Nothing opens over a row that store.loading has disabled. The ⋯ itself
+  // stays available, as it always has; only right-click and the keys wait.
+  const zone = (key: string) =>
+    contextMenuZone({ open: (at) => void menus[key]?.openAt(at), enabled: () => !store.loading });
 </script>
 
 <aside
@@ -80,13 +41,21 @@
   <div class="v-row flex-shrink-0 px-3 pt-3">
     <span class="v-section-title">{t("binder.projects")}</span>
   </div>
-  <ul class="m-0 min-h-0 flex-1 list-none overflow-y-auto px-2 py-2" aria-label={t("binder.projects")}>
+  <ul
+    class="m-0 min-h-0 flex-1 list-none overflow-y-auto px-2 py-2"
+    aria-label={t("binder.projects")}
+    data-item-surface="list"
+  >
     {#each store.projects as p (p.path)}
+      {@const key = projectKey(p.path)}
       <li>
-      <div class="v-row" style="gap: 2px;">
+      <div class="v-row" style="gap: 2px;" {@attach zone(key)}>
       <button
-        class="v-list-item {store.project?.path === p.path ? 'v-list-item-active' : ''}"
+        class="v-list-item {store.project?.path === p.path ? 'v-list-item-active' : ''} {menuFor === key
+          ? 'v-menu-target'
+          : ''}"
         style="flex: 1; min-width: 0;"
+        data-item-key={key}
         aria-current={store.project?.path === p.path ? "true" : undefined}
         disabled={store.loading}
         onclick={() => store.openProject(p.path)}
@@ -107,10 +76,13 @@
           {t("binder.wordCount", { words: p.chapters.reduce((a, c) => a + c.words, 0) })}
         </span>
       </button>
+      <!-- svelte-ignore binding_property_non_reactive -->
       <ItemMenu
+        bind:this={menus[key]}
         label={t("binder.menu.forProject", { title: p.meta.title })}
-        actions={projectActions}
-        onChoose={(action) => onProjectAction(p, action)}
+        actions={projectActions()}
+        onChoose={(action) => runProjectAction(p, action)}
+        onOpenChange={(open) => trackMenu(key, open)}
       />
       </div>
       </li>
@@ -122,24 +94,32 @@
   {#if store.project}
     <div class="v-row flex-shrink-0 border-t px-3 pt-3" style="border-color: var(--border);">
       <span class="v-section-title">{t("binder.chapters")}</span>
+      <!-- data-item-fallback: where focus lands when the last chapter is deleted. -->
       <button
         class="v-btn"
         style="margin-left: auto; padding: 2px 8px; font-size: 12px;"
         title={t("binder.newChapter")}
         aria-label={t("binder.newChapter")}
+        data-item-fallback
         onclick={onRequestNewChapter}
       >
         +
       </button>
     </div>
-    <ul class="m-0 min-h-0 flex-1 list-none overflow-y-auto px-2 py-2" aria-label={t("binder.chapters")}>
+    <ul
+      class="m-0 min-h-0 flex-1 list-none overflow-y-auto px-2 py-2"
+      aria-label={t("binder.chapters")}
+      data-item-surface="list"
+    >
       {#each store.project.chapters as ch (ch.id)}
         {@const active = store.currentChapter?.id === ch.id}
+        {@const key = chapterKey(ch.file)}
         <li>
-        <div class="v-row" style="gap: 2px;">
+        <div class="v-row" style="gap: 2px;" {@attach zone(key)}>
         <button
-          class="v-list-item {active ? 'v-list-item-active' : ''}"
+          class="v-list-item {active ? 'v-list-item-active' : ''} {menuFor === key ? 'v-menu-target' : ''}"
           style="flex: 1; min-width: 0;"
+          data-item-key={key}
           aria-current={active ? "true" : undefined}
           disabled={store.loading}
           onclick={() => store.openChapter(ch)}
@@ -154,10 +134,13 @@
             {t("binder.status." + ch.status)}
           </span>
         </button>
+        <!-- svelte-ignore binding_property_non_reactive -->
         <ItemMenu
+          bind:this={menus[key]}
           label={t("binder.menu.forChapter", { title: ch.title })}
           actions={chapterActions(ch)}
-          onChoose={(action) => onChapterAction(ch, action)}
+          onChoose={(action) => runChapterAction(ch, action, "list")}
+          onOpenChange={(open) => trackMenu(key, open)}
         />
         </div>
         </li>
@@ -167,26 +150,3 @@
     </ul>
   {/if}
 </aside>
-
-{#if renaming}
-  <RenameDialog
-    kind={renaming.kind}
-    current={renaming.title}
-    onClose={() => (renaming = null)}
-    onRename={doRename}
-  />
-{/if}
-
-{#if confirming}
-  <ConfirmDialog
-    title={t(`binder.confirm.${confirming.kind}Title`, { title: confirming.title })}
-    body={t(`binder.confirm.${confirming.kind}Body`)}
-    confirmLabel={t(confirming.kind === "project" ? "binder.menu.deleteProject" : "binder.menu.deleteChapter")}
-    onCancel={() => (confirming = null)}
-    onConfirm={doDelete}
-  />
-{/if}
-
-{#if settingsFor}
-  <ProjectSettingsDialog path={settingsFor} onClose={() => (settingsFor = null)} />
-{/if}

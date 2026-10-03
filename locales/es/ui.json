@@ -42,8 +42,8 @@
       "renameChapter": "Renombrar capítulo…",
       "deleteChapter": "Borrar capítulo",
       "markAs": "Marcar como {status}",
-      "moveUp": "Subir",
-      "moveDown": "Bajar",
+      "moveEarlier": "Mover antes",
+      "moveLater": "Mover después",
       "projectSettings": "Ajustes del proyecto…"
     },
     "rename": {

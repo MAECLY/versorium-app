@@ -20,6 +20,8 @@
   import ManuscriptDialog from "$lib/components/ManuscriptDialog.svelte";
   import UpdateDialog from "$lib/components/UpdateDialog.svelte";
   import { detectAgents } from "$lib/ai/agents";
+  import ItemActionDialogs from "$lib/binder/ItemActionDialogs.svelte";
+  import { installContextMenuPolicy, installReloadKeyGuard } from "$lib/contextmenu/policy";
   import { updates } from "$lib/update/state.svelte";
 
   let showSettings = $state(false);
@@ -132,14 +134,15 @@
     }
     // The way out of focus mode. The chrome also returns on hover, but a writer
     // who cannot find their way back out will force-quit, so Escape is the
-    // guaranteed exit — unless a dialog is open, which owns Escape itself.
+    // guaranteed exit — unless a dialog or an item menu is open, which owns
+    // Escape itself.
     // Restore has no bar button of its own beyond the status bar, so it needs a
     // key: same modifier family as Rewrite, since both act on the selection.
     if ((event.metaKey || event.ctrlKey) && event.altKey && event.key.toLowerCase() === "r") {
       event.preventDefault();
       doRestore();
     }
-    if (event.key === "Escape" && focusMode && !document.querySelector("dialog[open]")) {
+    if (event.key === "Escape" && focusMode && !document.querySelector('dialog[open], [role="menu"]')) {
       event.preventDefault();
       toggleFocus();
     }
@@ -201,6 +204,10 @@
     window.addEventListener("keydown", onKeydown);
     let unlisten: (() => void) | undefined;
     let disposed = false;
+    // Here and not in main.ts: if the app never mounts, the boot-failure
+    // screen keeps the engine's Reload, its only way out.
+    const uninstallMenus = installContextMenuPolicy();
+    const uninstallKeys = installReloadKeyGuard();
     if (isTauri()) void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
       const window = getCurrentWindow();
       const off = await window.onCloseRequested(async event => {
@@ -217,6 +224,8 @@
       window.removeEventListener("keydown", onKeydown);
       unlisten?.();
       store.beforeLeave = undefined;
+      uninstallMenus();
+      uninstallKeys();
     };
   });
 </script>
@@ -300,6 +309,7 @@
     <Onboarding onClose={() => (onboarding.open = false)} />
   {/if}
 
+  <ItemActionDialogs />
   {#if showNewProject}
     <NewProjectDialog onClose={() => (showNewProject = false)} />
   {/if}

@@ -733,6 +733,14 @@ input[type="number"] {
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev));
 }
 
+/* The row or card whose item menu is open. Without it, "Delete chapter" from a
+   right-click reads as acting on the chapter that is open, not the one under
+   the pointer. After .v-list-item-active on purpose: same specificity, so
+   source order is what lets this border win over its var(--border). */
+.v-menu-target {
+  border-color: var(--accent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .v-chrome,
   .v-corkcard {
