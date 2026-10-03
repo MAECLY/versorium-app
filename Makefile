@@ -76,8 +76,8 @@ test-e2e-ui: ## Same, in Playwright's inspector
 test-live: tools ## Rust tests that hit real tools, daemons and the network
 	PATH="$(dir $(JAVA)):$$PATH" cargo test --manifest-path $(CARGO_MANIFEST) -- --ignored live_
 
-clippy: ## Lint Rust. Shipped code must be clean; test code has known warnings
-	cargo clippy --manifest-path $(CARGO_MANIFEST) -- -D warnings
+clippy: ## Lint Rust, tests included, exactly as CI does
+	cargo clippy --manifest-path $(CARGO_MANIFEST) --all-targets -- -D warnings
 
 lint: check clippy ## Static checks only, no tests
 
