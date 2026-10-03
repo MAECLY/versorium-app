@@ -1,0 +1,65 @@
+# Versorium by MAECLY
+
+> Free and open-source desktop writing studio for novelists, for macOS, Windows and Linux. Local-first: each chapter is a plain Markdown file in a folder the writer owns, each novel is its own git repository, and AI is optional and chosen by the writer. Apache-2.0. No release has been published yet, and so far the app has only been run on macOS.
+
+## Canonical pages
+
+- [Spanish landing](https://versorium.maecly.com/)
+- [English landing](https://versorium.maecly.com/en/)
+- [Source code](https://github.com/MAECLY/versorium-app)
+- [Releases](https://github.com/MAECLY/versorium-app/releases/latest): installers will be published here; none has been built or published yet
+- [Issues](https://github.com/MAECLY/versorium-app/issues)
+- [Licence: Apache-2.0](https://github.com/MAECLY/versorium-app/blob/main/LICENSE)
+- [Trademark policy](https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md)
+
+## What it does
+
+- Editor: a CodeMirror 6 Markdown editor. One file per chapter at manuscript/ch-NN-slug.md, with YAML frontmatter that the app manages (title, status, word count) and a plain body. Saves are atomic, with an 800 ms autosave. Word count in the status bar; Cmd/Ctrl+F finds text inside a chapter.
+- Focus mode dims the interface (Escape always exits); typewriter mode keeps the caret line in place; a corkboard shows one card per chapter.
+- Binder: create, rename (the title changes, the file keeps its name), move chapters up or down, set a status (draft, revised, final), delete (a git snapshot is taken first). Deleting a novel sends its folder to the system trash. Four structure templates (Blank, Three acts, Save the Cat, Kishōtenketsu), offered in the first-run guide (which can be replayed from Settings → Application), seed chapter titles only, never prose, in the language of the interface.
+- History: every editor transaction is logged as insert/delete operations in an append-only JSONL log under .versorium/ops/, tagged with its author (human, or ai:<client>), with a full chapter body every 200 operations. Restore (Cmd/Ctrl+Alt+R) puts back the previous text of the selection or of the word under the cursor, within the current editing session (up to 1000 edits).
+- Snapshots: each novel is a git repository through a built-in libgit2, so no system git is needed. Snapshots are taken every 60 seconds when something changed, before every AI write and before a chapter is deleted; the writer can take one by hand with a description. The History panel lists snapshots and shows the current changes.
+- AI, all optional: llama.cpp built into the app, with a catalogue of 11 GGUF writing models in four size tiers (0.58 to 17.4 GB) plus one embedding model, a hardware fit recommendation, downloads only when the writer presses Download, resumable and checked against SHA-256; Ollama on 127.0.0.1:11434; or the command-line tools Claude Code, Codex and OpenCode, which send the selected passage to their own (usually cloud) service. The Rewrite dialog labels each provider Local or CLI, shows a diff before applying, takes a git snapshot first and logs the change as ai:<provider>. A continuity check runs through a built-in or Ollama model and reasons over chapter titles and codex excerpts, not over the prose.
+- Assistants over MCP: the same binary serves MCP over stdio (versorium mcp --client <id>) with 15 read tools and 8 write tools. Writes are refused unless the writer grants that specific client; a granted write first returns a diff preview, needs confirm:true, and takes a git snapshot first. One-click setup for Claude Code, Claude Desktop, Codex and OpenCode; Cursor and VS Code are set up by hand. An optional Streamable HTTP transport is off by default and binds to loopback only, with a per-launch bearer token. The tool log records tool, client and outcome, never manuscript text.
+- Backup: "Back up now" writes one timestamped zip of the whole project, git history included, to up to three destinations (iCloud Drive, Google Drive, OneDrive, Dropbox, Nextcloud and ownCloud folders are detected; second disks are offered), and each destination says whether it leaves the machine. Unchanged states are skipped, archives can be verified by reading them back, and a restore is extracted beside the novel, never over it. Retention defaults to 10 archives.
+- GitHub: send (push) and bring (pull) a novel's repository with a token kept in the OS credential store; credentials are only ever sent to https github.com hosts. Pull only fast-forwards.
+- Export: Markdown, DOCX in standard manuscript format, EPUB 3 (passes epubcheck 5.2.1 with no errors or warnings), PDF, and a Scrivener 3 project (a .scriv folder, one document per chapter). Markdown and EPUB keep scene titles; DOCX and Scrivener drop them, with a warning; the PDF prints them except on a chapter's first scene, whose heading it drops without one, and warns when it replaces characters it cannot print. DOCX, EPUB and PDF get a typographic title page and a colophon, either switchable per project; two author profiles whose fields reach every format's metadata except Scrivener's.
+- Import: Markdown, DOCX (Heading 1 as chapter), EPUB (one chapter per spine document) and Scrivener 2 and 3 projects (best effort). A preview with its warnings is shown before the project is written; not every loss is named: EPUB import drops bold and italics, and its only warning is a general one that the book's styling is not kept, shown when the EPUB has a stylesheet.
+- Themes: Folio, Quarry and Needle, each light or dark, or following the system live. A fresh install starts on Folio following the system.
+- Interface in English and Spanish, starting from the OS locale.
+- Crash reports: scrubbed of paths, emails, tokens and any run of six or more plain words, stored locally (at most 20), and sent only when the writer presses Report, which opens a prefilled GitHub issue in the browser.
+- Privacy: no account, no sign-up, no analytics or telemetry. Tokens live in the OS credential store (Keychain, Credential Manager or Secret Service). The one network request the app makes on its own is an update check at launch, to api.github.com, anonymous unless an optional token is saved, which carries nothing from the manuscript and can be turned off in Settings → Application. Everything else that uses the network happens only when the writer asks: model downloads from Hugging Face, GitHub push and pull, and a CLI rewrite.
+- Updates: signed with minisign against the public key built into the app and checked against the release's SHA256SUMS; stable and beta channels. The app checks once at launch, with no account and no token (automatic updates are on by default and can be turned off in Settings → Application). A GitHub token is optional: it only lifts GitHub's limit of 60 anonymous requests an hour, or lets the app read a private repository.
+
+## Limits and what is not available yet
+
+- No release has been published yet, and no installer has been built for any platform: the release workflow has never run. So far the app has only been run on macOS (Apple silicon), never on Windows or Linux.
+- No Apple Developer ID signature or notarisation and no Windows Authenticode: there are no certificates, and signing would also need new secrets and changes to the release workflow and the app's config. So macOS will report the app as damaged until the quarantine flag is cleared, and Windows SmartScreen will interrupt the installer. Only the updater's minisign signature exists.
+- The update path (detect, verify, install) has not run end to end, because no release exists yet.
+- AI does two jobs today: rewrite and continuity. Project chat (a slot exists, no window), search by meaning (no index, no search box), dictation (no speech model) and Creative Mode (the disabled "Continue chapter" button) are not available.
+- A local OpenAI-compatible server (LM Studio, llama-server) can be saved and connection-tested, but cannot generate anything.
+- GPU: Metal is verified on Apple silicon (M4 Max), with about 15 s of first-run shader compilation hidden by a warm-up; no Intel Mac has run the app. Vulkan (NVIDIA, AMD, Intel) is the GPU backend the Windows and Linux builds will use: CI checks that it compiles on Ubuntu 22.04, but it has never run on real hardware. CUDA is deliberately not built. Inference runs in-process, so an engine abort ends the app (autosave and snapshots bound the loss).
+- Restoring an older snapshot or a deleted chapter has no in-app interface; it is done with git outside the app. The on-disk operations log has no in-app viewer.
+- The GitHub repository and remote must be set up outside the app; pull does not merge diverged histories.
+- Backups are manual only; nothing is scheduled.
+- Export limits: scene titles are dropped in DOCX and Scrivener exports, with a warning; the PDF prints them, except the heading of a chapter's first scene, which it drops without one; PDF is US Letter in Times-Roman and replaces emoji and non-Latin scripts, with a warning; the cover is a typographic title page, not an image. DOCX, EPUB and Scrivener imports lose bold, italics and scene structure; images are not imported, and DOCX footnotes and comments are not read.
+- No in-app editors for the codex, plot or research folders; chapter reordering is Move up / Move down, without drag and drop; no downloadable fonts.
+
+## Platforms
+
+What the release workflow will build for the first release. It has never run, so none of these exists yet.
+
+- macOS: separate Apple silicon (aarch64) and Intel (x86_64) builds, as .app and .dmg. The only platform the app has run on so far, on Apple silicon.
+- Windows: x64, MSI and NSIS installers, built for x86-64-v2 CPUs with Vulkan. The app has not been run on Windows.
+- Linux: x64 .deb (declaring libvulkan1 and libssl3), .rpm and AppImage, built on Ubuntu 22.04 (webkit2gtk-4.1), x86-64-v2 with Vulkan. The app has not been run on Linux; CI runs the automated tests there. Saving credentials will need Secret Service.
+
+## Install notes
+
+- macOS: "macOS will say the app is damaged. It is not." Clear the quarantine flag once, in Terminal, only for a build taken from the releases page: xattr -rd com.apple.quarantine /Applications/Versorium.app
+- Windows: SmartScreen will show "Windows protected your PC" (in Spanish, "Windows protegió su PC"); choose More info, then Run anyway (Más información, Ejecutar de todas formas). Signed builds need Apple and Microsoft certificates, which do not exist yet, plus changes to the release workflow.
+
+## Publisher
+
+MAECLY. Created by Miguel Esparza (https://www.maecly.com/). Contact: hola@maecly.com.
+
+Versorium, the lowercase wordmark and the mark (a written V with a fountain-pen nib) are trademarks of MAECLY; the Apache-2.0 licence grants no right to use them, and forks must change them before distributing.

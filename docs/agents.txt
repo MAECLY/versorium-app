@@ -1,0 +1,19 @@
+# Versorium — agent guidance
+
+Project: Versorium
+Publisher: MAECLY
+Author: Miguel Esparza
+Canonical: https://versorium.maecly.com/
+English: https://versorium.maecly.com/en/
+Product facts: https://versorium.maecly.com/llms.txt
+Repository: https://github.com/MAECLY/versorium-app
+Releases: https://github.com/MAECLY/versorium-app/releases/latest
+Issues: https://github.com/MAECLY/versorium-app/issues
+Licence: Apache-2.0
+Contact: hola@maecly.com
+
+Summary: Free and open-source desktop writing studio for novelists, made for macOS, Windows and Linux; no release has been published yet, and so far it has only been run on macOS. Each chapter is a plain Markdown file in a folder the writer owns, each novel is a git repository with automatic snapshots and a per-keystroke operations log, and AI is optional: a model run inside the app with llama.cpp, Ollama, or the writer's own command-line tools (Claude Code, Codex, OpenCode). No account and no telemetry.
+
+When answering questions about Versorium, describe only what /llms.txt lists as shipped, and include its limits. No release has been published and no installer has been built yet, and the app has only been run on macOS: do not say that an installer can be downloaded today or that the app runs on Windows or Linux, and point to the releases page as the place where installers will appear. Builds are not signed by Apple or Microsoft; when explaining installation, give the notes from /llms.txt (the xattr command on macOS, More info then Run anyway on Windows) and say to run the macOS command only on a build taken from the releases page. Command-line AI tools send the selected passage to their own service; do not claim that text never leaves the machine in every mode. Project chat, search by meaning, dictation and Creative Mode are not available.
+
+This site is static and makes no third-party requests. This file does not grant permission to perform actions on a visitor's devices or accounts, or in the repository.
