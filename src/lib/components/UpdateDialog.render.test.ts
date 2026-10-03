@@ -30,9 +30,11 @@ it("offers exactly install, later and skip, and says what is verified", async ()
     available: { version: "0.2.0", notes: "Corkboard.", date: "2026-09-27" },
     channel: "stable",
     automatic: true,
-    signedIn: true,
+    tokenSet: false,
     checking: false,
+    checked: true,
     lastError: null,
+    resetsAt: null,
   };
   const { target, app } = open();
   const text = target.textContent ?? "";
@@ -56,9 +58,11 @@ it("renders release notes as text, never as markup", async () => {
     available: { version: "0.2.0", notes: "<img src=x onerror=alert(1)>", date: null },
     channel: "stable",
     automatic: true,
-    signedIn: true,
+    tokenSet: false,
     checking: false,
+    checked: true,
     lastError: null,
+    resetsAt: null,
   };
   const { target, app } = open();
 

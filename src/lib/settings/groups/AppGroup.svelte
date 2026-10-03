@@ -8,9 +8,12 @@
   import { onboarding } from "$lib/onboarding/state.svelte";
   import SafetySectionCrash from "$lib/settings/SafetySectionCrash.svelte";
 
-  // This credential exists only so Versorium can read its own releases. It sits
-  // next to the panel that spends it, which is also why that panel notices
-  // immediately instead of still reading "signed out".
+  // An optional credential, used for nothing but reading Versorium's own
+  // releases. Checks run without it (spec §11, amended 2026-10-03); it matters
+  // while the repository is private and when GitHub's anonymous rate limit
+  // bites, which is why the field says so instead of asking anyone to "sign
+  // in". It sits next to the panel that spends it, and that panel reloads
+  // after a change because a token changes what the next check can see.
   //
   // The token is written and never read back: it lives in the OS credential
   // store and only Rust ever sees it again.

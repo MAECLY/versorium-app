@@ -70,9 +70,29 @@ interface UpdateStatus {
   available: AvailableUpdate | null;
   channel: "stable" | "beta";
   automatic: boolean;
-  signedIn: boolean;
+  tokenSet: boolean;
   checking: boolean;
+  checked: boolean;
   lastError: string | null;
+  resetsAt: number | null;
+}
+
+/**
+ * What GitHub would answer the updater, kept apart from what the app shows, so
+ * a spec can change the world and then watch the app find out.
+ *
+ * `answer` mirrors `update::classify` in Rust: each value is one of the states
+ * the panel must tell apart. `checks` records, per check, whether it carried a
+ * token — the mock keeps only a token's presence, never its value, as the real
+ * secrets commands do.
+ */
+interface MockGitHub {
+  /** The newest release on the channel; null when nothing newer is out. */
+  release: AvailableUpdate | null;
+  answer: "ok" | "404" | "rate_limited" | "401" | "offline";
+  /** `x-ratelimit-reset`, Unix seconds, sent with a rate-limit answer. */
+  resetsAt: number | null;
+  checks: { authorized: boolean }[];
 }
 
 interface ImportedChapter { title: string; body: string; synopsis: string | null }
@@ -175,15 +195,24 @@ const fonts = {
 
 const update: UpdateStatus = {
   currentVersion: "0.1.0",
-  // Signed out to start: the spec forbids checking without a token, so the UI
-  // must show the sign-in path rather than an error.
   available: null,
   channel: "stable",
   automatic: true,
-  signedIn: false,
+  // No token to start, as on a fresh install. Since the §11 amendment that no
+  // longer stops a check: the startup check runs anonymously.
+  tokenSet: false,
   checking: false,
+  checked: false,
   lastError: null,
+  resetsAt: null,
 };
+
+// Nothing newer than the running version to start with, so the startup check —
+// which now runs on every launch with automatic updates on — finds nothing and
+// opens no dialog over every other spec.
+const github: MockGitHub = { release: null, answer: "ok", resetsAt: null, checks: [] };
+/** Mirrors `update_skipped` in the Rust settings: a skip outlives the check. */
+let skippedVersion: string | null = null;
 
 let lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null = null;
 
@@ -455,8 +484,8 @@ const commands: Record<string, (args: Args) => unknown> = {
   get_settings: () => ({ ...settings, backupDirs: [...backupDirs], backupKeep }),
   set_settings: ({ patch }) => {
     Object.assign(settings, patch as Partial<typeof settings>);
-    // Saving the Updates token is what signs the updater in.
-    update.signedIn = Boolean(settings.githubUpdatesToken);
+    // The legacy settings field still counts as a saved token, as in Rust.
+    update.tokenSet = Boolean(settings.githubUpdatesToken) || storedSecrets.has("updates");
     return { ...settings };
   },
 
@@ -615,10 +644,29 @@ const commands: Record<string, (args: Args) => unknown> = {
 
   // --- M6: updates ---
   update_status: () => ({ ...update }),
+  // Never throws for GitHub's answer: like the Rust command, every outcome is
+  // a status with a code, and only a broken command rejects.
   update_check: () => {
-    if (!update.signedIn) throw "bad_token";
-    update.available = { version: "0.2.0", notes: "Corkboard, focus mode.", date: "2026-10-01" };
+    const authorized = update.tokenSet;
+    github.checks.push({ authorized });
+    update.checked = true;
+    update.available = null;
     update.lastError = null;
+    update.resetsAt = null;
+    if (github.answer === "offline") {
+      update.lastError = "network";
+    } else if (github.answer === "404") {
+      update.lastError = "update_none_visible";
+    } else if (github.answer === "rate_limited") {
+      update.lastError = authorized ? "update_rate_limited_token" : "update_rate_limited";
+      update.resetsAt = github.resetsAt;
+    } else if (github.answer === "401" && authorized) {
+      update.lastError = "update_token_rejected";
+    } else if (github.release && github.release.version !== skippedVersion) {
+      // "ok" — or a 401 to a check that carried no credential: GitHub only
+      // refuses a token, so an anonymous check gets the ordinary answer.
+      update.available = { ...github.release };
+    }
     return { ...update };
   },
   update_install: () => {
@@ -648,13 +696,20 @@ const commands: Record<string, (args: Args) => unknown> = {
     return undefined;
   },
   update_skip: ({ version }) => {
+    skippedVersion = String(version);
     if (update.available?.version === version) update.available = null;
     return { ...update };
   },
   update_set_channel: ({ channel }) => {
     if (channel !== "stable" && channel !== "beta") throw "bad_args";
     update.channel = channel;
+    // Another track has other releases: what the last check found says
+    // nothing about it, and a skip from the old track does not carry over.
     update.available = null;
+    update.checked = false;
+    update.lastError = null;
+    update.resetsAt = null;
+    skippedVersion = null;
     return { ...update };
   },
   update_set_automatic: ({ automatic }) => {
@@ -774,15 +829,15 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (!["updates", "novel"].includes(name)) throw "bad_args";
     if (!String(token ?? "").trim()) throw "bad_args";
     storedSecrets.add(name);
-    // The updater reads the same store, so signing in here signs it in too.
-    if (name === "updates") update.signedIn = true;
+    // The updater reads the same store, so the next check carries the token.
+    if (name === "updates") update.tokenSet = true;
     return "versorium-writer";
   },
   secrets_forget: ({ slot }) => {
     const name = String(slot);
     if (!["updates", "novel"].includes(name)) throw "bad_args";
     storedSecrets.delete(name);
-    if (name === "updates") update.signedIn = false;
+    if (name === "updates") update.tokenSet = Boolean(settings.githubUpdatesToken);
     return undefined;
   },
 
@@ -1071,6 +1126,8 @@ declare global {
       slots: Record<string, SlotAssignment>;
       lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null;
       update: UpdateStatus;
+      /** What GitHub answers the next check; specs set it, then press Check now. */
+      github: MockGitHub;
       crashes: CrashEntry[];
       /** True once the app was asked to restart into the new version. */
       relaunched: boolean;
@@ -1097,7 +1154,7 @@ window.__TAURI_INTERNALS__ = internals;
 window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
-    projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update, crashes,
+    projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update, github, crashes,
     get relaunched() {
       return relaunched;
     },

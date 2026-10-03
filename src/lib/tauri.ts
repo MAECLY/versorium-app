@@ -440,11 +440,18 @@ export interface UpdateStatus {
   available: AvailableUpdate | null;
   channel: "stable" | "beta";
   automatic: boolean;
-  /** An updates token is present. Without one we do not check at all (spec §11). */
-  signedIn: boolean;
+  /**
+   * An updates token is saved. Optional (spec §11, amended 2026-10-03):
+   * without one the check runs anonymously, it is not skipped.
+   */
+  tokenSet: boolean;
   checking: boolean;
+  /** A check has finished since launch or since the channel changed. */
+  checked: boolean;
   /** An i18n code, never prose. */
   lastError: string | null;
+  /** When GitHub's rate limit lifts, in Unix seconds; only with a rate-limit code. */
+  resetsAt: number | null;
 }
 
 // --- M7: polish ---

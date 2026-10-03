@@ -20,9 +20,11 @@ const base: UpdateStatus = {
   available: null,
   channel: "stable",
   automatic: true,
-  signedIn: true,
+  tokenSet: false,
   checking: false,
+  checked: true,
   lastError: null,
+  resetsAt: null,
 };
 const offered: UpdateStatus = {
   ...base,
@@ -107,13 +109,24 @@ it("turning automatic off adopts the returned status", async () => {
   expect(updates.status?.automatic).toBe(false);
 });
 
-it("the startup check stays quiet when nobody signed in", async () => {
-  vi.mocked(api.updateStatus).mockResolvedValue({ ...base, signedIn: false });
+it("the startup check runs without a token, once", async () => {
+  vi.mocked(api.updateStatus).mockResolvedValue({ ...base, tokenSet: false, checked: false });
+  vi.mocked(api.updateCheck).mockResolvedValue(base);
 
   await updates.checkOnStartup();
 
-  // Spec §11: without a token we do not check at all, never in a loop.
-  expect(api.updateCheck).not.toHaveBeenCalled();
+  // Spec §11 as amended on 2026-10-03: no token means an anonymous check,
+  // not no check. Still exactly one, never a loop.
+  expect(api.updateCheck).toHaveBeenCalledOnce();
+});
+
+it("the startup check runs the same way with a token", async () => {
+  vi.mocked(api.updateStatus).mockResolvedValue({ ...base, tokenSet: true, checked: false });
+  vi.mocked(api.updateCheck).mockResolvedValue({ ...base, tokenSet: true });
+
+  await updates.checkOnStartup();
+
+  expect(api.updateCheck).toHaveBeenCalledOnce();
 });
 
 it("the startup check stays quiet when automatic updates are off", async () => {
@@ -122,6 +135,21 @@ it("the startup check stays quiet when automatic updates are off", async () => {
   await updates.checkOnStartup();
 
   expect(api.updateCheck).not.toHaveBeenCalled();
+});
+
+it("a startup check that finds the limit reached greets nobody with an error", async () => {
+  vi.mocked(api.updateStatus).mockResolvedValue({ ...base, checked: false });
+  // A refusal is a status, not a rejection: the panel shows it when opened.
+  vi.mocked(api.updateCheck).mockResolvedValue({
+    ...base,
+    lastError: "update_rate_limited",
+    resetsAt: 1_791_054_785,
+  });
+
+  await updates.checkOnStartup();
+
+  expect(updates.error).toBeNull();
+  expect(updates.status?.lastError).toBe("update_rate_limited");
 });
 
 it("a startup check that fails greets nobody with an error", async () => {
