@@ -136,6 +136,12 @@ fn chapter_xhtml(chapter: &Chapter, language: &str) -> String {
 
 /// The title page.
 ///
+/// No ARIA role, on purpose: DPUB-ARIA has none for a title page, and the one
+/// this first shipped with (`doc-tithead`) does not exist — epubcheck rejected
+/// every EPUB with a title page until the live test caught it. The structural
+/// meaning is carried by `epub:type="titlepage"`, which is what reading
+/// systems use.
+///
 /// A manuscript that arrives with no title page makes the reader work out whose
 /// it is from the filename. Only what the writer actually filled in appears —
 /// an empty publisher line is a blank stripe on the first page somebody sees.
@@ -158,7 +164,7 @@ fn cover_xhtml(manuscript: &Manuscript) -> String {
     <link rel="stylesheet" type="text/css" href="style.css"/>
   </head>
   <body>
-    <section epub:type="titlepage" role="doc-tithead" class="cover">
+    <section epub:type="titlepage" class="cover">
     <h1 class="cover-title">{title}</h1>
 {lines}    </section>
   </body>
@@ -195,7 +201,7 @@ fn colophon_xhtml(manuscript: &Manuscript) -> String {
     <link rel="stylesheet" type="text/css" href="style.css"/>
   </head>
   <body>
-    <section epub:type="colophon" role="doc-afterword" class="colophon">
+    <section epub:type="colophon" role="doc-colophon" class="colophon">
       <h1>{heading}</h1>
 {rows}      <p class="credit">{credit}</p>
       <p class="thanks">{thanks}</p>
@@ -1199,5 +1205,33 @@ mod tests {
         let mut out = String::new();
         file.read_to_string(&mut out).unwrap();
         out
+    }
+
+    #[test]
+    fn every_aria_role_in_the_book_is_one_epubcheck_accepts() {
+        // The title page first shipped with role="doc-tithead", which does not
+        // exist, and every EPUB with a title page failed validation. The only
+        // test that could see it needs Java and is ignored by default, so this
+        // pins the same rule in the ordinary suite. The list is epubcheck
+        // 5.2.1's own, from its error message.
+        const VALID: [&str; 14] = [
+            "doc-abstract", "doc-acknowledgments", "doc-afterword", "doc-appendix",
+            "doc-chapter", "doc-colophon", "doc-conclusion", "doc-dedication",
+            "doc-epilogue", "doc-foreword", "doc-introduction", "doc-part",
+            "doc-prologue", "doc-toc",
+        ];
+        let mut m = book();
+        m.byline.organization = "Minotauro".into();
+        let pages = [
+            cover_xhtml(&m),
+            colophon_xhtml(&m),
+            chapter_xhtml(&m.chapters[0], &m.language),
+        ];
+        for page in pages {
+            for chunk in page.split("role=\"").skip(1) {
+                let role = chunk.split('"').next().unwrap();
+                assert!(VALID.contains(&role), "role=\"{role}\" is not valid in EPUB 3");
+            }
+        }
     }
 }
