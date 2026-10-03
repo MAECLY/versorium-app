@@ -237,7 +237,7 @@ jobs:
 
             ### SmartScreen interrumpirá el instalador.
             El instalador no está firmado por la misma razón que el paquete de macOS, así
-            que Windows muestra la pantalla azul "Windows protegió tu PC". Elige **Más
+            que Windows muestra la pantalla azul "Windows protegió su PC". Elige **Más
             información** y después **Ejecutar de todas formas**. Las versiones firmadas
             llegan en cuanto se configuren los secretos de firma de código.
 
