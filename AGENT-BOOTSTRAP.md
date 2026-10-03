@@ -1,3 +1,13 @@
+> **Historical document — do not follow it as instructions.**
+> This is the prompt Versorium was originally built from, kept unchanged for the record.
+> Milestones M0–M7 are complete. `STATUS.md` records what shipped, the DoD checklists of M3–M7 and the
+> known limits (for example, no release has been cut yet). `TODO.md` lists what is half-done or specified
+> and not yet started, including parts of the DoD below. The unticked checklists below are the original
+> prompt, not current status.
+> Agents working on the repo now should read [`AGENTS.md`](AGENTS.md) instead.
+
+---
+
 # VERSORIUM — ORQUESTADOR PARA AGENTE (Magnitude + Qwen 3 27B Q6)
 
 You are the lead coding agent. Your job is to BUILD Versorium end-to-end by executing one milestone at a time until M7 is green. Do not ask the human questions. Defaults below are law.
