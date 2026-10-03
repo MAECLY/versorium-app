@@ -149,6 +149,35 @@ is suppressed. Constraint it must keep: in the editor and in text fields the
 platform's own menu is where spelling suggestions live, and a web page cannot
 reproduce them.
 
+### See what changed, the way a code editor shows it
+
+Requested: let the writer see the differences between versions, the way VS
+Code or Cursor show them. What exists today:
+
+- The history panel's "diff" tab (`src/lib/components/GitPanel.svelte`) prints
+  git's raw unified patch in a `<pre>`: `+` and `-` prefixes, no colour, no
+  structure.
+- It only compares the working tree with the last snapshot
+  (`git::repo::diff` in `src-tauri/src/git/repo.rs`, HEAD tree to workdir).
+  Two snapshots cannot be compared, nor an old one against today.
+- `src/lib/ai/diff.ts` has a `lineDiff` used by the Rewrite dialog, coloured
+  with the theme's `--diff-add` / `--diff-del` tokens.
+
+The design question that matters most: a line diff is the wrong unit for
+prose. In Markdown a whole paragraph is one line, so changing one word marks
+the entire paragraph deleted and re-added. Code editors get away with line
+diffs because code lines are short, and even they highlight the changed
+characters inside a line. For a novel, that in-paragraph, word-level highlight
+is the whole point.
+
+Starting points: the editor is already CodeMirror 6, and `@codemirror/merge`
+provides both views VS Code has — side by side and unified — with in-line
+change highlighting, on the same engine. On the Rust side, a per-file diff
+between any two commits (or a commit and the working tree) is a git2
+`diff_tree_to_tree` / `diff_tree_to_workdir` away. Choosing what to compare —
+the last snapshot, any snapshot from the history list, or two of them — is
+part of the design.
+
 ### The local server cannot be given to a task
 
 Settings → Local AI → Local server lets you test and save an
