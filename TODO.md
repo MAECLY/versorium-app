@@ -99,6 +99,86 @@ option, and move the blurb to `aria-describedby`. If its focus ring uses
 `:has()`, wrap that in `@supports selector(:has(*))` so the native outline
 survives where `:has()` does not.
 
+### Spelling on Linux, and on the release builds
+
+Settings → Editor checks spelling as you type (see "Settings → Editor" in
+`STATUS.md`), and the manuscript says so with `spellcheck="true"`. Whether a
+word gets underlined is the webview's decision:
+
+- **WebKitGTK underlines nothing yet.** It checks only after
+  `WebContext::set_spell_checking_enabled(true)` and a language list from
+  `set_spell_checking_languages`, reached through `with_webview` and the
+  `webkit2gtk` crate as a Linux-only dependency. Not written, because on a Mac
+  it can neither be compiled nor seen, and CI would only compile it. Until
+  then the switch's hint says so on Linux instead of promising underlines;
+  wiring it means deleting `spellingUnderlines` in
+  `src/lib/editor/preferences.ts`, the `hintLinux` key and the spec in
+  `tests/e2e/editor-settings.spec.ts` that pins Linux.
+- **macOS is shown in a WKWebView, not in a release build.**
+  `src-tauri/src/spelling.rs` registers the default WebKit reads
+  (`WebContinuousSpellCheckingEnabled`);
+  `tests/scratch/wkwebview-manuscript-spellcheck-probe.swift` runs the app's
+  own page on the mock in a WKWebView and types into the manuscript: no
+  underlines without the default, underlines with it. Still to see in
+  `make bundle`'s app: a misspelling underlined, the guesses on right-click,
+  and "Check Spelling While Typing" ticked under Spelling and Grammar in that
+  menu.
+- **WebView2 is unverified**: that spelling is on without being asked, and
+  that `autocorrect="off"` (Edge 153 and later) keeps Windows from replacing
+  words.
+
+### A novel's language is fixed at creation, and imports are English
+
+The manuscript's `lang` comes from `versorium.json`, and so do EPUB's
+`dc:language` and `xml:lang`, DOCX's style language and the colophon. Two gaps
+make that value wrong more often than it should be:
+
+- `import_apply` (`src-tauri/src/commands/formats.rs`) creates every imported
+  project with `language: "en"`, even from a Markdown file whose frontmatter
+  says `language: es`, so an imported Spanish novel is declared English
+  everywhere.
+- Nothing can change it afterwards: `update_project` takes no language, and
+  Project settings only shows it.
+
+The importer should take the language (the Markdown frontmatter carries one;
+the import dialog could ask), and Project settings needs a language picker.
+
+### Focus mode's editor half never renders
+
+`focusMode()` in `src/lib/editor/modes.ts` gives the column 12vh of air above
+the text and the editor 1.02em. Neither shows: its `.cm-content` rule is
+0,2,0, the same as `.cm-editor .cm-content` in `styles.css`, which loads later
+and wins — the cascade typewriter's padding lost until its selector became
+`&.cm-editor .cm-content` — and 1.02em on `.cm-editor` never reaches the
+content, whose size is set in pixels. Measured with
+`tests/scratch/focus-mode-padding-probe.mjs`: 48px of padding with Focus off
+and on. Raising the selector the way typewriter's was raised would make the
+12vh appear, which changes how Focus looks, so it is a design call before it
+is a fix.
+
+### A visit to Settings rebuilds the editor
+
+`App.svelte` swaps the editor for `SettingsPage` (`{#if showSettings}`), so
+opening Settings destroys the CodeMirror view: the undo history, the selection
+and the session that Restore works from are gone on the way back. The editor's
+preferences themselves reconfigure a running editor in place
+(`createPreferenceCompartments` in `src/lib/editor/preferences.ts`), but no
+preference can change while the editor is on screen, so the visit is what
+costs the history. Settings as an overlay, or the editor kept mounted beneath
+it, would keep it.
+
+### The typeface chosen in Settings never reaches the editor
+
+Settings → Editor → Typography stores a face (`set_editor_font`), and the
+group's purpose line names the typeface because that choice lives there. But
+nothing applies it: `.cm-editor .cm-content` in `src/styles.css` names its own
+fixed stack, and `api.editorFont()` is called only by
+`TypographySection.svelte`. That section also compares the CSS stack
+`editor_font` returns with a catalogue id, so going by the code its "selected"
+mark never matches (DESIGN-VERSORIUM.md, implementation notes). The face could
+reach the page the way size and spacing do, as a custom property on
+`.cm-editor`, without rebuilding the editor.
+
 ## Queued, designed or under review
 
 ### Notifications have no module and never hide
@@ -138,16 +218,43 @@ fix whichever design wins:
 Note: what was asked for as a "combobox" is a menu of `menuitemcheckbox`
 items, or a disclosure with real checkboxes. A combobox picks one value.
 
-### Right-click
+### Right-click: the checks no automation reaches
 
-No `contextmenu` handler exists anywhere in `src/`, so every right-click shows
-the webview's own menu, which differs per platform and can include Reload —
-a reload mid-chapter can drop work not yet saved. `ItemMenu.svelte`'s comment
-says the binder menu opens on right-click; it does not. An audit is deciding,
-surface by surface, where a custom menu earns its place and where right-click
-is suppressed. Constraint it must keep: in the editor and in text fields the
-platform's own menu is where spelling suggestions live, and a web page cannot
-reproduce them.
+The policy is built (`src/lib/contextmenu/policy.ts`; see "Right-click" in
+`STATUS.md`). Playwright drives Chrome on the mocked IPC, and
+`tests/scratch/context-menu-webkit-probe.mjs` drives Playwright's WebKit, but
+neither is a release build of the real webviews. Still to do by hand:
+
+- **macOS, WKWebView release build:** a real Ctrl+click and a two-finger click
+  on a binder row and on Save snapshot; Tab and Option+Tab reaching rows, ⋯
+  and cards with Full Keyboard Access off and on; VO-Shift-M on a card.
+- **Windows, WebView2 release build:** F5, Ctrl+R and Ctrl+P do nothing; the
+  Menu key and Shift+F10 on a row open the item menu exactly once; a
+  right-click on a row still opens it (WebView2 sends contextmenu after
+  mouseup, with the press already cancelled at pointerdown); selected text
+  and fields still show their menu with spelling. If preventDefault does not
+  stop F5 or Ctrl+R, the fallback is `with_webview` →
+  `ICoreWebView2Settings3::SetAreBrowserAcceleratorKeysEnabled(false)`.
+- **Linux, WebKitGTK:** a right-click on the disabled Creative button, and on a
+  row while a chapter is loading, shows no page menu. If it does, give
+  `.v-list-item:disabled` and `.v-corkcard:disabled` `pointer-events: none`, so
+  the hit lands on the zone around them. A right-click on a checkbox and on
+  its label leaves it as it was (WebKit toggles it on the release's
+  `auxclick`, which the policy cancels; shown on macOS WebKit only).
+
+### Quitting from the app menu or the Dock skips the last save
+
+Cmd+Q, Quit from the Dock and logging out go through `NSApp terminate:`, and
+the close path that saves never runs. tao 0.37.1 answers
+`applicationWillTerminate` with `AppState::exit` and implements no
+`applicationShouldTerminate` (`platform_impl/macos/app_delegate.rs:130-134`);
+Tauri's default app menu carries `PredefinedMenuItem::quit`
+(`tauri-2.12.0/src/menu/menu.rs:194`); and `CloseRequested` is emitted only
+from tao's own window `CloseRequested` (`tauri-runtime-wry-2.12.0/src/lib.rs:4269`).
+So `onCloseRequested` in `App.svelte`, which flushes, never runs, and up to
+800 ms of typing plus the pending ops batch are lost. Nothing listens for
+`beforeunload` or `pagehide` either. The fix needs an explicit app menu whose
+Quit goes through the close path.
 
 ### See what changed, the way a code editor shows it
 

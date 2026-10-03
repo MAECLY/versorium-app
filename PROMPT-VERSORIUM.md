@@ -581,7 +581,7 @@ Estado de la rama `feat/landing-and-docs`, cortada de `main` justo después del 
 ### §10 — i18n
 
 - **ICU MessageFormat:** no se usa. La interpolación es una sustitución simple de `{clave}` (`src/lib/i18n/state.svelte.ts:22-25`), sin plurales.
-- **Comillas por idioma** y **diccionarios Hunspell** (`en_US`, `es_ES`, `es_419`): no implementados.
+- **Comillas por idioma:** no implementadas. **Diccionarios Hunspell** (`en_US`, `es_ES`, `es_419`): no se incluyen. La revisión ortográfica (Ajustes → Editor, activa por defecto desde el 2026-10-03) usa el corrector del sistema a través del webview: en macOS NSSpellChecker, que elige el diccionario por el texto y no por el `lang` del manuscrito (`src-tauri/src/spelling.rs`); en Windows el de WebView2; en Linux WebKitGTK todavía no subraya nada (`TODO.md`).
 - **Conteo de palabras según el idioma:** cuenta tramos separados por espacios en blanco, igual en todos los idiomas (`src-tauri/src/commands/project.rs:336-340`).
 
 ### §11 — updates

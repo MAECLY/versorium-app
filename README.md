@@ -153,7 +153,13 @@ update path has not yet run end to end.
   novel can also be pushed to and pulled from GitHub. GitHub tokens are kept in
   the OS credential store (Keychain, Credential Manager or Secret Service).
 - **Editor.** CodeMirror 6, with focus mode, typewriter mode and a corkboard of
-  chapter cards.
+  chapter cards. Spelling is checked as you type by the operating system's own
+  checker, and nothing is corrected for you. That is shown on macOS; Linux
+  does not check the manuscript yet, and Windows has not been tried.
+  Settings → Editor turns it off, and sets the text size, line spacing and
+  text width, line numbers (off by default), the band behind the current
+  paragraph, and whether Tab indents or moves to the next control (it moves,
+  by default).
 - **Rewrite with AI.** See [Agents](#agents).
 - **Local models.** A catalogue of 12 GGUF models in `models/catalog.json`
   (11 writing models from about 0.6 GB to 17 GB, plus one embedding model).

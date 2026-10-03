@@ -183,6 +183,187 @@ that amendment, dated, above the original text, which is kept. What changed:
   the "Sign in under Settings → Application…" line is gone, and the token
   section is "Updates token (optional)" with a one-line reason.
 
+## Right-click (2026-10-03, on `feat/landing-and-docs`)
+
+Neither wry nor Tauri touches the webview's context menu, so until now every
+right-click showed the engine's own: over plain UI that is a page menu whose
+main item is Reload, in release builds too. A reload loses up to 800 ms of
+typing (the save debounce), the queued ops batch, CodeMirror's undo history
+and the session Restore works from; nothing listens for `beforeunload`. One
+module now decides every right-click, in this order:
+
+- **Binder rows and corkboard cards open their item menu,** the same
+  `ItemMenu` as the row's ⋯, built by the same `chapterActions` /
+  `projectActions` (`src/lib/binder/itemActions.svelte.ts`), at the pointer.
+  Shift+F10 and the Menu key open it on a focused row, its ⋯ or a card. The
+  row or card is outlined (`.v-menu-target`) while its menu is open; nothing
+  opens while `store.loading` has the rows disabled. The dialogs those menus
+  open (`ItemActionDialogs.svelte`) are mounted once in `App.svelte`, so the
+  corkboard's menu does not depend on the sidebar.
+- **Editable text, and text the writer has already selected, keep the
+  engine's own menu untouched**: spelling guesses, Look Up, Writing Tools,
+  Paste and AutoFill exist nowhere else. "Selected" is strict: the pointer on
+  the selection's glyphs, not on a control drawn over it.
+- **Everything else is cancelled,** and a cancelled or claimed right-click no
+  longer moves focus, selects a word or presses what is under it. The press
+  guard cancels that press's `pointerdown` (a disabled button gets no
+  `mousedown`, and focus still went to `<body>` for it), its `mousedown` and
+  its `selectstart`. Two one-shot guards cover the release, which a native
+  menu's tracking loop used to swallow: the click WebKit sends after a
+  cancelled Ctrl+click, and the `auxclick` on which WebKit toggles a checkbox,
+  or clicks it through its `<label>`.
+
+How it is wired, and why:
+
+- `src/lib/contextmenu/policy.ts`, capture-phase listeners on `window`,
+  installed from `App.svelte`'s `onMount`. Not from `main.ts`: the
+  boot-failure screen keeps the engine's Reload, its only way out. Capture on
+  `window` runs ahead of Svelte's delegated handlers, so no component can
+  leak the page menu and later components are covered without knowing.
+- **Windows only, the same module cancels F5, Ctrl+R and Ctrl+P.** WebView2
+  keeps browser accelerator keys on in release and Tauri 2.12 exposes no
+  switch. Not on macOS or Linux, where WKWebView and WebKitGTK bind no reload
+  key and Ctrl+P is CodeMirror's line-up. Alt+Arrow (CodeMirror's
+  cursorSyntaxLeft/Right off macOS) and Ctrl+F (search) are left alone.
+- **Debug builds keep Inspect Element** behind Shift+right-click, and Shift
+  also lets Shift+F5 reload the dev window; only the refresh keys, so
+  Ctrl+Shift+R (Rewrite) stays cancelled there too. `import.meta.env.DEV` is
+  a build-time constant, so none of it is in a release bundle.
+- **Focus is handed back.** `ItemMenu` is `role="menu"` with roving focus
+  (arrows wrap, Home/End, Escape, Tab), `position: fixed` and clamped inside
+  the window, one open at a time, and on every close returns focus to what had
+  it, going through `EditorView.focus()` for the manuscript
+  (`src/lib/components/restoreFocus.ts`). Focus moved out of an open menu by
+  code or by VoiceOver closes it, since only the panel hears Escape. Focus
+  dropped to `<body>` with no new target does not: pressing the ⋯ in WebKit
+  does exactly that, and its click must still find the menu open to close it.
+  `Modal.svelte` now returns focus when a dialog is closed by its own
+  buttons, which unmount the `<dialog>` without `close()` and used to leave
+  focus on `<body>`; this applies to all nine dialogs. Move earlier/later
+  keeps focus on the moved row or card, and a delete moves it to the next
+  item, the previous one, or "+ New chapter" / the home screen's primary
+  button.
+- **A right-click or a Mac Ctrl+click on a dialog's backdrop no longer closes
+  it.** It used to, which skipped the tour for good, threw away an unapplied
+  rewrite and dismissed an update.
+- `RenameDialog` now cancels the Enter that submits it: with focus handed
+  back, that keystroke's newline landed in the manuscript (or pressed the row)
+  whenever the rename finished within the keystroke, as it does on the mock.
+
+Tests: `tests/e2e/context-menu.spec.ts` (21 cases on the mocked IPC, pinning
+the platform where a rule depends on it), `src/lib/contextmenu/policy.test.ts`
+(the rules in isolation), and `tests/scratch/context-menu-webkit-probe.mjs`
+for what only WebKit does (its word selection on a right-click, the click it
+sends after a cancelled Ctrl+click, the checkbox it toggles on a cancelled
+right-click's `auxclick`). The Chrome suite also pins two mechanisms whose
+outcome it cannot see: that `auxclick` is cancelled (Chrome never toggles
+the box), and that the caret is redrawn the moment focus comes back to the
+manuscript (typing afterwards lands right either way, because CodeMirror's
+own focus handler puts it back 10 ms later). The mock's `delete_chapter` now
+tolerates a clean tree as the Rust command does; a second delete in a row
+used to fail only there. What no automation reaches, the release builds of
+the three webviews, is listed in `TODO.md`.
+
+Known limits: the Windows key guard and WebKitGTK's handling of disabled
+buttons are unverified on those platforms (see `TODO.md`); on WebView2 the
+selected-text menu still lists Print, which only prints. Spelling guesses now
+appear in the manuscript's menu where the webview checks spelling (see
+"Settings → Editor" below); WebKitGTK still shows none without Rust.
+
+## Settings → Editor (2026-10-03, on `feat/landing-and-docs`)
+
+On 2026-10-03 the founder decided to turn spelling on in the manuscript and
+give it a home: a Settings group called Editor ("Editor" in Spanish too). The
+group that was Writing / Escritura is that group now
+(`src/lib/settings/groups/EditorGroup.svelte`); Focus and Typewriter stay modes
+in the status bar. Each option lives in `settings.json` under `editor`
+(`EditorSettings` in `src-tauri/src/commands/settings.rs`): patched key by key,
+and read back from disk through the same gate, so a hand-edited value of the
+wrong type, a step this build does not know or a `null` block costs that value
+rather than the whole file; and applied to a running editor through CodeMirror
+compartments and custom properties (`src/lib/editor/preferences.ts`), never by
+rebuilding it.
+
+- **Typography**: the existing section, unchanged.
+- **Spelling — "Check spelling as you type", on.** The manuscript's
+  `spellcheck` follows it, and its content now carries the novel's `lang` from
+  `versorium.json`; before, it inherited `<html lang>`, which follows the
+  interface. `autocorrect` stays off, now stated: once spelling is checked,
+  WebKit's automatic correction follows macOS's own text correction settings,
+  on by default, which could replace invented names and dialect as they are
+  typed and log the replacement as the writer's keystroke. `autocapitalize` is `sentences` (on-screen keyboards and
+  dictation only); `writingsuggestions` stays off. The reasons are on
+  `contentAttributes`.
+- **On macOS the attribute alone drew nothing.** WKWebView underlines only
+  when the app's defaults say `WebContinuousSpellCheckingEnabled`, and WebKit
+  registers no default for it (`TextCheckerMac.mm` reads it with
+  `boolForKey:`). `src-tauri/src/spelling.rs` registers it before the window is
+  built. `tests/scratch/wkwebview-manuscript-spellcheck-probe.swift` loads the
+  app on the mock in a WKWebView and types into the manuscript with real key
+  events: without the default nothing is underlined; with it "nina",
+  "ventanna", "quikc" and "jumpd" are, and the correct Spanish and English
+  words around them are not. `wkwebview-spellcheck-probe.swift` shows the same
+  on bare editing hosts, and that WKWebView picks the dictionary from the
+  text, not from `lang`: Spanish in a `lang="en"` host was checked as Spanish,
+  so on a Mac `lang` matters to VoiceOver and hyphenation rather than to
+  spelling. WebKitGTK underlines nothing yet, and no release build has been
+  looked at (`TODO.md`). The switch's hint names the system's checker as what
+  underlines, and on Linux says instead that nothing is underlined there yet;
+  the box stays usable, and its choice is kept.
+- **Text size** Small / Medium / Large = 18 / 21 / 24px, **line spacing**
+  Compact / Comfortable / Airy = 1.5 / 1.7 / 2, **text width** Narrow / Medium
+  / Wide = 60 / 72 / 84ch. The middle steps are the old fixed values. They
+  reach `.cm-content` as custom properties on `.cm-editor`, read by the one
+  rule in `styles.css` that declares those properties, so there is no cascade
+  to win. Typewriter's padding (0,3,0) is untouched, and a spec turns it on
+  with the new steps set.
+- **Line numbers**, off. The fold markers stay; the gutter's rule now shows
+  only beside numbers, and a number sits level with its paragraph's first line
+  at every size. They count the chapter as the editor shows it: the header
+  Rust keeps at the top of the file is not counted, so they run behind the
+  file lines git and the assistants' `search` report (seven behind, in a
+  chapter Versorium wrote). The hint says what they count and promises no
+  more.
+- **Highlight the current paragraph**, on. `.cm-activeLine` was `transparent`
+  in `styles.css`, so `highlightActiveLine()` drew nothing and a switch for it
+  would have changed nothing. It is a translucent band of `--sel` now.
+  "Paragraph", because a wrapped CodeMirror line is the whole paragraph.
+- **Tab key**: "Moves to the next control" by default, "Indents the paragraph"
+  on request. Established before deciding: Tab indents by writing the indent
+  unit, two spaces, at the paragraph's start; one press reaches no export
+  (all five exporters are built from `scenes_of`, which trims each line), two
+  presses turn a paragraph after a blank line into a CommonMark indented code
+  block (the editor stops parsing its italics, an indented `##` stops being a
+  heading, and GitHub would show it as code), and with Tab bound the keyboard
+  cannot leave the manuscript. `src/lib/editor/preferences.test.ts` and
+  `formats::tests::a_paragraph_indented_with_tab_reaches_every_export_as_prose`
+  prove it; the reasons sit next to the keymap. Mod-] and Mod-[ still indent.
+
+Tests: Rust for the defaults, an old file, half a block, unknown values,
+wrongly typed values and a `null` block, the patch, a round trip through the
+file, the macOS default, and all five exporters on Tab-indented text; vitest
+for the helpers, a live reconfigure that keeps caret, text and undo history,
+and Tab; `tests/e2e/editor-settings.spec.ts` reads what renders (the attributes
+on `.cm-content`, computed size, spacing and measure, the gutter, the band,
+where Tab leaves focus) before and after a reload, in English and Spanish, and
+the spelling hint as the box's description with the platform pinned to Linux
+and to macOS. The mock keeps its settings across a reload with
+`?mock=tauri&persist=1`, as settings.json outlives a relaunch. The three specs
+that opened "Writing" open "Editor".
+
+Gate on this change (`make verify`, 2026-10-03, after the review fixes):
+svelte-check 0 errors and 0 warnings over 387 files; 714 locale keys in each
+language; vitest 143 passed in 19 files; `cargo test` 492 unit and 4
+integration passed, 16 ignored; clippy `--all-targets` clean; Playwright 128
+passed.
+
+Known limits: a visit to Settings still unmounts the editor, as it always
+has, so it costs the undo history whatever the preferences do (`TODO.md`). The
+font chosen under Typography still does not reach the editor (`TODO.md`, and
+`DESIGN-VERSORIUM.md`, implementation notes). A novel's language is fixed at
+creation and every import is created as English, so the manuscript's `lang` is
+only as right as that (`TODO.md`).
+
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 
 ### Backup
@@ -280,8 +461,10 @@ writing.
   system trash, and `delete_project` refuses any folder that is not a
   Versorium project. Renaming a novel changes `versorium.json` only, never the
   folder.
-- **Reorder** through `chapterOrder`, Move up / Move down in the chapter menu;
-  no file is renamed. See "Chapter order is data" below.
+- **Reorder** through `chapterOrder`, Move earlier / Move later in the chapter
+  menu (Move up / Move down until the right-click work renamed them, so the
+  binder and the corkboard say the same thing); no file is renamed. See
+  "Chapter order is data" below.
 - **Project settings dialog**, reached from the binder menu, for the settings
   that live in `versorium.json` and travel with the folder. It draws the title
   page (`CoverPreview.svelte`) instead of describing it, and the colophon
@@ -378,6 +561,18 @@ The full list, with file names, is `TODO.md`; the epubcheck result is in
 - **Apple notarization and Windows Authenticode.** They need purchased
   certificates and code: the release workflow and `tauri.conf.json` are not
   wired for either (see "Release readiness").
+- **The right-click policy is unchecked on the real webviews' release
+  builds**: a real Ctrl+click on macOS, the reload keys and the Menu key on
+  WebView2, disabled buttons on WebKitGTK (see "Right-click" above).
+- **Spelling is not checked on Linux**, and on macOS it is shown on a plain
+  WKWebView, not yet on a release build (see "Settings → Editor" above).
+- **A novel's language cannot be changed, and imports are created as
+  English**, which the manuscript's `lang` and every export's language field
+  inherit.
+- **A visit to Settings rebuilds the editor**, losing its undo history.
+- **Quitting from the app menu or the Dock skips the last save.** Cmd+Q goes
+  through `NSApp terminate:`, not the close path that flushes, so up to 800 ms
+  of typing and the pending ops batch are lost.
 - **The EPUB title page fails epubcheck** (`RSC-005` on `role="doc-tithead"`),
   measured in `FORMATS.md`.
 - **One unexplained test failure.** One `cargo test` run, on an earlier and
