@@ -49,7 +49,12 @@
       autofocus
       bind:value={title}
       onkeydown={(e) => {
-        if (e.key === "Enter") void submit();
+        if (e.key !== "Enter") return;
+        // The keystroke is spent here. The dialog can close, and hand focus
+        // back, before this same keystroke delivers its character, which then
+        // types a newline into the manuscript or presses the row it returned to.
+        e.preventDefault();
+        void submit();
       }}
     />
   </label>
