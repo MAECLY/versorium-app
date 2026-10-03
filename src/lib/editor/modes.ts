@@ -69,12 +69,23 @@ function typewriterScroller(): Extension {
   });
 }
 
-/** Typewriter mode: the caret's line rides at the lower third. */
+/**
+ * Typewriter mode: the caret's line rides at the lower third.
+ *
+ * The selector is `&.cm-editor .cm-content`, not `.cm-content`, on purpose.
+ * styles.css sets `.cm-editor .cm-content { padding: 48px 24px 120px }` at
+ * specificity 0,2,0 — the same as a plain theme rule — and style-mod inserts
+ * the theme's <style> at the top of <head>, so the app stylesheet came later
+ * and won. The head and tail padding never rendered: typewriter mode did
+ * nothing on a chapter shorter than the window, which is exactly the bug this
+ * padding exists to fix. The extra class makes it 0,3,0 and it wins on
+ * specificity rather than on insertion order, which nobody controls.
+ */
 export function typewriterMode(): Extension {
   return [
     typewriterScroller(),
     EditorView.theme({
-      ".cm-content": { paddingTop: TYPEWRITER_HEAD, paddingBottom: TYPEWRITER_TAIL },
+      "&.cm-editor .cm-content": { paddingTop: TYPEWRITER_HEAD, paddingBottom: TYPEWRITER_TAIL },
     }),
   ];
 }
