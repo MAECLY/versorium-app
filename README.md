@@ -70,11 +70,10 @@ is the check that protects you from a tampered download.
 
 The installer is unsigned for the same reason the macOS bundle is, so Windows
 shows the blue "Windows protected your PC" screen. Choose **More info**, then
-**Run anyway**. Signed builds ship as soon as the codesigning secrets are
-configured.
+**Run anyway**. Signed builds need Apple and Microsoft certificates, which the
+project does not have yet.
 
-Those codesigning secrets do not exist yet, and setting them is not enough on
-its own: `release.yml` passes no Apple or Windows codesigning variables to
+Buying them is not enough on its own: `release.yml` passes no Apple or Windows codesigning variables to
 `tauri-action`, and `src-tauri/tauri.conf.json` has no signing identity or
 certificate thumbprint, so both have to be wired in once the certificates are
 bought. They are separate from the updater's signing key described under

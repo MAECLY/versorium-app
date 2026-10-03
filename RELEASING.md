@@ -313,8 +313,8 @@ the same wherever it is repeated.
 > **SmartScreen will interrupt the installer.**
 > The installer is unsigned for the same reason the macOS bundle is, so Windows
 > shows the blue "Windows protected your PC" screen. Choose **More info**, then
-> **Run anyway**. Signed builds ship as soon as the codesigning secrets are
-> configured.
+> **Run anyway**. Signed builds need Apple and Microsoft
+> certificates, which the project does not have yet.
 
 The older advice — right-click the app and choose **Open** — is **wrong on
 current macOS**. A quarantined bundle without a Developer ID signature is

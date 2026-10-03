@@ -214,8 +214,8 @@ jobs:
             ### SmartScreen will interrupt the installer.
             The installer is unsigned for the same reason the macOS bundle is, so Windows
             shows the blue "Windows protected your PC" screen. Choose **More info**, then
-            **Run anyway**. Signed builds ship as soon as the codesigning secrets are
-            configured.
+            **Run anyway**. Signed builds need Apple and Microsoft
+            certificates, which the project does not have yet.
 
             Updates are verified against Versorium's own signing key either way: an
             update that was not signed by it is refused.
@@ -239,7 +239,7 @@ jobs:
             El instalador no está firmado por la misma razón que el paquete de macOS, así
             que Windows muestra la pantalla azul "Windows protegió su PC". Elige **Más
             información** y después **Ejecutar de todas formas**. Las versiones firmadas
-            llegan en cuanto se configuren los secretos de firma de código.
+            necesitan certificados de Apple y de Microsoft, que el proyecto aún no tiene.
 
             Las actualizaciones se verifican siempre contra la clave de firma de
             Versorium: una actualización que no venga firmada por ella se rechaza.
