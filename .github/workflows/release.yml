@@ -67,20 +67,27 @@ jobs:
     if: always() && needs.guard.result != 'failure' && needs.guard.result != 'cancelled'
     strategy:
       fail-fast: false
+      # `assetPattern` names this build's files on the release, so a download
+      # says which computer it is for (RELEASING.md §7 lists every name). It is
+      # quoted because an unquoted `[name]…` is a YAML list, not a string.
       matrix:
         include:
           - platform: macos-latest
             args: '--target aarch64-apple-darwin'
             name: macOS (Apple silicon)
+            assetPattern: '[name]_[version]_apple_silicon[ext]'
           - platform: macos-latest
             args: '--target x86_64-apple-darwin'
             name: macOS (Intel)
+            assetPattern: '[name]_[version]_apple_intel[ext]'
           - platform: ubuntu-22.04
             args: '--features vulkan'
             name: Linux
+            assetPattern: '[name]_[version]_linux_ubuntu_amd64[ext]'
           - platform: windows-latest
             args: '--features vulkan'
             name: Windows
+            assetPattern: '[name]_[version]_windows_x64[ext]'
     runs-on: ${{ matrix.platform }}
     env:
       # llama.cpp uses std::filesystem, which macOS has from 10.15. The Intel
@@ -282,6 +289,22 @@ jobs:
           prerelease: ${{ steps.channel.outputs.prerelease }}
           args: ${{ matrix.args }}
           retryAttempts: 2
+          # Every file this build uploads takes this name, and latest.json is
+          # written from the same names (tauri-action action-v1.0.0,
+          # src/utils.ts getAssetName and src/upload-version-json.ts). [name]
+          # is productName and [version] tauri.conf.json's version. [ext] is
+          # the first of the action's known extensions the file name contains,
+          # so `.app.tar.gz.sig`, `.msi.sig` and `.exe.sig` stay whole, and the
+          # `-setup` and `_en-US` of tauri's own names drop out. Each `.sig` is
+          # paired with the file of the same name less `.sig`, and the
+          # latest.json keys come from the target, not the name. Two files that
+          # render alike collide. In one build, GitHub refuses the second and
+          # the job fails; across builds, the action deletes the earlier file
+          # before it uploads the later one, and nothing says so. A second WiX
+          # language, or a second bundle with an extension already used, needs
+          # a pattern that tells them apart. tests/unit/release-assets.test.ts
+          # checks all of this.
+          releaseAssetNamePattern: ${{ matrix.assetPattern }}
 
       # On workflow_dispatch: build only. Omitting tagName/releaseName/releaseId
       # is the documented way to make the action upload nothing.
@@ -359,7 +382,9 @@ jobs:
           # tauri-action 1.x already writes the API form for a draft
           # (.../releases/assets/<id>); older versions wrote the browser form
           # (.../download/<tag>/<name>). Accept either, and check the asset
-          # really belongs to this release.
+          # really belongs to this release. Both are looked up in the release's
+          # own listing, by id or by name, so the names the matrix's
+          # assetPattern gives are checked as any other name would be.
           api_prefix = f"https://api.github.com/repos/{repo}/releases/assets/"
           by_id = set(ids.values())
           missing = []
