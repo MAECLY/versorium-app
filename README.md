@@ -172,8 +172,11 @@ update path has not yet run end to end.
   manuscript) to the model in the Continuity slot — Ollama or the built-in
   runtime — and says so plainly when it could not run.
 - **Import and export.** Export to Markdown, DOCX, EPUB 3, PDF and Scrivener;
-  import from Markdown, DOCX, EPUB and Scrivener. Each direction states what it
-  could not carry. Details per format: [FORMATS.md](FORMATS.md).
+  import from Markdown, DOCX, EPUB and Scrivener. An import takes the novel's
+  language from the source when the source gives one and asks when it does
+  not (Project settings changes it later), and Scrivener synopses come across
+  onto the corkboard's cards. Each direction states what it could not carry.
+  Details per format: [FORMATS.md](FORMATS.md).
 - **Author metadata.** Two author profiles (work and personal) written into the
   exported files; an optional title page and colophon per project.
 - **Crash log.** Kept on disk only, scrubbed of prose, paths, emails and tokens.

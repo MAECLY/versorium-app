@@ -109,9 +109,20 @@ file. The dialog asks for a parent folder and creates `<project title>.scriv`
 inside it. There is one Text document per chapter under the Draft folder, at
 `Files/Data/<UUID>/content.rtf`. The UUIDs come from each chapter's position,
 so exporting again produces the same `.scrivx`. Each document gets a
-`synopsis.txt` holding the chapter's first sentence (at most 200 characters),
-for the corkboard. Scenes are separated by a centred `#`, and their titles are
-dropped (`export_scrivener_scenes_flattened`). No author, labels, keywords or
+`synopsis.txt` for Scrivener's corkboard: the chapter's own synopsis when it
+keeps one (`synopsis:` in its frontmatter, which a Scrivener import writes),
+whole, and otherwise its first sentence (at most 200 characters). A synopsis
+therefore comes through Scrivener → Versorium → Scrivener as it was, except
+for space around it and Windows line endings, which the import tidies. The
+other way round adds nothing: the import does not keep a card that is only
+its chapter's first sentence, which is what this export writes for a chapter
+without a synopsis, so Versorium → Scrivener → Versorium gives no chapter a
+synopsis it did not have, and the next export works the sentence out again
+from the opening as it is then. A synopsis typed in Scrivener that is word
+for word the chapter's first sentence is dropped the same way, and the next
+export writes it back. Scenes
+are separated by a centred `#`, and their titles are dropped
+(`export_scrivener_scenes_flattened`). No author, labels, keywords or
 compile settings are written. Unlike the other writers, this one writes files
 in place rather than atomically. Exporting over an existing bundle overwrites
 the files it writes and leaves any others where they were. The bundle has only
@@ -187,6 +198,19 @@ DOCX, EPUB and PDF also print the organization and rights on the title page and
 in the colophon. PDF `/CreationDate` and EPUB `dcterms:modified` are the export
 time in UTC.
 
+The Language row is the project's own language, `language` in
+`versorium.json`, not anything in the author profile. It is one of the codes a
+novel can be written in here, `en` or `es` (`LANGUAGES` in
+`commands/project.rs`; anything else is refused with `bad_language`). It is
+chosen when the novel is created or imported, and can be changed afterwards in
+the project settings dialog, which writes it to `versorium.json` and switches
+the open page's `lang` without reloading the chapter. A region is not kept:
+`es-MX` is stored, and therefore exported, as `es`.
+
+Only Scrivener export carries a chapter's synopsis (above). The other formats
+have no per-chapter place for one: Markdown exports one document with a single
+frontmatter block, and DOCX, EPUB and PDF are pages of prose.
+
 ## Import
 
 | | Markdown | DOCX | EPUB | Scrivener |
@@ -195,7 +219,8 @@ time in UTC.
 | Chapter text | ✅ | ✅ | ✅ | ✅ (from RTF) |
 | Scene structure | `##` preserved | ❌ | ❌ | ❌ none to map |
 | Scene breaks | `##` preserved | ⚠️ a `#` paragraph | ⚠️ a `#` paragraph (from a Versorium EPUB) | ⚠️ a `#` paragraph (from a Versorium bundle) |
-| Synopsis | — | — | — | ❌ read, but not saved |
+| Language | `language:` in the frontmatter | `dc:language` in `docProps/core.xml`, else `w:themeFontLang` in `settings.xml`, else the default `w:lang` in `styles.xml`; a place that names no language is passed over | `dc:language` (the first, when there are several), prefixed or not | ❌ none read |
+| Synopsis | — | — | — | ✅ kept as `synopsis:` in the chapter's frontmatter |
 | Bold/italic formatting | ✅ (it is Markdown) | ❌ warned | ❌ **no warning** | ❌ warned |
 | Images | links kept as text, files not copied, **no warning** | ❌ warned | ❌ warned | ❌ warned |
 | Footnotes, comments | kept as Markdown text | ❌ never read, **no warning** | text kept as plain paragraphs | ❌ |
@@ -208,8 +233,26 @@ time in UTC.
 Import is two steps: the preview reads the source and lists its warnings
 without writing anything, and a project is only created after the writer
 confirms. The new project goes into the default projects folder, takes the
-title shown in the preview (editable there), and is always created with
-language `en`. No importer reads the source's language or author.
+title shown in the preview (editable there), and is created in the language
+the preview's picker shows. No importer reads the source's author.
+
+The picker is always shown, because a language read from a file can be wrong:
+Word writes the language it was editing in, which comes from its template, so
+an English Word can carry `en-US` into a Spanish novel. It starts on the
+source's language when the source gives one a novel can take (a region is
+dropped, so `es-MX` is `es`), and on the interface's language otherwise. The
+hint under it says which: the language the file gives, that the file gives
+none, or the tag the file gives when it is not one Versorium can use (`fr`,
+or a word such as `Spanish` where a code belongs). A tag that says there is
+no language to give (`und`, `mul`, `zxx`, `mis`, or a private-use one such as
+the `x-none` Word writes) counts as none, and a DOCX is then read in its next
+place. A place that names a language Versorium cannot use ends the search:
+what the file declared outranks what a template guessed further down, and
+the hint names it. Scrivener is always the second case: the binder file holds
+no language, and nothing else in the bundle is read for one. The language
+sent is checked again in Rust before anything is read or created
+(`bad_language`). The picker is called "Manuscript language", as in the New
+project dialog and Project settings.
 
 The file picker accepts `.md`, `.markdown`, `.docx` and `.epub`. A Scrivener
 project is picked as a folder. The backend also takes `.txt` as Markdown, but
@@ -284,9 +327,23 @@ Every import is tolerant of files Versorium did not write:
   - images, PDFs or other attachments: `import_images_dropped`
   - bold, italic or underline: `import_docx_formatting_dropped`
 
-  Keywords are neither read nor warned about. Synopses are read into the
-  preview data, but the dialog does not show them and the import does not save
-  them. The corkboard builds its own card text from each chapter's prose.
+  Keywords are neither read nor warned about. Each document's synopsis
+  (`synopsis.txt`, or `<ID>_synopsis.txt` in Scrivener 2) is kept on its
+  chapter as `synopsis:` in the frontmatter, unless it is only the chapter's
+  first sentence (see the export above): one line of JSON, which YAML reads
+  as a double-quoted string, so quotes, backslashes and line breaks (even a
+  `---` on a line of its own) cannot end the frontmatter. Every later write to
+  the chapter keeps it: saving, a change of title or status, a reorder (which
+  does not open the file), an applied rewrite and an agent's edit over MCP.
+  The corkboard shows it on the chapter's card; a chapter without one shows
+  its opening prose instead, in italics, as an excerpt. The preview does not
+  list synopses, and nothing in the app edits one yet.
+
+  For whoever edits a chapter file by hand: the keys the app writes itself
+  (`title`, `status`, `words`, `synopsis`) are rewritten as one line each,
+  and a YAML block, a list or blank lines written under one of them go with
+  it. Every other key, and whatever is under it, is kept as written. A save
+  rewrites `words` every time and `status` when it sets one.
 
 **The `#` that a DOCX, EPUB or Scrivener scene break leaves behind is not
 harmless.** A Versorium Scrivener bundle separates scenes with a centred `#`

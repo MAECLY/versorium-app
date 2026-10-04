@@ -26,8 +26,9 @@ spec items that already have a slot or a surface in the app.
 The shared primitives exist in `src/lib/components/forms/` — `Field`,
 `TextField`, `NumberField`, `Select`, `Checkbox`. So far they are used in
 `AuthorSection.svelte`, `ProjectSettingsDialog.svelte`, the backup retention
-count in `BackupGroup.svelte` and the per-slot model picker in
-`LocalAiSection.svelte`.
+count in `BackupGroup.svelte`, the per-slot model picker in
+`LocalAiSection.svelte` and the import's language picker in
+`ManuscriptDialog.svelte`.
 
 The stylesheet (`src/styles.css`) already fixes how every native control
 *looks*, component or not: accent colour on checkboxes and radios, no
@@ -126,22 +127,6 @@ word gets underlined is the webview's decision:
 - **WebView2 is unverified**: that spelling is on without being asked, and
   that `autocorrect="off"` (Edge 153 and later) keeps Windows from replacing
   words.
-
-### A novel's language is fixed at creation, and imports are English
-
-The manuscript's `lang` comes from `versorium.json`, and so do EPUB's
-`dc:language` and `xml:lang`, DOCX's style language and the colophon. Two gaps
-make that value wrong more often than it should be:
-
-- `import_apply` (`src-tauri/src/commands/formats.rs`) creates every imported
-  project with `language: "en"`, even from a Markdown file whose frontmatter
-  says `language: es`, so an imported Spanish novel is declared English
-  everywhere.
-- Nothing can change it afterwards: `update_project` takes no language, and
-  Project settings only shows it.
-
-The importer should take the language (the Markdown frontmatter carries one;
-the import dialog could ask), and Project settings needs a language picker.
 
 ## Queued, designed or under review
 
@@ -483,14 +468,47 @@ OpenAI-compatible endpoint, but `SLOT_KINDS` in
 `src-tauri/src/commands/settings.rs` is `none | builtin | ollama | cli`, so no
 task can use it and nothing dispatches to it. The interface now says so.
 
-### Scrivener synopses are read and dropped
+### Synopses are kept and shown, but nothing writes one
 
-The Scrivener importer reads each document's synopsis; `import_apply` in
-`src-tauri/src/commands/formats.rs` never writes it anywhere, because a chapter
-has no place to keep one — the corkboard derives its card text from the first
-lines of the body. Storing it means deciding where a synopsis lives (a
-frontmatter key is the obvious candidate) and teaching the corkboard to prefer
-it.
+A Scrivener import keeps each document's synopsis as `synopsis:` in its
+chapter's frontmatter, the corkboard card shows it, and a Scrivener export
+writes it back (`STATUS.md`, 2026-10-04). What is left:
+
+- **Nothing in the app creates or edits a synopsis.** Only an import writes
+  one (`set_synopsis` in `src-tauri/src/commands/chapters.rs`); a card shows
+  it and cannot change it. Hand-editing the chapter file works, but a YAML
+  block (`synopsis: |` and lines under it) reads as no synopsis, because the
+  frontmatter reader takes one line per key.
+- **Only Scrivener export carries it.** Markdown exports one document with a
+  single frontmatter block, and DOCX, EPUB and PDF have no per-chapter place
+  for one, so a synopsis does not survive a Markdown round trip.
+- **A Scrivener project's language is not read.** The importer reads only the
+  binder file, which has none; no Scrivener bundle was at hand to see where
+  Scrivener keeps one, if anywhere. The import dialog asks instead.
+
+### Found while building the novel's language and synopses, not part of them
+
+- **One chapter, three word counts.** The binder and the corkboard count
+  every whitespace-separated token, `##` and the scene heading included
+  (`count_words` in `src-tauri/src/commands/project.rs`); the import preview
+  drops heading lines (`bodyWords` in `src/lib/formats/state.svelte.ts`); the
+  colophon counts paragraphs only (`word_count` in
+  `src-tauri/src/formats/mod.rs`). The mock's "North" (`## Morning`, then
+  `The road bent north.`) is 4 words in the preview and 6 on its card
+  seconds later. Project settings' preview of the closing page adds up the
+  binder's counts, so for a novel with scene headings it says more words
+  than the page the export writes. One counter for all three.
+- **New project offers the languages in another order, from a list of its
+  own.** `NewProjectDialog.svelte` hardcodes Español then English;
+  `Onboarding.svelte` keeps its own `LANGUAGES` (English, Español); Project
+  settings and the import use `NOVEL_LANGUAGES` and `languageOptions` in
+  `src/lib/i18n/languages.ts`. All four are called "Manuscript language" now
+  (`dialog.language`). Both older ones are hand-written controls (the table
+  above); moving them to `Select` with `languageOptions("")` gives one list
+  in one order.
+- **The closing page's preview leaves out the publisher and rights rows**
+  that `colophon_lines` writes when the author profile has them. The title
+  page preview beside it shows both.
 
 ## Specified, not started
 

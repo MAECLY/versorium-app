@@ -364,7 +364,8 @@ font chosen under Typography still does not reach the editor (`TODO.md`, and
 creation and every import is created as English, so the manuscript's `lang` is
 only as right as that (`TODO.md`).
 (The first two were fixed on 2026-10-04: "Settings over the editor, and the
-typeface on the page", below.)
+typeface on the page", below; the third the same day: "A novel's language can
+be changed, imports keep theirs, and Scrivener synopses are kept", below.)
 
 ## Quitting waits for the last save (2026-10-04, on `feat/landing-and-docs`)
 
@@ -1293,6 +1294,354 @@ Measured with `make verify` (exit 0, 74 s;
 The two specs also ran four times over in the gate's eight workers, 128 of
 128.
 
+## A novel's language can be changed, imports keep theirs, and Scrivener synopses are kept (2026-10-04, on `feat/landing-and-docs`)
+
+Two items from `TODO.md`, built together because both run through the
+import: "A novel's language is fixed at creation, and imports are English"
+and "Scrivener synopses are read and dropped". What is left of the second is
+in `TODO.md` ("Synopses are kept and shown, but nothing writes one"); the
+first is gone from it.
+
+**One list of languages.** `LANGUAGES` (`["en", "es"]`) and `language_code`
+in `src-tauri/src/commands/project.rs`. A tag counts when it is shaped like
+one (the shape `contentLanguage` already asks of a `lang`) and its primary
+subtag is on the list, so `es-MX`, ` ES_mx `, `es-419` and `en_US` are `es`
+and `en`, and `fr`, `español` and `en-` are refused. `NOVEL_LANGUAGES` in the
+new `src/lib/i18n/languages.ts` is the frontend's copy. A Rust test and a
+vitest test hold each to the names under `languages` in both locale files,
+so neither can offer a language the interface cannot name.
+`create_project` now refuses any other code with `bad_language` before the
+folder exists, and stores the code (every caller already sent `en` or `es`).
+
+**The language can be changed.**
+
+- `update_project` takes a sixth argument, `language`, refused with
+  `bad_language` before anything is written; a call with only a language is a
+  change, not `bad_args`. `versorium.json` is written through `write_meta`, as
+  before (atomic). `api.updateProject` now takes a patch (`ProjectPatch`)
+  instead of positional arguments; the binder store's `setProjectLanguage`
+  sends the language alone and hands the answer to the open project and the
+  list, as `setExportMatter` does (both go through one `patchProject` now).
+- Project settings has a `Select`, "Manuscript language" / "Idioma del
+  manuscrito" (`dialog.language`, the name New project already gave the
+  setting), above the two checkboxes, with a hint saying what follows it
+  (screen readers on the page; every export declares it and writes its
+  closing page in it). It is bound to a writable `$derived` of the stored
+  language, so a refused change puts the picker back and says why under it,
+  without remounting it (focus stays on it). A code outside the list, in a
+  hand-edited `versorium.json`, shows as one more option, "fr (not offered)",
+  rather than as the first language; a region or a capital of a language on
+  the list shows as that language, "Español (es-MX)".
+- The open page follows at once and is not rebuilt: `MarkdownEditor` already
+  reconfigured its `lang` from `project.meta.language` through a compartment,
+  so only the store had to replace `meta`.
+- The dialog is `wide` now (560px). At 440px the title page preview and the
+  settings never sat side by side, so the dialog was one column and scrolled
+  (`scrollHeight` 940 in a 638px dialog at 1280×800 with the new field).
+  Wide, the two columns fit, but the dialog still outgrew a laptop screen,
+  and its settings now scroll inside it with Done kept in view (below,
+  "After review").
+
+**Imports keep theirs, and the dialog asks.**
+
+- `Imported` carries `language` (a code a novel can take, or null) and
+  `declaredLanguage` (the tag as the source wrote it, cut to 40 characters).
+  Markdown reads `language:` from its frontmatter (quoted either way). DOCX
+  reads `dc:language` in `docProps/core.xml`, then `w:themeFontLang` in
+  `word/settings.xml`, then `w:lang` under `w:docDefaults` in
+  `word/styles.xml`. EPUB reads its first `dc:language`. Scrivener reads none:
+  the binder file has none, nothing else in the bundle is read, and no
+  Scrivener project was at hand to find out where one keeps a language, so
+  none is guessed (a test records the decision).
+- The import preview always shows a language picker under the title ("Manuscript
+  language", as everywhere else), because
+  a language read from Word comes from its template and can be wrong. It is
+  preset to the source's language, or to the interface's when the source
+  gives none, and its hint says which: the language the file gives ("Change
+  it here if that is wrong."); that the file does not say; or the tag the file
+  gives when Versorium cannot use it.
+- `import_apply(source, title, language)`. Its body is `import_into`, with
+  the projects folder as an argument, so Rust tests run the whole apply in a
+  temp dir (it was covered only through the mock). It refuses a bad language
+  before reading the source, so nothing is created and a missing file is not
+  what is reported.
+
+**Scrivener synopses are kept.**
+
+- On the chapter, as `synopsis:` in its frontmatter (`set_synopsis` in
+  `commands/chapters.rs`), one line of JSON, which YAML reads as a
+  double-quoted string: quotes, a backslash, line breaks and a `---` on a line
+  of its own cannot end the frontmatter. `yaml_string` also escapes what JSON
+  leaves raw and YAML 1.1 readers take as a line break (U+0085, U+2028,
+  U+2029) or refuse (DEL, the C1 controls, a BOM, U+FFFE, U+FFFF). Windows
+  endings become `\n`, the margins go, and an empty synopsis writes no key.
+- Every write keeps it, because every one keeps keys it does not own:
+  `save_chapter` (the editor's saves, an applied rewrite, an agent's edits
+  over MCP, a restored snapshot), `update_chapter` (title, status) and a
+  reorder, which never opens the file. `save_chapter` and `update_chapter`
+  now share `rewrite_header`, which takes a replaced key's YAML block, list
+  or blank lines with it: retitling a hand-written `title: >` used to leave
+  its lines hanging under the key before it.
+- The corkboard prefers it. `cardText` (`src/lib/binder/cardText.ts`, out of
+  `Corkboard.svelte`) gives a synopsis, in the text colour with its line
+  breaks; or, without one, the chapter's opening prose, muted and in italics,
+  as an excerpt; or nothing ("Nothing written yet."). A screen reader hears
+  "Synopsis:" or "Opening lines:" first. The excerpt leaves scene headings out
+  (they used to be glued to the next sentence: "Morning The road bent
+  north.") and is cut at 200 characters between code points, not inside an
+  emoji. A synopsis written by hand as a YAML block reaches the card as its
+  indicator alone (`|`), and is taken as none.
+- A Scrivener export writes the stored synopsis to `synopsis.txt`, whole,
+  and the first sentence only for a chapter without one, so a synopsis comes
+  back from Scrivener → Versorium → Scrivener as it went. The import leaves
+  out a card that is only its chapter's first sentence, so Versorium →
+  Scrivener → Versorium makes no synopsis up (below, "After review"). `formats::Chapter`
+  has a `synopsis` (20 literals updated); `read_manuscript` fills it, with the
+  card's rule about a lone indicator (`readable_synopsis`). The other formats
+  have no per-chapter place and are unchanged.
+- The card's words were `--text-mute`, which on the open chapter's tinted
+  card measured 3.92:1 in Folio dark, 4.29:1 in Folio light and 4.45:1 in
+  Quarry dark: small text, under AA's 4.5:1. They are now `--text-mute` mixed
+  25% with `--text`: 5.00:1 at the lowest, 4.96 → 6.35:1 on a resting card
+  in Folio light.
+
+**The mock** stopped lying about the import: `import_apply` validates the
+language, creates the project in it, and puts the previewed chapters in with
+their bodies and synopses (it used to make an English project holding only
+the placeholder); `read_chapter` returns `synopsis` in the frontmatter;
+`update_project` takes and validates a language and checks before writing;
+`create_project` validates like Rust; and `importPreview` is exposed so a spec
+can give the file a language.
+
+Tests. Rust, 28 new and 1 rewritten: `language_code` accepts and refuses;
+`LANGUAGES` equals the locale names; a language changed through
+`update_project` reaches the file and nothing else moves, and a refused one
+leaves the file byte for byte; `create_project` refuses and leaves no
+folder; Markdown's frontmatter language (quoted, unquoted, a region, `fr`,
+none, the export round trip); DOCX's three places, their order, a language
+on a named style or with no defaults ignored, an entity, none, and the
+export round trip; EPUB's `dc:language` and its absence; Scrivener names
+none; an import takes the language given (over the file's), and refuses a
+bad one before anything exists or is read; a Scrivener synopsis lands in its
+chapter's frontmatter exactly, with the body intact; a chapter without one
+gets no key; the synopsis survives Scrivener → Versorium → Scrivener; it
+survives a save, a save with a status, a rename, a status change and a
+reorder (bytes unchanged); it is one line of JSON and an empty one writes
+nothing; a replaced key's block, list and blank lines go with it; an agent's
+four write tools over MCP and an applied rewrite keep it; the export prefers
+it; `read_manuscript` carries it; a lone indicator is none; a declared tag is
+kept as written. `importing_replaces_the_placeholder_chapter_rather_than_appending`
+now runs the apply instead of only the preview. Vitest, 15 new in
+`tests/unit/` (`card-text`, `corkboard-synopsis.render`, `novel-languages`,
+`project-language`), plus `tauri.test.ts` (the patch and the import's
+language on the wire) and `state.test.ts` (the language reaches
+`importApply`). Playwright, 6 new and 2 extended: the language changed live
+in the same editor and kept on reopening; a refused one springs back with
+its reason; the import asks when the file does not say and the new novel is
+in the one chosen; a declared language is the preset and an unusable one is
+named; the corkboard shows the imported synopsis and says which kind each
+card is; the card's words hold 4.5:1 in the six themes, on the open card
+too; and the Spanish Project settings and import question.
+
+Each mechanism was removed once and the test meant for it watched fail
+(`tests/scratch/novel-language/mutate.py`, logs in
+`tests/scratch/out/novel-language/`), in a copy of the tree served by a Vite
+of its own on :1444, with a Rust target dir cloned from this one, never in
+the live `src/` under the shared :1420. All 40 checks passed unmutated
+first (the two tests strengthened afterwards, below, pass too). Then 38
+removals (16 in the frontend and the mock, 22 in Rust), 57 required checks
+(12 Playwright, 11 vitest, 34 cargo), 57 failed, each in the test meant for
+it. Missed on the way and fixed before that count: the first
+run had 54 of 55; ignoring `w:docDefaults` when reading `w:lang` failed
+nothing, because the reader also stops at `</w:docDefaults>`, so the test
+now has a styles file with no defaults at all (and stopping there got a
+removal of its own); and taking `import_into`'s own check out failed nothing
+while `create_project` still refused, so the test now imports a missing file
+with a bad language and expects `bad_language`. One check ran for the record
+and passed, as expected: with the core properties unread, an exported DOCX
+still comes back in its language, from `styles.xml`.
+
+Measured with `make verify` (exit 0, 81 s;
+`tests/scratch/out/novel-language/verify-final.log`): svelte-check 403 files, 0
+errors, 0 warnings; locale keys 754 → 764 in each language; vitest 240 → 255
+in 33 files; `cargo test` 579 → 607 unit plus 4 integration, 16 ignored;
+clippy `--all-targets` 0 findings; Playwright 225 → 231. The two specs this
+touched also pass in Playwright's WebKit, the macOS app's engine (18 of 18,
+`tests/scratch/novel-language/pw-webkit.config.ts`; not in the gate).
+
+Looked at in Chrome on the mock (`tests/scratch/novel-language/look.mjs`,
+shots in `tests/scratch/out/novel-language/look/`) at 1280×800, in English
+and Spanish, in Folio, Quarry and Needle, light and dark: Project settings
+with its picker, focused, and with a refused change; the import preview in
+its three hints; the corkboard after an import with a synopsis of two lines.
+Found that way and fixed: the dialog scrolling (now wide), the heading glued
+to the excerpt, and the card's contrast on the open card. The only console
+error is the dev server's missing `favicon.ico`.
+
+Where this departs from the plan:
+
+1. `language_code` also asks for the shape of a tag, so `en-` and `español`
+   are refused rather than read by their first letters.
+2. `rewrite_header` is shared by `save_chapter` as well as by the title and
+   status path, so the block rule applies to `status:` and `words:` too. A
+   blank line after a replaced key goes with it.
+3. `yaml_string` escapes the YAML 1.1 line breaks and unprintables on top of
+   JSON.
+4. The Project dialog is wide; the card excerpt leaves headings out and is
+   cut between code points; the card's words are less muted (above). None of
+   these was in the plan; each came from looking at the screenshots or
+   measuring them.
+5. The import hint names the language the file gives by its name ("Español"),
+   not by the tag the file wrote (`es-MX`).
+6. `declaredLanguage` is cut to 40 characters, so a field holding a paragraph
+   does not fill the hint.
+7. DOCX's three readers share one entity resolver with the paragraph reader
+   (`resolve_entity`), which replaced its inline copy.
+
+Not done: nothing in the app creates or edits a synopsis, only Scrivener
+export carries one, and a Scrivener project's language is not read
+(`TODO.md`); the real webviews and a real Scrivener bundle were not tried.
+Found on the way, not built: the DOCX importer reads `<dc:title>` without
+unescaping it, so "A &amp; B" arrives as such; a failed import leaves the
+half-made project folder behind, and the placeholder chapter's removal
+ignores errors (`import_into`); the corkboard caches each card for as long as
+it is open, so a chapter changed meanwhile shows its old card; the open
+chapter's card's id, status and word count (`--text-mute`, 11px) measure
+3.92:1 to 4.88:1, under 4.5:1 in Folio light and dark and Quarry dark;
+`NewProjectDialog.svelte` and `Onboarding.svelte` keep their own copies of
+the language list; `create_project` writes `versorium.json` with `fs::write`
+rather than atomically; and the mock's import preview warnings are English
+prose where Rust sends codes, so the Spanish mock shows them in English.
+
+### After review (2026-10-04)
+
+The build was reviewed, and 19 findings came back. Each was checked before
+anything changed.
+
+**Fixed, each with a test that fails without the fix:**
+
+1. **Versorium → Scrivener → Versorium no longer makes up synopses.** For a
+   chapter with no synopsis, the export writes its first sentence as the
+   card, and the import kept every card it found. So each such chapter came
+   back with a "synopsis" that the corkboard announced as one, and the next
+   export repeated it after the opening had changed. A test failed on this
+   first (`a_card_that_only_repeats_the_first_sentence_is_not_a_synopsis`).
+   The import now leaves out a card equal to what `first_sentence` makes of
+   the imported chapter. `first_sentence` is the exporter's rule, now one
+   function that both sides use. The comparison is trimmed, since a card cut
+   at 200 characters can end on a space. A synopsis typed in Scrivener that
+   is word for word the first sentence is dropped the same way, and the next
+   export writes it back (FORMATS.md).
+2. **The last language picked is the one kept.** If the writer picked a
+   second language before the first answer came, the second pick was
+   compared with the stored language and dropped. Writes now go one at a
+   time. A pick made during a write waits for it and then goes, and the
+   picker shows that pick meanwhile. The picker is not disabled while it
+   writes, because that would take the focus from a keyboard user.
+3. **The closing page's preview is in the novel's language.** It uses
+   `exportLabels(language)`, the wording the export sends, and carries
+   `lang` for screen readers. The language row stays the code, as
+   `colophon_lines` writes it. The word count is bare digits, as the export
+   writes it: grouped by the interface's locale, 12,345 reads as a decimal
+   in a Spanish card.
+4. **The setting has one name.** Both pickers use `dialog.language`,
+   "Manuscript language" / "Idioma del manuscrito", as New project and
+   Onboarding already did. The two labels this build had added are gone.
+5. **Project settings fits a laptop screen.** At 1280×800 it overflowed by
+   8px in English, but by 62px in Spanish and 84px with an error showing,
+   and Done sat wholly below the edge
+   (`tests/scratch/novel-language-fix/measure-project.mjs`). Its settings now
+   scroll in a body of their own, as in the Manuscript, Rewrite and
+   onboarding dialogs, and Done stays in view. The dialog itself overflows
+   by 0px at 1280×800 and 1280×720 in both languages, and is unchanged at
+   1440×900, where it fits. A scroll box clips at its edges, and the picker
+   reaches the right one. So the body reaches 4px into the dialog's padding
+   and gives the 4px back inside, which leaves room for the 3px focus ring
+   without moving anything. The import preview's new picker and its title
+   field had the same cut on both sides (0px of room), and are fixed the
+   same way (3.5px on each side now).
+6. **A region of an offered language reads as that language.** `es-MX` shows
+   as "Español (es-MX)" (`project.languageRegion`), not as "es-MX (not
+   offered)". `novelLanguageOf` reads a tag the way `language_code` does,
+   and a test holds it to that function's test cases.
+7. **A tag that gives no language is no answer.** `und`, `mul`, `zxx`, `mis`
+   and private-use tags (Word's `x-none`) count as nothing said, in every
+   importer. A DOCX then reads its next place, instead of reporting `x-none`
+   as a language Versorium cannot use.
+8. **The Spanish hint quotes the picker's label** («Español») instead of
+   capitalising a language name mid-sentence.
+9. **Mechanisms that had no test now have one:** the synopsis card's line
+   breaks, the excerpt's italics and the synopsis's colour (computed styles
+   in Chrome, since jsdom loads no CSS); EPUB's unprefixed `<language>`;
+   the dialog passing the picker the novel's own code (a `seedLanguage` on
+   the mock's seed); and each of the mock's three language checks, seen
+   refusing with its message (`update_project` under the picker,
+   `create_project` in New project, `import_apply` in the import).
+10. **The mock.** Every answer that holds chapters now has exactly
+    `ChapterMeta`'s six fields; `update_chapter`, `reorder_chapters`,
+    `delete_chapter` and `delete_project` used to send body and synopsis
+    too, and a test now holds them to it. The preview and the apply share
+    one rule for which files can be imported, `.txt` included, as in
+    `importer_for`. A spec can hold a command's next call (`hold`,
+    `release`).
+
+**Not done, and why:**
+
+- **Half of finding 4 (DOCX).** When the core properties name a language
+  Versorium cannot use (`fr-FR`), the search still ends there; it does not
+  fall through to Word's template language further down. The core
+  properties are what somebody declared. The template's language is the
+  guess that the importer's own comment warns about, and the dialog would
+  then tell the writer "the file gives its language as Español" about a
+  file that declares French. A test pins this choice (mutation R05 below).
+- **Finding 17** (three word counters for one chapter) is outside this item.
+  It is recorded in `TODO.md`, together with how it affects the Project
+  settings preview.
+- **Finding 19** needed no code. FORMATS.md now says that a key the app
+  writes replaces any block written under it by hand.
+- **The other half of finding 14** is outside the item: New project lists
+  Español first, and both it and Onboarding keep their own language lists.
+  It is in `TODO.md`. Onboarding already listed English first, so only New
+  project differs.
+- **Finding 12:** the 84 GB clone under
+  `tests/scratch/out/novel-language/target` has been deleted.
+
+**Measured.** Each mechanism above was removed once in a copy of the tree.
+The harness is the first round's, `tests/scratch/novel-language-fix/mutate.py`,
+with its own Vite on :1444 and logs in `tests/scratch/out/novel-language-fix/`.
+All 19 checks passed unmutated first; a 20th, added with the import
+dialog's fix, passed in the live tree before its own removal. Then came 28
+removals (22 in the frontend and the mock, 6 in Rust) with 31 required
+checks (21 Playwright, 2 vitest, 8 cargo); all 31 failed, each in the test
+meant for it. The four removals behind the mock-shape test were run again
+after its boot wait was added (`mutate-rerun.log`), and all four still
+failed. Six more
+checks ran for the record and passed, as expected, because another mechanism
+holds there. For example, the mock's `import_apply` check alone is masked by
+`create_project`'s, as `import_into`'s is in Rust; with both removed, the
+import test fails.
+
+`make verify` exits 0 in 79 s
+(`tests/scratch/out/novel-language-fix/verify-final.log`):
+
+- svelte-check: 403 files, 0 errors, 0 warnings
+- locale keys: 764 → 763 in each language
+- vitest: 255 → 257, in 33 files
+- `cargo test`: 607 → 612 unit plus 4 integration, 16 ignored
+- clippy `--all-targets`: 0 findings
+- Playwright: 231 → 238
+
+The three specs this round touched also pass in Playwright's WebKit, the
+macOS app's engine: 36 of 36
+(`tests/scratch/novel-language-fix/pw-webkit.config.ts`; not in the gate).
+WebKit is where the new mock-shape test's race showed up: it read the mock
+before the app had booted. It now waits for the app first.
+
+In Chrome on the mock, at 1280×800, the following were checked by eye
+(shots in `tests/scratch/out/novel-language-fix/`): Project settings in both
+languages, the picker's focus ring at 2x at the box's edge, and the Spanish
+import preview with its picker focused.
+
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 
 ### Backup
@@ -1496,9 +1845,6 @@ The full list, with file names, is `TODO.md`; the epubcheck result is in
   WebView2, disabled buttons on WebKitGTK (see "Right-click" above).
 - **Spelling is not checked on Linux**, and on macOS it is shown on a plain
   WKWebView, not yet on a release build (see "Settings → Editor" above).
-- **A novel's language cannot be changed, and imports are created as
-  English**, which the manuscript's `lang` and every export's language field
-  inherit.
 - **The undo key with focus off the page undoes the page's typing**,
   outside CodeMirror's history; and the corkboard still rebuilds the editor,
   losing its undo history as Settings used to.
