@@ -465,6 +465,216 @@ in `tests/e2e/chrome.spec.ts`, plus updated `bars`, `m7-polish` and
 only). The real webviews are not driven yet: see "Collapsible binder and top
 bar: the checks no automation reaches" in `TODO.md`.
 
+## Backup Phase 0: the bugs that lost or tore backups (2026-10-04, on `feat/landing-and-docs`)
+
+Phase 0 of "Choose when the backup runs" (`TODO.md`): the confirmed bugs, fixed
+before anything is allowed to back up on its own. Back up now is still the only
+trigger. Built, then reworked after a review round that found 28 points; what
+the rework changed is folded into each item below.
+
+- **One novel pruned another's backups.** Listing matched a prefix, so
+  `el-faro` claimed every archive of `el-faro-del-norte` (and
+  `la-aguja-del-norte` those of its own `-restored` copy), sorted them as its
+  newest and pruned with them; an unchanged novel also never matched its own
+  newest and wrote a fresh archive on every press. A name is now read from the
+  right (`src-tauri/src/backup/names.rs`) and belongs to a novel only when what
+  is left is exactly its slug, in the shape the app writes: four digits of
+  year and every field in range. Every name an earlier version wrote still
+  parses: without the fingerprint (80c563c to ad0f73a), with it, and with a
+  bumped stamp. A hand-made name with a seventeen-digit year used to overflow
+  the date arithmetic and stop the listing (a panic in a debug build); a
+  five-digit year read as a stamp that held pruning for good. Both are now
+  nobody's.
+- **A clock set back deleted the archive it had just verified.** Pruning kept
+  "the newest N" by name, and today's archive sorted after tomorrow's. Pruning
+  never deletes the archive the run just wrote, and deletes nothing while this
+  computer's clock reads more than 10 minutes earlier than an archive already
+  in the folder. While the clock stays behind, an unchanged novel is compared
+  with the newest archive this clock could have written, not with the
+  future-dated one that sorts first: comparing with that one wrote a full copy
+  on every press and pruned nothing (a reviewer's probe: three archives stamped
+  tomorrow, six presses, nine archives). Each state is now written twice, then
+  nothing. The
+  line no longer assumes this computer is the one that is wrong: "A backup
+  here is dated …, later than this computer's clock, so no backups were
+  deleted. Check the date and time on this computer and on any other that
+  backs up here, or remove that file yourself."
+- **A commit during a backup tore the archived history.** The 60-second
+  checkpoint, Save snapshot or an MCP write could commit between the walk and
+  the packing; the archive passed `verify()` and its HEAD named a commit it did
+  not hold. The files in `.git` that name commits (HEAD, refs, packed-refs, the
+  index, the logs) are now read into memory first, and the object store is
+  listed after them; libgit2 writes objects before refs and never deletes one,
+  so every object a frozen ref names is in the list, however long packing
+  takes. Both halves are read under a repository lock
+  (`src-tauri/src/git/lock.rs`): a file lock in `<app data>/locks/`, one per
+  novel, taken by the capture and by every commit and pull of this app's, in
+  the app or in `versorium mcp`. While it is held the 60-second checkpoint
+  skips that minute, Save snapshot (now off the main thread) waits up to 10 s,
+  the checkpoint before an AI rewrite or a chapter delete waits up to 2 s on
+  the main thread, and the MCP server waits up to 10 s. A commit still waiting
+  after that says "A backup is reading the novel's history. Try again in a
+  moment."; a backup that cannot read the history within 30 s reports every
+  destination as skipped because the history was being written, not as failed.
+  The order keeps the history whole against a writer that never takes the
+  lock (`git` run by hand); the lock adds that the index, the refs and the
+  logs in an archive describe one moment. What is held in memory is small:
+  8 KB outside `objects/` on the 400 MB model, about 36 KB on disk for the real
+  novel. `*.lock` files in `.git` are no longer archived (a restored copy
+  holding one refused to commit); a novel's own file ending in `.lock` still
+  is.
+- **Two runs shared one temporary file.** The `.part` name carried only the
+  process id, so a second run truncated the first one's half-written archive;
+  observed leaving no archive at all. The name now carries a random id of this
+  computer (`<app data>/backup-host-id`, ten hex digits, never sent anywhere),
+  the process and the run. Leftovers are swept at the start of each run, for
+  that novel only: this computer's when its process is gone or its run is not
+  active, another computer's only after 7 days, the two older names after 24
+  hours.
+- **Back up now could start a second run.** Its busy flag lived in the panel,
+  and leaving Settings reset it. Runs now queue in Rust
+  (`src-tauri/src/backup/flight.rs`); the panel asks `backup_state` when it
+  opens and follows `versorium://backup-state`, so after leaving and coming
+  back the button is still disabled, with "Backing up…" beside it in a status
+  line (on the button itself the text was faded to 2.2–3.0:1). The line names
+  another novel's run ("Backing up “Novela 1”…"). When a run the panel did not
+  start ends, it says "The backup has finished; the list below is up to date."
+  and reads the list again; it never sees that run's outcomes. A press reads
+  the destinations, the number to keep and the clock when its turn comes, so
+  one that waited writes where the writer backs up by then, stamped after the
+  run it waited for.
+- **Every failed destination read "Something went wrong."** The backup codes
+  had no translation. Eight codes now have EN and ES text, and a write error is
+  named by its kind: the disk is full, the folder refuses new files, the folder
+  is gone (reported as unavailable, like an unplugged disk), or the archive
+  could not be written. Reading the novel's own files still fails as `io`. The
+  line reads "Another disk: not saved. The disk is full." rather than gluing a
+  sentence after a dash, and an unplugged disk no longer promises "It will be
+  written next time", which nothing did: "Press Back up now again once it is
+  connected."
+- **The press backed up what was last saved, not what was on the page.** It
+  saves first now. A save that fails stops the press and says so under the
+  button: "Not backed up: the chapter could not be saved first. …".
+- `backup_destinations`, `backup_list`, `backup_coverage` and
+  `backup_configure` no longer run on the main thread (finding destinations
+  writes a probe into every candidate folder and disk), and coverage detects
+  once per call instead of once per destination.
+
+Where this departs from the spec. None of these is confirmed by the owner yet:
+
+1. **A second press queues behind the first and makes its own run**, after its
+   own save. That is Phase 0's "process-wide Mutex around `backup_now`"; the
+   spec's "a second press joins a running manual run" belongs to Phase 1's
+   scheduler, and joining would back up a plan taken before the second press
+   saved. Phase 1 has to pick one (`TODO.md`).
+2. **A pull holds the repository lock for its local half only** (moving the
+   branch and checking it out), not for the fetch: that is network work that
+   can outlast the 30 s a backup waits, and it writes its objects before its
+   refs, which the capture's order already copes with.
+3. A lock file that cannot be made or opened does not stop a commit or a
+   backup: the lock is then not held, and the order still protects the
+   archive. The explicit unlock on release is for Windows, which only promises
+   to free a closed handle's lock eventually; on macOS closing the handle
+   frees it, so no test here can tell the two apart.
+4. Process liveness uses `sysinfo`, already a dependency, not `libc::kill`.
+5. The outcome carries `held: { kind: "clockBehind", stamp }`, because the line
+   needs the stamp and there is no ledger yet. The `busy` outcome of spec §4.13
+   is added now, because the lock can time out in Phase 0.
+6. `backup_busy` and `backup_source_gone` have no text yet: nothing returns
+   them before Phase 1, and the translation test covers every code that is
+   added to the list.
+7. Pruning stays inside each write, as before (the spec moves it to Phase 1's
+   runner).
+8. The sweep also knows the first versions' `<archive>.zip.part` name.
+
+Honest limits found in review, for the docs and for Phase 1 (`TODO.md`):
+
+- **The computer's id lives in the app's folder.** A Mac set up from another
+  with Migration Assistant, or from a restored home folder, carries the same
+  id. If both then write the same novel into one synced folder at the same
+  time, one can sweep the other's live temporary file, and that run fails as
+  "not reachable". Nothing already saved is lost.
+- **A sync client's conflict copies are invisible.** Exact names drop
+  `… 2.zip` and "(conflicted copy)" files, so they are never listed for
+  Restore, and never pruned.
+- An archive stamped years ahead with a four-digit year (a clock once set
+  wrong) holds pruning at that destination until its date; the line names the
+  date (spec §9, limit 11).
+
+Tests. The first build added 37 Rust tests, 5 vitest cases and 4 E2E specs
+(two novels sharing a folder; the clock set back; commits around the capture;
+a stale `index.lock`; the fingerprint across the upgrade; two runs in one
+folder; the sweep; write errors by kind; every code translated; two presses at
+once; the button across a remount; save before backing up). The rework added
+38 Rust tests and 5 E2E specs:
+
+- `git/lock.rs` (8, one of them the second process of a test): a second
+  holder is turned away until the first lets go; a wait ends when its time is
+  up; a waiter gets the lock once it is free; one lock per novel however its
+  folder is spelled; the lock lives in the app folder both processes share; a
+  lock file that cannot be made or opened does not stop the writer; another
+  process holding the lock turns a checkpoint away and makes a commit wait,
+  then succeed (spec row 14: the test binary started again as the holder).
+  `git/repo.rs`: a pull moves the branch only while nobody reads the history
+  (a real fetch from a local copy). `commands/git.rs`: Save snapshot waits out
+  a 2.5 s capture; a commit on the main thread waits two seconds, then says the
+  history is busy. `mcp/write.rs`: an agent's write and commit wait out a
+  capture instead of failing.
+- `backup/mod.rs` (17): the checkpoint skips and a save goes through while the
+  history is read (spec row 13); a commit from the app waits until the history
+  has been read, and the archive's index matches its HEAD; a backup waits out a
+  commit holding the history for 2.5 s; a clock set back writes each state
+  twice and then nothing, with `held` on every press, the unchanged ones
+  included; a clock set back on an unchanged novel keeps a second copy, not a
+  new state; a destination that cannot be created, one removed mid-write, an
+  archive gone before its read-back and a disk that fills as the archive is
+  closed each say what happened; every name taken, and a failed rename, leave
+  no temporary file; a novel's own `notes.lock` is backed up; a finished run is
+  no longer live; a history file that vanishes before it is read is left out;
+  the sweep's week and day, pinned an hour either side. Three new permanent
+  controls reproduce the rest of spec rows 2, 3 and 10: with the process id
+  alone two runs damaged each other, the prefix rule deleted the other novel's
+  archives, and judging by pid alone deleted another computer's live file.
+- `backup/names.rs` and `backup/host.rs`: a folder holding an impossible year
+  still lists; the app uses the id it stored, across launches.
+- `commands/backup.rs` (7): Rust sends the event the page listens for (read
+  out of `src/lib/backup/events.ts`, which the E2E mock now imports too); the
+  state reaches the page in the shape it reads; `backup_now` itself, on Tauri's
+  mock runtime (its `test` feature, in dev-dependencies only, no new crate),
+  tells the page when it starts and when it ends; a press that waited is
+  stamped after the run it waited for, and writes where the writer backs up by
+  then, or says backups are off; a busy history is reported busy, with nothing
+  written; a disk pulled mid-backup is unavailable.
+- E2E: the busy line; the status line from the moment of the press; a press
+  overtaken by another run waits for it; a run that ends while the panel starts
+  listening is not missed; another novel's run is named; after a run the panel
+  did not start, the finished line, the list read again, and one listener after
+  reopening; the new failed, held and unavailable wording. The mock can hold a
+  press, queues like Rust and counts listeners. Vitest: the failed save's line,
+  under the button.
+
+Each mechanism was removed once and its test watched fail
+(`tests/scratch/backup-p0-fix/mutate.py`; the Rust side on a copy of
+`src-tauri` with its own target, so nothing else building this checkout saw a
+mutated file): Rust 77 of 77, the first build's 17 and the 25 the reviewers
+used included; frontend 17 of 17. One miss on the way: the test of the main
+thread's two seconds compared the wait with the constant itself, so a
+ten-second constant passed; it now reads two seconds. Not covered by a
+behavioural test: moving the four commands off the main thread (review only),
+the explicit unlock on release (Windows only), and a lock call that fails
+outright, which no filesystem here produces.
+
+Measured with `make verify` (exit 0, 58 s): svelte-check 395 → 396 files, 0
+errors, 0 warnings; locale keys 745 → 750; vitest 180; `cargo test` 536 → 574
+unit plus 4 integration, 16 ignored; clippy `--all-targets` 0 findings;
+Playwright 161 → 166. The new lines were looked at in Chrome on the mock, in
+EN and ES and in Folio light, Quarry dark and Needle dark
+(`tests/scratch/backup-p0-fix/look.mjs`); they use the tokens and sizes of the
+lines measured in the first build (status 4.74–6.28:1, warnings
+4.99–9.12:1). The desktop app was not driven: the lock, its waits and the
+second process run in Rust tests, every new line shows on the mock, and the
+spec's manual checks belong to the phases with a schedule.
+
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 
 ### Backup

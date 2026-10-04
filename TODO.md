@@ -182,14 +182,44 @@ the old Focus fade from the rail.
 
 ### Choose when the backup runs
 
-Requested on 2026-10-04: today the zip backup (iCloud Drive, another disk and
-the other destinations) runs only when the writer presses Back up now
-(Settings → History and backup). The writer should be able to pick when it
-runs on its own. Not designed yet; the choices to weigh are a schedule (daily,
-weekly), on quit, and after so many snapshots, plus what happens when a
-destination is missing at that moment (an unplugged disk) and how a failure is
-reported without a modal. `backup_now` already plans once and dedups by
-content, so a scheduled run of an unchanged novel writes nothing.
+Requested on 2026-10-04: the zip backup runs only when the writer presses Back
+up now; the writer should be able to pick when it runs on its own. Specified on
+2026-10-04 in three phases (the spec sits outside the repo, at
+`/tmp/versorium-backup-schedule/SPEC.md`; copy it in before /tmp is cleared).
+
+- **Phase 0 is done** (STATUS.md, "Backup Phase 0"), the repository lock
+  included. Open for the owner: a second Back up now queues behind the first
+  and makes its own run, after its own save; the spec's Phase 1 has it join
+  the first, whose plan predates that save. Phase 1's scheduler has to pick
+  one. A pull locks the history for its local half only, not for the fetch.
+- **Found in Phase 0's review, for Phase 1:** the id that tells this
+  computer's temporary files from another's lives in the app's folder, so a
+  Mac set up with Migration Assistant shares it with the old one (one failed
+  run at worst, when both write one novel into one synced folder at once); an
+  id tied to the machine, or a stored fingerprint of it, would end that. And
+  a sync client's conflict copies (`… 2.zip`) are never listed: they could be
+  shown read-only, for Restore.
+- **Phase 1 is next:** a ledger of each novel's backups per destination, the
+  runner on its own Rust thread (manual runs only), a lock against a second app
+  instance, rows in Settings that survive leaving the page, a status-bar item,
+  the destination marker, pack once then copy, the shrink, partial and
+  source-gone guards, the weekly verify that never downloads an evicted file,
+  the free-space guard, and fsync before the rename.
+- **Phase 2 ships as one release:** the schedule together with the
+  close-and-quit backups, retention spread over time, and the "Next:" lines.
+
+The owner's answers (2026-10-04) replace the spec's options. "When to back up"
+offers: only when I press Back up now; when I close the novel or quit (the
+default for new setups, plus once a day while it stays open); when I switch
+chapters (after the outgoing chapter is saved; a switch during a run marks it
+due again rather than queueing a second); every N minutes while open (N = 1, 5,
+10, 15, 20, 30, 40 or 50); every N hours while open (N = 1 to 4); once a day.
+The interval is one select. A short interval writes nothing while the novel is
+unchanged, waits for a pause in typing scaled to it (about 20 s at 5 minutes or
+less), and skips a run rather than stacking one; the hint says frequent
+backups to iCloud use upload bandwidth. Under close-or-quit, a checkbox
+"Always back up before quitting, even right after a backup" replaces the
+spec's small-change shortcut.
 
 ### Notifications have no module and never hide
 
