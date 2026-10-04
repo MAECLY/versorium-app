@@ -526,6 +526,8 @@ export interface FontCatalog {
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   uiReady: () => invoke<void>("ui_ready"),
+  /** Answers quit.rs: whether the last save went through, so quitting is safe. */
+  quitReady: (saved: boolean) => invoke<void>("quit_ready", { saved }),
   defaultProjectsDir: () => invoke<string>("default_projects_dir"),
   listProjects: (path: string) => invoke<Project[]>("list_projects", { path }),
   createProject: (path: string, title: string, language: string) =>

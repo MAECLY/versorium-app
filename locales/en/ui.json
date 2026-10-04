@@ -4,7 +4,8 @@
     "tagline": "The local novel studio",
     "newProject": "New project",
     "openProject": "Open project",
-    "closeProject": "Close project"
+    "closeProject": "Close project",
+    "quitUnsaved": "Versorium did not quit: the chapter could not be saved. {reason}"
   },
   "empty": {
     "title": "A quiet desk, a sharp needle.",

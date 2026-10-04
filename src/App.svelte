@@ -24,6 +24,7 @@
   import { installContextMenuPolicy, installReloadKeyGuard } from "$lib/contextmenu/policy";
   import { detectAgents } from "$lib/ai/agents";
   import { updates } from "$lib/update/state.svelte";
+  import { answerQuit } from "$lib/app/quit";
 
   let showSettings = $state(false);
   let showNewProject = $state(false);
@@ -209,6 +210,7 @@
     const uninstallMenus = installContextMenuPolicy();
     const uninstallKeys = installReloadKeyGuard();
     let unlisten: (() => void) | undefined;
+    let unlistenQuit: (() => void) | undefined;
     let disposed = false;
     if (isTauri()) void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
       const window = getCurrentWindow();
@@ -219,6 +221,18 @@
       });
       if (disposed) off(); else unlisten = off;
     });
+    // Cmd+Q and the Dock's Quit never reach onCloseRequested; Rust holds the
+    // quit until this answers (src-tauri/src/quit.rs).
+    if (isTauri()) void import("@tauri-apps/api/event").then(async ({ listen }) => {
+      const off = await listen("versorium://quit-requested", () =>
+        answerQuit(
+          () => store.flushAll(),
+          (saved) => api.quitReady(saved),
+          (e) => { store.error = t("app.quitUnsaved", { reason: store.codeMessagePublic(e) }); },
+        ),
+      );
+      if (disposed) off(); else unlistenQuit = off;
+    });
     return () => {
       disposed = true;
       clearInterval(checkpoint);
@@ -227,6 +241,7 @@
       uninstallMenus();
       uninstallKeys();
       unlisten?.();
+      unlistenQuit?.();
       store.beforeLeave = undefined;
     };
   });

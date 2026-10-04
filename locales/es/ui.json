@@ -4,7 +4,8 @@
     "tagline": "El estudio de novela local",
     "newProject": "Nuevo proyecto",
     "openProject": "Abrir proyecto",
-    "closeProject": "Cerrar proyecto"
+    "closeProject": "Cerrar proyecto",
+    "quitUnsaved": "Versorium no se cerró: no se pudo guardar el capítulo. {reason}"
   },
   "empty": {
     "title": "Un escritorio tranquilo, una aguja fina.",

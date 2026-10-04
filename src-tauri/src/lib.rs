@@ -15,6 +15,7 @@ mod ops;
 mod mcp;
 mod models;
 pub mod paths;
+mod quit;
 mod secrets;
 mod spelling;
 mod storage;
@@ -58,6 +59,9 @@ pub fn run() {
             // for a rewrite in the first few seconds of a session.
             llama::warm_up();
 
+            // Cmd+Q and the Dock's Quit wait for the last save (quit.rs).
+            quit::install(app.handle());
+
             // Serve MCP over HTTP too, if the writer asked for it. Off by
             // default: it opens a listener on a machine whose MCP tools can
             // write to a manuscript.
@@ -94,6 +98,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::project::app_info,
             commands::project::ui_ready,
+            quit::quit_ready,
             commands::project::default_projects_dir,
             commands::project::list_projects,
             commands::project::create_project,
