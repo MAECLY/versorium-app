@@ -15,7 +15,9 @@ mod ops;
 mod mcp;
 mod models;
 pub mod paths;
+mod quit;
 mod secrets;
+mod spelling;
 mod storage;
 mod text;
 mod update;
@@ -32,6 +34,9 @@ pub fn run() {
     if let Some(options) = mcp::parse_cli(std::env::args()) {
         std::process::exit(mcp::serve_stdio(options));
     }
+    // Before the builder, not in `setup`: the window in tauri.conf.json is
+    // built before `setup` runs, and WebKit reads the default as it starts.
+    spelling::enable_as_you_type();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -53,6 +58,9 @@ pub fn run() {
             // Max, so paying it here makes it invisible unless somebody asks
             // for a rewrite in the first few seconds of a session.
             llama::warm_up();
+
+            // Cmd+Q and the Dock's Quit wait for the last save (quit.rs).
+            quit::install(app.handle());
 
             // Serve MCP over HTTP too, if the writer asked for it. Off by
             // default: it opens a listener on a machine whose MCP tools can
@@ -90,6 +98,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::project::app_info,
             commands::project::ui_ready,
+            quit::quit_ready,
             commands::project::default_projects_dir,
             commands::project::list_projects,
             commands::project::create_project,
@@ -111,6 +120,7 @@ pub fn run() {
             commands::backup::backup_destinations,
             commands::backup::backup_configure,
             commands::backup::backup_now,
+            commands::backup::backup_state,
             commands::backup::backup_list,
             commands::backup::backup_restore,
             commands::backup::backup_verify,

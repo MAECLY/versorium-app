@@ -1,5 +1,6 @@
 //! libgit2 repository operations for novel projects.
 
+use crate::git::lock::{RepoLock, Wait, BACKGROUND_WAIT, COMMIT_WAIT};
 use git2::{BranchType, DiffOptions, Repository, Signature};
 use serde::Serialize;
 use std::path::Path;
@@ -138,7 +139,28 @@ pub fn diff(root: &Path) -> Result<String, String> {
 }
 
 /// Stage everything and commit. Returns the new sha.
+///
+/// Waits up to `COMMIT_WAIT` for a backup that is reading the history: the
+/// commands that call this run on the main thread.
 pub fn commit_all(root: &Path, message: &str) -> Result<String, String> {
+    commit_all_waiting(root, message, Wait::Upto(COMMIT_WAIT))
+}
+
+/// `commit_all`, waiting for the repository lock as long as the caller can
+/// afford. `Err("repo_busy")` when it is still held after that.
+pub fn commit_all_waiting(root: &Path, message: &str, wait: Wait) -> Result<String, String> {
+    let _history = RepoLock::acquire(root, wait)?;
+    commit_unlocked(root, message)
+}
+
+/// What a writer that never takes the lock does, such as `git` run by hand in
+/// a terminal. For the tests that show the backup stays whole even then.
+#[cfg(test)]
+pub fn commit_ignoring_the_lock(root: &Path, message: &str) -> Result<String, String> {
+    commit_unlocked(root, message)
+}
+
+fn commit_unlocked(root: &Path, message: &str) -> Result<String, String> {
     let repo = open(root)?;
     let mut index = repo.index().map_err(|_| "io".to_string())?;
     index.update_all(["*"], None).map_err(|_| "io".to_string())?;
@@ -381,7 +403,22 @@ pub fn pull(root: &Path, remote: &str, token: &str) -> Result<PullOutcome, Strin
     origin
         .fetch(&[branch.as_str()], Some(&mut options), None)
         .map_err(|e| network_code(&e))?;
+    drop(origin);
+    drop(repo);
+    fast_forward(root, &branch, Wait::Upto(BACKGROUND_WAIT))
+}
 
+/// The local half of a pull: move the branch to what was fetched, then make
+/// the working tree match it.
+///
+/// Under the repository lock, so a backup never reads the history halfway
+/// through it. The fetch before it stays outside: it is network work that can
+/// take minutes, it writes its objects before its refs, and the backup's read
+/// order already copes with that.
+fn fast_forward(root: &Path, branch: &str, wait: Wait) -> Result<PullOutcome, String> {
+    let _history = RepoLock::acquire(root, wait)?;
+    let repo = open(root)?;
+    let branch = branch.to_string();
     let fetch_head = repo.find_reference("FETCH_HEAD").map_err(|_| "network".to_string())?;
     let incoming = repo.reference_to_annotated_commit(&fetch_head).map_err(|_| "io".to_string())?;
     let (analysis, _) = repo.merge_analysis(&[&incoming]).map_err(|_| "io".to_string())?;
@@ -531,6 +568,33 @@ mod tests {
         assert_eq!(rs[0].name, "origin");
         remote_remove(&root, "origin").unwrap();
         assert!(remotes(&root).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_pull_moves_the_branch_only_while_nobody_is_reading_the_history() {
+        // The local half of a pull, after a real fetch from a copy of the
+        // novel that has moved on. While a backup holds the history, it
+        // refuses rather than moving the branch under it.
+        let (_upstream_dir, upstream) = tmp_repo();
+        init_with_commit(&upstream).unwrap();
+        let here_dir = tempfile::tempdir().unwrap();
+        let here = here_dir.path().join("here");
+        Repository::clone(upstream.to_str().unwrap(), &here).unwrap();
+        fs::write(upstream.join("a.md"), "hello, again\n").unwrap();
+        let ahead = commit_all(&upstream, "upstream moved on").unwrap();
+        let repo = Repository::open(&here).unwrap();
+        repo.remote_anonymous(upstream.to_str().unwrap()).unwrap().fetch(&["main"], None, None).unwrap();
+        let before = repo.head().unwrap().target().unwrap().to_string();
+
+        let backup = RepoLock::acquire(&here, Wait::TryOnly).unwrap();
+        assert_eq!(fast_forward(&here, "main", Wait::TryOnly).unwrap_err(), crate::git::lock::BUSY);
+        assert_eq!(repo.head().unwrap().target().unwrap().to_string(), before, "moved while held");
+        drop(backup);
+
+        let pulled = fast_forward(&here, "main", Wait::TryOnly).unwrap();
+        assert_eq!(pulled, PullOutcome { branch: "main".into(), changed: true });
+        assert_eq!(Repository::open(&here).unwrap().head().unwrap().target().unwrap().to_string(), ahead);
+        assert_eq!(fs::read_to_string(here.join("a.md")).unwrap(), "hello, again\n");
     }
 
     #[test]

@@ -27,6 +27,14 @@ sysinfo = "0.39.6"
 zip = "^5"
 quick-xml = "0.42.0"
 tauri-plugin-updater = { version = "^2", default-features = false, features = ["rustls-tls"] }
+# The updater plugin's own HTTP client is reqwest 0.13, and its redirect policy
+# can only be named through that version. The policy is what keeps the updates
+# token on api.github.com when the plugin follows an asset download to GitHub's
+# storage host (`update::plugin_client`). Already in the tree through the
+# plugin, so this adds nothing to the build. If the plugin ever moves to another
+# reqwest, `configure_client` stops compiling instead of silently losing the
+# rule.
+updater-reqwest = { package = "reqwest", version = "0.13", default-features = false }
 tauri-plugin-opener = "2.6.0"
 # In-process llama.cpp. Pinned exactly: upstream declares no MSRV, publishes
 # roughly weekly, and every bump repays the full cmake cost on all four release
@@ -54,6 +62,20 @@ getrandom = "0.3"
 # has to be the one the writer already knows how to use.
 trash = "5"
 
+# WKWebView checks spelling only when the app's defaults ask for it, and asking
+# goes through NSUserDefaults (`src/spelling.rs`). Both crates are already in
+# the macOS tree through tauri and wry at these versions, so declaring them adds
+# nothing to the build and nothing to THIRD-PARTY-NOTICES.md.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+  "std",
+  "NSDictionary",
+  "NSString",
+  "NSUserDefaults",
+  "NSValue",
+] }
+
 [features]
 # GPU offload on Windows and Linux. Off by default and switched on only in the
 # release workflow for those two targets, because it needs the Vulkan SDK at
@@ -69,3 +91,11 @@ vulkan = ["llama-cpp-2/vulkan"]
 
 [dev-dependencies]
 tempfile = "3"
+# Tauri's mock runtime, so a test can run a real command and hear the events
+# it emits (`commands/backup.rs`). The feature is `test = []` in tauri itself:
+# no crate is added, and only test builds enable it.
+tauri = { version = "2", features = ["test"] }
+# Only so a test can build the plugin's reqwest client: the plugin compiles it
+# with `rustls-no-provider` and installs ring itself before every request, and
+# the redirect tests must do the same. Already in the tree, ring included.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }

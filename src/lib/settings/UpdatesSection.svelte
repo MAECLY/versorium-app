@@ -3,11 +3,13 @@
   import { t } from "$lib/i18n";
   import { isTauri } from "$lib/tauri";
   import { updates } from "$lib/update/state.svelte";
+  import { statusLine } from "$lib/update/status";
 
   const CHANNELS = ["stable", "beta"] as const;
 
   let status = $derived(updates.status);
-  let available = $derived(updates.available);
+  // Recomputed when the language changes too: `t()` reads the locale.
+  let line = $derived(statusLine(status));
 
   onMount(() => {
     // Reading the stored state costs nothing; checking the network does not
@@ -31,35 +33,37 @@
             {status?.currentVersion ?? "—"}
           </b>
         </span>
+        <!-- Not gated on a token (spec §11, amended 2026-10-03): without one
+             the check is anonymous, which is enough for a public repository. -->
         <button
           class="v-btn"
           style="padding: 2px 10px; font-size: 12px;"
-          disabled={updates.busy || !updates.signedIn}
+          disabled={updates.busy}
           onclick={() => void updates.check()}
         >
           {updates.busy ? t("updates.checking") : t("updates.checkNow")}
         </button>
       </div>
 
+      <!-- Every outcome of a check is a line here, never an alert: nothing
+           published, a rate limit and offline included (§11.7). -->
       <p class="m-0 mt-2" style="font-size: 12.5px;" aria-live="polite">
-        {#if !updates.signedIn}
-          <span style="color: var(--warn);">{t("updates.signedOut")}</span>
-        {:else if available}
-          <span style="color: var(--accent);">
-            {t("updates.availableShort", { version: available.version })}
-          </span>
-        {:else if status}
-          <span class="v-muted">{t("updates.upToDate")}</span>
-        {:else}
-          <span class="v-muted">{t("updates.never")}</span>
-        {/if}
+        <span
+          class:v-muted={line.tone === "quiet"}
+          style:color={line.tone === "accent" ? "var(--accent)" : line.tone === "warn" ? "var(--warn)" : null}
+        >
+          {line.text}
+        </span>
       </p>
+      {#if line.hint}
+        <p class="v-muted m-0 mt-1" style="font-size: 11px;">{line.hint}</p>
+      {/if}
 
+      <!-- The command itself failing, which no check outcome above covers. -->
       {#if updates.error}
         <p role="alert" class="m-0 mt-2" style="font-size: 12px; color: var(--warn);">
           {updates.error}
         </p>
-        <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("updates.offlineHint")}</p>
       {/if}
     </div>
 

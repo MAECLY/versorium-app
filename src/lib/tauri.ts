@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { BACKUP_STATE_EVENT } from "$lib/backup/events";
 
 // Tauri command wrappers. All business logic lives in Rust; this is a thin typed edge.
 
@@ -48,6 +49,16 @@ export interface Project {
   chapters: ChapterMeta[];
 }
 
+/** What `update_project` may change; a key left out is left alone. */
+export interface ProjectPatch {
+  title?: string;
+  author?: string;
+  exportCover?: boolean;
+  exportColophon?: boolean;
+  /** One of the codes a novel can take (`src/lib/i18n/languages.ts`); Rust refuses any other. */
+  language?: string;
+}
+
 export interface AppInfo {
   version: string;
   os: string;
@@ -63,6 +74,7 @@ export interface AppSettings {
   githubNovelToken: string | null;
   /** Id of the catalogue entry the editor renders in. */
   editorFont: string;
+  /** @deprecated Legacy, never read: Focus lasts one session and is not restored. */
   focusMode: boolean;
   typewriter: boolean;
   /** False until the first run is done or skipped. */
@@ -74,7 +86,48 @@ export interface AppSettings {
   authorProfiles: AuthorProfiles;
   /** `work` or `hobby`. */
   authorProfile: string;
+  /** Settings → Editor. */
+  editor: EditorSettings;
+  /** Which bars are folded away, and what Focus folds. Never shown in Settings. */
+  layout: LayoutSettings;
 }
+
+/**
+ * Mirrors `LayoutSettings` in src-tauri/src/commands/settings.rs. Changed on
+ * the surfaces themselves: the Hide buttons, the rail and the lip, and the
+ * Focus options menu. Focus itself is not here; it lasts one session.
+ */
+export interface LayoutSettings {
+  binderOpen: boolean;
+  topBarOpen: boolean;
+  focusHidesBinder: boolean;
+  focusHidesTopBar: boolean;
+}
+
+/**
+ * Mirrors `EditorSettings` in src-tauri/src/commands/settings.rs. The scales
+ * are named steps; `src/lib/editor/preferences.ts` says what each renders as.
+ */
+export interface EditorSettings {
+  spellcheck: boolean;
+  textSize: "small" | "medium" | "large";
+  lineSpacing: "compact" | "comfortable" | "airy";
+  textWidth: "narrow" | "medium" | "wide";
+  lineNumbers: boolean;
+  /** The band behind the paragraph that holds the caret. */
+  activeLine: boolean;
+  /** `next` moves focus to the next control; `indent` indents the paragraph. */
+  tabKey: "next" | "indent";
+}
+
+/**
+ * What `set_settings` accepts. The editor and layout blocks are patched key by
+ * key in Rust, so a change to one value sends that value alone.
+ */
+export type SettingsPatch = Partial<Omit<AppSettings, "editor" | "layout">> & {
+  editor?: Partial<EditorSettings>;
+  layout?: Partial<LayoutSettings>;
+};
 
 /**
  * One author identity, as it will appear inside an exported file.
@@ -340,21 +393,52 @@ export interface BackupCoverage {
   onTheNovelsDisk: string[];
 }
 
+/**
+ * Why a destination deleted none of its older archives on this run. The
+ * archive itself was written and read back; only the clean-up waited.
+ */
+export interface BackupHeld {
+  /** This computer's clock reads earlier than an archive already there. */
+  kind: "clockBehind";
+  /** The latest stamp in that folder, Unix seconds. */
+  stamp: number;
+}
+
 /** What happened at one destination. A missing disk is not a failure. */
 export type BackupOutcome =
-  | { state: "ok"; path: string; archive: BackupArchive; pruned: number }
-  | { state: "copy"; path: string; archive: BackupArchive; pruned: number }
-  | { state: "unchanged"; path: string; archive: BackupArchive; pruned: number }
+  | { state: "ok"; path: string; archive: BackupArchive; pruned: number; held?: BackupHeld }
+  | { state: "copy"; path: string; archive: BackupArchive; pruned: number; held?: BackupHeld }
+  | { state: "unchanged"; path: string; archive: BackupArchive; pruned: number; held?: BackupHeld }
   | {
       state: "repaired";
       path: string;
       archive: BackupArchive;
       pruned: number;
+      held?: BackupHeld;
       reason: string;
       damaged: string;
     }
   | { state: "unavailable"; path: string }
+  /** The novel's history was being written for longer than a backup waits
+   *  to read it. Nothing was written; not a failure. */
+  | { state: "busy"; path: string }
   | { state: "failed"; path: string; reason: string };
+
+/** A backup in progress, whoever started it. */
+export interface BackupRunning {
+  project: string;
+  /** Unix seconds. */
+  startedAt: number;
+}
+
+/**
+ * Whether a backup is running, as Rust knows it. `seq` grows with every
+ * change, so the newer of two reports can be told from the older.
+ */
+export interface BackupState {
+  running: BackupRunning | null;
+  seq: number;
+}
 
 /** How far along an install is. The phases are the real steps, not an
  *  animation: downloading has byte counts, verifying is the two signature
@@ -422,6 +506,10 @@ export interface ImportedChapter {
 
 export interface Imported {
   title: string;
+  /** The novel's language as the source declares it, when a novel can take it. */
+  language: string | null;
+  /** The tag the source wrote, whether or not it could be used. */
+  declaredLanguage: string | null;
   chapters: ImportedChapter[];
   /** What the source held that Versorium could not carry across. */
   warnings: string[];
@@ -440,11 +528,18 @@ export interface UpdateStatus {
   available: AvailableUpdate | null;
   channel: "stable" | "beta";
   automatic: boolean;
-  /** An updates token is present. Without one we do not check at all (spec §11). */
-  signedIn: boolean;
+  /**
+   * An updates token is saved. Optional (spec §11, amended 2026-10-03):
+   * without one the check runs anonymously, it is not skipped.
+   */
+  tokenSet: boolean;
   checking: boolean;
+  /** A check has finished since launch or since the channel changed. */
+  checked: boolean;
   /** An i18n code, never prose. */
   lastError: string | null;
+  /** When GitHub's rate limit lifts, in Unix seconds; only with a rate-limit code. */
+  resetsAt: number | null;
 }
 
 // --- M7: polish ---
@@ -477,6 +572,7 @@ export interface ContinuityReport {
   findings: ContinuityFinding[];
 }
 
+/** Mirrors `fonts::FontEntry` in src-tauri/src/fonts/mod.rs. */
 export interface FontEntry {
   id: string;
   family: string;
@@ -485,16 +581,33 @@ export interface FontEntry {
   stack: string;
   license: string;
   bundled: boolean;
+  /** Whether choosing it changes what the writer sees: false for a face neither bundled nor sure to be installed. */
+  available: boolean;
+  note: string;
 }
 
 export interface FontCatalog {
   version: number;
+  /** The face settings fall back to when they name none, or one this catalogue lacks. */
+  defaultBody: string;
   fonts: FontEntry[];
+}
+
+/**
+ * The face the editor renders in, as `fonts::EditorFont` sends it: the
+ * catalogue id Settings → Editor → Typography marks as chosen, and the stack
+ * the page applies (`--editor-font`, src/lib/editor/preferences.ts).
+ */
+export interface EditorFont {
+  id: string;
+  stack: string;
 }
 
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   uiReady: () => invoke<void>("ui_ready"),
+  /** Answers quit.rs: whether the last save went through, so quitting is safe. */
+  quitReady: (saved: boolean) => invoke<void>("quit_ready", { saved }),
   defaultProjectsDir: () => invoke<string>("default_projects_dir"),
   listProjects: (path: string) => invoke<Project[]>("list_projects", { path }),
   createProject: (path: string, title: string, language: string) =>
@@ -507,7 +620,7 @@ export const api = {
   saveChapter: (path: string, file: string, body: string, status?: string) =>
     invoke<ChapterMeta>("save_chapter", { path, file, body, status }),
   getSettings: () => invoke<AppSettings>("get_settings"),
-  setSettings: (patch: Partial<AppSettings>) => invoke<AppSettings>("set_settings", { patch }),
+  setSettings: (patch: SettingsPatch) => invoke<AppSettings>("set_settings", { patch }),
   pickDirectory: () => open({ directory: true, multiple: false }),
 
   // --- M1: git + ops ---
@@ -570,14 +683,8 @@ export const api = {
   updateRelaunch: () => invoke<void>("update_relaunch"),
 
   // --- editing a novel and its chapters ---
-  updateProject: (
-    path: string,
-    title?: string,
-    author?: string,
-    exportCover?: boolean,
-    exportColophon?: boolean,
-  ) =>
-    invoke<ProjectMeta>("update_project", { path, title, author, exportCover, exportColophon }),
+  updateProject: (path: string, patch: ProjectPatch) =>
+    invoke<ProjectMeta>("update_project", { path, ...patch }),
   /** Moves the folder to the system trash; returns what is left. */
   deleteProject: (path: string, parent: string) =>
     invoke<Project[]>("delete_project", { path, parent }),
@@ -603,8 +710,11 @@ export const api = {
   backupDestinations: () => invoke<BackupDestination[]>("backup_destinations"),
   backupConfigure: (paths: string[], keep: number) =>
     invoke<void>("backup_configure", { paths, keep }),
-  /** One outcome per destination; never collapsed into a single result. */
+  /** One outcome per destination; never collapsed into a single result. Waits
+   *  for a backup already running to finish, then makes its own. */
   backupNow: (path: string) => invoke<BackupOutcome[]>("backup_now", { path }),
+  /** Whether a backup is running right now, for a panel that has just opened. */
+  backupState: () => invoke<BackupState>("backup_state"),
   backupList: (path: string) => invoke<[string, BackupArchive[]][]>("backup_list", { path }),
   /** Read an archive back and confirm it is complete and extractable. */
   backupVerify: (archive: string) => invoke<string>("backup_verify", { archive }),
@@ -628,8 +738,9 @@ export const api = {
   exportManuscript: (path: string, format: ExportFormat, dest: string, labels?: ExportLabels) =>
     invoke<ExportResult>("export_manuscript", { path, format, dest, labels }),
   importPreview: (source: string) => invoke<Imported>("import_preview", { source }),
-  importApply: (source: string, title: string) =>
-    invoke<Project>("import_apply", { source, title }),
+  /** `language` is the one the dialog settled on; the source's own is only a preset. */
+  importApply: (source: string, title: string, language: string) =>
+    invoke<Project>("import_apply", { source, title, language }),
   setAuthor: (path: string, author: string) =>
     invoke<ProjectMeta>("set_author", { path, author }),
 
@@ -649,8 +760,9 @@ export const api = {
   crashClear: () => invoke<void>("crash_clear"),
   continuityCheck: (path: string) => invoke<ContinuityReport>("continuity_check", { path }),
   fontsCatalog: () => invoke<FontCatalog>("fonts_catalog"),
-  editorFont: () => invoke<string>("editor_font"),
-  setEditorFont: (id: string) => invoke<string>("set_editor_font", { id }),
+  editorFont: () => invoke<EditorFont>("editor_font"),
+  /** Answers the face Rust kept, which is what the page and the panel show. */
+  setEditorFont: (id: string) => invoke<EditorFont>("set_editor_font", { id }),
 
   /** Where to write an export. Returns null when the user backs out. */
   pickExportTarget: (defaultPath: string, name: string, extension: string) =>
@@ -664,6 +776,15 @@ export const api = {
   /** A Scrivener project, which is a .scriv bundle directory on macOS. */
   pickImportProject: () => open({ directory: true, multiple: false }),
 };
+
+/**
+ * Follow the backup in progress. Resolves to the function that stops
+ * following; call it when the listener goes out of scope.
+ */
+export async function onBackupState(handler: (state: BackupState) => void): Promise<() => void> {
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<BackupState>(BACKUP_STATE_EVENT, (event) => handler(event.payload));
+}
 
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

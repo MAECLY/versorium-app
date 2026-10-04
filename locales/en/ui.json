@@ -4,7 +4,8 @@
     "tagline": "The local novel studio",
     "newProject": "New project",
     "openProject": "Open project",
-    "closeProject": "Close project"
+    "closeProject": "Close project",
+    "quitUnsaved": "Versorium did not quit: the chapter could not be saved. {reason}"
   },
   "empty": {
     "title": "A quiet desk, a sharp needle.",
@@ -34,6 +35,8 @@
     "corkboardHint": "See the chapters as cards.",
     "corkboardLoading": "Reading chapters…",
     "corkboardEmpty": "Nothing written yet.",
+    "corkboardSynopsis": "Synopsis:",
+    "corkboardOpening": "Opening lines:",
     "menu": {
       "forProject": "Actions for the novel {title}",
       "forChapter": "Actions for chapter {title}",
@@ -42,8 +45,8 @@
       "renameChapter": "Rename chapter…",
       "deleteChapter": "Delete chapter",
       "markAs": "Mark as {status}",
-      "moveUp": "Move up",
-      "moveDown": "Move down",
+      "moveEarlier": "Move earlier",
+      "moveLater": "Move later",
       "projectSettings": "Project settings…"
     },
     "rename": {
@@ -68,9 +71,36 @@
     "unsaved": "Unsaved changes",
     "error": "Could not save: {error}",
     "focus": "Focus",
-    "focusHint": "Fade everything but the page. Escape or reach for the edge to come back.",
+    "focusHint": "Clear the page of the bars ticked in Focus options. Esc brings them back. ({keys})",
+    "focusNeedsChapter": "Open a chapter to use Focus.",
+    "focusOptions": "Focus options",
+    "focusHeading": "When Focus is on, hide",
+    "focusOffNote": "Takes effect when Focus is on.",
+    "focusNothingNote": "Nothing is ticked, so Focus only quiets the status bar.",
+    "focusLeaveHint": "Press Esc to leave Focus",
+    "focusOn": "Focus on. Press Escape to leave.",
+    "focusOff": "Focus off.",
     "typewriter": "Typewriter",
     "typewriterHint": "Keep the line you are writing at the lower third."
+  },
+  "chrome": {
+    "hide": "Hide",
+    "hideBinder": "Hide projects and chapters",
+    "showBinder": "Show projects and chapters",
+    "hideTopBar": "Hide top bar",
+    "showTopBar": "Show top bar",
+    "withKeys": "{label} ({keys})",
+    "lipHint": "Show top bar ({keys}). Rewrite works without it: {rewriteKeys}.",
+    "binderItem": "Projects and chapters",
+    "topBarItem": "Top bar",
+    "binderHidden": "Projects and chapters hidden.",
+    "binderShown": "Projects and chapters shown.",
+    "topBarHidden": "Top bar hidden.",
+    "topBarShown": "Top bar shown."
+  },
+  "notices": {
+    "region": "Notifications",
+    "dismiss": "Close"
   },
   "dialog": {
     "newProject": "New project",
@@ -105,10 +135,10 @@
     },
     "nav": "Settings sections",
     "backToWriting": "← Back to the manuscript",
-    "themeHint": "Folio is paper-warm, Quarry is cool grey, Needle is dark and green. Each one has a light and a dark version; the mode below decides which you see.",
+    "themeHint": "Folio is warm paper, Quarry a quieter warm grey, Needle cool with a teal cast. Each one has a light and a dark version; the mode below decides which you see.",
     "languageHint": "Changes the interface only. It never touches the language your novel is written in.",
     "groups": {
-      "writing": "Writing",
+      "editor": "Editor",
       "author": "Author",
       "appearance": "Appearance",
       "localAi": "Local AI",
@@ -117,7 +147,7 @@
       "app": "Application"
     },
     "purpose": {
-      "writing": "How the page feels while you write: the typeface and size of the manuscript itself.",
+      "editor": "How the page looks and behaves while you write: typeface, spelling, the size and spacing of the text, line numbers, the current-paragraph highlight, and what the Tab key does.",
       "author": "Who the manuscript is by, as the exported file will say it.",
       "appearance": "How Versorium looks, and what language its own buttons speak.",
       "localAi": "Which model does each job, and where those models come from. Nothing here sends your prose anywhere.",
@@ -152,13 +182,14 @@
     "create": "Create",
     "remotes": "Remotes",
     "noRemotes": "No remotes configured.",
-    "updatesSlot": "Updates login",
+    "updatesSlot": "Updates token (optional)",
     "novelSlot": "Novel backup",
-    "updatesSlotHint": "Used only to read releases of maecly/versorium-app.",
+    "updatesSlotHint": "Only needed while maecly/versorium-app is private, or to lift GitHub's hourly limit on checks without a token.",
     "novelSlotHint": "Used only for your novel's own private backup. Never for updates.",
     "token": "GitHub token",
     "connect": "Connect",
-    "connected": "Connected as",
+    "updatesConnected": "Updates token connected as @{login}.",
+    "novelConnected": "GitHub backup connected as @{login}.",
     "repoName": "Backup name",
     "createRepo": "Create a private backup",
     "privateDefault": "Backups are created private.",
@@ -177,8 +208,8 @@
     "push": "Send to GitHub",
     "pull": "Bring from GitHub",
     "pushed": "Sent {branch} to GitHub.",
-    "pulled": "Brought the latest changes.",
-    "alreadyCurrent": "Already up to date.",
+    "pulled": "Brought the latest changes from GitHub.",
+    "alreadyCurrent": "Already up to date with GitHub.",
     "storedWhere": "Stored in your system's credential store, never in a file."
   },
   "errors": {
@@ -187,6 +218,7 @@
     "notFound": "Project not found.",
     "project_exists": "A project with that name already exists.",
     "empty_title": "A title cannot be blank.",
+    "bad_language": "That is not a language Versorium offers for a novel.",
     "no_repo": "This folder is not keeping history yet.",
     "no_commits": "No snapshots yet.",
     "nothing_to_commit": "Nothing has changed since the last snapshot.",
@@ -231,6 +263,13 @@
     "export_docx_scene_titles_dropped": "Scene titles are not part of manuscript format; the scene breaks remain.",
     "no_release": "No release matched this channel.",
     "no_manifest": "That release has no update manifest attached.",
+    "update_none_visible": "No published version is visible yet: either nothing has been released, or the repository is still private and no token that can read it is saved.",
+    "update_rate_limited": "GitHub's limit on update checks without a token has been reached. An updates token, saved in Settings → Application, lifts it.",
+    "update_rate_limited_token": "GitHub's rate limit for this updates token has been reached.",
+    "update_token_rejected": "GitHub refused the updates token: it is wrong or has been revoked. Replace it or forget it in Settings → Application.",
+    "bad_signature": "The update's signature did not verify, so nothing was installed.",
+    "no_checksums": "The release has no checksum for this download, so nothing was installed.",
+    "unsupported_platform": "Versorium cannot update itself on this operating system or processor.",
     "bad_update_host": "The update pointed somewhere unexpected and was refused.",
     "continuity_no_model": "No model is selected for Continuity. Pick one under Local AI.",
     "continuity_daemon_offline": "The Ollama daemon is not running, so the check could not start.",
@@ -257,7 +296,15 @@
     "mcp_http_bind_failed": "Versorium could not open a local port for HTTP.",
     "mcp_http_no_entropy": "Versorium could not get random bytes from the operating system, so it will not open an HTTP port with a guessable token.",
     "trash_failed": "Versorium could not move that to the Trash.",
-    "remote_not_github": "This project's remote is not a GitHub address, so the token was not sent. Versorium only signs in to github.com over https."
+    "remote_not_github": "This project's remote is not a GitHub address, so the token was not sent. Versorium only signs in to github.com over https.",
+    "backup_not_configured": "No backup folder has been chosen.",
+    "backup_dest_missing": "That folder is not there any more.",
+    "backup_dest_unwritable": "The folder doesn't accept new files: it is read-only, or Versorium has no permission.",
+    "backup_no_space": "The disk is full.",
+    "backup_write_failed": "The archive could not be written.",
+    "backup_unreadable": "The archive could not be read back.",
+    "backup_corrupt": "The archive did not read back intact.",
+    "repo_busy": "A backup is reading the novel's history. Try again in a moment."
   },
   "languages": {
     "en": "English",
@@ -267,7 +314,7 @@
     "rewrite": "Rewrite",
     "provider": "Agent",
     "busy": "Rewriting…",
-    "noProviders": "No agent found. Install Claude Code, Codex, OpenCode or Ollama and re-check in Settings → Agents.",
+    "noProviders": "No assistant found. Install Claude Code, Codex, OpenCode or Ollama, then check again in Settings → Assistants.",
     "preview": "Preview",
     "original": "Original",
     "rewritten": "Rewritten",
@@ -279,7 +326,7 @@
     "kindCli": "CLI",
     "checkpointNote": "Versorium snapshots Git before applying. You can roll back.",
     "creative": "Continue chapter",
-    "creativeSoon": "Creative mode arrives in v1.1.",
+    "creativeSoon": "Creative mode is coming. It is not available yet.",
     "configuredSuffix": "(configured)"
   },
   "agents": {
@@ -299,13 +346,13 @@
   "safety": {
     "title": "Safety",
     "censorship": "Censorship",
-    "censorshipHint": "ON hides uncensored local models and asks cloud agents to keep it clean. OFF prefers uncensored routes. Routing arrives with Local AI.",
+    "censorshipHint": "On, models marked uncensored are hidden from the list above. That is all it does today: it does not change what any assistant is asked, and nothing routes requests by it.",
     "on": "On",
     "off": "Off"
   },
   "mcp": {
     "title": "What they are allowed to do",
-    "intro": "The arrow points the other way here: an assistant connects to Versorium and reads your manuscript through it. A local server on this machine (stdio), read-only until you allow writing, per client.",
+    "intro": "The arrow points the other way here: an assistant connects to Versorium and reads your manuscript through it. A local server on this machine — over stdio, and over HTTP only if you turn it on below — read-only until you allow writing, per client.",
     "command": "Command",
     "commandHint": "Connected clients spawn this. Nothing listens on the network.",
     "connect": "Connect",
@@ -430,7 +477,7 @@
       "modified": "Updated {when}"
     },
     "studio": {
-      "intro": "LM Studio or llama-server, anything speaking the OpenAI API on this machine.",
+      "intro": "LM Studio or llama-server, anything speaking the OpenAI API on this machine. You can test and save the connection now; assigning it to a task is not built yet.",
       "host": "Host",
       "port": "Port",
       "test": "Test connection",
@@ -488,7 +535,7 @@
     },
     "sources": {
       "title": "Where models come from",
-      "intro": "Four ways to have a model on this machine. You do not need all of them; you need one that the tasks above can point at."
+      "intro": "Where a model can come from. Built-in and Ollama models can be given to the tasks above; a local server can be configured here but no task can use it yet."
     },
     "runsOn": {
       "none": "no model yet",
@@ -541,6 +588,9 @@
       "projectHint": "A .scriv bundle.",
       "busy": "Reading…",
       "previewTitle": "Project title",
+      "languageFromSource": "The file gives its language as {language}. Change it here if that is wrong.",
+      "languageAsk": "The file does not say what language it is in. Choose the one the novel is written in.",
+      "languageUnsupported": "The file gives its language as “{tag}”, which Versorium cannot use. Choose the one the novel is written in.",
       "chapters": "Chapters",
       "chapterWords": "{words} words",
       "noChapters": "This source has no chapters.",
@@ -553,12 +603,13 @@
     "title": "Updates",
     "intro": "Versorium checks its own releases. Nothing about your manuscript is sent.",
     "currentVersion": "Installed version",
-    "signedOut": "Sign in under Settings → Application to check for updates. Without it Versorium does not check at all.",
     "checkNow": "Check now",
     "checking": "Checking…",
     "upToDate": "This is the newest release.",
     "availableShort": "Version {version} is available.",
     "never": "Not checked yet.",
+    "offline": "GitHub could not be reached, or did not answer as expected, so nothing was checked.",
+    "resetsAt": "It resets at {time}.",
     "automatic": "Automatic updates",
     "automaticHint": "Check once at launch. On by default on the stable channel.",
     "channel": "Channel",
@@ -567,7 +618,7 @@
       "beta": "Beta"
     },
     "channelHint": "Beta is opt-in and ships unfinished work.",
-    "offlineHint": "A network problem is left alone — no pop-up, no retry loop.",
+    "offlineHint": "A failed check is left alone — no pop-up, no retry loop.",
     "gatekeeper": "Builds are signed with minisign, but not yet notarized by Apple or Microsoft, so the first launch may warn you.",
     "none": "Updates are handled by the desktop app.",
     "dialog": {
@@ -669,8 +720,54 @@
     "intro": "What the editor renders your prose in.",
     "sample": "El invierno fue largo, y la niña esperaba junto a la ventana.",
     "systemFace": "already on this machine",
+    "ifInstalled": "shows only where it is installed",
     "downloadLater": "Downloadable families arrive with the font downloader in a later release. Nothing here needs fetching.",
     "none": "Typography is handled by the desktop app."
+  },
+  "editorSettings": {
+    "spelling": {
+      "title": "Spelling",
+      "label": "Check spelling as you type",
+      "hint": "Your system's spelling checker underlines the words it does not know. Nothing is changed for you: right-click a word to see suggestions.",
+      "hintLinux": "On Linux nothing is underlined yet: Versorium does not switch the system's spelling checker on there. Your choice is kept for when it does."
+    },
+    "text": {
+      "title": "Text",
+      "size": "Text size",
+      "sizes": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large"
+      },
+      "spacing": "Line spacing",
+      "spacings": {
+        "compact": "Compact",
+        "comfortable": "Comfortable",
+        "airy": "Airy"
+      },
+      "width": "Text width",
+      "widths": {
+        "narrow": "Narrow",
+        "medium": "Medium",
+        "wide": "Wide"
+      }
+    },
+    "guides": {
+      "title": "Guides",
+      "lineNumbers": "Line numbers",
+      "lineNumbersHint": "Numbers each line of the chapter as the editor shows it, blank ones included. A paragraph counts as one line, however far it wraps.",
+      "activeLine": "Highlight the current paragraph",
+      "activeLineHint": "A faint band behind the paragraph the cursor is in."
+    },
+    "keyboard": {
+      "title": "Keyboard",
+      "tab": "Tab key",
+      "tabs": {
+        "next": "Moves to the next control",
+        "indent": "Indents the paragraph"
+      },
+      "tabHint": "Exports ignore the indent. Indented twice, a paragraph becomes a code block in the chapter file, and its italics stop showing."
+    }
   },
   "crash": {
     "title": "Crash reports",
@@ -718,13 +815,17 @@
     "notFound": "not found on this machine",
     "choose": "Use this",
     "chosenLabel": "Stop using",
-    "chosen": "Backups will go here too.",
+    "chosen": "{name}: backups will go there too.",
     "pickFolder": "Choose a folder…",
     "turnOff": "Turn backups off",
     "turnedOff": "Backups are off.",
     "keep": "Keep the newest",
     "now": "Back up now",
     "working": "Working…",
+    "running": "Backing up…",
+    "runningOther": "Backing up “{title}”…",
+    "finished": "The backup has finished; the list below is up to date.",
+    "notSavedFirst": "Not backed up: the chapter could not be saved first. {reason}",
     "written": "Saved, {size}.",
     "stored": "Stored backups",
     "restore": "Restore",
@@ -749,8 +850,9 @@
     "sameDisk": "{path} is on the same disk as the novel — if that disk fails, both go.",
     "allSet": "This meets the three-copy rule.",
     "resultOk": "{name}: saved, {size}.",
-    "resultUnavailable": "{name}: not reachable right now. It will be written next time.",
-    "resultFailed": "{name}: could not be written — {reason}",
+    "resultUnavailable": "{name}: not reachable right now. Press Back up now again once it is connected.",
+    "resultBusy": "{name}: skipped, because the novel's history was being written. Press Back up now again in a moment.",
+    "resultFailed": "{name}: not saved. {reason}",
     "verify": "Check",
     "verified": "Read back in full and intact.",
     "verifyHint": "Checking opens the archive and reads every file back. An archive that has sat on a disk for a year is the one this is for.",
@@ -761,7 +863,12 @@
     "alsoPruned": "{n} older ones were deleted to stay within the number you keep.",
     "onlyWhenChanged": "Back up now writes a new archive only when the novel has changed. It keeps two copies of each state at each destination, then tells you instead of writing — pressing it again cannot fill the folder.",
     "damaged": "could not be read back",
-    "keepHint": "Archives, not days. With two copies of each state, ten archives is at least five different states of the novel."
+    "keepHint": "Archives, not days. With two copies of each state, ten archives is at least five different states of the novel.",
+    "last": {
+      "held": {
+        "clockBehind": "A backup here is dated {stamp}, later than this computer's clock, so no backups were deleted. Check the date and time on this computer and on any other that backs up here, or remove that file yourself."
+      }
+    }
   },
   "author": {
     "title": "Author",
@@ -797,15 +904,18 @@
       "trl": "Translator"
     },
     "privacy": "These fields are written into files you export and nowhere else. Nothing here is sent anywhere, and no address or account is asked for, because no export format has a place to put one.",
-    "saved": "Saved."
+    "saved": "Author profile saved."
   },
   "project": {
     "title": "Project",
     "intro": "Settings that belong to this novel, not to the app. They travel with the folder.",
+    "languageHint": "Screen readers read the page in it. Every export declares it, and writes its closing page in it.",
+    "languageOther": "{code} (not offered)",
+    "languageRegion": "{language} ({code})",
     "coverLabel": "Open exports with a title page",
     "coverHint": "The title, your byline, and the publisher and rights lines when your author profile has them. A manuscript that arrives without one makes the reader work out whose it is from the filename.",
     "colophonLabel": "Close exports with this novel's record",
-    "colophonHint": "The title, author, language, chapter and word count, and one line saying it was written here. Turn it off and nothing of Versorium appears anywhere in the file.",
+    "colophonHint": "The title, author, language, chapter and word count, and one line saying it was written here. Turn it off and that closing page is gone. The file's properties still name the program that made it, as every word processor does.",
     "preview": "Title page",
     "previewEmpty": "Add an author in Settings → Author and it will appear here.",
     "colophonHeading": "About this book",

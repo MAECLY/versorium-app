@@ -27,11 +27,11 @@ help: ## Show this list
 
 # --- running ---
 
-dev: ## Run the desktop app (Tauri + Vite, hot reload)
-	$(PNPM) tauri dev
+dev: ## Run the desktop app (Tauri + Vite, hot reload; reuses this checkout's Vite on :1420)
+	@tools/dev.sh $(PNPM)
 
 devtools: ## Run the desktop app with the Web Inspector already open
-	VERSORIUM_DEVTOOLS=1 $(PNPM) tauri dev
+	@VERSORIUM_DEVTOOLS=1 tools/dev.sh $(PNPM)
 
 web: ## Serve the frontend alone in a browser (no Rust, no Tauri APIs)
 	$(PNPM) dev
@@ -76,8 +76,8 @@ test-e2e-ui: ## Same, in Playwright's inspector
 test-live: tools ## Rust tests that hit real tools, daemons and the network
 	PATH="$(dir $(JAVA)):$$PATH" cargo test --manifest-path $(CARGO_MANIFEST) -- --ignored live_
 
-clippy: ## Lint Rust. Shipped code must be clean; test code has known warnings
-	cargo clippy --manifest-path $(CARGO_MANIFEST) -- -D warnings
+clippy: ## Lint Rust, tests included, exactly as CI does
+	cargo clippy --manifest-path $(CARGO_MANIFEST) --all-targets -- -D warnings
 
 lint: check clippy ## Static checks only, no tests
 

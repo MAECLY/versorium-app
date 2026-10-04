@@ -115,14 +115,22 @@ export class OnboardingStore {
     await this.markDone();
   }
 
-  /** The only step that writes. Creating a project git-inits it, as always. */
+  /**
+   * The only step that writes. Creating a project git-inits it, as always.
+   * The binder hands back a sentence already in the writer's language, so it
+   * is shown as it is: run() would read it as an error code and say
+   * "Something went wrong." instead.
+   *
+   * Not while the binder is opening something: it would answer null without
+   * making the project, and the tour would go on as if it had.
+   */
   async createProject(): Promise<void> {
     const title = this.title.trim();
-    if (!title || this.created) return;
+    if (!title || this.created || store.loading) return;
     await this.run(async () => {
-      await store.createProject(title, this.language);
-      if (store.error) throw store.error;
-      this.created = true;
+      const failed = await store.createProject(title, this.language);
+      if (failed) this.error = failed;
+      else this.created = true;
     });
     if (!this.error) this.step = "template";
   }
@@ -133,10 +141,14 @@ export class OnboardingStore {
       this.step = "firstScene";
       return;
     }
+    if (store.loading) return;
     await this.run(async () => {
       for (const title of titles) {
-        await store.createChapter(title);
-        if (store.error) throw store.error;
+        const failed = await store.createChapter(title);
+        if (failed) {
+          this.error = failed;
+          return;
+        }
       }
     });
     if (!this.error) this.step = "firstScene";

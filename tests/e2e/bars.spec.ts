@@ -29,10 +29,14 @@ test("the header carries the manuscript's actions and nothing else", async ({ pa
     "Manuscript",
     "Open project",
     "Settings",
+    "Hide top bar",
   ]);
 
   // The reason to open the app gets primary weight, and is alone in its group.
   await expect(header.getByRole("button", { name: "Rewrite" })).toHaveClass(/v-btn-primary/);
+  // Hide folds the bar itself away, and says which bar on the button: a bare
+  // "Hide" in an app's chrome reads as ⌘H, hide the app.
+  await expect(header.getByRole("button", { name: "Hide top bar", exact: true })).toHaveText("Hide top bar");
 });
 
 test("document state and view modes live in the status bar", async ({ page }) => {
@@ -40,7 +44,7 @@ test("document state and view modes live in the status bar", async ({ page }) =>
   const bar = page.getByRole("contentinfo");
 
   // State first, then what you do about it, then how you are looking.
-  for (const name of ["Save snapshot", "History", "↩ Restore", "Corkboard", "Focus", "Typewriter"]) {
+  for (const name of ["Save snapshot", "History", "↩ Restore", "Corkboard", "Focus", "Focus options", "Typewriter"]) {
     await expect(bar.getByRole("button", { name, exact: true })).toBeVisible();
   }
   // Language sits at the far right, where VS Code puts the language mode.
@@ -99,8 +103,16 @@ test("both bars are translated", async ({ page }) => {
   await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
 
   await expect(page.getByRole("banner").getByRole("button", { name: "Reescribir" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("button", { name: "Ocultar barra superior", exact: true })).toBeVisible();
   const bar = page.getByRole("contentinfo");
-  for (const name of ["Guardar instantánea", "Historial", "↩ Restaurar", "Fichas", "Concentración"]) {
+  for (const name of [
+    "Guardar instantánea",
+    "Historial",
+    "↩ Restaurar",
+    "Fichas",
+    "Concentración",
+    "Opciones de Concentración",
+  ]) {
     await expect(bar.getByRole("button", { name, exact: true })).toBeVisible();
   }
 });

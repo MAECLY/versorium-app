@@ -23,10 +23,6 @@ export class UpdateStore {
     return this.status?.available ?? null;
   }
 
-  get signedIn(): boolean {
-    return this.status?.signedIn ?? false;
-  }
-
   /** Read the current state without touching the network. */
   load(): Promise<void> {
     return this.adopt(() => api.updateStatus());
@@ -100,14 +96,15 @@ export class UpdateStore {
   }
 
   /**
-   * The startup check (spec §11): quiet, once, and only when the writer both
-   * asked for automatic updates and signed in. A failure here is deliberately
-   * swallowed — it must not greet anyone with an error on launch.
+   * The startup check (spec §11): quiet, once, and only when the writer asked
+   * for automatic updates. A token is not a condition any more (§11 amended
+   * 2026-10-03): without one the check runs anonymously. A failure here is
+   * deliberately swallowed — it must not greet anyone with an error on launch.
    */
   async checkOnStartup(): Promise<void> {
     if (!isTauri()) return;
     await this.load();
-    if (!this.status?.automatic || !this.status.signedIn) return;
+    if (!this.status?.automatic) return;
     await this.check();
     this.error = null;
   }

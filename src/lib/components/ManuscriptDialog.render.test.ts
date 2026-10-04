@@ -19,6 +19,8 @@ vi.mock("$lib/tauri", async (orig) => {
 it("renders both tabs, every export format and a warning as copy", async () => {
   formats.preview = {
     title: "Imported",
+    language: null,
+    declaredLanguage: null,
     chapters: [{ title: "One", body: "Uno dos.", synopsis: null }],
     warnings: ["import_title_guessed"],
   };

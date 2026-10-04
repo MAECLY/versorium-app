@@ -90,9 +90,12 @@ fn is_plain_word(token: &str) -> bool {
 /// Collapse any run of [`PROSE_RUN`] or more consecutive plain words.
 ///
 /// `panic!("{}", chapter_body)` is the threat: prose arrives as long runs of
-/// ordinary words. A standard-library message like `index out of bounds: the
-/// len is 3 but the index is 5` keeps its shape because the digits break the
-/// run before it reaches six.
+/// ordinary words. The cost is that some standard-library messages lose their
+/// words too: `index out of bounds: the len is 3 but the index is 5` opens with
+/// seven plain words before the first digit, so that run is redacted and only
+/// the numbers survive. That trade is deliberate — a crash report that keeps a
+/// sentence of somebody's novel is the one failure this module exists to
+/// prevent — and the test below pins it.
 fn collapse_prose(text: &str) -> String {
     let mut out: Vec<String> = Vec::new();
     let mut run: Vec<&str> = Vec::new();

@@ -14,10 +14,10 @@ async function withProject(page: Page, title = "El largo invierno") {
 }
 
 /** `group` is a rail entry: a group's controls exist only while it is current. */
-async function openSettings(page: Page, group = "Writing") {
+async function openSettings(page: Page, group = "Editor") {
   await page.getByRole("button", { name: "Settings" }).click();
   const settings = page.getByRole("region", { name: "Settings" });
-  await settings.getByRole("button", { name: group }).click();
+  await settings.getByRole("button", { name: group, exact: true }).click();
   return settings;
 }
 
@@ -32,15 +32,16 @@ test("focus and typewriter toggle without losing the text", async ({ page }) => 
   await expect(bar.getByRole("button", { name: "Typewriter" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".cm-content")).toContainText("El invierno fue largo.");
 
-  await bar.getByRole("button", { name: "Focus" }).click();
-  await expect(bar.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+  // Exact: "Focus options" sits right beside it.
+  await bar.getByRole("button", { name: "Focus", exact: true }).click();
+  await expect(bar.getByRole("button", { name: "Focus", exact: true })).toHaveAttribute("aria-pressed", "true");
   // The words survive the mode change — that is the whole point.
   await expect(page.locator(".cm-content")).toContainText("El invierno fue largo.");
 
   // Escape is the way out, so nobody has to force-quit.
   await page.locator(".cm-content").click();
   await page.keyboard.press("Escape");
-  await expect(bar.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "false");
+  await expect(bar.getByRole("button", { name: "Focus", exact: true })).toHaveAttribute("aria-pressed", "false");
 });
 
 test("the corkboard shows a card per chapter and opens one", async ({ page }) => {

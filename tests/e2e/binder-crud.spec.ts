@@ -167,7 +167,7 @@ test("a chapter can be moved, and the file it points at does not move with it", 
   expect(await titles()).toEqual(["El largo invierno", "Segundo", "Tercero"]);
 
   await chapterMenu(page, "Tercero").click();
-  await page.getByRole("menuitem", { name: "Move up" }).click();
+  await page.getByRole("menuitem", { name: "Move earlier" }).click();
   await expect.poll(titles).toEqual(["El largo invierno", "Tercero", "Segundo"]);
 
   // Order is data, not a numbering: renaming files to reorder them would
@@ -182,13 +182,13 @@ test("the ends of the list do not offer a move that goes nowhere", async ({ page
   // A disabled item is a thing to read and then work out why; an absent one is
   // an answer.
   await chapterMenu(page, "El largo invierno").click();
-  await expect(page.getByRole("menuitem", { name: "Move up" })).toHaveCount(0);
-  await expect(page.getByRole("menuitem", { name: "Move down" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Move earlier" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Move later" })).toBeVisible();
   await page.keyboard.press("Escape");
 
   await chapterMenu(page, "Segundo").click();
-  await expect(page.getByRole("menuitem", { name: "Move down" })).toHaveCount(0);
-  await expect(page.getByRole("menuitem", { name: "Move up" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Move later" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Move earlier" })).toBeVisible();
 });
 
 
@@ -218,4 +218,43 @@ test("a first run still says so, and offers the tour", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Take the tour" })).toBeVisible();
   // And somebody arriving from another machine has a way in.
   await expect(page.getByRole("button", { name: "Open a folder…" })).toBeVisible();
+});
+
+test("every chapter the mock answers is metadata only, as Rust's ChapterMeta is", async ({ page }) => {
+  // The real app never gets a chapter's body or synopsis with its metadata
+  // (`ChapterMeta` in src-tauri/src/commands/project.rs). A mock that sent
+  // them would let the interface lean on fields it never receives, and pass.
+  await page.goto("/?mock=tauri&seed=2");
+  // The mock is in place once the app has booted on it.
+  await expect(page.getByText("Where were we.")).toBeVisible();
+  const shapes = await page.evaluate(async () => {
+    const { invoke } = window.__TAURI_INTERNALS__;
+    const mock = window.__VERSORIUM_MOCK__;
+    const [first, second] = [...mock.projects.keys()];
+    const chapter = mock.projects.get(first)!.chapters[0];
+    Object.assign(chapter, { body: "Llovió.", synopsis: "Se va." });
+    const { file } = chapter;
+    const added = (await invoke("create_chapter", { path: first, title: "Dos" })) as { id: string; file: string };
+
+    const keys = (value: unknown) => Object.keys(value as object).sort().join(",");
+    const each = (list: unknown) => [...new Set((list as object[]).map(keys))];
+    const opened = (await invoke("open_project", { path: first })) as { chapters: object[] };
+    return {
+      list: each(await invoke("list_chapters", { path: first })),
+      open: each(opened.chapters),
+      save: keys(await invoke("save_chapter", { path: first, file, body: "Llovió.", status: null })),
+      update: keys(await invoke("update_chapter", { path: first, file, title: "Uno" })),
+      reorder: each(await invoke("reorder_chapters", { path: first, ids: [added.id] })),
+      remove: each(await invoke("delete_chapter", { path: first, file: added.file })),
+      trash: each(
+        ((await invoke("delete_project", { path: second, parent: "" })) as { chapters: object[] }[]).flatMap(
+          (p) => p.chapters,
+        ),
+      ),
+    };
+  });
+  const meta = "file,id,mtime,status,title,words";
+  expect(shapes).toEqual({
+    list: [meta], open: [meta], save: meta, update: meta, reorder: [meta], remove: [meta], trash: [meta],
+  });
 });

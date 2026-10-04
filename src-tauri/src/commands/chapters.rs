@@ -129,22 +129,88 @@ pub fn save_chapter(
     let normalized = text.strip_prefix('\u{feff}').unwrap_or(&text).replace("\r\n", "\n");
     let header = normalized.strip_prefix("---\n")
         .and_then(|rest| rest.split_once("\n---\n").map(|(fm, _)| fm));
+    let mut owned: Vec<(&str, String)> = Vec::new();
+    if let Some(s) = status.as_deref() {
+        owned.push(("status", yaml_string(s)));
+    }
+    owned.push(("words", words.to_string()));
     let mut out = String::from("---\n");
-    for line in header.unwrap_or_default().lines() {
-        if line.starts_with("words:") || (status.is_some() && line.starts_with("status:")) {
+    out.push_str(&rewrite_header(header.unwrap_or_default(), &owned));
+    out.push_str("---\n");
+    out.push_str(&body);
+    atomic_write(&full, out)?;
+    parse_chapter_file(&full).ok_or_else(|| "not_found".to_string())
+}
+
+/// A frontmatter value on one line: JSON, which YAML reads as a double-quoted
+/// string, so a title or a synopsis can hold quotes, backslashes and line
+/// breaks without ever ending the frontmatter.
+///
+/// JSON leaves a few characters raw that YAML 1.1 readers treat as line breaks
+/// (U+0085, U+2028, U+2029) or refuse as unprintable (DEL, the C1 controls, a
+/// byte-order mark, U+FFFE and U+FFFF). Those are escaped as well, so other
+/// tools read the line the way `split_frontmatter` does.
+fn yaml_string(value: &str) -> String {
+    let json = serde_json::to_string(value).unwrap_or_else(|_| "\"\"".into());
+    let mut out = String::with_capacity(json.len());
+    for c in json.chars() {
+        match c {
+            '\u{7f}'..='\u{9f}' | '\u{2028}' | '\u{2029}' | '\u{feff}' | '\u{fffe}' | '\u{ffff}' => {
+                out.push_str(&format!("\\u{:04x}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// The frontmatter with these keys replaced: every other line kept as it was,
+/// then each `key: value` appended, in order. Values arrive encoded.
+///
+/// A replaced key takes the lines that belong to it along: indented or blank
+/// lines and `- ` items after it are its YAML block or list, written by hand.
+/// Dropping only the key's own line would leave them hanging under whichever
+/// key came before.
+fn rewrite_header(header: &str, keys: &[(&str, String)]) -> String {
+    let replaced = |line: &str| {
+        !line.starts_with([' ', '\t'])
+            && line.split_once(':').is_some_and(|(key, _)| keys.iter().any(|(k, _)| key.trim_end() == *k))
+    };
+    let belongs = |line: &str| {
+        line.trim().is_empty() || line.starts_with([' ', '\t']) || line == "-" || line.starts_with("- ")
+    };
+    let mut out = String::new();
+    let mut dropping = false;
+    for line in header.lines() {
+        if dropping && belongs(line) {
+            continue;
+        }
+        dropping = replaced(line);
+        if dropping {
             continue;
         }
         out.push_str(line);
         out.push('\n');
     }
-    if let Some(s) = status {
-        out.push_str(&format!("status: {}\n", serde_json::to_string(&s).map_err(|_| "io")?));
+    for (key, value) in keys {
+        out.push_str(&format!("{key}: {value}\n"));
     }
-    out.push_str(&format!("words: {words}\n"));
-    out.push_str("---\n");
-    out.push_str(&body);
-    atomic_write(&full, out)?;
-    parse_chapter_file(&full).ok_or_else(|| "not_found".to_string())
+    out
+}
+
+/// Keep a synopsis in the chapter's frontmatter, as `synopsis:`.
+///
+/// Written once, by an import; nothing in the app edits one yet. Every write
+/// to a chapter afterwards keeps the line, because all of them keep keys they
+/// do not own. Windows line endings become `\n`, and surrounding space goes:
+/// an empty synopsis writes nothing rather than an empty key.
+pub fn set_synopsis(root: &Path, file: &str, synopsis: &str) -> Result<Option<ChapterMeta>, String> {
+    let text = synopsis.replace("\r\n", "\n").replace('\r', "\n");
+    let text = text.trim();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    rewrite_frontmatter(root, file, &[("synopsis", yaml_string(text))]).map(Some)
 }
 
 #[cfg(test)]
@@ -349,6 +415,104 @@ mod tests {
         assert!(save_chapter(root, "../outside.md".into(), "bad".into(), None).is_err());
     }
 
+    /// A synopsis that tries everything a line of YAML can trip on: quotes, a
+    /// colon, a backslash, a `---` on a line of its own (which would end the
+    /// frontmatter if it were written raw), a tab and a line separator.
+    const SYNOPSIS: &str = "Ana dice: \"vete\".\n---\nY se va — sola, \\ sin mirar\tatrás.\u{2028}Fin.";
+
+    fn synopsis_in(root: &Path, file: &str) -> Option<String> {
+        let raw = fs::read_to_string(root.join(file)).unwrap();
+        split_frontmatter(&raw).0.get("synopsis").cloned()
+    }
+
+    fn body_in(root: &Path, file: &str) -> String {
+        split_frontmatter(&fs::read_to_string(root.join(file)).unwrap()).1
+    }
+
+    #[test]
+    fn a_synopsis_survives_every_write_to_its_chapter() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = seeded(dir.path(), 3);
+        let file = list_chapters_inner(&root).unwrap()[0].file.clone();
+        set_synopsis(&root, &file, SYNOPSIS).unwrap();
+        assert_eq!(synopsis_in(&root, &file).as_deref(), Some(SYNOPSIS), "written");
+
+        save_chapter(root.clone(), file.clone(), "Llovió.\n\n## Luego\n\nEscampó.".into(), None).unwrap();
+        assert_eq!(synopsis_in(&root, &file).as_deref(), Some(SYNOPSIS), "a save");
+        assert_eq!(body_in(&root, &file), "Llovió.\n\n## Luego\n\nEscampó.");
+
+        save_chapter(root.clone(), file.clone(), "Llovió.".into(), Some("revised".into())).unwrap();
+        assert_eq!(synopsis_in(&root, &file).as_deref(), Some(SYNOPSIS), "a save with a status");
+
+        let renamed = update_chapter(root.clone(), file.clone(), Some("La salida".into()), None).unwrap();
+        assert_eq!(renamed.title, "La salida");
+        assert_eq!(synopsis_in(&root, &file).as_deref(), Some(SYNOPSIS), "a rename");
+
+        update_chapter(root.clone(), file.clone(), None, Some("final".into())).unwrap();
+        assert_eq!(synopsis_in(&root, &file).as_deref(), Some(SYNOPSIS), "a status change");
+
+        // A reorder never opens a chapter file at all.
+        let before = fs::read(root.join(&file)).unwrap();
+        reorder_chapters(root.clone(), vec!["ch-03".into(), "ch-01".into()]).unwrap();
+        assert_eq!(fs::read(root.join(&file)).unwrap(), before, "a reorder touched the chapter");
+
+        // And the chapter still reads as itself.
+        let chapter = list_chapters_inner(&root).unwrap().into_iter().find(|c| c.file == file).unwrap();
+        assert_eq!((chapter.title.as_str(), chapter.status.as_str(), chapter.words), ("La salida", "final", 1));
+        assert_eq!(body_in(&root, &file), "Llovió.");
+    }
+
+    #[test]
+    fn a_synopsis_is_one_line_of_json_and_an_empty_one_writes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = project(dir.path(), "Una línea");
+        let file = list_chapters_inner(&root).unwrap()[0].file.clone();
+
+        assert!(set_synopsis(&root, &file, "  \r\n ").unwrap().is_none());
+        assert!(synopsis_in(&root, &file).is_none(), "an empty key was written");
+
+        set_synopsis(&root, &file, "  Primera.\r\nSegunda.\r  ").unwrap();
+        let raw = fs::read_to_string(root.join(&file)).unwrap();
+        let line = raw.lines().find(|l| l.starts_with("synopsis:")).expect("a synopsis line");
+        assert_eq!(line, "synopsis: \"Primera.\\nSegunda.\"", "Windows endings and the margins go");
+        // The separators YAML 1.1 breaks a line on are escaped, not left raw.
+        assert_eq!(yaml_string("a\u{2028}b\u{85}c"), "\"a\\u2028b\\u0085c\"");
+    }
+
+    #[test]
+    fn replacing_a_key_drops_its_block_continuation() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = project(dir.path(), "Bloques");
+        let file = list_chapters_inner(&root).unwrap()[0].file.clone();
+        // Written by hand, as YAML allows: a folded title, a literal block, a list.
+        fs::write(
+            root.join(&file),
+            "---\nid: ch-01\ntitle: >\n  Un título\n  plegado\nsynopsis: |\n  Primera línea\n\n  Tercera línea\n\
+             tags:\n- noche\n- lluvia\npov: \"Ana\"\nwords: 2\n---\nDos palabras",
+        )
+        .unwrap();
+
+        set_synopsis(&root, &file, "Nueva.").unwrap();
+        let raw = fs::read_to_string(root.join(&file)).unwrap();
+        assert!(!raw.contains("Primera línea") && !raw.contains("Tercera línea"), "{raw}");
+        assert!(raw.contains("tags:\n- noche\n- lluvia\npov: \"Ana\"\n"), "another key's list went: {raw}");
+        assert_eq!(synopsis_in(&root, &file).as_deref(), Some("Nueva."));
+
+        update_chapter(root.clone(), file.clone(), Some("Otro".into()), None).unwrap();
+        let raw = fs::read_to_string(root.join(&file)).unwrap();
+        assert!(!raw.contains("Un título") && !raw.contains("plegado"), "{raw}");
+        assert_eq!(split_frontmatter(&raw).0.get("title").map(String::as_str), Some("Otro"));
+
+        // A list under a replaced key goes with it too.
+        let listed = raw.replacen("synopsis: \"Nueva.\"\n", "synopsis:\n- uno\n- dos\n", 1);
+        fs::write(root.join(&file), listed).unwrap();
+        set_synopsis(&root, &file, "Otra.").unwrap();
+        let raw = fs::read_to_string(root.join(&file)).unwrap();
+        assert!(!raw.contains("- uno") && !raw.contains("- dos"), "{raw}");
+        assert!(raw.contains("- noche"), "{raw}");
+        assert!(raw.ends_with("---\nDos palabras"), "the body moved: {raw}");
+    }
+
     #[test]
     fn reordering_moves_nothing_on_disk() {
         // The whole reason order is a list and not a numbering: git follows
@@ -446,19 +610,22 @@ pub fn update_chapter(
     if title.is_none() && status.is_none() {
         return Err("bad_args".into());
     }
-    retitle_in(&path, &file, title, status)
+    let mut keys: Vec<(&str, String)> = Vec::new();
+    if let Some(t) = title.as_deref() {
+        keys.push(("title", yaml_string(t)));
+    }
+    if let Some(s) = status.as_deref() {
+        keys.push(("status", yaml_string(s)));
+    }
+    rewrite_frontmatter(&path, &file, &keys)
 }
 
 /// What a chapter's status may be. The editor shows these; nothing could set
 /// them until now, even though `save_chapter` has always written the field.
 pub const STATUSES: [&str; 3] = ["draft", "revised", "final"];
 
-fn retitle_in(
-    root: &Path,
-    file: &str,
-    title: Option<String>,
-    status: Option<String>,
-) -> Result<ChapterMeta, String> {
+/// Replace keys in a chapter's frontmatter and leave its body exactly as it is.
+fn rewrite_frontmatter(root: &Path, file: &str, keys: &[(&str, String)]) -> Result<ChapterMeta, String> {
     let full = project_file(root, file)?;
     let text = fs::read_to_string(&full).map_err(|_| "not_found".to_string())?;
     let normalized = text.strip_prefix('\u{feff}').unwrap_or(&text).replace("\r\n", "\n");
@@ -469,21 +636,7 @@ fn retitle_in(
     };
 
     let mut out = String::from("---\n");
-    for line in header.lines() {
-        let replaced = (title.is_some() && line.starts_with("title:"))
-            || (status.is_some() && line.starts_with("status:"));
-        if replaced {
-            continue;
-        }
-        out.push_str(line);
-        out.push('\n');
-    }
-    if let Some(t) = title.as_ref() {
-        out.push_str(&format!("title: {}\n", serde_json::to_string(t).map_err(|_| "io")?));
-    }
-    if let Some(s) = status.as_ref() {
-        out.push_str(&format!("status: {}\n", serde_json::to_string(s).map_err(|_| "io")?));
-    }
+    out.push_str(&rewrite_header(&header, keys));
     out.push_str("---\n");
     out.push_str(&body);
 

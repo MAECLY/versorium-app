@@ -1,12 +1,14 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { t } from "$lib/i18n";
-  import { api, isTauri, type ExportFormat } from "$lib/tauri";
+  import { onMount, untrack } from "svelte";
+  import { t, getLocale } from "$lib/i18n";
+  import { languageOptions } from "$lib/i18n/languages";
+  import { api, isTauri, type ExportFormat, type Imported } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
   import { formats, bodyWords } from "$lib/formats/state.svelte";
   import { warningMessage } from "$lib/i18n/errors";
   import { humanSize } from "$lib/models/state.svelte";
   import Modal from "$lib/components/Modal.svelte";
+  import Select from "$lib/components/forms/Select.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
 
@@ -21,6 +23,8 @@
   let format = $state<ExportFormat>("md");
   let author = $state("");
   let importTitle = $state("");
+  /** The novel's language: the source's when it gives one a novel can take, else the interface's. */
+  let importLanguage = $state("");
 
   let project = $derived(store.project);
   let missingAuthor = $derived(NEEDS_AUTHOR.includes(format) && author.trim() === "");
@@ -31,11 +35,27 @@
     formats.clearResult();
   });
 
-  // The preview names the project; let the writer rename it before it exists.
-  $effect(() => {
-    const detected = formats.preview?.title;
-    if (detected !== undefined) importTitle = detected;
+  // The preview names the project and may give its language; let the writer
+  // change either before it exists. The interface's language is only a
+  // preset, so a later switch of the interface does not move a pick. Before
+  // the DOM updates, so the fields never show empty for a frame.
+  $effect.pre(() => {
+    const next = formats.preview;
+    if (!next) return;
+    importTitle = next.title;
+    importLanguage = next.language ?? untrack(() => getLocale());
   });
+
+  /** Where the preset came from, said under the picker: the file, or nowhere. */
+  function languageHint(preview: Imported): string {
+    if (preview.language) {
+      return t("manuscript.import.languageFromSource", { language: t(`languages.${preview.language}`) });
+    }
+    if (preview.declaredLanguage) {
+      return t("manuscript.import.languageUnsupported", { tag: preview.declaredLanguage });
+    }
+    return t("manuscript.import.languageAsk");
+  }
 
   function selectTab(next: Tab): void {
     tab = next;
@@ -70,8 +90,8 @@
 
   async function doImport(): Promise<void> {
     const title = importTitle.trim();
-    if (!title) return;
-    const path = await formats.applyImport(title);
+    if (!title || !importLanguage) return;
+    const path = await formats.applyImport(title, importLanguage);
     if (path) {
       await store.openProject(path);
       onClose();
@@ -106,7 +126,10 @@
     {/each}
   </div>
 
-  <div class="min-h-0 flex-1 overflow-y-auto py-4">
+  <!-- A scroll box clips at its edges, and the import's title and language
+       fields span it: it reaches 4px into the dialog's padding and gives them
+       back inside, room for a 3px focus ring with the layout unchanged. -->
+  <div class="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 py-4">
     {#if formats.error}
       <p role="alert" class="m-0 mb-3" style="font-size: 13px; color: var(--warn);">{formats.error}</p>
     {/if}
@@ -194,6 +217,16 @@
           {t("manuscript.import.previewTitle")}
           <input bind:value={importTitle} />
         </label>
+
+        <div class="mt-3">
+          <Select
+            label={t("dialog.language")}
+            hint={languageHint(preview)}
+            bind:value={importLanguage}
+            options={languageOptions("")}
+            minWidth="200px"
+          />
+        </div>
 
         <h4 class="v-section-title mb-1 mt-3">{t("manuscript.import.chapters")}</h4>
         {#if preview.chapters.length === 0}

@@ -8,5 +8,7 @@ export default defineConfig({
     alias: { $lib: fileURLToPath(new URL("./src/lib", import.meta.url)) },
     conditions: ["browser"],
   },
-  test: { environment: "jsdom", include: ["src/**/*.test.ts"] },
+  // tests/unit holds the tests written outside the code they test (the
+  // repo keeps new tests under tests/); older ones stay beside their code.
+  test: { environment: "jsdom", include: ["src/**/*.test.ts", "tests/unit/**/*.test.ts"] },
 });

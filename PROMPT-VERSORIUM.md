@@ -1,5 +1,7 @@
 # PROMPT DE IMPLEMENTACIÓN — VERSORIUM
 
+> **Nota (2026-10-03).** Esta es la especificación original y su texto no se ha cambiado. La única adición es la «Enmienda (2026-10-03)» al principio de §11, una decisión del fundador sobre el token de updates; el texto original de §11 sigue debajo de ella. Lo que se entregó, y cómo se verificó, está en [`STATUS.md`](STATUS.md); el trabajo pendiente que se sigue de forma activa, en [`TODO.md`](TODO.md). `TODO.md` no es la lista completa: cada punto de esta especificación que no se construyó, o se construyó de otra forma, está anotado al final, en «Implementation notes (2026-10-03)», con la evidencia en el código.
+
 Eres staff engineer + product designer. Implementa **Versorium**: aplicación de escritorio para novelistas. No es un chatbot con textarea. Es un estudio de manuscrito local-first que:
 
 - detecta y usa las IAs que el usuario ya paga (CLI / Desktop / suscripción) o ya corre en local;
@@ -364,6 +366,16 @@ Cada insert/delete:
 
 ## 11. Updates (GitHub Releases) — requisito explícito
 
+> **Enmienda (2026-10-03).** Decisión del fundador. A la pregunta «con el repo público, ¿las actualizaciones deberían funcionar sin token de GitHub?», respondió: «si correcto». El repo `MAECLY/versorium-app` se va a hacer público; el 2026-10-03 sigue privado y sin ninguna release. La regla queda así:
+>
+> - **Sin token de updater, la app sí comprueba**, de forma anónima: la petición no lleva cabecera `Authorization` (ni siquiera un `Bearer` vacío). Con el repo público, las releases y sus assets se leen sin login.
+> - **El token `contents:read` pasa a ser opcional.** Si el escritor guardó uno, se sigue enviando igual que antes: es lo que permite leer las releases mientras el repo sea privado y lo que levanta el límite de GitHub para peticiones anónimas (60 por hora y por dirección IP). En Ajustes → Aplicación aparece como «Token de actualizaciones (opcional)», con una línea que dice para qué sirve.
+> - **La seguridad no cambia.** Owner, repo y host (`api.github.com`) siguen compilados en el binario; minisign y `SHA256SUMS` se verifican igual con token o sin él, y no se instala nada si alguno no coincide. El token solo se envía a `api.github.com`: tampoco viaja cuando una descarga se redirige al almacenamiento de GitHub. El camino anónimo no se salta ninguna de estas comprobaciones.
+> - **Cada respuesta de GitHub tiene su estado propio, con código y texto en inglés y en español:** 404 al buscar la release = todavía no hay ninguna versión publicada a la vista (no hay release, o el repo sigue privado y no hay token), como estado discreto y no como error; 403 con `x-ratelimit-remaining: 0`, o 429 = se alcanzó el límite anónimo, con la hora en que se restablece si GitHub la da y la indicación de que un token lo levanta; 401 con token = el token es incorrecto o fue revocado; sin red = silencio, como pide el punto 7 de «Cliente».
+> - Dejan de aplicarse «Sin login no hay auto-update» y «Settings → Updates → Sign in» (punto 7 de «Publicación»), y del último párrafo de «Cliente» el «no chequear en loop» sin token y el badge «Sign in to get updates». «403/401 → re-login» queda así: un 401 con token pide cambiar u olvidar el token; un 403 por límite de peticiones no es un problema de token. Sigue sin haber comprobaciones en bucle: una al arrancar y otra por cada pulsación del botón.
+>
+> El texto original de §11 se conserva debajo, sin cambios, como registro histórico. Donde lo contradiga, manda esta enmienda.
+
 ### Publicación
 
 Repo **privado** `maecly/versorium-app`. CI en tag `vX.Y.Z` (Actions de la org):
@@ -492,3 +504,108 @@ No saltar M1 ni M6. Sin historial y sin update, no es Versorium.
 Después de eso, código del M0.
 
 No uses el nombre QuillForge ni PlotForge. El producto se llama **Versorium**.
+
+---
+
+## Implementation notes (2026-10-03)
+
+Estado de la rama `feat/landing-and-docs`, cortada de `main` justo después del merge del PR #9. Cada entrada dice qué pide la especificación, qué hace el código y dónde comprobarlo. Si el código o la documentación registran el motivo, se cita; si no, se dice que no consta. Lo que coincide con la especificación no se lista. Nada de lo anterior se ha cambiado para que encaje con el código.
+
+### Cabecera y §0 — decisiones
+
+- **Repo privado (§0.11, §0.13, §11).** Hoy `MAECLY/versorium-app` sigue siendo privado, como pide la spec; las constantes compiladas usan esa grafía (`src-tauri/src/update/mod.rs:31-32`, `src-tauri/src/crash/mod.rs:23-24`). `TODO.md` («Going public») prevé hacerlo público: la org MAECLY está en el plan gratuito de GitHub, donde Pages no sirve repos privados, y los assets de una release privada no los puede descargar quien llegue desde la página `versorium.maecly.com`. Todavía no se ha hecho.
+- **CLA ligero para PRs (§0.9).** No hay CLA ni `CONTRIBUTING` en el repo. No consta el motivo.
+- **Split/merge de escenas como acción (§0.1).** No existe. Los comandos de capítulo son crear, listar, leer, guardar, actualizar, reordenar y borrar (`src-tauri/src/commands/chapters.rs`, `src-tauri/src/commands/project.rs:239-267`). No consta el motivo.
+- **Censorship ON/OFF global + override por provider (§0.4).** Es un único booleano global (`src-tauri/src/commands/settings.rs:85`), sin override por proveedor. Está en Settings → Local AI, no en una sección Safety, porque filtra una lista de modelos (`src/lib/settings/groups/LocalAiGroup.svelte:30-32`). Solo oculta las entradas `uncensored` del catálogo (`src/lib/models/state.svelte.ts:33-36`); no cambia qué proveedor se usa (§6.2, «Censorship OFF → preferir GGUF/Ollama uncensored o Grok»). El campo `censorship` de `versorium.json` se escribe como `"off"` al crear el proyecto (`src-tauri/src/commands/project.rs:180`) y nada lo lee.
+
+### §2 y §3 — principios y stack
+
+- **SQLite (sqlx).** No se usa SQLite: no hay `sqlx` ni ninguna base de datos en `src-tauri/Cargo.toml`. Los settings son un `settings.json` en el directorio de datos de la app (`src-tauri/src/paths.rs:30`); el log de ops es JSONL por capítulo (`src-tauri/src/ops/mod.rs:1-6`). No hay índice ni cola de jobs persistente. No consta el motivo.
+- **LM Studio / llama-server por HTTP.** La pestaña Studio prueba la conexión y guarda host y puerto (`src-tauri/src/commands/models.rs:228-262`), pero ningún slot puede usarlo: los tipos de slot son `none | builtin | ollama | cli` (`src-tauri/src/commands/settings.rs:38`). Se guarda como `studioHost`/`studioPort`/`studioEnabled`, no como `local-openai-compat`.
+- **Packaging firmado.** Ni `.app` notarizado ni `.exe`/`.msi` con Authenticode: ambos requieren certificados de pago (`TODO.md`, «Going public»). El workflow de release está preparado para firmar las builds con minisign/ed25519 y publicar `SHA256SUMS` (`.github/workflows/release.yml:189-190`), pero todavía no se ha firmado ninguna: no hay tag ni release, y los dos secretos de firma no están configurados (véase §11 abajo).
+- **Tipografía (§2.9).** El catálogo solo ofrece fuentes ya instaladas en la máquina; no hay descarga de fuentes OFL. Source Serif 4 aparece como no disponible en vez de ofrecerse con una URL que no se puede cumplir (`fonts/catalog.json:3`).
+
+### §4 — layout en disco
+
+- Se crean todas las carpetas (`src-tauri/src/commands/project.rs:156-172`) y `codex/timeline.yml`, `plot/outline.md` y `style/voice.md` (`project.rs:198-204`). **`plot/beats.yml` no se crea.**
+- Los snapshots del log de ops van a `.versorium/snapshots/<capítulo>/<seq>.md` (`src-tauri/src/ops/mod.rs:6`), no a la carpeta `snapshots/` de la raíz, que se crea vacía.
+- `versorium.json` lleva además `author`, `chapterOrder`, `exportCover` y `exportColophon` (`project.rs:12-52`). `chapterOrder` existe porque reordenar renombrando archivos dejaría huérfano el historial de ops de cada capítulo movido (`project.rs:25-35`).
+- `uiLanguage` se escribe siempre como `"en"` (`project.rs:178`) y la UI no lo lee; el idioma de la UI sale de `uiLocale` en los settings de la app.
+
+### §5 — UI
+
+- **No hay command palette** (Ctrl/Cmd+K).
+- **Binder:** solo novelas y capítulos (`src/lib/binder/ChapterList.svelte`). No hay actos ni escenas, ni vistas outliner o timeline. Codex y Research no tienen UI. El Codex se lee y escribe por MCP (`src-tauri/src/mcp/tools.rs:128-131`, `:152`), y además el chequeo de continuidad lo lee y envía al modelo extractos de hasta 40 entradas (`src-tauri/src/continuity/mod.rs:21-24`, `:75-82`). El corcho sí existe (`src/lib/binder/Corkboard.svelte`).
+- **Indicadores Git + MCP + update en el Binder:** no hay ninguno en el Binder ni en la barra superior (`src/lib/binder/ChapterList.svelte`, `src/lib/components/TopBar.svelte`). El estado Git está en la barra inferior (`src/lib/components/StatusBar.svelte:69-72`). No hay indicador de MCP ni de updates fuera de Settings; lo único es el diálogo de update, que solo aparece cuando hay una versión disponible (`src/App.svelte:312`). No consta el motivo.
+- **Modo Creativo:** el botón está visible y deshabilitado, sin motor, con el tooltip «Creative mode is coming. It is not available yet.» / «El modo creativo llegará. Todavía no está disponible.» (`src/lib/components/TopBar.svelte:61`, `locales/en/ui.json:289`, `locales/es/ui.json:289`). §5 pide un tooltip «v1.1» y §0.3 habla de un hueco «Coming soon»; las dos formulaciones de la spec no coinciden. El texto de la UI está más cerca de §0.3 y no promete ninguna versión; queda a decisión del mantenedor si debe nombrar una.
+- **Editor:** focus y typewriter sí (`src/lib/editor/modes.ts`). No hay modo zen aparte, split, goals de palabras, nombres del Codex clicables ni comentarios al margen.
+- **Acciones sobre la selección:** solo Rewrite, con un único prompt (`src-tauri/src/agents/mod.rs:380-390`). No hay Describe, Shorten ni Voice. El diff antes de aplicar sí es obligatorio (`src/lib/components/RewriteDialog.svelte:186`).
+- **Columna derecha:** no es una columna fija. El panel de historial se abre a la derecha cuando se pide (`src/App.svelte:270`). No hay chat de proyecto (`TODO.md`, «Specified, not started»). Tampoco hay inspector de capítulo; `TODO.md` no lo menciona y no consta el motivo. El log de MCP y los slots de modelo están en la página de Settings.
+- **Barra inferior:** palabras, estado de guardado, estado Git y los controles de vista (`src/lib/components/StatusBar.svelte:51-111`). No muestra sesión, modelo, privacidad (Local / CLI / API) ni rama; la rama está en la pestaña avanzada del panel de historial (`src/lib/components/GitPanel.svelte:207-211`).
+- **Idioma de la UI «sistema o setting»:** solo setting, por defecto `en` (`src-tauri/src/commands/settings.rs:199`); no se detecta el idioma del sistema (`src/lib/i18n/state.svelte.ts:63-75`).
+
+### §6 — IAs
+
+- **Detección:** binarios `claude`, `codex`, `opencode`, `ollama` y `gh` (`src-tauri/src/agents/mod.rs:202-209`). No se detectan Claude Desktop ni ChatGPT desktop como harness, ni Gemini CLI, Grok/xAI (ningún puente), ni Copilot CLI. Claude Desktop sí es uno de los cuatro clientes MCP cuya configuración se escribe (`src-tauri/src/mcp/clients.rs:37-42`).
+- **BYOK:** no existe. No hay claves de API ni proveedores en la nube por HTTP; los slots solo aceptan `none | builtin | ollama | cli` (`src-tauri/src/commands/settings.rs:38`).
+- **Orden de invocación CLI → MCP → BYOK → local:** no hay cadena de respaldo. Cada slot nombra un modelo concreto y se usa ese, o falla con un código de error (`src-tauri/src/agents/mod.rs:407-420`). Motivo: un nombre de proveedor no dice qué modelo eligió el escritor (`agents/mod.rs:404-406`).
+- **Router por tarea (§6.3):** no hay defaults; todos los slots empiezan sin asignar (`src-tauri/src/commands/settings.rs:17-22`).
+- **Slots sin superficie:** Rewrite y Continuity funcionan. Chat, Embeddings y Dictation se pueden asignar, pero nada los usa, y no hay pack Whisper en `models/catalog.json` (`TODO.md`, «Specified, not started»).
+- **Ladder de modelos:** las familias no son las de la spec. `models/catalog.json` tiene 12 entradas: Qwen3.5, Llama 3.2, SmolLM2, Qwen3, Gemma 4 y Qwen 3.8, más nomic-embed-text v1.5 (84 MB) para embeddings. HIGH es Qwen 3.8 27B, no Gemma 27B / Qwen 32B. Motivo en `STATUS.md` («Catalogue provenance»): los modelos de ejemplo de la spec están una generación atrás.
+- **Runtime GPU:** llama.cpp en proceso (`llama-cpp-2`, fijado a `=0.1.157`). Metal en macOS, Vulkan en Windows y Linux (feature `vulkan`, solo en la build de release) y CPU. **Sin CUDA**, a propósito: necesitaría el toolkit completo en cada runner y ~390 MB de redistribuibles para hardware que Vulkan ya cubre (`src-tauri/Cargo.toml:65-76`).
+- **Ruta de modelos:** `<data dir>/dev.versorium.app/models` (`src-tauri/src/models/store.rs:43-44`, `src-tauri/src/paths.rs:18-24`); en macOS, `Application Support/dev.versorium.app/models/`, no `Application Support/Versorium/models/`.
+
+### §7 — MCP
+
+- **Tools:** hay 23 (`src-tauri/src/mcp/tools.rs:109-159`). Faltan `apply_edit_set`, `rename_document`, `move_document`, `continuity_check`, `rollback`, `git_push` y `git_pull`. Se añadieron `search` y `delete_document`.
+- **Preview diff obligatorio y confirmación extra al borrar (§7):** no se cumplen como los pide la spec. El preview solo se devuelve cuando el agente omite `confirm` (`src-tauri/src/mcp/write.rs:3-4`, `:162-163`); un agente que manda `confirm: true` en la primera llamada aplica la escritura sin preview, y el escritor no ve ningún diff (el test `a_confirmed_write_checkpoints_first_then_records_agent_ops`, `write.rs:403-410`, aplica una escritura así sin llamada previa). En `delete_document`, `acknowledge_delete` es también un argumento que pone el propio agente (`write.rs:312`), no una confirmación del escritor. Lo que sí se cumple: permiso de escritura activado, checkpoint Git antes de aplicar y op log con `author=ai:<cliente>`. No consta el motivo.
+- **Transporte HTTP:** es Streamable HTTP en `127.0.0.1`, opt-in, con un bearer token por arranque; no HTTP/SSE. Motivo: el transporte HTTP+SSE está deprecado en la especificación de MCP (`src-tauri/src/mcp/http.rs:3-10`).
+
+### §8 — versionado
+
+- **«Dos botones OAuth»:** no hay OAuth. Son dos tokens personales de GitHub que se pegan a mano (`locales/en/ui.json:165`), guardados por separado en el almacén de credenciales del sistema (`src-tauri/src/secrets/mod.rs`). La separación entre el token de updates y el de la novela sí se mantiene.
+- **Remote privado por defecto, Public con checkbox:** siempre privado; no hay casilla Public (`src-tauri/src/commands/git.rs:79-83`).
+- **Push / Pull / Fetch:** Push y Pull existen, en Settings → copia de seguridad (`src/lib/settings/groups/BackupGroup.svelte:156-159`); no hay botón Fetch aparte. Pull solo avanza en fast-forward y se niega con `git_diverged` si las historias divergen: no hay merge a tres vías ni rama `conflict-*`. Motivo: un merge real puede tener conflictos, y resolverlos dentro de un editor de novelas es una función propia; hasta que exista, negarse con `git_diverged` sin tocar el trabajo es el resultado honesto (`src-tauri/src/git/repo.rs:368-373`).
+- **«Open in GitHub Desktop»:** no existe, ni el enlace de descarga.
+- **Commits etiquetados `human` vs `ai:<provider>` + trailer `Versorium-Agent:`:** todos los commits llevan la firma de la app (`src-tauri/src/git/repo.rs:14-16`) y no hay trailer. El origen consta en el mensaje del checkpoint previo — `checkpoint: before mcp <tool> (<client>)` (`src-tauri/src/mcp/write.rs:74-75`) y `checkpoint: before ai rewrite (<provider>)` (`src-tauri/src/commands/ai.rs:89-91`) — y en el log de ops.
+- **Forma del op:** los campos son `seq, ts, author, kind, from, to, text` (`src-tauri/src/ops/mod.rs:19-30`); no hay `id`, `docId` ni `prevId` (el capítulo es la carpeta del pack). `author` vale `human` o `ai:<cliente>`, no `claude-code` u `ollama:qwen3:14b` a secas.
+- **Compactación a packs:** no hay compactación. Hay un JSONL por capítulo y día, y un snapshot del capítulo cada 200 ops (`src-tauri/src/ops/mod.rs:1-6`, `:16`).
+- **Rollback, scrubber y blame:** el rollback deshace la última edición de la sesión dentro de la palabra bajo el cursor o de la selección (`src/lib/git/rollback.ts`, `src/App.svelte:151`). No hay scrubber de documento ni rollback por frase, párrafo o capítulo como acción propia; restaurar un archivo desde un commit sí (`src-tauri/src/commands/git.rs:53`). El blame por span solo existe por MCP (`history_blame`, `src-tauri/src/mcp/tools.rs:122`); no hay vista en la UI.
+- **Undo ilimitado de sesión:** se usa `history()` de CodeMirror con sus valores por defecto (`src/lib/editor/cm.ts:25`); no está configurado como ilimitado.
+
+### §9 — formatos
+
+- Los cinco formatos exportan (`src-tauri/src/commands/formats.rs:62-73`). Importan Markdown, DOCX, Scrivener y EPUB (`formats.rs:89-92`); PDF no, como pide la spec.
+- **PDF «chapter recto»:** cada capítulo empieza en página nueva (`src-tauri/src/formats/pdf.rs:183`), no necesariamente en página impar.
+
+### §10 — i18n
+
+- **ICU MessageFormat:** no se usa. La interpolación es una sustitución simple de `{clave}` (`src/lib/i18n/state.svelte.ts:22-25`), sin plurales.
+- **Comillas por idioma:** no implementadas. **Diccionarios Hunspell** (`en_US`, `es_ES`, `es_419`): no se incluyen. La revisión ortográfica (Ajustes → Editor, activa por defecto desde el 2026-10-03) usa el corrector del sistema a través del webview: en macOS NSSpellChecker, que elige el diccionario por el texto y no por el `lang` del manuscrito (`src-tauri/src/spelling.rs`); en Windows el de WebView2; en Linux WebKitGTK todavía no subraya nada (`TODO.md`).
+- **Conteo de palabras según el idioma:** cuenta tramos separados por espacios en blanco, igual en todos los idiomas (`src-tauri/src/commands/project.rs:336-340`).
+
+### §11 — updates
+
+- **Nombre del secreto:** el workflow usa `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, no `VERSORIUM_MINISIGN_KEY`, porque es el nombre que lee la build de Tauri (`RELEASING.md`, sección sobre el nombre del secreto; `.github/workflows/release.yml:189-190`). Ninguno de los dos está configurado todavía en GitHub.
+- **Ninguna release publicada:** no existe ningún tag ni release. El workflow crea la release como borrador para que una persona revise `latest.json` y `SHA256SUMS` antes de ofrecérsela a ningún cliente (`.github/workflows/release.yml:248`).
+- **macOS, «clic derecho → Open»:** ya no funciona. En el macOS actual, un paquete en cuarentena sin firma Developer ID se presenta como dañado y el clic derecho no lo salta. El cuerpo de la release, en inglés y español, indica quitar la marca de cuarentena con `xattr -rd com.apple.quarantine /Applications/Versorium.app` y hacerlo solo con una copia descargada de la página de releases (`.github/workflows/release.yml:194-208`).
+- **Windows / SmartScreen:** el cuerpo de la release explica la pantalla azul de SmartScreen y el paso More info → Run anyway (`.github/workflows/release.yml:214-218`). En la app el aviso es genérico (`locales/en/ui.json:579`): no dice «maecly unsigned build» y el diálogo de update no muestra el hash; dice que firma y checksum se comprueban antes de instalar (`locales/en/ui.json:588`).
+- **Cada 12 h:** no. La comprobación automática es una sola, al arrancar (`src/lib/update/state.svelte.ts:99-110`, `locales/en/ui.json:571`). El botón de comprobar a mano sí existe.
+- **«No actualizar en medio de un write sucio: guardar, luego update»:** no hay paso explícito de guardar antes de instalar (`src/lib/update/state.svelte.ts:54-61`).
+- **Linux `.deb`:** no hay código propio para descargar el paquete y abrirlo con `xdg-open`; la instalación la hace el plugin updater de Tauri. Qué hace el plugin con una instalación `.deb` no está verificado.
+- **Token opcional (enmienda de 2026-10-03):** el código ya sigue la enmienda. Sin token, `update_check` y `update_install` preguntan de forma anónima (`src-tauri/src/commands/update.rs`), y `request_headers` solo añade `Authorization` cuando hay un token guardado (`src-tauri/src/update/mod.rs`). Las respuestas de GitHub se traducen en `classify`, en el mismo archivo. Mientras el repo siga privado, una comprobación sin token recibe un 404, y Ajustes → Aplicación muestra que no hay ninguna versión publicada a la vista. El camino anónimo no se ha probado todavía contra el repo público, porque aún no lo es.
+- **Badge «Sign in to get updates»:** la enmienda lo retira y no existe en el código. Ya no hay ningún aviso de «iniciar sesión»: el botón de comprobar no depende del token (`src/lib/settings/UpdatesSection.svelte`), y el campo del token se presenta como opcional (`src/lib/settings/groups/AppGroup.svelte`, claves `git.updatesSlot` y `git.updatesSlotHint` de `locales/es/ui.json`).
+
+### §12 — privacidad
+
+- **Modo avión**, **pantalla de «qué se envió» por llamada a la nube** y **cifrado opcional de la carpeta del proyecto:** no existen. Sí existe el aviso previo «this call goes to X» antes de reescribir (`src/lib/components/RewriteDialog.svelte:169`).
+
+### §13 — CLI
+
+- Solo existe `versorium mcp [--client <id>]` (`src-tauri/src/mcp/mod.rs:36-61`). `new`, `open`, `status`, `commit`, `rollback`, `export` y `update` no existen.
+
+### §17 — criterios de aceptación
+
+- **Publicar `v0.1.0` y que las tres plataformas detecten, verifiquen, instalen y relancen:** sin probar; no hay ningún tag ni release.
+- **Timeline con `author=opencode`:** el log de ops registra `ai:opencode` (`src-tauri/src/mcp/write.rs:170`).
+- **Rewind en menos de 100 ms** (4k palabras, 230 edits), **clone en otro PC**, **offline total con un GGUF MID** y **DOCX abierto en Word:** no consta ninguna medición ni prueba de aceptación de estos criterios en el repo.

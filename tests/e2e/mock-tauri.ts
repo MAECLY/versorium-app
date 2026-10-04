@@ -3,6 +3,9 @@
 // with `?mock=tauri`; never bundled. Mirrors the Rust command contracts in
 // src-tauri/src/commands with in-memory state exposed at window.__VERSORIUM_MOCK__.
 
+import { BACKUP_STATE_EVENT } from "$lib/backup/events";
+import shippedFonts from "../../fonts/catalog.json";
+
 type Args = Record<string, unknown>;
 
 interface Op {
@@ -23,6 +26,8 @@ interface Chapter {
   file: string;
   mtime: number;
   body: string;
+  /** `synopsis:` in the chapter's frontmatter, as a Scrivener import keeps it. */
+  synopsis?: string;
 }
 
 interface Commit {
@@ -70,13 +75,41 @@ interface UpdateStatus {
   available: AvailableUpdate | null;
   channel: "stable" | "beta";
   automatic: boolean;
-  signedIn: boolean;
+  tokenSet: boolean;
   checking: boolean;
+  checked: boolean;
   lastError: string | null;
+  resetsAt: number | null;
+}
+
+/**
+ * What GitHub would answer the updater, kept apart from what the app shows, so
+ * a spec can change the world and then watch the app find out.
+ *
+ * `answer` mirrors `update::classify` in Rust: each value is one of the states
+ * the panel must tell apart. `checks` records, per check, whether it carried a
+ * token — the mock keeps only a token's presence, never its value, as the real
+ * secrets commands do.
+ */
+interface MockGitHub {
+  /** The newest release on the channel; null when nothing newer is out. */
+  release: AvailableUpdate | null;
+  answer: "ok" | "404" | "rate_limited" | "401" | "offline";
+  /** `x-ratelimit-reset`, Unix seconds, sent with a rate-limit answer. */
+  resetsAt: number | null;
+  checks: { authorized: boolean }[];
 }
 
 interface ImportedChapter { title: string; body: string; synopsis: string | null }
-interface Imported { title: string; chapters: ImportedChapter[]; warnings: string[] }
+interface Imported {
+  title: string;
+  /** The source's language when a novel can take it; null when it gives none. */
+  language: string | null;
+  /** The tag as the source wrote it, usable or not. */
+  declaredLanguage: string | null;
+  chapters: ImportedChapter[];
+  warnings: string[];
+}
 
 interface ModelCard {
   id: string; family: string; label: string; task: string; tier: string;
@@ -116,6 +149,17 @@ interface AgentInfo {
 
 const PROJECTS_DIR = "/mock/Documents/Versorium";
 
+/** Mirrors `EditorSettings` in Rust: its steps, and the defaults of a fresh install. */
+const EDITOR_STEPS: Record<string, readonly string[]> = {
+  textSize: ["small", "medium", "large"],
+  lineSpacing: ["compact", "comfortable", "airy"],
+  textWidth: ["narrow", "medium", "wide"],
+  tabKey: ["next", "indent"],
+};
+const EDITOR_FLAGS = ["spellcheck", "lineNumbers", "activeLine"];
+/** Mirrors `LayoutSettings` in Rust: four booleans, all true on a fresh install. */
+const LAYOUT_FLAGS = ["binderOpen", "topBarOpen", "focusHidesBinder", "focusHidesTopBar"];
+
 const settings = {
   uiLocale: "en",
   theme: "folio",
@@ -124,7 +168,9 @@ const settings = {
   githubUpdatesToken: null as string | null,
   githubNovelToken: null as string | null,
   editorFont: "system-serif",
-  focusMode: false,
+  // Legacy, never read by the app. `?mock=tauri&legacyFocus=1` is a file
+  // written by the build that still restored Focus at launch.
+  focusMode: new URLSearchParams(location.search).has("legacyFocus"),
   typewriter: false,
   // Already onboarded, so the tour does not sit on top of every other spec.
   // `?mock=tauri&fresh=1` simulates a first run instead.
@@ -134,16 +180,83 @@ const settings = {
     hobby: { name: "", sortAs: "", role: "", organization: "", rights: "" },
   },
   authorProfile: "work",
+  editor: {
+    spellcheck: true,
+    textSize: "medium",
+    lineSpacing: "comfortable",
+    textWidth: "medium",
+    lineNumbers: false,
+    activeLine: true,
+    tabKey: "next",
+  } as Record<string, string | boolean>,
+  layout: {
+    binderOpen: true,
+    topBarOpen: true,
+    focusHidesBinder: true,
+    focusHidesTopBar: true,
+  } as Record<string, boolean>,
 };
+
+/**
+ * `?mock=tauri&persist=1` keeps the settings across a page reload, the way
+ * settings.json outlives a relaunch, so a spec can prove a preference is read
+ * back from storage rather than remembered by the page that set it. Off by
+ * default: every other spec starts from the same settings on every load.
+ */
+const PERSIST = new URLSearchParams(location.search).has("persist");
+const PERSISTED_SETTINGS = "versorium.mock.settings";
+if (PERSIST) {
+  const stored = sessionStorage.getItem(PERSISTED_SETTINGS);
+  if (stored) Object.assign(settings, JSON.parse(stored));
+}
+
+function persistSettings(): void {
+  if (PERSIST) sessionStorage.setItem(PERSISTED_SETTINGS, JSON.stringify(settings));
+}
+
+/**
+ * Key by key, known values only, as `EditorSettings::apply` does. A plain
+ * Object.assign would swap the whole block for whatever half of it a patch
+ * carried, and accept a step Rust refuses.
+ */
+function applyEditorPatch(patch: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(patch)) {
+    if (EDITOR_FLAGS.includes(key) && typeof value === "boolean") settings.editor[key] = value;
+    if (EDITOR_STEPS[key]?.includes(value as string)) settings.editor[key] = value as string;
+  }
+}
+
+/** Key by key, JSON booleans only, as `LayoutSettings::apply` does. */
+function applyLayoutPatch(patch: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(patch)) {
+    if (LAYOUT_FLAGS.includes(key) && typeof value === "boolean") settings.layout[key] = value;
+  }
+}
 
 const projects = new Map<string, ProjectState>();
 const calls: { cmd: string; args: Args }[] = [];
 
+/**
+ * Commands that fail, and with which code, until a spec deletes the entry:
+ * `__VERSORIUM_MOCK__.failures.save_chapter = "io"` is a full disk for every
+ * save. The call is still recorded, as Rust would have received it.
+ */
+const failures: Record<string, string> = {};
+
 const GB = 1024 ** 3;
 
+/// What `importer_for` in src-tauri/src/commands/formats.rs reads, for the
+/// preview and the apply alike: `.txt` is Markdown there, though the picker
+/// does not offer it.
+const IMPORTABLE = /\.(md|markdown|txt|docx|scriv|epub)$/i;
+
 /// What a Scrivener import would surface: chapters plus what could not cross.
+/// A spec may change it (`__VERSORIUM_MOCK__.importPreview`) before choosing a
+/// file: a Scrivener project names no language, so neither does this.
 const importPreview: Imported = {
   title: "The Salt Road",
+  language: null,
+  declaredLanguage: null,
   chapters: [
     { title: "A door in the rain", body: "It rained for three days.", synopsis: "She leaves." },
     { title: "North", body: "## Morning\n\nThe road bent north.", synopsis: null },
@@ -160,30 +273,54 @@ const crashes: CrashEntry[] = [
     kind: "panic", message: "<redacted> 3 but the index is 5", stack: ["src/ops/mod.rs:142"] },
 ];
 
-const fonts = {
-  version: 1,
-  fonts: [
-    { id: "system-serif", family: "System serif", role: "body",
-      stack: '"Iowan Old Style", Palatino, "Times New Roman", serif',
-      license: "system", bundled: false },
-    { id: "system-ui", family: "System UI", role: "ui", stack: "system-ui, sans-serif",
-      license: "system", bundled: false },
-    { id: "source-serif-4", family: "Source Serif 4", role: "body",
-      stack: '"Source Serif 4", serif', license: "OFL-1.1", bundled: false },
-  ],
+interface FontEntry {
+  id: string; family: string; role: string; stack: string;
+  license: string; bundled: boolean; available: boolean; note: string;
+}
+
+/**
+ * The catalogue Rust embeds (`fonts/catalog.json`), as `fonts_catalog` sends
+ * it: the file's own `note` is not part of the wire shape. A spec may add a
+ * face through `__VERSORIUM_MOCK__.fonts`, before Settings reads the list.
+ */
+const fonts: { version: number; defaultBody: string; fonts: FontEntry[] } = {
+  version: shippedFonts.version,
+  defaultBody: shippedFonts.defaultBody,
+  fonts: shippedFonts.fonts.map((font) => ({ ...font })),
 };
+
+/**
+ * Mirrors `fonts::resolve` and `fonts::EditorFont`: the stored id's face, or
+ * the default's, under its own id, when settings name a face this catalogue
+ * lacks.
+ */
+function editorFont(id: unknown): { id: string; stack: string } {
+  const entry =
+    fonts.fonts.find((font) => font.id === id) ?? fonts.fonts.find((font) => font.id === fonts.defaultBody);
+  if (!entry) throw "bad_font_catalog";
+  return { id: entry.id, stack: entry.stack };
+}
 
 const update: UpdateStatus = {
   currentVersion: "0.1.0",
-  // Signed out to start: the spec forbids checking without a token, so the UI
-  // must show the sign-in path rather than an error.
   available: null,
   channel: "stable",
   automatic: true,
-  signedIn: false,
+  // No token to start, as on a fresh install. Since the §11 amendment that no
+  // longer stops a check: the startup check runs anonymously.
+  tokenSet: false,
   checking: false,
+  checked: false,
   lastError: null,
+  resetsAt: null,
 };
+
+// Nothing newer than the running version to start with, so the startup check —
+// which now runs on every launch with automatic updates on — finds nothing and
+// opens no dialog over every other spec.
+const github: MockGitHub = { release: null, answer: "ok", resetsAt: null, checks: [] };
+/** Mirrors `update_skipped` in the Rust settings: a skip outlives the check. */
+let skippedVersion: string | null = null;
 
 let lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null = null;
 
@@ -279,6 +416,106 @@ const backupHeld = new Map<string, { print: string; copies: number }>();
 let manuscriptRevision = 0;
 const backupArchives = new Map<string, MockArchive[]>();
 
+/**
+ * Whether a backup is running, as Rust's `backup_state` reports it, and what
+ * the next Back up now answers instead of the mock's own outcomes. A spec sets
+ * `nextOutcomes` to see `failed`, `repaired` or a held prune, which the mock
+ * never produces on its own; it is used once.
+ */
+const backup = {
+  running: null as null | { project: string; startedAt: number },
+  seq: 0,
+  nextOutcomes: null as null | unknown[],
+  /** End the run in progress just before the page's next listener for the
+   *  backup state is registered: the event it would have heard is gone. */
+  endOnNextListen: false,
+};
+
+/**
+ * A press held before it starts, as one queued behind another run waits in
+ * Rust, so a spec can look at the panel while its own press is pending.
+ */
+let backupHold: Promise<void> | null = null;
+let releaseHold: (() => void) | null = null;
+
+function holdBackup(): void {
+  backupHold = new Promise((resolve) => (releaseHold = resolve));
+}
+
+function releaseBackup(): void {
+  releaseHold?.();
+  backupHold = releaseHold = null;
+}
+
+/** Waiting for the run in progress to end, as Rust's queue does. */
+const backupWaiters: (() => void)[] = [];
+
+function backupEnded(): Promise<void> {
+  return new Promise((resolve) => backupWaiters.push(resolve));
+}
+
+/**
+ * Listeners registered through `plugin:event|listen`. Tauri delivers an event
+ * by calling the handler `transformCallback` registered on `window`, so
+ * `emit` does exactly that, and a spec can send what Rust would send.
+ */
+const listeners = new Map<number, { event: string; handler: number }>();
+let nextListener = 1;
+
+function emit(event: string, payload: unknown): void {
+  for (const [id, listener] of listeners) {
+    if (listener.event !== event) continue;
+    const handler = Reflect.get(window, `_${listener.handler}`);
+    if (typeof handler === "function") handler({ event, id, payload });
+  }
+}
+
+/** A backup starts or ends, and the page is told, as `backup_now` does. */
+function setBackupRunning(running: typeof backup.running): void {
+  backup.running = running;
+  backup.seq += 1;
+  emit(BACKUP_STATE_EVENT, { running, seq: backup.seq });
+  if (running === null) backupWaiters.splice(0).forEach((wake) => wake());
+}
+
+/** How many listeners the page has for `event` right now. */
+function listening(event: string): number {
+  return [...listeners.values()].filter((listener) => listener.event === event).length;
+}
+
+/** The mock's own Back up now: the real rule, without hashing anything. */
+function backupNow(): unknown[] {
+  // `/mock/Volumes/Respaldo` stands in for an unplugged drive: the case the
+  // whole per-destination reporting exists for.
+  const print = `state${manuscriptRevision}`.padEnd(16, "0");
+  return backupDirs.map((dir) => {
+    if (dir === "/mock/Volumes/Respaldo") return { state: "unavailable", path: dir };
+    const stored = backupArchives.get(dir) ?? [];
+    const held = backupHeld.get(dir);
+
+    // Mirrors the real rule: two copies of a state, then nothing.
+    if (held?.print === print && held.copies >= 2) {
+      return { state: "unchanged", path: dir, archive: { ...stored[0] }, pruned: 0 };
+    }
+    const copy = held?.print === print;
+    const stamp = `2026-09-28-01000${stored.length}`;
+    const archive: MockArchive = {
+      path: `${dir}/versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
+      name: `versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
+      bytes: 1_240_000,
+      modified: 1_790_553_600 + stored.length,
+      stamped: 1_790_553_600 + stored.length,
+      print,
+      sha256: "a".repeat(64),
+    };
+    const next = [archive, ...stored];
+    const pruned = Math.max(0, next.length - backupKeep);
+    backupArchives.set(dir, next.slice(0, backupKeep));
+    backupHeld.set(dir, { print, copies: copy ? (held?.copies ?? 0) + 1 : 1 });
+    return { state: copy ? "copy" : "ok", path: dir, archive: { ...archive }, pruned };
+  });
+}
+
 let mcpHttpEnabled = false;
 
 let llamaWarmCalls = 0;
@@ -318,8 +555,22 @@ function sha(): string {
 }
 
 function publicChapter(c: Chapter) {
-  const { body: _body, ...meta } = c;
+  const { body: _body, synopsis: _synopsis, ...meta } = c;
   return meta;
+}
+
+/** Mirrors `LANGUAGES` in src-tauri/src/commands/project.rs. */
+const LANGUAGES = ["en", "es"];
+
+/**
+ * Mirrors `language_code` in Rust: the code a tag names when a novel can take
+ * it (`es-MX` and `ES_mx` are `es`), or null.
+ */
+function languageCode(raw: unknown): string | null {
+  const tag = String(raw ?? "").trim().toLowerCase().replace(/_/g, "-");
+  if (!/^[a-z]{2,3}(-[a-z0-9]{1,8})*$/.test(tag)) return null;
+  const primary = tag.split("-")[0];
+  return LANGUAGES.includes(primary) ? primary : null;
 }
 
 function publicProject(p: ProjectState) {
@@ -385,9 +636,11 @@ const commands: Record<string, (args: Args) => unknown> = {
       }),
 
   create_project: ({ args }) => {
-    const { path, title, language } = args as { path: string; title: string; language: string };
+    const { path, title, language: raw } = args as { path: string; title: string; language: string };
     const clean = title.trim();
     if (!clean) throw "empty_title";
+    const language = languageCode(raw);
+    if (!language) throw "bad_language";
     const root = `${path}/${slugify(clean)}`;
     if (projects.has(root)) throw "project_exists";
     const p: ProjectState = {
@@ -436,7 +689,9 @@ const commands: Record<string, (args: Args) => unknown> = {
   read_chapter: ({ args }) => {
     const { path, file } = args as { path: string; file: string };
     const c = chapter(project(path), file);
-    return { frontmatter: { id: c.id, title: c.title, status: c.status, words: String(c.words) }, body: c.body };
+    const frontmatter: Record<string, string> = { id: c.id, title: c.title, status: c.status, words: String(c.words) };
+    if (c.synopsis) frontmatter.synopsis = c.synopsis;
+    return { frontmatter, body: c.body };
   },
 
   save_chapter: ({ path, file, body, status }) => {
@@ -452,27 +707,44 @@ const commands: Record<string, (args: Args) => unknown> = {
     return publicChapter(c);
   },
 
-  get_settings: () => ({ ...settings, backupDirs: [...backupDirs], backupKeep }),
+  get_settings: () => ({
+    ...settings,
+    editor: { ...settings.editor },
+    layout: { ...settings.layout },
+    backupDirs: [...backupDirs],
+    backupKeep,
+  }),
   set_settings: ({ patch }) => {
-    Object.assign(settings, patch as Partial<typeof settings>);
-    // Saving the Updates token is what signs the updater in.
-    update.signedIn = Boolean(settings.githubUpdatesToken);
-    return { ...settings };
+    const { editor, layout, ...rest } = (patch ?? {}) as Partial<typeof settings> & {
+      editor?: Record<string, unknown>;
+      layout?: Record<string, unknown>;
+    };
+    Object.assign(settings, rest);
+    if (editor && typeof editor === "object") applyEditorPatch(editor);
+    if (layout && typeof layout === "object") applyLayoutPatch(layout);
+    persistSettings();
+    // The legacy settings field still counts as a saved token, as in Rust.
+    update.tokenSet = Boolean(settings.githubUpdatesToken) || storedSecrets.has("updates");
+    return { ...settings, editor: { ...settings.editor }, layout: { ...settings.layout } };
   },
 
-  update_project: ({ path, title, author, exportCover, exportColophon }) => {
+  update_project: ({ path, title, author, exportCover, exportColophon, language }) => {
     const p = project(String(path));
+    // Every check before any write, as in Rust: a refused call changes nothing.
+    if (title != null && !String(title).trim()) throw "empty_title";
+    const code = language == null ? null : languageCode(language);
+    if (language != null && !code) throw "bad_language";
+    if (title == null && author == null && exportCover == null && exportColophon == null && language == null) {
+      throw "bad_args";
+    }
     if (title !== undefined && title !== null) {
-      if (!String(title).trim()) throw "empty_title";
       p.meta.title = String(title).trim();
     }
+    if (code) p.meta.language = code;
     if (author !== undefined && author !== null) p.meta.author = String(author).trim();
     if (exportCover !== undefined && exportCover !== null) p.meta.exportCover = Boolean(exportCover);
     if (exportColophon !== undefined && exportColophon !== null) {
       p.meta.exportColophon = Boolean(exportColophon);
-    }
-    if (title == null && author == null && exportCover == null && exportColophon == null) {
-      throw "bad_args";
     }
     return { ...p.meta };
   },
@@ -481,7 +753,7 @@ const commands: Record<string, (args: Args) => unknown> = {
   delete_project: ({ path }) => {
     if (!projects.has(String(path))) throw "not_found";
     projects.delete(String(path));
-    return [...projects.values()].map((p) => ({ path: p.path, meta: { ...p.meta }, chapters: p.chapters.map((c) => ({ ...c })) }));
+    return [...projects.values()].map((p) => ({ ...publicProject(p), meta: { ...p.meta } }));
   },
   update_chapter: ({ path, file, title, status }) => {
     const p = project(String(path));
@@ -495,7 +767,7 @@ const commands: Record<string, (args: Args) => unknown> = {
       if (!["draft", "revised", "final"].includes(String(status))) throw "bad_args";
       c.status = String(status);
     }
-    return { ...c };
+    return publicChapter(c);
   },
   reorder_chapters: ({ path, ids }) => {
     const p = project(String(path));
@@ -508,7 +780,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     const named = p.chapters.filter((c) => wanted.includes(c.id));
     named.sort((a, b) => wanted.indexOf(a.id) - wanted.indexOf(b.id));
     p.chapters = [...named, ...p.chapters.filter((c) => !wanted.includes(c.id))];
-    return p.chapters.map((c) => ({ ...c }));
+    return p.chapters.map(publicChapter);
   },
 
   delete_chapter: ({ path, file }) => {
@@ -517,9 +789,15 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (index < 0) throw "not_found";
     // The real command snapshots before removing, which is what makes this
     // recoverable; the mock records the commit so a test can see it happened.
-    commit(p, `checkpoint: before deleting ${file}`);
+    // A clean tree is already snapshotted, so, as in Rust, that is no reason
+    // to refuse: without this a second delete in a row failed only here.
+    try {
+      commit(p, `checkpoint: before deleting ${file}`);
+    } catch (error) {
+      if (error !== "nothing_to_commit") throw error;
+    }
     p.chapters.splice(index, 1);
-    return p.chapters.map((c) => ({ ...c }));
+    return p.chapters.map(publicChapter);
   },
 
   git_status: ({ path }) => {
@@ -606,19 +884,39 @@ const commands: Record<string, (args: Args) => unknown> = {
              findings: [{ kind: "contradiction", detail: "Ana's eyes change colour.", chapter: "ch-02" }] };
   },
   fonts_catalog: () => JSON.parse(JSON.stringify(fonts)),
-  editor_font: () => settings.editorFont ?? "system-serif",
+  editor_font: () => editorFont(settings.editorFont),
   set_editor_font: ({ id }) => {
     if (!fonts.fonts.some((f) => f.id === id)) throw "bad_args";
     settings.editorFont = String(id);
-    return settings.editorFont;
+    persistSettings();
+    return editorFont(settings.editorFont);
   },
 
   // --- M6: updates ---
   update_status: () => ({ ...update }),
+  // Never throws for GitHub's answer: like the Rust command, every outcome is
+  // a status with a code, and only a broken command rejects.
   update_check: () => {
-    if (!update.signedIn) throw "bad_token";
-    update.available = { version: "0.2.0", notes: "Corkboard, focus mode.", date: "2026-10-01" };
+    const authorized = update.tokenSet;
+    github.checks.push({ authorized });
+    update.checked = true;
+    update.available = null;
     update.lastError = null;
+    update.resetsAt = null;
+    if (github.answer === "offline") {
+      update.lastError = "network";
+    } else if (github.answer === "404") {
+      update.lastError = "update_none_visible";
+    } else if (github.answer === "rate_limited") {
+      update.lastError = authorized ? "update_rate_limited_token" : "update_rate_limited";
+      update.resetsAt = github.resetsAt;
+    } else if (github.answer === "401" && authorized) {
+      update.lastError = "update_token_rejected";
+    } else if (github.release && github.release.version !== skippedVersion) {
+      // "ok" — or a 401 to a check that carried no credential: GitHub only
+      // refuses a token, so an anonymous check gets the ordinary answer.
+      update.available = { ...github.release };
+    }
     return { ...update };
   },
   update_install: () => {
@@ -648,13 +946,20 @@ const commands: Record<string, (args: Args) => unknown> = {
     return undefined;
   },
   update_skip: ({ version }) => {
+    skippedVersion = String(version);
     if (update.available?.version === version) update.available = null;
     return { ...update };
   },
   update_set_channel: ({ channel }) => {
     if (channel !== "stable" && channel !== "beta") throw "bad_args";
     update.channel = channel;
+    // Another track has other releases: what the last check found says
+    // nothing about it, and a skip from the old track does not carry over.
     update.available = null;
+    update.checked = false;
+    update.lastError = null;
+    update.resetsAt = null;
+    skippedVersion = null;
     return { ...update };
   },
   update_set_automatic: ({ automatic }) => {
@@ -678,12 +983,35 @@ const commands: Record<string, (args: Args) => unknown> = {
     return { ...lastExport };
   },
   import_preview: ({ source }) => {
-    const name = String(source);
-    if (!/\.(md|markdown|docx|scriv|epub)$/i.test(name)) throw "unsupported_source";
+    if (!IMPORTABLE.test(String(source))) throw "unsupported_source";
     return JSON.parse(JSON.stringify(importPreview));
   },
-  import_apply: ({ source: _source, title }) =>
-    commands.create_project({ args: { path: PROJECTS_DIR, title, language: "en" } }),
+  // Mirrors `import_into`: the language checked before anything is read, the
+  // previewed chapters in place of the placeholder, and each synopsis kept on
+  // its chapter.
+  import_apply: ({ source, title, language }) => {
+    const code = languageCode(language);
+    if (!code) throw "bad_language";
+    if (!IMPORTABLE.test(String(source))) throw "unsupported_source";
+    const imported = JSON.parse(JSON.stringify(importPreview)) as Imported;
+    if (imported.chapters.length === 0) throw "empty_document";
+    const chosen = String(title ?? "").trim() || imported.title;
+    const created = commands.create_project({ args: { path: PROJECTS_DIR, title: chosen, language: code } }) as {
+      path: string;
+    };
+    const p = project(created.path);
+    p.chapters = imported.chapters.map((c, i) => {
+      const synopsis = (c.synopsis ?? "").replace(/\r\n?/g, "\n").trim();
+      return {
+        ...newChapter(i + 1, c.title),
+        body: c.body,
+        words: countWords(c.body),
+        ...(synopsis ? { synopsis } : {}),
+      };
+    });
+    for (const c of p.chapters) p.dirty.add(c.file);
+    return publicProject(p);
+  },
   set_author: ({ path, author }) => {
     const project = projects.get(String(path));
     if (!project) throw "not_found";
@@ -774,15 +1102,15 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (!["updates", "novel"].includes(name)) throw "bad_args";
     if (!String(token ?? "").trim()) throw "bad_args";
     storedSecrets.add(name);
-    // The updater reads the same store, so signing in here signs it in too.
-    if (name === "updates") update.signedIn = true;
+    // The updater reads the same store, so the next check carries the token.
+    if (name === "updates") update.tokenSet = true;
     return "versorium-writer";
   },
   secrets_forget: ({ slot }) => {
     const name = String(slot);
     if (!["updates", "novel"].includes(name)) throw "bad_args";
     storedSecrets.delete(name);
-    if (name === "updates") update.signedIn = false;
+    if (name === "updates") update.tokenSet = Boolean(settings.githubUpdatesToken);
     return undefined;
   },
 
@@ -799,38 +1127,25 @@ const commands: Record<string, (args: Args) => unknown> = {
     backupKeep = Math.min(200, Math.max(1, Number(keep ?? 10)));
     return undefined;
   },
-  backup_now: () => {
+  backup_now: async ({ path }) => {
     if (backupDirs.length === 0) throw "backup_not_configured";
-    // `/mock/Volumes/Respaldo` stands in for an unplugged drive: the case the
-    // whole per-destination reporting exists for.
-    const print = `state${manuscriptRevision}`.padEnd(16, "0");
-    return backupDirs.map((dir) => {
-      if (dir === "/mock/Volumes/Respaldo") return { state: "unavailable", path: dir };
-      const stored = backupArchives.get(dir) ?? [];
-      const held = backupHeld.get(dir);
-
-      // Mirrors the real rule: two copies of a state, then nothing.
-      if (held?.print === print && held.copies >= 2) {
-        return { state: "unchanged", path: dir, archive: { ...stored[0] }, pruned: 0 };
+    await backupHold;
+    // One run at a time: a press waits for the one in progress, then makes
+    // its own, as `flight::exclusive` does.
+    while (backup.running) await backupEnded();
+    setBackupRunning({ project: String(path), startedAt: now() });
+    try {
+      const scripted = backup.nextOutcomes;
+      if (scripted) {
+        backup.nextOutcomes = null;
+        return scripted;
       }
-      const copy = held?.print === print;
-      const stamp = `2026-09-28-01000${stored.length}`;
-      const archive: MockArchive = {
-        path: `${dir}/versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
-        name: `versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
-        bytes: 1_240_000,
-        modified: 1_790_553_600 + stored.length,
-        stamped: 1_790_553_600 + stored.length,
-        print,
-        sha256: "a".repeat(64),
-      };
-      const next = [archive, ...stored];
-      const pruned = Math.max(0, next.length - backupKeep);
-      backupArchives.set(dir, next.slice(0, backupKeep));
-      backupHeld.set(dir, { print, copies: copy ? (held?.copies ?? 0) + 1 : 1 });
-      return { state: copy ? "copy" : "ok", path: dir, archive: { ...archive }, pruned };
-    });
+      return backupNow();
+    } finally {
+      setBackupRunning(null);
+    }
   },
+  backup_state: () => ({ running: backup.running, seq: backup.seq }),
   backup_list: () =>
     backupDirs.map((dir) => [dir, (backupArchives.get(dir) ?? []).map((a) => ({ ...a }))]),
   backup_verify: () => "a".repeat(64),
@@ -1011,12 +1326,43 @@ const commands: Record<string, (args: Args) => unknown> = {
     const extension = o.filters?.[0]?.extensions?.[0] ?? "out";
     return o.defaultPath ?? `/mock/Documents/novel.${extension}`;
   },
-  "plugin:event|listen": () => Math.floor(Math.random() * 1e9),
-  "plugin:event|unlisten": () => undefined,
+  "plugin:event|listen": ({ event, handler }) => {
+    if (event === BACKUP_STATE_EVENT && backup.endOnNextListen) {
+      backup.endOnNextListen = false;
+      setBackupRunning(null);
+    }
+    const id = nextListener++;
+    listeners.set(id, { event: String(event), handler: Number(handler) });
+    return id;
+  },
+  "plugin:event|unlisten": ({ eventId }) => {
+    listeners.delete(Number(eventId));
+  },
   "plugin:window|destroy": () => undefined,
+  // Rust's half of "quitting waits for the last save" (src-tauri/src/quit.rs):
+  // the answer is in `calls`, as `{ saved }`.
+  quit_ready: () => undefined,
 };
 
 let nextCallback = 1;
+
+/**
+ * Commands whose next call waits until a spec releases it, by name: how a
+ * spec acts while an answer from Rust is still on its way. The call is in
+ * `calls` as soon as it is made.
+ */
+const holds = new Map<string, { taken: boolean; open: Promise<void>; release: () => void }>();
+
+function hold(cmd: string): void {
+  let release = () => {};
+  const open = new Promise<void>((resolve) => (release = resolve));
+  holds.set(cmd, { taken: false, open, release });
+}
+
+function release(cmd: string): void {
+  holds.get(cmd)?.release();
+  holds.delete(cmd);
+}
 
 const internals = {
   metadata: {
@@ -1046,6 +1392,12 @@ const internals = {
   },
   async invoke(cmd: string, args: Args = {}): Promise<unknown> {
     calls.push({ cmd, args });
+    const held = holds.get(cmd);
+    if (held && !held.taken) {
+      held.taken = true;
+      await held.open;
+    }
+    if (cmd in failures) throw failures[cmd];
     const handler = commands[cmd];
     if (!handler) {
       if (cmd.startsWith("plugin:")) return undefined;
@@ -1064,6 +1416,8 @@ declare global {
       projects: Map<string, ProjectState>;
       settings: typeof settings;
       calls: typeof calls;
+      /** Commands that reject, by name, with the code given. */
+      failures: typeof failures;
       agents: AgentInfo[];
       mcpClients: McpClient[];
       mcpLog: McpLogEntry[];
@@ -1071,9 +1425,29 @@ declare global {
       slots: Record<string, SlotAssignment>;
       lastExport: { path: string; bytes: number; format: string; warnings: string[] } | null;
       update: UpdateStatus;
+      /** What GitHub answers the next check; specs set it, then press Check now. */
+      github: MockGitHub;
       crashes: CrashEntry[];
       /** True once the app was asked to restart into the new version. */
       relaunched: boolean;
+      /** A backup in progress, and the outcomes the next Back up now returns. */
+      backup: typeof backup;
+      /** Start or end a backup the way Rust reports it. */
+      setBackupRunning: typeof setBackupRunning;
+      /** Hold the next Back up now before it starts, and let it go. */
+      holdBackup: typeof holdBackup;
+      releaseBackup: typeof releaseBackup;
+      /** Send an event to the page, as Rust's `emit` does. */
+      emit: typeof emit;
+      /** How many listeners the page has for an event. */
+      listening: typeof listening;
+      /** The font catalogue `fonts_catalog` answers; a spec may add a face to it. */
+      fonts: typeof fonts;
+      /** What the next import preview reads; a spec may give it a language. */
+      importPreview: Imported;
+      /** Make the next call of a command wait, and let it go. */
+      hold: typeof hold;
+      release: typeof release;
     };
   }
 }
@@ -1081,8 +1455,13 @@ declare global {
 // `?mock=tauri&seed=2` starts with novels already on disk and none open — the
 // state a returning writer actually sees, which no test could reach before
 // because creating a project also opens it.
+//
+// `&seedLanguage=fr` gives them that language as a hand-edited
+// versorium.json would hold it, which create_project itself refuses.
 {
-  const seed = Number(new URLSearchParams(location.search).get("seed") ?? 0);
+  const params = new URLSearchParams(location.search);
+  const seed = Number(params.get("seed") ?? 0);
+  const seedLanguage = params.get("seedLanguage");
   for (let i = 0; i < seed; i += 1) {
     const created = commands.create_project({
       args: { path: PROJECTS_DIR, title: `Novela ${i + 1}`, language: "es" },
@@ -1090,14 +1469,20 @@ declare global {
     // Staggered so "most recently written" has an unambiguous answer.
     const p = projects.get(created.path);
     if (p) for (const c of p.chapters) c.mtime = 1_790_000_000 + i * 3600;
+    if (p && seedLanguage) p.meta.language = seedLanguage;
   }
 }
 
 window.__TAURI_INTERNALS__ = internals;
-window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
+window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+  unregisterListener: (_event: string, id: number) => {
+    listeners.delete(id);
+  },
+};
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
-    projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update, crashes,
+    projects, settings, calls, failures, agents, mcpClients, mcpLog, models, slots, update, github, crashes,
+    backup, setBackupRunning, holdBackup, releaseBackup, emit, listening, fonts, importPreview, hold, release,
     get relaunched() {
       return relaunched;
     },

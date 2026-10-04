@@ -191,20 +191,58 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Versorium ${{ github.ref_name }}
+          # The old note said "right-click and choose Open". That stopped
+          # working: on current macOS a quarantined bundle with no Developer ID
+          # signature is reported as damaged, and right-click does not get past
+          # it. The quarantine flag has to be cleared.
           releaseBody: |
             ## English
-            See the assets below to download this version.
+            Download this version from the assets below.
 
-            First run on macOS: right-click the app and choose Open — Versorium is
-            not notarised yet. Windows SmartScreen may warn for the same reason.
-            Updates are still verified against the signing key regardless.
+            ### macOS will say the app is damaged. It is not.
+            The bundle carries no Developer ID signature, so macOS quarantines it and
+            Gatekeeper reports the most misleading message it has. Clear the quarantine
+            flag once, in Terminal:
+
+            ```
+            xattr -rd com.apple.quarantine /Applications/Versorium.app
+            ```
+
+            Run it only on a build you took from this release page — that flag is the
+            check that protects you from a tampered download.
+
+            ### SmartScreen will interrupt the installer.
+            The installer is unsigned for the same reason the macOS bundle is, so Windows
+            shows the blue "Windows protected your PC" screen. Choose **More info**, then
+            **Run anyway**. Signed builds need Apple and Microsoft
+            certificates, which the project does not have yet.
+
+            Updates are verified against Versorium's own signing key either way: an
+            update that was not signed by it is refused.
 
             ## Español
             Descarga esta versión desde los archivos de abajo.
 
-            Primera apertura en macOS: clic derecho y Abrir — Versorium todavía no
-            está notarizada. Windows SmartScreen puede avisar por lo mismo. Las
-            actualizaciones se verifican igualmente contra la clave de firma.
+            ### macOS dirá que la app está dañada. No lo está.
+            El paquete no lleva firma de Developer ID, así que macOS lo pone en cuarentena
+            y Gatekeeper muestra el mensaje más engañoso que tiene. Quita la marca de
+            cuarentena una sola vez, en Terminal:
+
+            ```
+            xattr -rd com.apple.quarantine /Applications/Versorium.app
+            ```
+
+            Hazlo solo con una copia descargada de esta página de releases — esa marca es
+            la comprobación que te protege de una descarga manipulada.
+
+            ### SmartScreen interrumpirá el instalador.
+            El instalador no está firmado por la misma razón que el paquete de macOS, así
+            que Windows muestra la pantalla azul "Windows protegió su PC". Elige **Más
+            información** y después **Ejecutar de todas formas**. Las versiones firmadas
+            necesitan certificados de Apple y de Microsoft, que el proyecto aún no tiene.
+
+            Las actualizaciones se verifican siempre contra la clave de firma de
+            Versorium: una actualización que no venga firmada por ella se rechaza.
           # Draft, so a human checks latest.json and the checksums before any
           # client is offered the update.
           releaseDraft: true

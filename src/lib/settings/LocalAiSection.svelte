@@ -4,6 +4,7 @@
   import { api, isTauri, type LlamaBackendState, type ModelCard, type SlotKind, type SlotName } from "$lib/tauri";
   import { models, humanSize, percent } from "$lib/models/state.svelte";
   import Select from "$lib/components/forms/Select.svelte";
+  import NumberField from "$lib/components/forms/NumberField.svelte";
 
   type Tab = "writing" | "ollama" | "studio" | "dictation";
   const TABS: Tab[] = ["writing", "ollama", "studio", "dictation"];
@@ -633,10 +634,17 @@
           {t("localAi.studio.host")}
           <input type="text" bind:value={studioHost} style="width: 160px;" />
         </label>
-        <label class="v-row" style="gap: 8px; font-size: 13px;">
-          {t("localAi.studio.port")}
-          <input type="number" bind:value={studioPort} min="1" max="65535" style="width: 96px;" />
-        </label>
+        <!-- NumberField, not a bound number input: Svelte binds an emptied
+             number box as null, and studio_test/studio_save take a u16, so
+             clearing the box used to send a non-number to the backend. -->
+        <NumberField
+          label={t("localAi.studio.port")}
+          value={studioPort}
+          min={1}
+          max={65535}
+          inline
+          onCommit={(next) => (studioPort = next)}
+        />
         <button class="v-btn" disabled={models.loading} onclick={() => void models.testStudio(studioHost, studioPort)}>
           {t("localAi.studio.test")}
         </button>

@@ -7,7 +7,6 @@ import {
   TYPEWRITER_TAIL,
   createModeCompartments,
   desiredScrollTop,
-  focusMode,
   shouldScroll,
   typewriterMode,
 } from "./modes";
@@ -38,19 +37,19 @@ it("leaves a small drift alone so the text does not shiver", () => {
   expect(shouldScroll(520, 500)).toBe(true);
 });
 
-it("contributes nothing when both modes are off", () => {
+it("contributes nothing when typewriter is off", () => {
   const modes = createModeCompartments();
-  const state = createMarkdownState("hola", modes.initial(false, false));
-  // The compartments exist but hold no extension, so nothing is imposed on a
-  // writer who asked for neither mode.
+  const state = createMarkdownState("hola", modes.initial(false));
+  // The compartment exists but holds no extension, so nothing is imposed on a
+  // writer who did not ask for the mode.
   expect(state.doc.toString()).toBe("hola");
-  expect(modes.initial(false, false)).toHaveLength(2);
+  expect(modes.initial(false)).toHaveLength(1);
 });
 
 it("reconfigures a live editor instead of rebuilding it", () => {
   const modes = createModeCompartments();
   const view = new EditorView({
-    state: createMarkdownState("Una frase larga que vive aquí.", modes.initial(false, false)),
+    state: createMarkdownState("Una frase larga que vive aquí.", modes.initial(false)),
   });
   const contentBefore = view.contentDOM;
 
@@ -58,7 +57,7 @@ it("reconfigures a live editor instead of rebuilding it", () => {
   view.dispatch({ selection: { anchor: 4 } });
   expect(view.state.selection.main.head).toBe(4);
 
-  view.dispatch({ effects: modes.reconfigure(true, true) });
+  view.dispatch({ effects: modes.reconfigure(true) });
 
   // Same view, same DOM node, same caret, same text — only the configuration
   // moved. A prop change that recreated the EditorView would fail every one of
@@ -68,7 +67,7 @@ it("reconfigures a live editor instead of rebuilding it", () => {
   expect(view.state.doc.toString()).toBe("Una frase larga que vive aquí.");
 
   // And back off again, still the same editor.
-  view.dispatch({ effects: modes.reconfigure(false, false) });
+  view.dispatch({ effects: modes.reconfigure(false) });
   expect(view.contentDOM).toBe(contentBefore);
   expect(view.state.selection.main.head).toBe(4);
 
@@ -78,11 +77,11 @@ it("reconfigures a live editor instead of rebuilding it", () => {
 it("keeps undo history across a mode change", () => {
   const modes = createModeCompartments();
   const view = new EditorView({
-    state: createMarkdownState("", modes.initial(false, false)),
+    state: createMarkdownState("", modes.initial(false)),
   });
 
   view.dispatch({ changes: { from: 0, insert: "escrito a mano" } });
-  view.dispatch({ effects: modes.reconfigure(false, true) });
+  view.dispatch({ effects: modes.reconfigure(true) });
 
   // The document survived the reconfigure with its edit intact; a rebuilt
   // editor would have started again from the original doc.
@@ -91,9 +90,8 @@ it("keeps undo history across a mode change", () => {
   view.destroy();
 });
 
-it("offers both modes as real extensions", () => {
+it("offers typewriter as a real extension", () => {
   expect(typewriterMode()).toBeTruthy();
-  expect(focusMode()).toBeTruthy();
 });
 
 it("leaves room above the first line, or the mode does nothing on a short chapter", () => {

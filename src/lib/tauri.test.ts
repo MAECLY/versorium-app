@@ -12,4 +12,17 @@ it("wraps structured Rust command arguments", async () => {
   expect(invoke).toHaveBeenLastCalledWith("ops_append", { args: { path: "/novels/test", chapter: "ch-01", body: "a", ops: [op] } });
   await api.aiApplyRewrite({ path: "/novels/test", file: "manuscript/ch-01.md", from: 0, to: 1, text: "b", provider: "claude", expected: "a" });
   expect(invoke).toHaveBeenLastCalledWith("ai_apply_rewrite", { args: { path: "/novels/test", file: "manuscript/ch-01.md", from: 0, to: 1, text: "b", provider: "claude", expected: "a" } });
+  // One editor preference travels alone, nested: Rust patches the block key by
+  // key, so the other six are left as they were.
+  await api.setSettings({ editor: { textSize: "large" } });
+  expect(invoke).toHaveBeenLastCalledWith("set_settings", { patch: { editor: { textSize: "large" } } });
+  // A face is chosen by its catalogue id, never by its stack.
+  await api.setEditorFont("source-serif-4");
+  expect(invoke).toHaveBeenLastCalledWith("set_editor_font", { id: "source-serif-4" });
+  // A project patch travels as Rust's named arguments, and only what it holds.
+  await api.updateProject("/novels/test", { language: "es" });
+  expect(invoke).toHaveBeenLastCalledWith("update_project", { path: "/novels/test", language: "es" });
+  // An import carries the language the dialog settled on.
+  await api.importApply("/in/book.md", "Book", "es");
+  expect(invoke).toHaveBeenLastCalledWith("import_apply", { source: "/in/book.md", title: "Book", language: "es" });
 });

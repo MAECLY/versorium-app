@@ -75,7 +75,7 @@ it("shows a card per chapter with its words and status", async () => {
   target.remove();
 });
 
-it("reads each chapter to show a synopsis without its markdown markers", async () => {
+it("reads each chapter to show its opening lines without their markdown markers", async () => {
   const app = await render();
   const text = target.textContent ?? "";
   expect(text).toContain("Llovió tres días seguidos.");

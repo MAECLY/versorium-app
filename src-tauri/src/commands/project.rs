@@ -84,6 +84,36 @@ pub struct CreateProjectArgs {
     pub language: String,
 }
 
+/// The languages a novel can be written in here.
+///
+/// The ones the interface has a name for (`languages` in `locales/*/ui.json`,
+/// which a test holds this to), and so the only ones a picker can offer. The
+/// value travels into the manuscript's `lang`, every export's language field
+/// and the colophon's wording, so a code outside this list would be a promise
+/// none of them can keep.
+pub const LANGUAGES: [&str; 2] = ["en", "es"];
+
+/// The language a tag names, if it is one a novel can be written in here.
+///
+/// Sources write tags every way BCP 47 allows and a few it does not: `es-MX`,
+/// `ES`, Word's POSIX-style `en_US`. Only the primary subtag decides, because
+/// that is all the app acts on, so a region is dropped rather than refused.
+/// Something not shaped like a tag at all (`español`, `en-`) is refused, the
+/// same shape `contentLanguage` in `src/lib/editor/preferences.ts` asks of a
+/// `lang`.
+pub fn language_code(raw: &str) -> Option<&'static str> {
+    let tag = raw.trim().to_ascii_lowercase().replace('_', "-");
+    let mut subtags = tag.split('-');
+    let primary = subtags.next().unwrap_or_default();
+    let shaped = (2..=3).contains(&primary.len())
+        && primary.bytes().all(|b| b.is_ascii_lowercase())
+        && subtags.all(|s| (1..=8).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_alphanumeric()));
+    if !shaped {
+        return None;
+    }
+    LANGUAGES.into_iter().find(|code| *code == primary)
+}
+
 #[tauri::command]
 pub fn app_info() -> serde_json::Value {
     serde_json::json!({
@@ -149,6 +179,8 @@ pub fn create_project(args: CreateProjectArgs) -> Result<Project, String> {
     if title.is_empty() {
         return Err("empty_title".into());
     }
+    // Before the folder exists: a refused language must leave nothing behind.
+    let language = language_code(&args.language).ok_or_else(|| "bad_language".to_string())?;
     let root = args.path.join(slugify(&title));
     if root.exists() {
         return Err("project_exists".into());
@@ -174,7 +206,7 @@ pub fn create_project(args: CreateProjectArgs) -> Result<Project, String> {
         schema: 1,
         title: title.clone(),
         author: String::new(),
-        language: args.language,
+        language: language.into(),
         ui_language: "en".into(),
         default_chapter_pattern: "ch-{n}-{slug}.md".into(),
         censorship: "off".into(),
@@ -384,7 +416,7 @@ mod tests {
         .unwrap();
         let root = std::path::PathBuf::from(&created.path);
 
-        let meta = update_project(root.clone(), Some("La niebla".into()), None, None, None).unwrap();
+        let meta = update_project(root.clone(), Some("La niebla".into()), None, None, None, None).unwrap();
         assert_eq!(meta.title, "La niebla");
         assert!(root.is_dir(), "the folder moved");
         assert_eq!(load_meta(&root).unwrap().title, "La niebla", "the rename did not persist");
@@ -403,16 +435,100 @@ mod tests {
         .unwrap();
         let root = std::path::PathBuf::from(&created.path);
 
-        let both = update_project(root.clone(), Some("Con autor".into()), Some("  Ana Ruiz  ".into()), None, None).unwrap();
+        let both = update_project(root.clone(), Some("Con autor".into()), Some("  Ana Ruiz  ".into()), None, None, None)
+            .unwrap();
         assert_eq!(both.title, "Con autor");
         assert_eq!(both.author, "Ana Ruiz", "surrounding space is not part of a name");
 
         // Author alone leaves the title alone.
-        let only_author = update_project(root.clone(), None, Some("Otra".into()), None, None).unwrap();
+        let only_author = update_project(root.clone(), None, Some("Otra".into()), None, None, None).unwrap();
         assert_eq!(only_author.title, "Con autor");
 
-        assert_eq!(update_project(root.clone(), None, None, None, None).unwrap_err(), "bad_args");
-        assert_eq!(update_project(root, Some(" ".into()), None, None, None).unwrap_err(), "empty_title");
+        assert_eq!(update_project(root.clone(), None, None, None, None, None).unwrap_err(), "bad_args");
+        assert_eq!(update_project(root, Some(" ".into()), None, None, None, None).unwrap_err(), "empty_title");
+    }
+
+    #[test]
+    fn language_code_accepts_supported_tags_only() {
+        for (raw, code) in [("es", "es"), ("en", "en"), (" ES-mx ", "es"), ("en_US", "en"), ("es-419", "es")] {
+            assert_eq!(language_code(raw), Some(code), "{raw:?}");
+        }
+        // A language the app has no words for, nothing at all, and a name where
+        // a code belongs are all refused rather than guessed at.
+        for raw in ["fr", "", "   ", "español", "spanish", "esp", "-es", "en-", "e"] {
+            assert_eq!(language_code(raw), None, "{raw:?}");
+        }
+    }
+
+    #[test]
+    fn the_languages_offered_are_the_ones_the_interface_can_name() {
+        // A picker offers what `languages` names. A code here without a name
+        // would show up as a raw tag; a name without a code would be offered
+        // and then refused.
+        for (locale, raw) in [
+            ("en", include_str!("../../../locales/en/ui.json")),
+            ("es", include_str!("../../../locales/es/ui.json")),
+        ] {
+            let ui: serde_json::Value = serde_json::from_str(raw).unwrap();
+            let mut named: Vec<&str> =
+                ui["languages"].as_object().expect("languages").keys().map(String::as_str).collect();
+            named.sort_unstable();
+            let mut offered = LANGUAGES.to_vec();
+            offered.sort_unstable();
+            assert_eq!(named, offered, "locales/{locale}/ui.json");
+        }
+    }
+
+    #[test]
+    fn a_novels_language_can_be_changed_and_only_to_one_offered() {
+        let dir = tempfile::tempdir().unwrap();
+        let created = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "El faro".into(),
+            language: "en".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&created.path);
+        update_project(root.clone(), None, Some("Ana Ruiz".into()), Some(false), None, None).unwrap();
+
+        // A language alone is a change, not a call with nothing in it.
+        let meta = update_project(root.clone(), None, None, None, None, Some("es-ES".into())).unwrap();
+        assert_eq!(meta.language, "es", "stored as the code it names");
+        let on_disk = load_meta(&root).unwrap();
+        assert_eq!(on_disk.language, "es", "the change did not reach versorium.json");
+        assert_eq!(on_disk.title, "El faro");
+        assert_eq!(on_disk.author, "Ana Ruiz");
+        assert!(!on_disk.export_cover, "an unrelated setting was reset");
+
+        // Refused before anything is written: the file is byte for byte the same.
+        let before = fs::read(root.join("versorium.json")).unwrap();
+        assert_eq!(
+            update_project(root.clone(), Some("Otro".into()), None, None, None, Some("fr".into())).unwrap_err(),
+            "bad_language"
+        );
+        assert_eq!(fs::read(root.join("versorium.json")).unwrap(), before, "a refused call wrote anyway");
+    }
+
+    #[test]
+    fn create_project_refuses_a_language_it_cannot_offer() {
+        let dir = tempfile::tempdir().unwrap();
+        let refused = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "Le phare".into(),
+            language: "fr".into(),
+        });
+        assert_eq!(refused.unwrap_err(), "bad_language");
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0, "a folder was left behind");
+
+        // And one it can is stored as its code.
+        let created = create_project(CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "El faro".into(),
+            language: "ES_mx".into(),
+        })
+        .unwrap();
+        assert_eq!(created.meta.language, "es");
+        assert_eq!(load_meta(std::path::Path::new(&created.path)).unwrap().language, "es");
     }
 
     #[test]
@@ -583,12 +699,16 @@ mod tests {
     }
 }
 
-/// Rename a novel, or set its author, or both.
+/// Rename a novel, set its author, its export matter or its language, in any
+/// combination.
 ///
 /// Only `versorium.json` changes. The folder keeps its name: it is a git
 /// repository, it may already be a GitHub remote, and the backup archives are
 /// named after it. A title is what the writer reads; a folder name is an
 /// address, and quietly changing an address breaks whatever pointed at it.
+///
+/// A language is stored as the code it names (`es-MX` becomes `es`), and one
+/// the app cannot offer is refused before anything is written.
 #[tauri::command]
 pub fn update_project(
     path: PathBuf,
@@ -596,18 +716,31 @@ pub fn update_project(
     author: Option<String>,
     export_cover: Option<bool>,
     export_colophon: Option<bool>,
+    language: Option<String>,
 ) -> Result<ProjectMeta, String> {
     let title = match title {
         Some(t) if t.trim().is_empty() => return Err("empty_title".into()),
         Some(t) => Some(t.trim().to_string()),
         None => None,
     };
-    if title.is_none() && author.is_none() && export_cover.is_none() && export_colophon.is_none() {
+    let language = match language {
+        Some(raw) => Some(language_code(&raw).ok_or_else(|| "bad_language".to_string())?),
+        None => None,
+    };
+    if title.is_none()
+        && author.is_none()
+        && export_cover.is_none()
+        && export_colophon.is_none()
+        && language.is_none()
+    {
         return Err("bad_args".into());
     }
     let mut meta = load_meta(&path).ok_or_else(|| "not_found".to_string())?;
     if let Some(title) = title {
         meta.title = title;
+    }
+    if let Some(language) = language {
+        meta.language = language.into();
     }
     if let Some(author) = author {
         meta.author = author.trim().to_string();

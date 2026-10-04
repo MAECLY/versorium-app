@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>Versorium · Free novel-writing app for your computer | MAECLY</title>
+<meta name="description" content="Write your novel on your own computer: every draft is kept, no account, and AI stays off until you call it. Free and open source.">
+<meta name="author" content="Miguel Esparza · MAECLY">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#e4ebe9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1615" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://versorium.maecly.com/en/">
+<link rel="alternate" hreflang="es" href="https://versorium.maecly.com/">
+<link rel="alternate" hreflang="en" href="https://versorium.maecly.com/en/">
+<link rel="alternate" hreflang="x-default" href="https://versorium.maecly.com/">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="icon" href="../assets/icon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="../assets/icon-16.png" type="image/png" sizes="16x16">
+<link rel="apple-touch-icon" href="../assets/icon-256.png">
+<link rel="preload" href="../assets/fonts/aguja-display-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<script src="../assets/theme.js"></script>
+<script src="../assets/motion.js" defer></script>
+<script src="../assets/download.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MAECLY">
+<meta property="og:locale" content="en_GB">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:title" content="Versorium · Write your novel. Every draft is kept.">
+<meta property="og:description" content="If Versorium disappears tomorrow, your novel doesn’t: it’s files on your computer, with every draft kept. Free and open source; no release yet.">
+<meta property="og:url" content="https://versorium.maecly.com/en/">
+<meta property="og:image" content="https://versorium.maecly.com/assets/og-en.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Versorium: “Write your novel. Every draft is kept.” beside the app, with the chapter “The Needle” open.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="Versorium: “Write your novel. Every draft is kept.” beside the app, with the chapter “The Needle” open.">
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@graph": [
+{"@type":"WebSite","@id":"https://versorium.maecly.com/#website","url":"https://versorium.maecly.com/","name":"Versorium · MAECLY","inLanguage":["es","en"]},
+{"@type":"Person","@id":"https://www.maecly.com/#miguel","name":"Miguel Esparza","url":"https://www.maecly.com/","email":"mailto:hola@maecly.com","jobTitle":"Full-Stack Developer & Content Creator"},
+{"@type":"SoftwareApplication","@id":"https://versorium.maecly.com/en/#software","name":"Versorium","description":"Free, open-source desktop app for writing novels on your own computer: every chapter is a text file in a folder you own, every draft is kept with automatic snapshots, and AI is optional and chosen by the writer. No release yet; so far only tried on macOS.","url":"https://versorium.maecly.com/en/","sameAs":["https://github.com/MAECLY/versorium-app"],"applicationCategory":"BusinessApplication","applicationSubCategory":"Writing","operatingSystem":"macOS, Windows, Linux","isAccessibleForFree":true,"license":"https://www.apache.org/licenses/LICENSE-2.0","author":{"@id":"https://www.maecly.com/#miguel"},"inLanguage":["es","en"],"image":"https://versorium.maecly.com/assets/og-en.png","screenshot":"https://versorium.maecly.com/assets/shots/en/corkboard-needle-light.webp","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
+{"@type":"FAQPage","@id":"https://versorium.maecly.com/en/#faq","mainEntity":[
+{"@type":"Question","name":"Does my novel leave my computer?","acceptedAnswer":{"@type":"Answer","text":"Only when you ask: sending it to GitHub, rewriting with an outside tool, or backing it up to a synced folder. On its own, the app only checks for updates, with nothing from your novel, and you can turn that off. No telemetry."}},
+{"@type":"Question","name":"Do I need an account, or git?","acceptedAnswer":{"@type":"Answer","text":"No account: there’s no sign-up. And you don’t need git to write: Versorium takes the snapshots for you, with git built in. For now, git is only needed to go back to an old snapshot."}},
+{"@type":"Question","name":"Which AI does it use?","acceptedAnswer":{"@type":"Answer","text":"None until you choose one: a model inside the app itself, Ollama, or Claude Code, Codex or OpenCode, which send the passage to their own service. Today it rewrites passages and checks continuity."}},
+{"@type":"Question","name":"Can I bring my novel from Scrivener or Word?","acceptedAnswer":{"@type":"Answer","text":"Yes: it imports Scrivener, DOCX, EPUB and Markdown, and shows you a preview before creating anything. From DOCX, EPUB or Scrivener, bold, italics and scenes are lost."}},
+{"@type":"Question","name":"Why is it free?","acceptedAnswer":{"@type":"Answer","text":"It’s open source (Apache-2.0) and made by one person. There’s no paid tier and no ads, and the app collects no data."}}
+]}
+]
+}
+</script>
+</head>
+<body>
+<svg width="0" height="0" class="sr-hidden-defs" aria-hidden="true" focusable="false"><symbol id="nib-stroke" viewBox="0 0 200 12" preserveAspectRatio="none"><path pathLength="1" d="M3 8.5C38 5.2 74 9.6 112 6.8S170 5.1 197 7.4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol><symbol id="rule" viewBox="0 0 1200 8" preserveAspectRatio="none"><path pathLength="1" d="M0 4.5C220 3.2 420 5.6 640 4.1S1010 3.6 1188 4.4" fill="none" stroke-width="1.4"/></symbol><defs><path id="v-s" d="M23.6 21.0L25.2 26.0L26.8 31.0L28.4 36.0L30.1 41.1L31.9 46.2L33.7 51.3L35.5 56.5L38.3 61.3L41.1 66.1L44.0 71.0L46.9 75.9L49.9 80.8L51.7 80.0L49.9 74.5L48.2 69.1L46.5 63.8L44.8 58.4L43.2 53.2L40.7 48.3L38.3 43.5L35.9 38.7L33.6 33.9L31.3 29.2L29.0 24.5L26.8 19.8Z"/><path id="v-h" d="M52.5 81.4L55.4 76.4L58.1 71.3L60.8 66.2L63.5 61.1L66.0 55.9L68.5 50.7L71.0 45.4L73.4 40.1L75.7 34.7L77.9 29.3L80.1 23.9L82.2 18.4L80.2 17.6L78.0 23.0L75.7 28.4L73.3 33.7L70.9 38.9L68.4 44.2L65.9 49.3L63.2 54.5L60.5 59.5L57.8 64.6L54.9 69.6L52.0 74.5L49.1 79.4Z"/></defs></svg>
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="topbar">
+<div class="wrap topbar-inner">
+<a class="brand" href="./"><svg class="vmark is-drawn" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><mask id="vh-m1" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-shade" pathLength="1" stroke-width="11" stroke-linejoin="round" d="M24.1 17.6L25.2 20.4L27.1 25.2L29.1 30.1L31.0 35.0L33.0 39.9L35.1 44.9L37.2 49.8L39.4 54.9L41.5 59.8L43.8 64.9L46.1 70.0L48.4 75.2L50.8 80.4L52.1 83.1"/></mask><mask id="vh-m2" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-hair" pathLength="1" stroke-width="7" stroke-linejoin="round" d="M49.3 83.0L50.8 80.4L53.7 75.5L56.5 70.4L59.3 65.4L62.0 60.3L64.6 55.2L67.2 50.0L69.7 44.8L72.2 39.5L74.5 34.2L76.8 28.9L79.0 23.4L81.2 18.0L82.3 15.2"/></mask><use class="v-ink" href="#v-s" mask="url(#vh-m1)"/><use class="v-ink hair" href="#v-h" mask="url(#vh-m2)"/></svg><span>versorium</span></a>
+<a class="btn btn-primary btn-small header-cta" href="#download">Notify me</a>
+<nav class="topnav" aria-label="Sections">
+<a href="#how">How it works</a>
+<a href="details/#limits">Limits</a>
+<a href="#questions">FAQ</a>
+</nav>
+<a class="lang" href="../" hreflang="es" lang="es">ES<span class="sr-only"> · Leer esta página en español</span></a>
+<div class="ribbon-well" aria-hidden="true"><div class="ribbon"></div></div>
+</div>
+</header>
+
+<main id="content" tabindex="-1">
+<section class="hero" aria-labelledby="title">
+<div class="wrap">
+<div class="hero-head">
+<a class="pill" href="details/#limits"><span class="pill-dot" aria-hidden="true"></span>No release yet · only tried on macOS</a>
+<h1 id="title">Write your novel.<br> Every draft is <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>kept</span>.</h1>
+</div>
+<div class="hero-body">
+<div class="hero-copy">
+<p class="sub">An app for your own computer that works offline. AI stays off until you call it.</p>
+<div class="actions hero-cta">
+<a class="btn btn-primary" href="#download">Notify me when it’s out</a>
+<a class="btn" href="#how" data-desktop>How it works <span aria-hidden="true">↓</span></a>
+<button class="btn" type="button" data-share data-phone>Send it to your computer</button>
+</div>
+<p class="assure">Free · No account · <a href="https://github.com/MAECLY/versorium-app">Open source</a></p>
+<div class="picker" id="theme-picker" role="group" aria-labelledby="pick-label">
+<span class="picker-label" id="pick-label">Try it in your colours</span>
+<fieldset class="themes"><legend class="sr-only">Theme</legend>
+<label class="swatch-pill sw-folio"><input type="radio" name="theme" value="folio"><span class="sw-dot" aria-hidden="true"></span>Folio</label>
+<label class="swatch-pill sw-quarry"><input type="radio" name="theme" value="quarry"><span class="sw-dot" aria-hidden="true"></span>Quarry</label>
+<label class="swatch-pill sw-needle"><input type="radio" name="theme" value="needle"><span class="sw-dot" aria-hidden="true"></span>Needle</label>
+</fieldset>
+<fieldset class="modes" aria-labelledby="mode-l"><span class="modes-label" id="mode-l">Mode</span>
+<label class="mode-pill" title="Light"><input type="radio" name="mode" value="light"><svg class="mode-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" fill="none" stroke="currentColor"/></svg><span class="sr-only">Light</span></label>
+<label class="mode-pill" title="Dark"><input type="radio" name="mode" value="dark"><svg class="mode-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13.6 9.8A5.8 5.8 0 0 1 6.2 2.4a5.8 5.8 0 1 0 7.4 7.4Z" fill="none" stroke="currentColor"/></svg><span class="sr-only">Dark</span></label>
+<label class="mode-pill" title="Match system"><input type="radio" name="mode" value="follow"><svg class="mode-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor"/><path d="M8 2.4a5.6 5.6 0 0 0 0 11.2Z" fill="currentColor"/></svg><span class="sr-only">Match system</span></label>
+</fieldset>
+</div>
+<p class="aside no-picker">Without JavaScript, the page follows your system’s mode.</p>
+</div>
+
+<figure class="hero-figure">
+<div class="replica-frame"><div class="replica" aria-hidden="true">
+<div class="r-top"><svg class="r-v" viewBox="0 0 100 100"><use href="#v-s"/><use class="hair" href="#v-h"/></svg><span class="r-brand">versorium</span><span class="r-actions"><span class="r-btn is-primary">Rewrite</span><span class="r-sep"></span><span class="r-btn">Manuscript</span><span class="r-btn">Open project</span><span class="r-btn">Settings</span></span></div>
+<div class="r-main">
+<div class="r-side">
+<span class="r-sec">Projects</span><span class="r-list r-projects">
+<span class="r-item is-active"><span class="r-title">Not on the List</span><span class="r-meta">716 words</span></span>
+<span class="r-item"><span class="r-title">Winter Stories</span><span class="r-meta">30 words</span></span>
+</span>
+<span class="r-sec r-sec-ch">Chapters</span><span class="r-list">
+<span class="r-item"><span class="r-id">ch-01</span><span class="r-title">The Inventory</span><span class="r-meta">final</span></span>
+<span class="r-item is-active"><span class="r-id">ch-02</span><span class="r-title">The Needle</span><span class="r-meta">revised</span></span>
+<span class="r-item"><span class="r-id">ch-03</span><span class="r-title">Enough</span><span class="r-meta">revised</span></span>
+<span class="r-item"><span class="r-id">ch-04</span><span class="r-title">The Letters</span><span class="r-meta">draft</span></span>
+<span class="r-item"><span class="r-id">ch-05</span><span class="r-title">Fog</span><span class="r-meta">draft</span></span>
+<span class="r-item"><span class="r-id">ch-06</span><span class="r-title">The Oar</span><span class="r-meta">draft</span></span>
+<span class="r-item"><span class="r-id">ch-07</span><span class="r-title">The Visitor</span><span class="r-meta">draft</span></span>
+<span class="r-item"><span class="r-id">ch-08</span><span class="r-title">Low Tide</span><span class="r-meta">draft</span></span>
+</span>
+</div>
+<div class="r-editor"><div class="r-doc">
+<p class="r-p">She counted the steps on the way up and again on the way down, because the first count came to forty-three and she did not trust herself after the boat. There were forty-two. The extra one was the threshold of the lamp room, higher than the rest, worn in the middle by a hundred years of boots.</p>
+<p class="r-p is-active">Up there, the lens took up all the air. She had not expected it to be so large, or so clean: someone had gone on polishing it after the light was put out, and that someone did not appear in any of the council’s papers.<span class="t-done"></span><span class="t-caret"></span><span class="t-rest"> Nobody had told her the lighthouse still had an owner.</span></p>
+<p class="r-p">She wrote in her notebook: <span class="r-em"><span class="r-mark">*</span>Fresnel lens, first order, intact.<span class="r-mark">*</span></span> Then she crossed out <span class="r-em"><span class="r-mark">*</span>intact<span class="r-mark">*</span></span>. She did not know the word for a thing nobody used and everybody looked after.</p>
+</div></div>
+</div>
+<div class="r-status"><span class="r-where">ch-02 · The Needle</span><span class="r-words"><span class="r-words-n">292</span> words</span><span class="r-save"><span class="r-save-label"><span class="is-saved">Saved</span><span class="is-saving">Saving…</span></span><span class="r-sep"></span><span class="r-dot"></span><svg class="r-ring" viewBox="0 0 100 26" preserveAspectRatio="none"><path pathLength="1" d="M81 2.6C60 0.8 32 1 15 2.2C5.5 3 0.9 7.6 1 13.4C1.1 19.4 6.4 24.4 17.5 24.8C40 25.6 64 25.4 84 24.4C94.4 23.8 99.1 19.4 99 13C98.9 7 94.6 3 84.5 2.4C79 2 73.5 2.4 67 3.4"/></svg></span><span class="r-bar-btn">Save snapshot</span><span class="r-bar-btn">History</span><span class="r-bar-btn">↩ Restore</span><span class="r-spacer"></span><span class="r-bar-btn">Corkboard</span><span class="r-bar-btn">Focus</span><span class="r-bar-btn">Typewriter</span><span class="r-sep"></span><span class="r-bar-btn">ES</span></div>
+</div></div>
+<p class="sr-only">Versorium with the chapter “The Needle” open. A sentence is typed, the status bar changes to “Saved”, and the history dot dims when a snapshot is taken.</p>
+<figcaption class="caption-row"><span>A recreation of the app, with sample text. Time sped up.</span><button class="replay" type="button" aria-label="Replay the animation">↻ Replay</button></figcaption>
+</figure>
+</div>
+</div>
+</section>
+
+<section class="section s-lost" id="how" aria-labelledby="how-title">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap s-lost-grid">
+<div class="s-head">
+<span class="chapter-mark" aria-hidden="true">I</span>
+<h2 id="how-title">Nothing gets <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>lost</span>.</h2>
+<p class="lead">It saves as you type. Every minute, and before AI touches anything, it takes a snapshot.</p>
+</div>
+
+<figure class="stage" data-reveal>
+<div class="stage-box">
+<svg class="pile" viewBox="20 4 444 344" aria-hidden="true" focusable="false"><g class="sheet-1" transform="translate(28 40) rotate(-7)"><g class="sheet-anim"><path class="sheet-paper" d="M2 3L228 0L230 288L0 290Z"/><path class="sheet-lines" d="M24 70H198M24 96H212M24 122H186M24 148H118M24 174H204M24 200H192M24 226H134"/><text class="sheet-time" x="9" y="27">5:55 PM</text></g></g><g class="sheet-2" transform="translate(94 34) rotate(-3)"><g class="sheet-anim"><path class="sheet-paper" d="M1 2L229 1L230 289L0 289Z"/><path class="sheet-lines" d="M24 70H206M24 96H190M24 122H214M24 148H150M24 174H196M24 200H210M24 226H122"/><text class="sheet-time" x="9" y="27">6:31 PM</text></g></g><g class="sheet-3" transform="translate(160 30) rotate(2)"><g class="sheet-anim"><path class="sheet-paper" d="M0 1L228 3L229 290L2 288Z"/><path class="sheet-lines" d="M24 70H210M24 96H196M24 122H168M24 148H202M24 174H214M24 200H188M24 226H146"/><text class="sheet-time" x="9" y="27">6:40 PM</text></g></g><g class="sheet-4" transform="translate(226 34) rotate(5)"><g class="sheet-anim"><path class="sheet-paper" d="M2 3L210 0L230 19L230 288L0 290Z"/><path class="sheet-fold" d="M210 0L212 19L230 19Z"/><path class="sheet-lines" d="M24 70H204M24 96H214M24 122H190M24 148H128M24 174H208M24 200H196M24 226H158"/><text class="sheet-time" x="9" y="27">6:52 PM</text></g></g></svg>
+<div class="window stage-card"><picture data-shot="../assets/shots/en/history" data-widths="1234">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" srcset="../assets/shots/en/history-needle-dark.webp">
+<img data-mode="light" src="../assets/shots/en/history-needle-light.webp" width="617" height="208" loading="lazy" alt="The History panel, Snapshots tab: autosaves on 4 October at 5:55 PM and 6:52 PM, a snapshot taken before an AI rewrite at 6:31 PM, and one described by hand, “The needle, second pass”, at 6:40 PM; below them, two from the day before.">
+</picture></div>
+</div>
+<figcaption>This is how the History panel lists them. Going back to one needs git, for now.</figcaption>
+</figure>
+
+<figure class="clip s-restore" data-clip data-clip-ms="3800">
+<div class="window"><picture data-shot="../assets/shots/en/restore" data-widths="1544">
+<source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="../assets/shots/en/restore-detail" data-widths="756" width="378" height="390" srcset="../assets/shots/en/restore-detail-needle-dark.webp">
+<source media="(max-width: 719px)" data-mode="light" data-shot="../assets/shots/en/restore-detail" data-widths="756" width="378" height="390" srcset="../assets/shots/en/restore-detail-needle-light.webp">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" srcset="../assets/shots/en/restore-needle-dark.webp">
+<img data-mode="light" src="../assets/shots/en/restore-needle-light.webp" width="772" height="390" loading="lazy" alt="In the editor, a deleted sentence comes back when ↩ Restore is pressed in the status bar.">
+</picture></div>
+<figcaption class="caption-row"><span>Deleted a sentence this session? ↩ Restore brings it back.</span><button class="clip-replay" type="button" aria-label="Replay the recording">↻ Replay</button></figcaption>
+</figure>
+</div>
+</section>
+
+<section class="section s-yours" id="yours" aria-labelledby="yours-title">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap">
+<div class="s-head">
+<span class="chapter-mark" aria-hidden="true">II</span>
+<h2 id="yours-title"><span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>Yours</span>, start to finish.</h2>
+</div>
+<div class="tiles">
+<div class="tile">
+<h3>A folder on your disk</h3>
+<p>Every chapter is a plain text file that opens without Versorium.</p>
+<div class="tile-fig" data-reveal><svg class="folder" viewBox="0 0 280 180" aria-hidden="true" focusable="false"><defs><clipPath id="folder-in"><path d="M0 0H280V164H0Z"/></clipPath></defs><path class="folder-back" d="M18 26L104 26L118 40L262 40L262 164L18 164Z"/><g clip-path="url(#folder-in)"><g transform="rotate(-9 90 75)"><g class="fsheet fsheet-1"><rect class="fsheet-paper" x="48" y="20" width="84" height="110" rx="3"/><text class="fsheet-name" x="57" y="35">ch-01</text><path class="fsheet-lines" d="M57 46H114M57 54H106M57 62H112"/></g></g><g transform="rotate(9 190 75)"><g class="fsheet fsheet-3"><rect class="fsheet-paper" x="148" y="20" width="84" height="110" rx="3"/><text class="fsheet-name end" x="223" y="35">ch-03</text><path class="fsheet-lines" d="M166 46H223M166 54H215M166 62H221"/></g></g><g class="fsheet fsheet-2"><rect class="fsheet-paper" x="98" y="20" width="84" height="110" rx="3"/><text class="fsheet-name" x="107" y="35">ch-02</text><path class="fsheet-lines" d="M107 46H164M107 54H156M107 62H162"/></g></g><path class="folder-front" d="M14 92L266 92L252 168L28 168Z"/><text class="folder-name" x="140" y="134">manuscript/</text></svg></div>
+</div>
+<div class="tile">
+<h3>AI, only if you call it</h3>
+<p>You choose which one, and it writes nothing without your permission.</p>
+<div class="tile-fig" data-reveal><svg class="dial" viewBox="0 0 280 180" aria-hidden="true" focusable="false"><path class="dial-arc" d="M40 150A100 100 0 0 1 240 150"/><path class="dial-ticks" d="M60.3 104L46.5 96M140 58V42M219.7 104L233.5 96"/><g class="needle"><path class="needle-north" d="M140 64L146 150H134Z"/><path class="needle-south" d="M134 150L140 172L146 150Z"/><circle class="needle-pivot" cx="140" cy="150" r="5"/></g></svg><ul class="dial-labels"><li aria-current="true">Off</li><li>On your computer</li><li>Your tool</li></ul></div>
+</div>
+<div class="tile">
+<h3>Take it anywhere</h3>
+<p>It exports manuscript-format DOCX, EPUB, PDF and Scrivener.</p>
+<div class="tile-fig" data-reveal><svg class="fan" viewBox="0 0 280 180" aria-hidden="true" focusable="false"><g class="fan-card fan-card-1"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name" x="118" y="27">DOCX</text></g><g class="fan-card fan-card-5"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name end" x="162" y="27">MD</text></g><g class="fan-card fan-card-2"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name" x="118" y="27">EPUB</text></g><g class="fan-card fan-card-4"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name end" x="162" y="27">Scrivener</text></g><g class="fan-card fan-card-3"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name mid" x="140" y="27">PDF</text></g><g class="fan-sheet"><rect class="fan-paper" x="104" y="64" width="72" height="96" rx="3"/><path class="fan-lines" d="M114 80H166M114 90H162M114 100H166M114 110H146M114 124H164M114 134H158M114 144H138"/></g></svg></div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="section s-desk" id="desk" aria-labelledby="desk-title">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap">
+<div class="s-head">
+<span class="chapter-mark" aria-hidden="true">III</span>
+<h2 id="desk-title">A desk built for <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>writing</span>.</h2>
+</div>
+<div class="steps">
+<div class="step">
+<div class="step-text"><h3>Corkboard.</h3><p>The whole novel at a glance.</p></div>
+<figure class="step-fig step-fig-cork"><div class="window"><picture data-shot="../assets/shots/en/corkboard" data-widths="1280,2560">
+<source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="../assets/shots/en/corkboard-detail" data-widths="260,520" width="260" height="478" sizes="325px" srcset="../assets/shots/en/corkboard-detail-needle-dark@1x.webp 260w, ../assets/shots/en/corkboard-detail-needle-dark.webp 520w">
+<source media="(max-width: 719px)" data-mode="light" data-shot="../assets/shots/en/corkboard-detail" data-widths="260,520" width="260" height="478" sizes="325px" srcset="../assets/shots/en/corkboard-detail-needle-light@1x.webp 260w, ../assets/shots/en/corkboard-detail-needle-light.webp 520w">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" sizes="(min-width: 1024px) 663px, calc(100vw - 64px)" srcset="../assets/shots/en/corkboard-needle-dark@1x.webp 1280w, ../assets/shots/en/corkboard-needle-dark.webp 2560w">
+<img data-mode="light" src="../assets/shots/en/corkboard-needle-light@1x.webp" srcset="../assets/shots/en/corkboard-needle-light@1x.webp 1280w, ../assets/shots/en/corkboard-needle-light.webp 2560w" sizes="(min-width: 1024px) 663px, calc(100vw - 64px)" width="1280" height="800" loading="lazy" alt="The Corkboard view, with one card per chapter. The card for “The Needle”, marked as the open one, shows its number, its status (revised), its title, the opening of its text and 282 words; below it is the card for “The Oar”." data-alt="The Corkboard view: eight cards, one per chapter of “Not on the List”, each with its number, status, title, the opening of its text and its word count. The card for “The Needle” is marked as the open one.">
+</picture><svg class="annot" viewBox="0 0 1280 800" aria-hidden="true" focusable="false"><ellipse class="annot-mark" cx="634" cy="214.5" rx="132" ry="126" transform="rotate(-3 634 214.5)" pathLength="1" fill="none" stroke-width="3" stroke-linecap="round"/></svg></div></figure>
+</div>
+<div class="step">
+<div class="step-text"><h3>Focus.</h3><p>Just you and the page.</p></div>
+<figure class="step-fig step-fig-focus"><div class="window"><picture data-shot="../assets/shots/en/focus" data-widths="1280,2560">
+<source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="../assets/shots/en/focus-detail" data-widths="420,840" width="420" height="480" sizes="(max-width: 564px) calc(100vw - 40px), 525px" srcset="../assets/shots/en/focus-detail-needle-dark@1x.webp 420w, ../assets/shots/en/focus-detail-needle-dark.webp 840w">
+<source media="(max-width: 719px)" data-mode="light" data-shot="../assets/shots/en/focus-detail" data-widths="420,840" width="420" height="480" sizes="(max-width: 564px) calc(100vw - 40px), 525px" srcset="../assets/shots/en/focus-detail-needle-light@1x.webp 420w, ../assets/shots/en/focus-detail-needle-light.webp 840w">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" sizes="(min-width: 1024px) 663px, calc(100vw - 64px)" srcset="../assets/shots/en/focus-needle-dark@1x.webp 1280w, ../assets/shots/en/focus-needle-dark.webp 2560w">
+<img data-mode="light" src="../assets/shots/en/focus-needle-light@1x.webp" srcset="../assets/shots/en/focus-needle-light@1x.webp 1280w, ../assets/shots/en/focus-needle-light.webp 2560w" sizes="(min-width: 1024px) 663px, calc(100vw - 64px)" width="1280" height="800" loading="lazy" alt="The start of “The Needle” in Focus mode." data-alt="The app in Focus mode: the “Projects and chapters” panel and the top bar are hidden, leaving the page of “The Needle” and the status bar, with Focus pressed.">
+</picture><svg class="annot" viewBox="0 0 1280 800" aria-hidden="true" focusable="false"><path class="annot-mark" d="M244.8 72 q-10 0 -10 10 V204.8 q0 10 10 10" pathLength="1" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div></figure>
+</div>
+<div class="step">
+<div class="step-text"><h3>Rewrite.</h3><p>See every change before you apply it.</p><p class="small">A real recording; the proposed text is a sample.</p></div>
+<figure class="step-fig clip" data-clip data-clip-ms="2500"><div class="dialog-stage"><div class="window window-dialog"><picture data-shot="../assets/shots/en/rewrite" data-widths="1120">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" srcset="../assets/shots/en/rewrite-needle-dark.webp">
+<img data-mode="light" src="../assets/shots/en/rewrite-needle-light.webp" width="560" height="423" loading="lazy" alt="The Rewrite dialog. The agent is Qwen3 4B Instruct 2507, labelled Local: “This call goes to Qwen3 4B Instruct 2507.” The preview shows an unchanged paragraph, the original paragraph in red and the proposed one in green. At the bottom, “Versorium snapshots Git before applying. You can roll back.”, with Discard and Apply buttons.">
+</picture></div></div>
+<div class="caption-row"><button class="clip-replay" type="button" aria-label="Replay the recording">↻ Replay</button></div>
+</figure>
+</div>
+</div>
+<p class="chips">Typewriter · Spell check · Text size and width · Templates · One-click backup · In English and Spanish</p>
+</div>
+</section>
+
+<section class="section s-get" id="download" aria-labelledby="download-title">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap s-get-grid">
+<div>
+<h2 id="download-title">The first release is <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>on its way</span>.</h2>
+<p class="lead">Nothing to download yet: follow it and you’ll know the day it’s out.</p>
+<div class="actions">
+<a class="btn btn-primary btn-large" href="https://github.com/MAECLY/versorium-app">Notify me on GitHub</a>
+<button class="btn btn-large" type="button" data-share data-phone>Send it to your computer</button>
+</div>
+<p class="hint">On GitHub: Watch → Custom → Releases · <a href="https://github.com/MAECLY/versorium-app/releases.atom">or follow it by RSS</a></p>
+<p class="hint" data-phone><a href="mailto:?subject=Versorium%20(to%20open%20on%20my%20computer)&amp;body=https%3A%2F%2Fversorium.maecly.com%2Fen%2F%23download">By email</a> · <button class="btn-link copy" type="button" data-copy="https://versorium.maecly.com/en/#download" data-done="Copied" data-failed="Couldn’t copy; press and hold the link." data-status="copied-link">Copy link</button><span class="sr-only" id="copied-link" role="status"></span></p>
+<ul class="platforms" aria-label="Platforms">
+<li data-os="mac"><span class="os-dot is-tried" aria-hidden="true"></span>macOS · tried<span class="is-yours-label"> · your system</span></li>
+<li data-os="win"><span class="os-dot" aria-hidden="true"></span>Windows · not tried yet<span class="is-yours-label"> · your system</span></li>
+<li data-os="linux"><span class="os-dot" aria-hidden="true"></span>Linux · not tried yet<span class="is-yours-label"> · your system</span></li>
+</ul>
+</div>
+<aside class="limits" aria-labelledby="not-yet">
+<h3 id="not-yet">What it doesn’t do yet</h3>
+<ul>
+<li>The AI only rewrites and checks continuity.</li>
+<li>Going back to a snapshot needs git.</li>
+<li>Backups are made by hand.</li>
+<li>Unsigned: macOS and Windows will warn you.</li>
+<li>Importing from Word, EPUB or Scrivener loses bold, italics and scenes.</li>
+</ul>
+<a href="details/#limits">See every limit <span aria-hidden="true">→</span></a>
+</aside>
+</div>
+</section>
+
+<section class="section s-faq" id="questions" aria-labelledby="questions-title">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap faq-grid">
+<h2 id="questions-title">Before you <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>ask</span>.</h2>
+<div class="faq">
+<details><summary>Does my novel leave my computer?</summary><div class="answer"><p>Only when you ask: sending it to GitHub, rewriting with an outside tool, or backing it up to a synced folder. On its own, the app only checks for updates, with nothing from your novel, and you can turn that off. No telemetry.</p></div></details>
+<details><summary>Do I need an account, or git?</summary><div class="answer"><p>No account: there’s no sign-up. And you don’t need git to write: Versorium takes the snapshots for you, with git built in. For now, git is only needed to go back to an old snapshot.</p></div></details>
+<details><summary>Which AI does it use?</summary><div class="answer"><p>None until you choose one: a model inside the app itself, Ollama, or Claude Code, Codex or OpenCode, which send the passage to their own service. Today it rewrites passages and checks continuity.</p></div></details>
+<details><summary>Can I bring my novel from Scrivener or Word?</summary><div class="answer"><p>Yes: it imports Scrivener, DOCX, EPUB and Markdown, and shows you a preview before creating anything. From DOCX, EPUB or Scrivener, bold, italics and scenes are lost.</p></div></details>
+<details><summary>Why is it free?</summary><div class="answer"><p>It’s open source (<span class="nobreak">Apache-2.0</span>) and made by one person. There’s no paid tier and no ads, and the app collects no data.</p></div></details>
+</div>
+</div>
+</section>
+
+<section class="closing" id="closing" aria-labelledby="closing-title">
+<div class="wrap closing-inner">
+<svg class="vc" data-reveal viewBox="0 0 100 100" aria-hidden="true" focusable="false"><mask id="vc-m1" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-shade" pathLength="1" stroke-width="11" stroke-linejoin="round" d="M24.1 17.6L25.2 20.4L27.1 25.2L29.1 30.1L31.0 35.0L33.0 39.9L35.1 44.9L37.2 49.8L39.4 54.9L41.5 59.8L43.8 64.9L46.1 70.0L48.4 75.2L50.8 80.4L52.1 83.1"/></mask><mask id="vc-m2" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-hair" pathLength="1" stroke-width="7" stroke-linejoin="round" d="M49.3 83.0L50.8 80.4L53.0 76.7L55.1 73.0L57.2 69.2L59.3 65.4L61.3 61.6L63.3 57.8L65.3 53.9L67.2 50.0L69.1 46.1L71.0 42.2L72.8 38.2L74.3 34.0"/></mask><use class="v-ink" href="#v-s" mask="url(#vc-m1)"/><use class="v-ink hair" href="#v-h" mask="url(#vc-m2)"/><g class="v-nib"><path class="v-ink" d="M72.0 40.1L79.5 33.5L82.4 23.3L76.6 20.9L71.4 30.2Z"/><path class="v-cut" d="M73.5 36.6L77.2 27.7" fill="none" stroke-width="2.4" stroke-linecap="round"/><circle class="v-hole" cx="77.2" cy="27.7" r="1.7"/></g></svg>
+<h2 id="closing-title">If Versorium disappears tomorrow, your novel doesn’t.</h2>
+<div class="actions">
+<a class="btn btn-invert btn-large" href="https://github.com/MAECLY/versorium-app" data-desktop>Notify me on GitHub</a>
+<button class="btn btn-invert btn-large" type="button" data-share data-phone>Send it to your computer</button>
+</div>
+<p class="assure">Free · No account · Open source</p>
+</div>
+</section>
+</main>
+
+<footer class="footer">
+<div class="wrap">
+<div class="footer-top">
+<div>
+<a class="brand" href="./"><svg class="vmark" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use class="v-ink" href="#v-s"/><use class="v-ink hair" href="#v-h"/></svg><span>versorium</span></a>
+<p class="tagline">A quiet desk, a sharp needle.</p>
+</div>
+<nav aria-label="Links"><ul>
+<li><a href="https://github.com/MAECLY/versorium-app">Code</a></li>
+<li><a href="https://github.com/MAECLY/versorium-app/blob/main/LICENSE">Licence</a></li>
+<li><a href="https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md">Trademark</a></li>
+<li><a href="https://github.com/MAECLY/versorium-app/blob/main/THIRD-PARTY-NOTICES.md">Third-party notices</a></li>
+<li><a href="details/">Limits and details</a></li>
+<li><a href="../llms.txt">llms.txt</a></li>
+<li><a href="../" hreflang="es" lang="es">Español</a></li>
+</ul></nav>
+</div>
+<div class="legal">
+<p>Versorium and its mark belong to MAECLY; the <span class="nobreak">Apache-2.0</span> licence doesn’t cover them. Made by Miguel Esparza · <a href="mailto:hola@maecly.com">hola@maecly.com</a></p>
+<p class="proof"><span class="proof-nojs">No cookies or analytics, and nothing from other servers: check your Network tab.</span><span class="proof-js">No cookies or analytics. Requests to other servers since you arrived: <b class="req-count">0</b></span> <span class="proof-ext" hidden>This page can’t make them (its security policy forbids it); they usually come from browser extensions.</span></p>
+</div>
+</div>
+</footer>
+</body>
+</html>

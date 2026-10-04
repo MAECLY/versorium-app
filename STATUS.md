@@ -1,235 +1,1893 @@
 # STATUS
 
-## Current milestone: post-v1 — UI/UX pass ⏳ · M0–M7 complete
+## Where things stand (2026-10-03)
 
-Work after M7 lives on `feat/m8-inference-runtime`. It is not a milestone with a
-DoD; it is what reading the app with fresh eyes turned up, plus the largest
-known hole (no inference runtime). See "Post-v1 pass" below.
+M0–M7 are complete. Two rounds of work after them are merged into `main`:
+PR #7 (the post-v1 pass and the built-in inference runtime) and PR #9
+(`feat/v11-hardening`, 40 commits, merged 2026-10-03). Work now continues on
+`feat/landing-and-docs`.
+
+What is **not** true yet:
+
+- **No release has been cut and no tag exists.** `tauri.conf.json` says
+  `Versorium` / `dev.versorium.app` / `0.1.0`. The updater chain, the release
+  workflow and the installers have never run end to end.
+- **The repository is private** (`github.com/MAECLY/versorium-app`), and MAECLY
+  is on GitHub's free plan, where Pages does not serve private repositories.
+- **The landing page is not live.** `versorium.maecly.com` is planned as a
+  GitHub Pages site built from `docs/` by `.github/workflows/pages.yml`, being
+  added on this branch. It goes live only once the repo is public, Pages is
+  enabled, and Cloudflare has `versorium` CNAME → `maecly.github.io`.
+- The release signing secrets are set on 2026-10-03 (17:18 UTC); the first tag build is the
+  end-to-end proof (see "Release readiness").
+
+`TODO.md` lists the work that is half-done in the code, the three Local AI
+tasks that are specified and not started, and the steps to going public. It is
+not a complete list of what the spec asks for and the code does not do yet: the
+"Implementation notes (2026-10-03)" sections at the end of
+`PROMPT-VERSORIUM.md` and `DESIGN-VERSORIUM.md` record the rest (among them the
+command palette, BYOK, most CLI subcommands, the downloadable font catalogue),
+each against the code. "Still open" below is the short form of `TODO.md`.
 
 ## How to run
 
 ```bash
-# Node v20 via nvm must be on PATH. NOTE: the corepack pnpm shim in nvm is
-# broken on this machine (points at pnpm/12.4.1/bin/pnpm.cjs, which pnpm 12
-# does not ship); /opt/homebrew/bin/pnpm works.
-export PATH="$HOME/.nvm/versions/node/v20.19.1/bin:$PATH"
-
-# There is now a Makefile wrapping all of this: `make help` lists it, and it
-# resolves the two absolute paths this machine needs (pnpm, the real JDK).
+# The Makefile resolves the two absolute paths this machine needs: pnpm at
+# /opt/homebrew/bin/pnpm (the corepack/nvm shim is broken here) and the real
+# JDK for epubcheck (the `java` on PATH is the macOS stub). Override either:
+# `make dev PNPM=pnpm`. Node 20 is what CI uses; on this machine it is
+# ~/.nvm/versions/node/v20.19.1/bin, put on PATH before running make.
+make help             # every target, with a one-line description
 make dev              # dev window (make devtools opens the inspector)
-make verify           # the whole gate: check, test-ui, test, clippy, test-e2e
+make verify           # the whole gate, fast first: check, locales, test-ui, test, clippy, test-e2e
 make check            # svelte-check (0 errors, 0 warnings)
+make locales          # EN/ES key parity, no blank strings, no error code with a space
 make test             # cargo test
 make test-ui          # vitest, jsdom
-make test-e2e         # Playwright, system Chrome, mocked IPC
+make test-e2e         # Playwright against the mocked IPC
 make test-live        # the #[ignore] live_ tests (fetches epubcheck first)
+make icons            # regenerate the whole app icon set from tests/icons/generate.py
+make bundle           # installable app (.dmg / .msi / .AppImage)
 
 versorium mcp [--client <id>]   # serve MCP over stdio
 ```
 
-Browser preview with the IPC stubbed: `pnpm dev` → `http://localhost:1420/?mock=tauri`.
+`make clippy` runs `cargo clippy -- -D warnings` on shipped code only. CI runs
+the stricter `cargo clippy --all-targets -- -D warnings`, which is the form
+measured below; the Makefile target's description ("test code has known
+warnings") predates the test-code warnings being fixed.
 
-## M7 DoD checklist
+Browser preview with the IPC stubbed: `make mock` (or `pnpm dev`) →
+`http://localhost:1420/?mock=tauri`. The mock only loads in a dev build.
 
-- [x] **Onboarding with no signup** — spec §14's five steps, every one skippable, a Skip that always works, and nothing created until the project step is confirmed
-- [x] **Corkboard** — a card per chapter with title, words, status and a preview, opening the chapter on click
-- [x] **Continuity check stub** — runs through a selected Ollama model, and returns `ran: false` with a reason rather than an empty report when there is none
-- [x] **Crash log local + Report** — scrubbed entries on disk, an issue URL prefilled from the scrubbed entry, and nothing sent unless the writer presses Report
-- [x] **Focus mode + typewriter** — both through CodeMirror compartments, so toggling never rebuilds the editor
-- [x] **Font catalogue stub** — the faces already on the machine, with Source Serif 4 listed as unavailable rather than offered with a dead URL
-
-## M6 DoD checklist (done)
-
-## M6 DoD checklist
-
-- [x] Tauri updater plugin (2.13) wired, with `createUpdaterArtifacts` and the real minisign public key
-- [x] Reads GitHub Releases of the app's own repo, over the **API asset endpoint** — the only form that serves bytes from a private repository
-- [x] **minisign + sha256** — the plugin verifies the signature, and the client verifies the digest against the release's `SHA256SUMS` before installing
-- [x] Settings → Updates, using the M1 Updates token slot that has always been separate from the novel token
-- [x] Dialog with **Download & Install / Later / Skip this version**
-- [x] CI workflow that builds and publishes a signed release on a `vX.Y.Z` tag, plus `RELEASING.md`
-- [x] Channels `stable` (default) and `beta`; automatic checking on by default on stable; offline never nags
-
-## M5 DoD checklist (done)
-
-## M5 DoD checklist
-
-- [x] Export **Markdown** (canonical, lossless round trip), **DOCX** in standard manuscript format, **EPUB 3** (passes epubcheck 5.2.1 with zero errors and zero warnings) and **PDF** (base-14 Times-Roman, nothing embedded, chapter per page, running heads)
-- [x] Import **Markdown** (tolerant of setext, CRLF, BOM, no headings, prose before the first heading), **DOCX** (H1 = chapter, across Word / Google Docs / LibreOffice / pandoc spellings), **Scrivener** best-effort (v2 and v3 layouts, binder order, synopsis, trash skipped)
-- [x] **Round trip documented** — `FORMATS.md`, per format and per direction, plus the commands to verify each output
-- [x] Losses are said out loud: an export reports what it could not carry, an import shows its losses **before** writing a project
-
-## M4 DoD checklist (done)
-
-## M4 DoD checklist
-
-- [x] Settings → Local AI cards moving **Download → % + Cancel → Ready → Selected**, with the weight icon, one-liner, badge, size/quality/quant/context/RAM meta, licence and repo the spec's card bullet list asks for
-- [x] `models/catalog.json` with the LOW → MID → MID+ → HIGH ladder plus an embeddings pack; **nothing downloads on its own**, HIGH least of all
-- [x] Ollama tab: daemon state, the pulled models, pull by name, remove with confirmation, install hint when it is not there
-- [x] Slots for Rewrite, Chat, Continuity, Embeddings — and Dictation — each picking its own model instead of one global choice
-- [x] Hardware wizard: memory, cores, platform, graphics, and the largest tier that fits with 20% headroom, stated in a sentence
-- [x] Real downloads: streamed, resumable from a `.part`, one at a time, SHA256-verified, destroyed on mismatch
-- [x] Studio tab (LM Studio / llama-server) with a connection test; Dictation is the UI hole the spec asks for until the Whisper packs land
-- [x] i18n EN + ES (81 `localAi.*` keys)
-
-## M3 DoD checklist (done)
-
-- [x] `versorium mcp` serves stdio from the same binary — `--client <id>` comes from the config the user approved, not from the wire, so a client cannot claim another's permission
-- [x] Read tools: `list_projects`, `read_document`, `search`, `assemble_context`, `history_list` — plus `get_app_state`, `open_project`, `list_documents`, `history_blame`, `diff`, `git_status`, `git_log`, `get_style`, `codex_search`, `codex_get` (15 total)
-- [x] Write tools exist but REJECT unless Settings → MCP grants that client: `write_document`, `insert_text`, `delete_text`, `replace_text`, `create_document`, `codex_upsert`, `git_commit`, `delete_document` (8)
-- [x] Write path: preview (no `confirm: true` → diff only, nothing touched) → git checkpoint → apply → ops `author=ai:<client>` at UTF-16 offsets. Deleting a chapter needs `acknowledge_delete` on top of `confirm`
-- [x] README documents the auto-write snippet for Claude Desktop, OpenCode and Cursor (plus Claude Code, Codex and VS Code); Settings → MCP writes the first four for you
-- [x] Warning copy about AI deleting text, verbatim from spec §7, shown above the Allow-write controls rather than behind them
-- [x] Tool log in Settings → MCP: tool, client, scope, outcome, paths — never manuscript text
-- [x] i18n EN + ES (29 `mcp.*` keys); actionable copy for every error code a tool can return
-
-## Verification (this machine, 2026-09-28, macOS 27.0)
+## Verification (2026-10-03, on the merged head of PR #9)
 
 | Check | Result |
 |---|---|
-| `cargo test` | ✅ 438 unit + 4 integration passed, 16 ignored |
-| `cargo clippy --all-targets` | ✅ 0 warnings. The 6 that used to be reported were in test code and are now fixed, so CI can run this flag with `-D warnings` |
-| `pnpm check` | ✅ 0 errors, 0 warnings, 368 files |
-| `pnpm test:ui` | ✅ 91 passed |
-| `pnpm test:e2e` | ✅ 81 passed |
-| `node tests/locale-parity.mjs` | ✅ 632 keys in each of en, es |
-| Real app | ✅ launches with every M7 control present, editor, project switching and the Git panel working |
+| `cargo test` | ✅ 464 unit + 4 integration passed, 16 ignored |
+| `cargo clippy --all-targets -- -D warnings` | ✅ 0 findings |
+| `pnpm check` (svelte-check) | ✅ 0 errors, 0 warnings, 377 files |
+| `pnpm test:ui` (vitest) | ✅ 93 passed |
+| `pnpm test:e2e` (Playwright, mocked IPC) | ✅ 96 passed |
+| `node tests/locale-parity.mjs` | ✅ 679 keys in each of en and es |
+| CI (`.github/workflows/ci.yml`) | ✅ green on the merged head |
 
-**Honest limit on the real-app pass**: the corkboard and focus mode were driven
-through the browser end-to-end suite, which exercises the same components via
-the same TopBar buttons, but coordinate-driven clicks in the desktop window kept
-landing on the wrong control, so they were not clicked in the real app.
+What this table does not cover: the 16 ignored tests were not run. Fifteen are
+the `live_` ones, which need something outside the test process: the network,
+GitHub, Ollama, installed agents, pandoc, poppler, epubcheck, a real GGUF, the
+OS credential store, the system trash, the sync folders on this machine, or a
+localhost socket. The sixteenth, `hook_writes_a_scrubbed_record` in
+`src-tauri/src/crash/mod.rs`, is ignored because it installs a process-global
+panic hook; `make test-live` (`--ignored live_`) does not run it. The results
+of running the format tools by hand on 2026-10-03 are in `FORMATS.md`. The
+end-to-end suite runs against a mocked IPC, not the desktop app, and the
+desktop app was not driven by hand for this measurement. The Vulkan build is
+only compile-checked by CI (`cargo check --features vulkan` on Linux, on `main`
+and on demand, not on pull requests); it has never run on a GPU.
 
-## How the crash log is kept from carrying a manuscript
+## Release readiness
 
-Spec §12 says zero prose, and a panic payload is whatever someone passed to
-`panic!`, so the scrubber removes rather than trusts: absolute paths collapse to
-an extension, emails and credential-shaped tokens go, and any run of six plain
-words goes with them — chapter filenames are slugified titles, so a path is
-prose too. Proved gone in tests: Spanish prose, chapter paths, `ghp_` tokens,
-sha256 hex, emails, Windows and `file://` paths, and all of their
-percent-encoded forms inside the report URL.
+- **Signing.** The updater's private key lives outside the repo at
+  `~/.versorium/signing.key`. It is encrypted but signs with an empty password.
+  `tests/release/verify-signing-pair.py` proves that a signature made with it
+  verifies against the public key compiled into `tauri.conf.json`, and includes
+  a negative control. The two GitHub secrets, `TAURI_SIGNING_PRIVATE_KEY` and
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty), were set on 2026-10-03 (17:18 UTC) by the
+  maintainer.
+- **Release notes.** The release workflow builds a *draft* on a `vX.Y.Z` tag and
+  its body now carries two notices, in English and Spanish. They replace an
+  older note telling macOS users to "right-click and choose Open", which does
+  not get past the quarantine on a bundle without a Developer ID signature:
+  - *macOS will say the app is damaged. It is not.* The fix is
+    `xattr -rd com.apple.quarantine /Applications/Versorium.app`, run only on a
+    build taken from the release page.
+  - *SmartScreen will interrupt the installer.* Choose More info, then Run
+    anyway.
+- **No Apple notarization, no Windows Authenticode.** Both need purchased
+  certificates, and the certificates alone do not produce a signed build:
+  `release.yml` passes only `GITHUB_TOKEN` and the two `TAURI_SIGNING_*`
+  variables to `tauri-action`, and `tauri.conf.json` has no signing identity
+  and no certificate thumbprint, so the workflow and the config both need
+  changes once the certificates exist. Until then every release depends on the
+  two notices above; minisign plus `SHA256SUMS` is what the updater verifies.
 
-That threshold has a price, taken deliberately: `index out of bounds: the len is
-3 but the index is 5` is seven plain words and collapses. No threshold both
-keeps that and drops seven words of somebody's novel, so the manuscript wins —
-the numbers and the panic location survive, which is what identifies the bug.
+## Updater without a token (2026-10-03, on `feat/landing-and-docs`)
 
-## How the updater is kept from being a backdoor
+On 2026-10-03 the founder decided that once the repository is public, updates
+must work without a GitHub token. `PROMPT-VERSORIUM.md` §11 now opens with
+that amendment, dated, above the original text, which is kept. What changed:
 
-An automated review flagged the runtime-endpoint design, and it was right to
-look. The answer is that the endpoint is not configurable at all:
+- **No token means an anonymous check, not no check.** `update_check` and
+  `update_install` (`src-tauri/src/commands/update.rs`) no longer return early
+  without a token, and the startup check no longer waits for one
+  (`src/lib/update/state.svelte.ts`). `update::request_headers` adds
+  `Authorization` only for a saved, non-blank token: without one there is no
+  such header at all, not an empty `Bearer`. A saved token is sent exactly as
+  before, which keeps updates working while the repository is private and
+  lifts GitHub's anonymous limit (60 requests an hour per address; a check
+  costs two: the release list and `latest.json`).
+- **Each answer GitHub can give has its own code and its own EN and ES text**
+  (`update::classify`). `update_none_visible`: a 404, so nothing is published
+  yet, or the repository is still private and no token is saved; shown as a
+  quiet line. `update_rate_limited`: a 403 with `x-ratelimit-remaining: 0` or
+  `retry-after`, or a 429; it says a token lifts the limit and, when GitHub
+  sends a reset time, when it lifts. `update_rate_limited_token`: the same with
+  a token sent, without the advice to add one. `update_token_rejected`: a 401,
+  or another 403, with a token sent. `network`: still quiet, now with a line
+  that says nothing was checked. It also covers answers that are none of the
+  above, such as a 5xx or an anonymous 403 with no rate-limit headers, so the
+  line says GitHub could not be reached *or did not answer as expected*. The
+  panel says "Not checked yet." until a check has finished. Before, it said
+  "This is the newest release." as soon as the status loaded, whether or not
+  anything had been checked, and after a failed check. `bad_signature`,
+  `no_checksums` and `unsupported_platform` had no text and showed "Something
+  went wrong."; each has its own now.
+- **A limit reached between two requests is still named.** After the release
+  list, the next request of a check (`latest.json`) and the next two of an
+  install (`latest.json`, then the installer) are the plugin's, and the plugin
+  cannot say why GitHub refused one: it reports a refused `latest.json` as "no
+  release" and a refused installer as a network failure. GitHub's answer to
+  the list already says how many requests are left this hour. When fewer are
+  left than the check (one) or the install (three, `SHA256SUMS` included)
+  still needs, the updater reports the limit there, with its reset time, and
+  sends nothing that would be refused (`update::budget_covers`). What it
+  cannot see is another program on the same address spending the last request
+  in the instant between the list and the plugin's request. That check reads
+  "No release matched this channel.", and the next one names the limit.
+- **The token cannot follow a download off `api.github.com`.** Asset downloads
+  are redirected to GitHub's storage host. reqwest — 0.12.28 for the app's own
+  client, 0.13.5 inside tauri-plugin-updater, both from `Cargo.lock` — drops
+  `Authorization` on a hop to another host, but it compares each hop only with
+  the one before it, and tower-http 0.6.11, which follows the redirects for it,
+  rebuilds each hop's headers from the original request. So a second hop that
+  stays on the storage host carries the token again.
+  `tests/updater/redirect-probe` shows this on both versions. Nothing leaked:
+  no release has ever existed, so this path never ran, and GitHub's redirect
+  for a public repository's asset, measured on 2026-10-03, is a single hop to
+  `release-assets.githubusercontent.com`, which answers itself. Both clients now
+  follow a redirect only out of `api.github.com`, and only over https
+  (`update::may_follow`, applied to the plugin's client through
+  `configure_client`). Two loopback tests show the token reaching the first
+  host and nowhere else.
+- **The installer URL is pinned before anything is downloaded.** It comes
+  from `latest.json`, which nothing signs, and the plugin sends the builder's
+  headers, the token among them, to wherever it points. Before this change, a
+  tampered `latest.json` could have pointed the token at any host; the
+  minisign check refused the bytes, but only after the token was gone.
+- **Unchanged, and tested as such:** owner, repo and host compiled in;
+  `manifest_url_for`; minisign in the plugin, with the public key and
+  `endpoints: []` pinned by a test against `tauri.conf.json`; the
+  `SHA256SUMS` comparison (`update::digest_matches`); no install on any
+  mismatch. The anonymous path goes through all of them.
+- **Settings → Application:** Check now is never disabled for want of a token,
+  the "Sign in under Settings → Application…" line is gone, and the token
+  section is "Updates token (optional)" with a one-line reason.
 
-- Owner, repo and host are **compile-time constants**. There is no environment
-  variable, no setting and no command parameter that can change where an update
-  comes from — anything that could would be arbitrary code execution carrying
-  our own signature. An override "for testing" was planned and deliberately
-  dropped for exactly this reason.
-- Every URL that reaches the network is re-validated to be **https on
-  `api.github.com`**, so a tampered API response cannot redirect the download.
-  Tests run hostile inputs through it, including `api.github.com.evil.example.com`.
-- `endpoints: []` in the config is not an omission: the plugin refuses a check
-  that did not set an endpoint at runtime, which closes the unauthenticated JS
-  path rather than opening one. A static URL could not work anyway — a private
-  repo's asset id changes with every release.
-- The **private** signing key lives outside the repository. Only the public half
-  is committed, which is what a public key is for.
+## Right-click (2026-10-03, on `feat/landing-and-docs`)
 
-## How the formats were built
+Neither wry nor Tauri touches the webview's context menu, so until now every
+right-click showed the engine's own: over plain UI that is a page menu whose
+main item is Reload, in release builds too. A reload loses up to 800 ms of
+typing (the save debounce), the queued ops batch, CodeMirror's undo history
+and the session Restore works from; nothing listens for `beforeunload`. One
+module now decides every right-click, in this order:
 
-Nothing was written from memory. A research pass built a working DOCX, EPUB and
-PDF by hand on this machine, ran epubcheck, pandoc, poppler and QuickLook
-against them, and **ablated each part to find which were genuinely required** —
-that is how we know `word/styles.xml` is not optional (without it pandoc loses
-every heading and the chapter round trip dies) while `docProps/core.xml` is. The
-Rust writers are ports of those verified builders, and the same tools run as
-`#[ignore] live_` tests.
+- **Binder rows and corkboard cards open their item menu,** the same
+  menu as the row's ⋯ (`src/lib/components/Menu.svelte` since 2026-10-04), built by the same `chapterActions` /
+  `projectActions` (`src/lib/binder/itemActions.svelte.ts`), at the pointer.
+  Shift+F10 and the Menu key open it on a focused row, its ⋯ or a card. The
+  row or card is outlined (`.v-menu-target`) while its menu is open; nothing
+  opens while `store.loading` has the rows disabled. The dialogs those menus
+  open (`ItemActionDialogs.svelte`) are mounted once in `App.svelte`, so the
+  corkboard's menu does not depend on the sidebar.
+- **Editable text, and text the writer has already selected, keep the
+  engine's own menu untouched**: spelling guesses, Look Up, Writing Tools,
+  Paste and AutoFill exist nowhere else. "Selected" is strict: the pointer on
+  the selection's glyphs, not on a control drawn over it.
+- **Everything else is cancelled,** and a cancelled or claimed right-click no
+  longer moves focus, selects a word or presses what is under it. The press
+  guard cancels that press's `pointerdown` (a disabled button gets no
+  `mousedown`, and focus still went to `<body>` for it), its `mousedown` and
+  its `selectstart`. Two one-shot guards cover the release, which a native
+  menu's tracking loop used to swallow: the click WebKit sends after a
+  cancelled Ctrl+click, and the `auxclick` on which WebKit toggles a checkbox,
+  or clicks it through its `<label>`.
 
-Only two new dependencies: `zip` and `quick-xml`. The PDF needs neither a crate
-nor a font file — Times-Roman is one of the base-14, so nothing is embedded.
+How it is wired, and why:
 
-## Catalogue provenance
+- `src/lib/contextmenu/policy.ts`, capture-phase listeners on `window`,
+  installed from `App.svelte`'s `onMount`. Not from `main.ts`: the
+  boot-failure screen keeps the engine's Reload, its only way out. Capture on
+  `window` runs ahead of Svelte's delegated handlers, so no component can
+  leak the page menu and later components are covered without knowing.
+- **Windows only, the same module cancels F5, Ctrl+R and Ctrl+P.** WebView2
+  keeps browser accelerator keys on in release and Tauri 2.12 exposes no
+  switch. Not on macOS or Linux, where WKWebView and WebKitGTK bind no reload
+  key and Ctrl+P is CodeMirror's line-up. Alt+Arrow (CodeMirror's
+  cursorSyntaxLeft/Right off macOS) and Ctrl+F (search) are left alone.
+- **Debug builds keep Inspect Element** behind Shift+right-click, and Shift
+  also lets Shift+F5 reload the dev window; only the refresh keys, so
+  Ctrl+Shift+R (Rewrite) stays cancelled there too. `import.meta.env.DEV` is
+  a build-time constant, so none of it is in a release bundle.
+- **Focus is handed back.** The menu is `role="menu"` with roving focus
+  (arrows wrap, Home/End, Escape, Tab), `position: fixed` and clamped inside
+  the window, one open at a time, and on every close returns focus to what had
+  it, going through `EditorView.focus()` for the manuscript
+  (`src/lib/components/restoreFocus.ts`). Focus moved out of an open menu by
+  code or by VoiceOver closes it, since only the panel hears Escape. Focus
+  dropped to `<body>` with no new target does not: pressing the ⋯ in WebKit
+  does exactly that, and its click must still find the menu open to close it.
+  `Modal.svelte` now returns focus when a dialog is closed by its own
+  buttons, which unmount the `<dialog>` without `close()` and used to leave
+  focus on `<body>`; this applies to all nine dialogs. Move earlier/later
+  keeps focus on the moved row or card, and a delete moves it to the next
+  item, the previous one, or "+ New chapter" / the home screen's primary
+  button.
+- **A right-click or a Mac Ctrl+click on a dialog's backdrop no longer closes
+  it.** It used to, which skipped the tour for good, threw away an unapplied
+  rewrite and dismissed an update.
+- `RenameDialog` now cancels the Enter that submits it: with focus handed
+  back, that keystroke's newline landed in the manuscript (or pressed the row)
+  whenever the rename finished within the keystroke, as it does on the mock.
 
-Every `sha256` was read from Hugging Face's LFS `oid`, never guessed, and every
-`sizeBytes` confirmed with a HEAD request. The method itself was proven by
-downloading the 84 MB embedder in full and comparing `shasum -a 256` against the
-published oid. Nothing in the catalogue is gated, so the downloader needs no
-credentials. Sidecar `mmproj`/`mtp` blobs are deliberately absent — the main
-GGUF loads standalone and the extras would double the download for nothing.
+Tests: `tests/e2e/context-menu.spec.ts` (21 cases on the mocked IPC, pinning
+the platform where a rule depends on it), `src/lib/contextmenu/policy.test.ts`
+(the rules in isolation), and `tests/scratch/context-menu-webkit-probe.mjs`
+for what only WebKit does (its word selection on a right-click, the click it
+sends after a cancelled Ctrl+click, the checkbox it toggles on a cancelled
+right-click's `auxclick`). The Chrome suite also pins two mechanisms whose
+outcome it cannot see: that `auxclick` is cancelled (Chrome never toggles
+the box), and that the caret is redrawn the moment focus comes back to the
+manuscript (typing afterwards lands right either way, because CodeMirror's
+own focus handler puts it back 10 ms later). The mock's `delete_chapter` now
+tolerates a clean tree as the Rust command does; a second delete in a row
+used to fail only there. What no automation reaches, the release builds of
+the three webviews, is listed in `TODO.md`.
 
-The spec's example models are a generation behind: Gemma 4 and Qwen 3.8 are
-current, and Gemma 4 ships `apache-2.0` and ungated where Gemma 3 was neither.
-`Qwen3-4B-Instruct-2507` stays as a mid entry because it is the only candidate
-inside the 2.3–2.6 GB band the spec names.
+Known limits: the Windows key guard and WebKitGTK's handling of disabled
+buttons are unverified on those platforms (see `TODO.md`); on WebView2 the
+selected-text menu still lists Print, which only prints. Spelling guesses now
+appear in the manuscript's menu where the webview checks spelling (see
+"Settings → Editor" below); WebKitGTK still shows none without Rust.
 
-## How the wire shapes were settled
+## Settings → Editor (2026-10-03, on `feat/landing-and-docs`)
 
-Reading the spec was not enough — it has two incompatible eras live at once. A
-throwaway logging server registered in a scratch project captured what a real
-client actually sends: **Claude Code 2.1.283 opens with `initialize` at
-protocol `2025-11-25`**, then `notifications/initialized`, `tools/list`,
-`tools/call`. Binary inspection shows Claude Code, Claude Desktop and Codex all
-carry `2026-07-28` (which deleted the handshake in favour of `server/discover`)
-while OpenCode is legacy-only — so the server answers both eras and latches
-whichever one the client opened with.
+On 2026-10-03 the founder decided to turn spelling on in the manuscript and
+give it a home: a Settings group called Editor ("Editor" in Spanish too). The
+group that was Writing / Escritura is that group now
+(`src/lib/settings/groups/EditorGroup.svelte`); Focus and Typewriter stay modes
+in the status bar. Each option lives in `settings.json` under `editor`
+(`EditorSettings` in `src-tauri/src/commands/settings.rs`): patched key by key,
+and read back from disk through the same gate, so a hand-edited value of the
+wrong type, a step this build does not know or a `null` block costs that value
+rather than the whole file; and applied to a running editor through CodeMirror
+compartments and custom properties (`src/lib/editor/preferences.ts`), never by
+rebuilding it.
 
-## Bugs found and fixed on the way
+- **Typography**: the existing section, unchanged.
+- **Spelling — "Check spelling as you type", on.** The manuscript's
+  `spellcheck` follows it, and its content now carries the novel's `lang` from
+  `versorium.json`; before, it inherited `<html lang>`, which follows the
+  interface. `autocorrect` stays off, now stated: once spelling is checked,
+  WebKit's automatic correction follows macOS's own text correction settings,
+  on by default, which could replace invented names and dialect as they are
+  typed and log the replacement as the writer's keystroke. `autocapitalize` is `sentences` (on-screen keyboards and
+  dictation only); `writingsuggestions` stays off. The reasons are on
+  `contentAttributes`.
+- **On macOS the attribute alone drew nothing.** WKWebView underlines only
+  when the app's defaults say `WebContinuousSpellCheckingEnabled`, and WebKit
+  registers no default for it (`TextCheckerMac.mm` reads it with
+  `boolForKey:`). `src-tauri/src/spelling.rs` registers it before the window is
+  built. `tests/scratch/wkwebview-manuscript-spellcheck-probe.swift` loads the
+  app on the mock in a WKWebView and types into the manuscript with real key
+  events: without the default nothing is underlined; with it "nina",
+  "ventanna", "quikc" and "jumpd" are, and the correct Spanish and English
+  words around them are not. `wkwebview-spellcheck-probe.swift` shows the same
+  on bare editing hosts, and that WKWebView picks the dictionary from the
+  text, not from `lang`: Spanish in a `lang="en"` host was checked as Spanish,
+  so on a Mac `lang` matters to VoiceOver and hyphenation rather than to
+  spelling. WebKitGTK underlines nothing yet, and no release build has been
+  looked at (`TODO.md`). The switch's hint names the system's checker as what
+  underlines, and on Linux says instead that nothing is underlined there yet;
+  the box stays usable, and its choice is kept.
+- **Text size** Small / Medium / Large = 18 / 21 / 24px, **line spacing**
+  Compact / Comfortable / Airy = 1.5 / 1.7 / 2, **text width** Narrow / Medium
+  / Wide = 60 / 72 / 84ch. The middle steps are the old fixed values. They
+  reach `.cm-content` as custom properties on `.cm-editor`, read by the one
+  rule in `styles.css` that declares those properties, so there is no cascade
+  to win. Typewriter's padding (0,3,0) is untouched, and a spec turns it on
+  with the new steps set.
+- **Line numbers**, off. The fold markers stay; the gutter's rule now shows
+  only beside numbers, and a number sits level with its paragraph's first line
+  at every size. They count the chapter as the editor shows it: the header
+  Rust keeps at the top of the file is not counted, so they run behind the
+  file lines git and the assistants' `search` report (seven behind, in a
+  chapter Versorium wrote). The hint says what they count and promises no
+  more.
+- **Highlight the current paragraph**, on. `.cm-activeLine` was `transparent`
+  in `styles.css`, so `highlightActiveLine()` drew nothing and a switch for it
+  would have changed nothing. It is a translucent band of `--sel` now.
+  "Paragraph", because a wrapped CodeMirror line is the whole paragraph.
+- **Tab key**: "Moves to the next control" by default, "Indents the paragraph"
+  on request. Established before deciding: Tab indents by writing the indent
+  unit, two spaces, at the paragraph's start; one press reaches no export
+  (all five exporters are built from `scenes_of`, which trims each line), two
+  presses turn a paragraph after a blank line into a CommonMark indented code
+  block (the editor stops parsing its italics, an indented `##` stops being a
+  heading, and GitHub would show it as code), and with Tab bound the keyboard
+  cannot leave the manuscript. `src/lib/editor/preferences.test.ts` and
+  `formats::tests::a_paragraph_indented_with_tab_reaches_every_export_as_prose`
+  prove it; the reasons sit next to the keymap. Mod-] and Mod-[ still indent.
 
-- **The corkboard fetched every chapter twice.** Its effect read the preview
-  cache to decide what to fetch and then wrote to it, so storing a preview
-  re-triggered the read that stored it. The dedupe now lives outside reactive
-  state.
-- **Onboarding advanced relative to wherever the writer stood**, so reaching the
-  project or template step from earlier landed on the wrong one.
-- **`detectAgents()` returning a non-promise** blew up the whole first step.
-- **The Report button could not open a browser** — there was no opener plugin,
-  so spec §12's "opens the browser" was a link the desktop app could not follow.
-- **Onboarding was unreachable**: nothing mounted it, because the file that
-  mounts it belonged to a different agent than the one that wrote it.
+Tests: Rust for the defaults, an old file, half a block, unknown values,
+wrongly typed values and a `null` block, the patch, a round trip through the
+file, the macOS default, and all five exporters on Tab-indented text; vitest
+for the helpers, a live reconfigure that keeps caret, text and undo history,
+and Tab; `tests/e2e/editor-settings.spec.ts` reads what renders (the attributes
+on `.cm-content`, computed size, spacing and measure, the gutter, the band,
+where Tab leaves focus) before and after a reload, in English and Spanish, and
+the spelling hint as the box's description with the platform pinned to Linux
+and to macOS. The mock keeps its settings across a reload with
+`?mock=tauri&persist=1`, as settings.json outlives a relaunch. The three specs
+that opened "Writing" open "Editor".
 
-## Files / structure (M7 delta)
+Gate on this change (`make verify`, 2026-10-03, after the review fixes):
+svelte-check 0 errors and 0 warnings over 387 files; 714 locale keys in each
+language; vitest 143 passed in 19 files; `cargo test` 492 unit and 4
+integration passed, 16 ignored; clippy `--all-targets` clean; Playwright 128
+passed.
 
-- Rust: `src-tauri/src/crash/`, `src-tauri/src/continuity/`,
-  `src-tauri/src/fonts/`, `src-tauri/src/commands/polish.rs`, `fonts/catalog.json`
-- Frontend: `src/lib/editor/modes.ts`, `src/lib/binder/Corkboard.svelte`,
-  `src/lib/onboarding/`, `src/lib/settings/TypographySection.svelte`,
-  `src/lib/settings/SafetySectionCrash.svelte`
-- Tests: `tests/e2e/m7-polish.spec.ts`, mock extended with a fresh-install flag
+Known limits: a visit to Settings still unmounts the editor, as it always
+has, so it costs the undo history whatever the preferences do (`TODO.md`). The
+font chosen under Typography still does not reach the editor (`TODO.md`, and
+`DESIGN-VERSORIUM.md`, implementation notes). A novel's language is fixed at
+creation and every import is created as English, so the manuscript's `lang` is
+only as right as that (`TODO.md`).
+(The first two were fixed on 2026-10-04: "Settings over the editor, and the
+typeface on the page", below; the third the same day: "A novel's language can
+be changed, imports keep theirs, and Scrivener synopses are kept", below.)
 
-## Architecture decisions (M7)
+## Quitting waits for the last save (2026-10-04, on `feat/landing-and-docs`)
 
-1. **Modes go through compartments.** Toggling focus or typewriter must never
-   rebuild the editor — a test builds a real view, sets a caret, reconfigures,
-   and asserts the same DOM node, caret and text survive. That regression cost a
-   writer their selection and undo history once already.
-2. **Continuity refuses to pretend.** An empty findings list reads as "your
-   novel is consistent"; a stub that did not run has to say so.
-3. **Template chapter titles live in the locale files**, because they become
-   chapter titles inside the writer's own project and a Spanish writer should
-   not open a manuscript full of English beat names.
-4. **No Download button for a font we cannot fetch.** The catalogue lists what
-   is installed and marks Source Serif 4 unavailable.
-5. **Focus dims the chrome only once it holds neither hover nor keyboard
-   focus**, so a keyboard user never loses their place, and Escape always exits.
+Cmd+Q, Quit from the Dock, logging out and shutting down used to skip the
+save: AppKit's `terminate:` reaches tao's `applicationWillTerminate`, which
+Tauri turns into an exit that cannot be cancelled, so up to 800 ms of typing
+and the pending change-log batch were lost. `src-tauri/src/quit.rs` adds
+`applicationShouldTerminate:` to tao's app delegate class, answers
+`NSTerminateLater`, asks the frontend to save (`versorium://quit-requested`,
+`src/lib/app/quit.ts`) and replies once it has. A save that fails cancels the
+quit and says so; no answer within 5 s quits anyway, so a broken page cannot
+keep the app open. macOS only; Windows and Linux quit through the window's
+close, which already saved.
 
-## Known holes at the end of v1
+Measured on the real app, in an instance with its own `HOME` and data folder
+on a copy of a novel: " QUITTEST" typed and Cmd+Q pressed straight after
+(about 2 ms after the last keystroke). With the fix the chapter file and the
+change log both held it. The same steps on the build without the fix showed
+the word on screen in a capture taken between typing and Cmd+Q, and left the
+file without it and no change log for the day. Unit tests cover the reply-once
+gate (`quit::tests`) and the save-then-answer order (`quit.test.ts`).
 
-- **No built-in inference runtime** (M4). A downloaded GGUF is verified and Ready
-  but nothing loads it, so the continuity check and any built-in slot depend on
-  Ollama. This is the largest gap between the spec and the build.
-- **No release has ever been cut** (M6), so the updater chain is unproven end to
-  end and the repo constants still name `maecly/versorium-app` while the remote
-  is a personal fork.
-- **GitHub tokens are plaintext** in `settings.json`. The keyring pass was
-  deferred from M0 to M6 and never happened.
-- No Scrivener export, no EPUB import (M5). No HTTP/SSE MCP transport, no
-  network git (M3/M1). Whisper dictation packs absent (M4).
-- No Apple notarization or Windows Authenticode — minisign only.
+## Collapsible binder, top bar and Focus options (2026-10-04, on `feat/landing-and-docs`)
+
+The projects-and-chapters panel and the top bar fold away and come back, and
+Focus is a toggle with a menu saying what it hides. Built from the design
+chosen on 2026-10-04 (proposal #1, amended; summarised under "Collapsible
+binder and top bar" in `TODO.md` until now).
+
+- **Each surface has a Hide and leaves a labelled way back.** Hide sits at the
+  end of the PROJECTS row, and at the end of the top bar as "Hide top bar"
+  (a bare "Hide" in an app's chrome reads as ⌘H). The panel folds to a 28px
+  rail reading "Projects and chapters" bottom to top (named "Show projects
+  and chapters"), the bar to a 24px lip, "Show top bar". A folded surface is
+  `inert` at once and `visibility: hidden` once its 160ms are over; it stays
+  mounted. A click on Hide, the rail or the lip leaves focus where it was,
+  so a writer's caret stays in the text; keyboard focus inside a folding
+  surface moves to its rail or lip, and from there back to its Hide; and
+  focus that was nowhere (WebKit leaves it on `<body>` after a click on any
+  button) lands in the text. Chords: ⌃⌘S, ⌥⌘T and ⇧⌘F on macOS,
+  Ctrl+Shift+S/T/F elsewhere, checked against every keymap the editor loads
+  (`src/lib/chrome/keys.ts`); a chord says what it did through a polite live
+  region.
+- **The layout is remembered; Focus is not.** `layout` in settings.json
+  (`binderOpen`, `topBarOpen`, `focusHidesBinder`, `focusHidesTopBar`, all
+  true by default) is read leniently, like `editor`, so a hand-edited value
+  costs only itself. `focusMode` is kept so files round-trip, and never read:
+  every launch starts with Focus off, so an upgrade never opens into hidden
+  bars.
+- **Focus is a mask over that layout.** `[Focus|⋯]`: the ⋯ opens Focus
+  options, two `menuitemcheckbox` items under "When Focus is on, hide"
+  (Projects and chapters, Top bar). Focus folds the ticked surfaces and never
+  writes the layout, so leaving it puts back exactly what was there. The rules
+  are one pure module, `src/lib/chrome/chrome.ts` ("act on what you see":
+  Show on a surface Focus hid opens a floating peek that moves no text and
+  closes once used; anywhere else Hide and Show change the layout).
+- **Nothing is a trap.** The status bar never folds and holds the pressed
+  Focus pill. In Focus the rail and lip stay in place but faded, their room
+  kept, however the mouse moves; the pointer on one, or keyboard focus,
+  shows it. (Built first to wake on 8px of pointer travel anywhere; the owner
+  rejected that on 2026-10-04 because moving the mouse brought the bars'
+  traces back and undid the feeling of the bars being gone.) While you type the bar's buttons drop their borders and
+  keep their fills, which hold their labels at AA. A peek closes once used
+  (a chapter chosen or made with its +, a top-bar action), on Escape, on a
+  press outside it, and when Tab takes focus out of it. Escape peels one
+  layer: an open menu, then a peek, then Focus; a key the editor already used
+  (search panel, a completion list, collapsing a selection) is not taken.
+  Focus needs an open chapter, ends when the last one goes, and never shares
+  the page with the corkboard or Settings. The first entry each session shows
+  "Press Esc to leave Focus" for 4s in place of where you are. With both
+  Focus options unticked, Focus only quiets the status bar, and its menu
+  says so.
+- **One menu.** `ItemMenu.svelte` became `src/lib/components/Menu.svelte`,
+  which also renders checkbox items, opens upward from the status bar (and
+  keeps growing upward when its note changes while open), does type-ahead
+  and ↑/↓ on its button, and exports `closeOpenMenu()` for a panel that folds
+  with a menu open in it. A highlighted destructive item gets a lighter fill,
+  so its --warn label holds AA (4.61:1 at the least).
+- **The editor keeps its layers to itself.** `.cm-editor` is
+  `isolation: isolate`, so CodeMirror's search panel (z-index 300) no longer
+  paints over, and takes the clicks of, the panel peeking above it.
+- **Focus's editor half is gone.** `focusMode()`'s 12vh and 1.02em never
+  rendered (the cascade typewriter's padding once lost); it was deleted rather
+  than made to move every line under the caret. This replaces M7 decision 5
+  ("Focus dims the chrome") below.
+- **Escape straight after typing.** CodeMirror's completion closed its pending,
+  invisible query on Escape for ~100ms after each keystroke, which would have
+  swallowed the Escape that leaves Focus. Escape now closes a completion list
+  only while one is showing (`src/lib/editor/cm.ts`).
+
+Tests: five Rust tests on `layout` and `apply_patch` (which `set_settings` now
+calls, so the patch the frontend sends is tested as Rust reads it); 32 unit
+tests in `tests/unit/` (the model, the chords, the menu in jsdom); 29 E2E tests
+in `tests/e2e/chrome.spec.ts`, plus updated `bars`, `m7-polish` and
+`context-menu` specs. Each mechanism was removed in turn to see its test fail
+(`tests/scratch/mutate.py`, `tests/scratch/mutate-e2e.py`, and
+`tests/scratch/fix-mutate.py` for the verifier round). `chrome.spec.ts` and
+`bars.spec.ts` also pass in Playwright's WebKit, the engine of the macOS app
+(`tests/scratch/pw-webkit.config.ts`; not in the gate, which runs Chrome
+only). The real webviews are not driven yet: see "Collapsible binder and top
+bar: the checks no automation reaches" in `TODO.md`.
+
+## Backup Phase 0: the bugs that lost or tore backups (2026-10-04, on `feat/landing-and-docs`)
+
+Phase 0 of "Choose when the backup runs" (`TODO.md`): the confirmed bugs, fixed
+before anything is allowed to back up on its own. Back up now is still the only
+trigger. Built, then reworked after a review round that found 28 points; what
+the rework changed is folded into each item below.
+
+- **One novel pruned another's backups.** Listing matched a prefix, so
+  `el-faro` claimed every archive of `el-faro-del-norte` (and
+  `la-aguja-del-norte` those of its own `-restored` copy), sorted them as its
+  newest and pruned with them; an unchanged novel also never matched its own
+  newest and wrote a fresh archive on every press. A name is now read from the
+  right (`src-tauri/src/backup/names.rs`) and belongs to a novel only when what
+  is left is exactly its slug, in the shape the app writes: four digits of
+  year and every field in range. Every name an earlier version wrote still
+  parses: without the fingerprint (80c563c to ad0f73a), with it, and with a
+  bumped stamp. A hand-made name with a seventeen-digit year used to overflow
+  the date arithmetic and stop the listing (a panic in a debug build); a
+  five-digit year read as a stamp that held pruning for good. Both are now
+  nobody's.
+- **A clock set back deleted the archive it had just verified.** Pruning kept
+  "the newest N" by name, and today's archive sorted after tomorrow's. Pruning
+  never deletes the archive the run just wrote, and deletes nothing while this
+  computer's clock reads more than 10 minutes earlier than an archive already
+  in the folder. While the clock stays behind, an unchanged novel is compared
+  with the newest archive this clock could have written, not with the
+  future-dated one that sorts first: comparing with that one wrote a full copy
+  on every press and pruned nothing (a reviewer's probe: three archives stamped
+  tomorrow, six presses, nine archives). Each state is now written twice, then
+  nothing. The
+  line no longer assumes this computer is the one that is wrong: "A backup
+  here is dated …, later than this computer's clock, so no backups were
+  deleted. Check the date and time on this computer and on any other that
+  backs up here, or remove that file yourself."
+- **A commit during a backup tore the archived history.** The 60-second
+  checkpoint, Save snapshot or an MCP write could commit between the walk and
+  the packing; the archive passed `verify()` and its HEAD named a commit it did
+  not hold. The files in `.git` that name commits (HEAD, refs, packed-refs, the
+  index, the logs) are now read into memory first, and the object store is
+  listed after them; libgit2 writes objects before refs and never deletes one,
+  so every object a frozen ref names is in the list, however long packing
+  takes. Both halves are read under a repository lock
+  (`src-tauri/src/git/lock.rs`): a file lock in `<app data>/locks/`, one per
+  novel, taken by the capture and by every commit and pull of this app's, in
+  the app or in `versorium mcp`. While it is held the 60-second checkpoint
+  skips that minute, Save snapshot (now off the main thread) waits up to 10 s,
+  the checkpoint before an AI rewrite or a chapter delete waits up to 2 s on
+  the main thread, and the MCP server waits up to 10 s. A commit still waiting
+  after that says "A backup is reading the novel's history. Try again in a
+  moment."; a backup that cannot read the history within 30 s reports every
+  destination as skipped because the history was being written, not as failed.
+  The order keeps the history whole against a writer that never takes the
+  lock (`git` run by hand); the lock adds that the index, the refs and the
+  logs in an archive describe one moment. What is held in memory is small:
+  8 KB outside `objects/` on the 400 MB model, about 36 KB on disk for the real
+  novel. `*.lock` files in `.git` are no longer archived (a restored copy
+  holding one refused to commit); a novel's own file ending in `.lock` still
+  is.
+- **Two runs shared one temporary file.** The `.part` name carried only the
+  process id, so a second run truncated the first one's half-written archive;
+  observed leaving no archive at all. The name now carries a random id of this
+  computer (`<app data>/backup-host-id`, ten hex digits, never sent anywhere),
+  the process and the run. Leftovers are swept at the start of each run, for
+  that novel only: this computer's when its process is gone or its run is not
+  active, another computer's only after 7 days, the two older names after 24
+  hours.
+- **Back up now could start a second run.** Its busy flag lived in the panel,
+  and leaving Settings reset it. Runs now queue in Rust
+  (`src-tauri/src/backup/flight.rs`); the panel asks `backup_state` when it
+  opens and follows `versorium://backup-state`, so after leaving and coming
+  back the button is still disabled, with "Backing up…" beside it in a status
+  line (on the button itself the text was faded to 2.2–3.0:1). The line names
+  another novel's run ("Backing up “Novela 1”…"). When a run the panel did not
+  start ends, it says "The backup has finished; the list below is up to date."
+  and reads the list again; it never sees that run's outcomes. A press reads
+  the destinations, the number to keep and the clock when its turn comes, so
+  one that waited writes where the writer backs up by then, stamped after the
+  run it waited for.
+- **Every failed destination read "Something went wrong."** The backup codes
+  had no translation. Eight codes now have EN and ES text, and a write error is
+  named by its kind: the disk is full, the folder refuses new files, the folder
+  is gone (reported as unavailable, like an unplugged disk), or the archive
+  could not be written. Reading the novel's own files still fails as `io`. The
+  line reads "Another disk: not saved. The disk is full." rather than gluing a
+  sentence after a dash, and an unplugged disk no longer promises "It will be
+  written next time", which nothing did: "Press Back up now again once it is
+  connected."
+- **The press backed up what was last saved, not what was on the page.** It
+  saves first now. A save that fails stops the press and says so under the
+  button: "Not backed up: the chapter could not be saved first. …".
+- `backup_destinations`, `backup_list`, `backup_coverage` and
+  `backup_configure` no longer run on the main thread (finding destinations
+  writes a probe into every candidate folder and disk), and coverage detects
+  once per call instead of once per destination.
+
+Where this departs from the spec. None of these is confirmed by the owner yet:
+
+1. **A second press queues behind the first and makes its own run**, after its
+   own save. That is Phase 0's "process-wide Mutex around `backup_now`"; the
+   spec's "a second press joins a running manual run" belongs to Phase 1's
+   scheduler, and joining would back up a plan taken before the second press
+   saved. Phase 1 has to pick one (`TODO.md`).
+2. **A pull holds the repository lock for its local half only** (moving the
+   branch and checking it out), not for the fetch: that is network work that
+   can outlast the 30 s a backup waits, and it writes its objects before its
+   refs, which the capture's order already copes with.
+3. A lock file that cannot be made or opened does not stop a commit or a
+   backup: the lock is then not held, and the order still protects the
+   archive. The explicit unlock on release is for Windows, which only promises
+   to free a closed handle's lock eventually; on macOS closing the handle
+   frees it, so no test here can tell the two apart.
+4. Process liveness uses `sysinfo`, already a dependency, not `libc::kill`.
+5. The outcome carries `held: { kind: "clockBehind", stamp }`, because the line
+   needs the stamp and there is no ledger yet. The `busy` outcome of spec §4.13
+   is added now, because the lock can time out in Phase 0.
+6. `backup_busy` and `backup_source_gone` have no text yet: nothing returns
+   them before Phase 1, and the translation test covers every code that is
+   added to the list.
+7. Pruning stays inside each write, as before (the spec moves it to Phase 1's
+   runner).
+8. The sweep also knows the first versions' `<archive>.zip.part` name.
+
+Honest limits found in review, for the docs and for Phase 1 (`TODO.md`):
+
+- **The computer's id lives in the app's folder.** A Mac set up from another
+  with Migration Assistant, or from a restored home folder, carries the same
+  id. If both then write the same novel into one synced folder at the same
+  time, one can sweep the other's live temporary file, and that run fails as
+  "not reachable". Nothing already saved is lost.
+- **A sync client's conflict copies are invisible.** Exact names drop
+  `… 2.zip` and "(conflicted copy)" files, so they are never listed for
+  Restore, and never pruned.
+- An archive stamped years ahead with a four-digit year (a clock once set
+  wrong) holds pruning at that destination until its date; the line names the
+  date (spec §9, limit 11).
+
+Tests. The first build added 37 Rust tests, 5 vitest cases and 4 E2E specs
+(two novels sharing a folder; the clock set back; commits around the capture;
+a stale `index.lock`; the fingerprint across the upgrade; two runs in one
+folder; the sweep; write errors by kind; every code translated; two presses at
+once; the button across a remount; save before backing up). The rework added
+38 Rust tests and 5 E2E specs:
+
+- `git/lock.rs` (8, one of them the second process of a test): a second
+  holder is turned away until the first lets go; a wait ends when its time is
+  up; a waiter gets the lock once it is free; one lock per novel however its
+  folder is spelled; the lock lives in the app folder both processes share; a
+  lock file that cannot be made or opened does not stop the writer; another
+  process holding the lock turns a checkpoint away and makes a commit wait,
+  then succeed (spec row 14: the test binary started again as the holder).
+  `git/repo.rs`: a pull moves the branch only while nobody reads the history
+  (a real fetch from a local copy). `commands/git.rs`: Save snapshot waits out
+  a 2.5 s capture; a commit on the main thread waits two seconds, then says the
+  history is busy. `mcp/write.rs`: an agent's write and commit wait out a
+  capture instead of failing.
+- `backup/mod.rs` (17): the checkpoint skips and a save goes through while the
+  history is read (spec row 13); a commit from the app waits until the history
+  has been read, and the archive's index matches its HEAD; a backup waits out a
+  commit holding the history for 2.5 s; a clock set back writes each state
+  twice and then nothing, with `held` on every press, the unchanged ones
+  included; a clock set back on an unchanged novel keeps a second copy, not a
+  new state; a destination that cannot be created, one removed mid-write, an
+  archive gone before its read-back and a disk that fills as the archive is
+  closed each say what happened; every name taken, and a failed rename, leave
+  no temporary file; a novel's own `notes.lock` is backed up; a finished run is
+  no longer live; a history file that vanishes before it is read is left out;
+  the sweep's week and day, pinned an hour either side. Three new permanent
+  controls reproduce the rest of spec rows 2, 3 and 10: with the process id
+  alone two runs damaged each other, the prefix rule deleted the other novel's
+  archives, and judging by pid alone deleted another computer's live file.
+- `backup/names.rs` and `backup/host.rs`: a folder holding an impossible year
+  still lists; the app uses the id it stored, across launches.
+- `commands/backup.rs` (7): Rust sends the event the page listens for (read
+  out of `src/lib/backup/events.ts`, which the E2E mock now imports too); the
+  state reaches the page in the shape it reads; `backup_now` itself, on Tauri's
+  mock runtime (its `test` feature, in dev-dependencies only, no new crate),
+  tells the page when it starts and when it ends; a press that waited is
+  stamped after the run it waited for, and writes where the writer backs up by
+  then, or says backups are off; a busy history is reported busy, with nothing
+  written; a disk pulled mid-backup is unavailable.
+- E2E: the busy line; the status line from the moment of the press; a press
+  overtaken by another run waits for it; a run that ends while the panel starts
+  listening is not missed; another novel's run is named; after a run the panel
+  did not start, the finished line, the list read again, and one listener after
+  reopening; the new failed, held and unavailable wording. The mock can hold a
+  press, queues like Rust and counts listeners. Vitest: the failed save's line,
+  under the button.
+
+Each mechanism was removed once and its test watched fail
+(`tests/scratch/backup-p0-fix/mutate.py`; the Rust side on a copy of
+`src-tauri` with its own target, so nothing else building this checkout saw a
+mutated file): Rust 77 of 77, the first build's 17 and the 25 the reviewers
+used included; frontend 17 of 17. One miss on the way: the test of the main
+thread's two seconds compared the wait with the constant itself, so a
+ten-second constant passed; it now reads two seconds. Not covered by a
+behavioural test: moving the four commands off the main thread (review only),
+the explicit unlock on release (Windows only), and a lock call that fails
+outright, which no filesystem here produces.
+
+Measured with `make verify` (exit 0, 58 s): svelte-check 395 → 396 files, 0
+errors, 0 warnings; locale keys 745 → 750; vitest 180; `cargo test` 536 → 574
+unit plus 4 integration, 16 ignored; clippy `--all-targets` 0 findings;
+Playwright 161 → 166. The new lines were looked at in Chrome on the mock, in
+EN and ES and in Folio light, Quarry dark and Needle dark
+(`tests/scratch/backup-p0-fix/look.mjs`); they use the tokens and sizes of the
+lines measured in the first build (status 4.74–6.28:1, warnings
+4.99–9.12:1). The desktop app was not driven: the lock, its waits and the
+second process run in Rust tests, every new line shows on the mock, and the
+spec's manual checks belong to the phases with a schedule.
+
+## Notifications: hints that go, errors that stay, one stack (2026-10-04, on `feat/landing-and-docs`)
+
+"Select a passage first." reached the writer through the error channel and sat
+in a warning box until somebody pressed ✕; so did "Nothing to roll back here.",
+"Nothing has changed since the last snapshot." and every failure written to
+`store.error` (13 places), while Settings kept its own "Saved." and "Backups are
+off." lines that never left. Nothing hid itself except the Focus hint. They now
+go through one module, `src/lib/notices/`, built from the TODO item
+"Notifications have no module and never hide".
+
+- **Two tiers.** A *transient* notice (a confirmation, a hint) goes after 5 s;
+  it waits while the pointer or keyboard focus is on it and then runs on with
+  the time it had left; ✕ or Escape closes it; a polite live region reads it
+  when it appears, again when its words change or the writer asks again
+  (`inform`), and not when the same words are shown again under its id (a
+  refresh, SPEC §6.3). A *persistent* notice (an error the writer has to read)
+  never goes on a timer, which would fail WCAG 2.2.1; it stays until ✕ or
+  Escape, or until the code that raised it sees the condition clear. An
+  assertive live region (`role="alert"`) reads it once, and not again when its
+  words change in place. Both regions are always in the page; the notices
+  themselves carry no live role. Each region keeps its words while a notice of
+  its tier still says one of them, and is emptied once none does: a notice
+  closed, an error whose words changed in place, two read together that have
+  both gone.
+- **One notice per condition.** Every notice has an id; the same id replaces in
+  place and keeps its position. `inform(text)` and `fail(text)` take the id from
+  the words, so the same words twice are one notice. Persistent notices with the
+  same words under different ids are drawn once: a full disk fails the save,
+  the change log and the minute's snapshot together, and one "File system
+  error." says more than three; the box goes when the last of them clears, and
+  its ✕ closes all of them. One that carries an action keeps its own box: a box
+  has room for one. Past three transient notices the oldest goes, never one
+  being read.
+- **Where it sits.** Mounted once in `App.svelte` between the page and what is
+  under it, so the stack hangs 8 px above History when that is open and above
+  the status bar otherwise, at the end edge (centred, it sat on the text
+  column). z-index 25: over the page, under menus, peeks and dialogs, so Focus
+  options, which opens from the status bar, covers a notice. Nothing in it takes
+  focus by itself. Tab reaches it straight after the page; a press on ✕ leaves
+  the caret in the text; a notice closed from the keyboard hands focus to the
+  next notice's ✕, or back to where focus came from. Escape on a notice closes
+  it and goes no further, so it never ends Focus or closes a peek. In Focus the
+  stack is where it always is, and it never wakes the faded edges.
+- **Never over the line being written.** Where the stack covers the text
+  column, CodeMirror gets a bottom scroll margin of that height
+  (`src/lib/notices/editor.ts`), so typing keeps the caret's line above it; a
+  notice that lands on that line scrolls it up once, and never when the caret
+  is off screen (the writer scrolled away; the page stays where they put it).
+  When a tall stack would still cover the last line, the page's foot grows
+  past its 120 px (`--v-notes-room`), and does not shrink again for that
+  chapter, so a notice going never drops the page under a writer at its end.
+- **The look.** `--bg-elev`, `--border`, `--radius-card`, `--shadow-menu`; words
+  in `--text` (11.19–17.39:1 over the six themes), ✕ in `--text-mute`
+  (4.75–5.63:1), 24 px square. A persistent notice has a `--warn` bar inside its
+  start edge, and its words say it failed, so colour is never the only sign. A
+  150 ms fade in, none under reduced motion or before the layout is drawn. Two
+  new keys: `notices.region` ("Notifications" / "Notificaciones") and
+  `notices.dismiss` ("Close" / "Cerrar", the name every other ✕ in the app
+  has; "Descartar" is the word for throwing a rewrite away), the ✕'s name,
+  described by the notice's words.
+- **What goes through it** (id in brackets):
+  - `App.svelte`: Save snapshot failing (`git.commit`, cleared by a snapshot
+    that goes through), and with nothing new now a hint that goes; Rewrite
+    with nothing selected and Restore with nothing to restore, as hints; the
+    minute's snapshot (`git.checkpoint`, cleared by the next minute that
+    works); a quit or a window close that the last save stopped (`app.quit`),
+    both in the quit's words ("Versorium did not quit: the chapter could not
+    be saved. …"; closing the one window is quitting); the change log
+    (`editor.ops`, cleared by the next batch written). `app.quit` is the one
+    error no later success clears: it is the record of a quit that did not
+    happen, and says why the app is still open, so it stays until the writer
+    closes it, or quits.
+  - The binder store: each action on a novel or chapter under an id of its own
+    (`binder.renameProject`, `binder.deleteProject`, `binder.renameChapter`,
+    `binder.chapterStatus`, `binder.moveChapter`, `binder.deleteChapter`),
+    cleared when the same action next works and left up by another, since
+    what failed still has not happened; the list of novels (`binder.list`),
+    the save (`binder.save`) and opening a novel or chapter
+    (`binder.navigate`), each cleared by the next that works. New project, New
+    chapter, the tour's project step and Project settings get their failure
+    back and say it in their own dialog (Project settings under the box that
+    did not change), where a notice would sit behind the backdrop.
+  - Settings: "Author profile saved." and its failure (`settings.author`, so a
+    save that works replaces one that did not); the censorship setting
+    (`settings.censorship`); "{destination}: backups will go there too." and
+    "Backups are off." (`backup.configure`); the GitHub backup's "GitHub
+    backup connected as @login.", "Sent main to GitHub.", "Brought the latest
+    changes from GitHub." and "Already up to date with GitHub."
+    (`backup.github`, one answer at a time); the three destinations hint; the
+    updates token's "Updates token connected as @login."
+    (`settings.updatesToken`). Each names its subject: in the corner, "Saved."
+    sat over the status bar's "Saved" about the chapter, "here" pointed at
+    nothing, and both tokens said the same "Connected as".
+- **`store.error` is gone**, not kept as an adapter: besides the box it had four
+  readers (the two dialogs, the tour, tests), all moved to return values.
+- **The contract for scheduled backups** (backup schedule SPEC §6.3):
+  `notices.show({ id, tier, text, action?, onDismiss? })`, `dismiss(id)` when
+  the condition clears (no `onDismiss`, so nothing records a dismissal the
+  writer did not make), `close(id)` for the writer's ✕ (calls `onDismiss`),
+  `inform`, `fail`, and `hold`/`release`. A transient notice cannot carry an
+  action, by type: it could hide on its way to being pressed. `show` under the
+  same id in the same words is a refresh and is not read out.
+
+Fixed on the way:
+
+- The New project and New chapter dialogs opened showing any older, unrelated
+  error (an autosave's, a rename's) as their own, and the same error was drawn
+  again behind the backdrop.
+- The tour's project step said "Something went wrong." for a name already
+  taken: the binder handed it a sentence, and it read the sentence's last word
+  as an error code.
+- The updates token's errors were drawn in the accent, in a polite region, so a
+  refusal read as a success; they are an alert in `--warn` now.
+- Author's "Saved." never went away, and was there from the first field left to
+  the last.
+- A rename that failed wrote its alert while the Rename dialog was still
+  modal, into a region the dialog had made inert
+  (`tests/scratch/notices-fix/rename-probe.mjs`). Rename now closes before it
+  runs, as Delete does.
+- Project settings' two boxes posted their failure behind the dialog's
+  backdrop.
+
+Left where they are, because each belongs to a place:
+
+| Where | Why it stays |
+|---|---|
+| Backup: each destination's outcome, the line beside Back up now, the press's own failure ("Not backed up: …"), coverage, a verified archive, the section's error | Tied to a destination, an archive or the button; the outcomes are the record the writer reads where they are |
+| Backup: "Restored to {path}" | It names the folder to go and find; a notice that went by would lose the only place the path is shown |
+| New project, New chapter, the tour, Project settings, Rewrite, Manuscript (export done, with its path), Update dialogs | Inside a modal dialog; a notice would sit behind its backdrop (Rename and Delete have no line of their own: they close before they run, and a failure is a notice) |
+| `Field` and `Checkbox` errors | Field validation, tied to the field by `aria-describedby` |
+| Updates' check outcome | Every outcome of a check is a line in its section, never an alert (spec §11.7) |
+| Assistants: "Restart … to see the change", MCP errors | Under the client's card, or about the section |
+| Local AI, continuity, typography, crash reports, editor settings errors; the corkboard's "Loading…" | Section state, progress or a count, read where it appears |
+| History panel's errors | Inside the panel the action was taken in |
+| The updates token's error (now an alert) | Beside the field it is about |
+| The Focus hint in the status bar and the chords' announcements | They belong to the Focus control, and the hint already hid itself |
+
+Where this departs from the plan or the spec, none confirmed by the owner yet:
+
+1. A transient notice takes no action, which is narrower than SPEC §6.3's type:
+   `shrunk` and `skipped` (SPEC §6.1) will go without "Open backup settings".
+2. The stack sits before History and the status bar in the page, not after the
+   status bar: Tab reaches it straight after the page, and it hangs above
+   History when that is open instead of covering it.
+3. Persistent notices with the same words are drawn once unless one carries
+   an action (above), and each screen-reader region is emptied once no
+   notice says its words.
+4. "Nothing has changed since the last snapshot." is a hint now, not an error.
+5. The change log's notice clears itself on the next batch written.
+6. The page's foot grows under a tall stack (above).
+7. The mock gains `failures` (a command rejects with a code until a spec
+   deletes it) and a `quit_ready` handler, which it never had.
+8. A transient notice shown again under its id is read again when its words
+   changed; SPEC §6.3's comment says no re-announcement for the same id. It
+   goes in five seconds, and the announcement is the only time a screen
+   reader hears it. The same words again are not read (the writer asking
+   again through `inform` is).
+
+Tests. Vitest: the store on a fake clock (`tests/unit/notices.test.ts`, 18:
+hides at 5000 ms and not at 4999, held by the pointer and by focus counted
+apart, the time left after a hold, a persistent notice an hour later, a repeat
+is one notice heard again, a replacement keeps its place and is not read
+again, a persistent one turned transient, `close` against `dismiss`, the cap,
+the same words under two ids, the screen-reader copy, words raised together);
+the geometry (`notices-cover.test.ts`, 7); the stack in jsdom
+(`notices.render.test.ts`, 8: both regions before the first notice, the pointer
+and focus holds through the DOM, Escape used up, ✕ and an action, ✕ on shared
+words, where focus lands); the binder (5 new) and the tour (1 new, 1
+rewritten without the mock that hid its bug). Playwright:
+`tests/e2e/notices.spec.ts`, 27, one per routed caller and per mechanism
+(hint timing and hover, Tab, Escape and Focus, the dedupe, the snapshot, the
+minute's snapshot, the save, the change log, one box for one failure,
+Settings' confirmations against the backup's outcomes, the updates token, the
+censorship setting, a binder action, the New chapter dialog, the tour, GitHub
+backup, quit, window close, the press's own failure, the caret's line with
+three notices in a 900×600 window, a page scrolled away from the caret, Focus
+and the caret on ✕, Focus options over the stack, reduced motion, Spanish, and
+contrast in all six themes); five specs edited for the stack's region and the
+chords' region (`author`, `backup`, `chrome`, `context-menu`, `m2-rewrite`).
+
+Each mechanism was removed once and its test watched fail
+(`tests/scratch/notices/mutate.py`, every file restored byte for byte after
+each run): 56 removals, 71 checks (31 vitest, 40 Playwright), 71 failed. Five
+checks missed on the way, over four removals, each fixed before that count.
+Removing the persistent tier's guard left a later `disarm` that undid it, so
+the removal changed nothing; it now arms persistent notices. With the lookup
+by id gone, Svelte refuses the duplicate key and the page still showed one
+notice, so the page-level control now gives the same words two ids. The
+window-close test read the status bar's "Saved", which an unsaved edit also
+shows, so it passed with the close's failure unreported; it now waits for the
+save on disk. The Focus options test first probed the empty part of the list,
+which lets clicks through, and passed with the stack painted over the menu; it
+now probes a notice.
+
+Measured with `make verify` (exit 0, 64 s): svelte-check 396 → 400 files, 0
+errors, 0 warnings; locale keys 750 → 752; vitest 180 → 219; `cargo test` 574
+unit plus 4 integration, 16 ignored (no Rust changed); clippy `--all-targets`
+0 findings; Playwright 166 → 193.
+
+Looked at in Chrome on the mock (`tests/scratch/notices/look.mjs`, `look2.mjs`)
+at 1280×800, 900×600 and 640×600, in EN and ES, in all six themes between the
+two passes: the stack, Focus, Settings, History open with a two-line error, a
+narrow window with keyboard focus on ✕, the caret's line lifted clear of three
+notices, and hover. One change came from looking: the persistent mark was a
+3 px border that the card's 12 px corners bent into a bracket; it is a bar
+inside the card now. The page logs nothing while notices come and go
+(`console-probe.mjs`; the one 404 is the favicon).
+
+Not done, or not reachable from here:
+
+- The real webviews were not driven: VoiceOver on WKWebView reading each notice
+  once, Option+Tab reaching ✕ with keyboard navigation off, Escape on a notice
+  in Focus (`TODO.md`). Playwright's WebKit passes `notices.spec.ts` (27 of 27,
+  Option+Tab there; `tests/scratch/notices/pw-webkit.config.ts`).
+- A notice raised while a modal dialog is open sits behind its backdrop and is
+  not announced: `showModal()` makes the rest of the page inert, live regions
+  included. A dialog's own action no longer does (second pass, below); a
+  background failure behind a dialog still does.
+- A notice keeps the language it was raised in until it goes.
+- A failure in the background says only why, not what failed: the save, the
+  change log and the minute's snapshot all say "File system error.". Which
+  words to add is the owner's call (`TODO.md`).
+
+### Second pass: what the verifiers found (2026-10-04)
+
+Twenty-five findings; each was checked against the code before anything
+changed. Fixed, each with a test that fails without the fix:
+
+- **Stale screen-reader copy.** The regions were cleared only when their text
+  equalled the words of the notice that went, so an error whose words changed
+  in place left its old words in the alert region for good, and two hints read
+  together ("A B") stayed in the polite one after both hid. Each region now
+  keeps the lines it holds and is emptied when no notice of its tier says any
+  of them (`prune`, run on every change to the list).
+- **Re-reading on a refresh.** `show` read a transient notice out again on
+  every call under its id; Phase 1's adapter calls it for every notice it sees
+  change. The same words under the same id are now a refresh; new words are
+  read, and `inform`, the writer asking again, is always heard.
+- **A box with an action is never shared** with another notice in the same
+  words (it would lose the second action, and one ✕ would close both).
+- **Binder actions** got an id each, cleared when the same action next works
+  (above). Before, a rename that failed and then worked left "File system
+  error." up until closed.
+- **The window close** said only "File system error." under `app.quit`; it
+  says the quit's sentence now, and stays after the save recovers because it
+  is still true. The first report said every persistent notice clears with
+  the next success of its kind; `app.quit` does not, by design (above).
+- **Rename** wrote its failure into an inert region (Fixed on the way, above);
+  **Project settings** posted its failure behind its backdrop and now says it
+  under the box.
+- **The tour** checks `store.loading` before making the project or seeding
+  chapters: `navigate` answers null both when it worked and when it did
+  nothing because another navigation was running.
+- **Copy:** the routed confirmations name their subject (above), and the ✕ is
+  "Close" / "Cerrar".
+- **Tests for mechanisms nothing caught:** a transient's clock surviving into
+  the error that took its id (it would have hidden the error after five
+  seconds), a closed notice's hold surviving into the next under its id (the
+  hint would never hide again), a hold taken for a notice not yet raised,
+  words announced after their notice went, any key closing a notice, a hint
+  folded into an error's box, Restore's hint as an error, New project's own
+  error line, an empty notice when one of two destinations is unticked, and
+  the page's foot shrinking when the notices go.
+
+Not changed: the "three destinations" hint (`backup.full`) stays routed but
+untested, because no path in the UI reaches it (the buttons that would are
+disabled when three are chosen). Recorded in `TODO.md`, not built: the Restore
+hint's "roll back" against the button's "Restore", the stack covering the
+foot of the Settings form, the module's departures from SPEC §6.3, and two
+older bugs found on the way (typewriter's caret line below the window, which
+HEAD shows too, and the censorship box staying ticked after a failed save).
+
+Tests now: `notices.test.ts` 25 (was 18), `notices.render.test.ts` 9 (was 8),
+the binder 7 new (was 5), the tour 2 new (was 1), `notices.spec.ts` 33 (was
+27). Each removal was made in a copy of the tree served by a Vite of its own
+on :1438, never in the live `src/` under the shared :1420, and every check ran
+only once that Vite served the edit; each verdict names the test that failed
+(`tests/scratch/notices-fix/mutate.py`, logs in
+`tests/scratch/out/notices-fix/`). First, all 36 checks passed unmutated; then
+35 removals, 48 checks (30 vitest, 18 Playwright), 48 failed, each in the test
+meant for it. Six of the 35 re-prove first-pass mechanisms in the code this
+pass rewrote. Playwright's WebKit passes `notices.spec.ts`, 33 of 33
+(`tests/scratch/notices-fix/pw-webkit.config.ts`).
+
+Measured with `make verify` (exit 0, 73 s): svelte-check 400 files, 0 errors,
+0 warnings; locale keys 752 → 753; vitest 219 → 230; `cargo test` 574 unit
+plus 4 integration, 16 ignored (no Rust changed); clippy `--all-targets` 0
+findings; Playwright 193 → 199.
+
+## Settings over the editor, and the typeface on the page (2026-10-04, on `feat/landing-and-docs`)
+
+Two items from `TODO.md`, built together because both run through the
+editor's compartments: "A visit to Settings rebuilds the editor" and "The
+typeface chosen in Settings never reaches the editor".
+
+**Settings covers the page instead of replacing it.**
+
+- `App.svelte` no longer swaps the panel and the page for `SettingsPage`
+  (`{#if showSettings}…{:else}`). Both now sit in `.v-under`, and Settings
+  opens in a layer over them (`.v-settings-layer`: absolute over `.v-middle`,
+  `--bg-app`, no z-index, so the notices, menus, peeks and dialogs stay above
+  it). The CodeMirror view lives through the visit, and with it the undo
+  history, the selection, the scroll, the session Restore works from
+  (`RollbackHistory`), and the change log's `OpsLogger`, whose pending batch
+  now goes on its own 500 ms or with the quit (`store.beforeLeave`), not at
+  the moment Settings opened.
+- While covered, `.v-under` is `inert` and `visibility: hidden` (styles.css,
+  "Settings over the page"). `visibility`, not `display: none`: the page
+  keeps its layout while it is covered, so a face or a size chosen in
+  Settings is measured there and then, not on the way back. The plan
+  expected `display: none` to lose the scroll as well; measured, it kept it
+  in both engines (`tests/scratch/settings-visit/display-probe.mjs`), so
+  that is not a reason. Also measured (`focus-probe*.mjs`,
+  `scroll-probe.mjs`): in Chrome `inert` or `visibility` alone keeps focus
+  and keys out of a focused editor; in Playwright's WebKit `visibility`
+  alone did not. With it alone, keys typed after the caret was left in the
+  page went into the hidden editor, and PageDown, the arrows, End and Space
+  pressed with focus nowhere scrolled it; `inert` stopped both.
+- **The covered page is read-only too.** Found by the keyboard test: the
+  browser keeps one undo stack for the whole document, and Cmd/Ctrl+Z
+  pressed anywhere in Settings (on a button, with focus nowhere, in Author's
+  Name field once its own typing was undone) walked it into the editor's
+  typing and took that back as a fresh edit, outside CodeMirror's history,
+  which the autosave and the change log would have kept. Chrome and
+  Playwright's WebKit both (`undo-probe.mjs`). `MarkdownEditor` now locks
+  the editor while `covered`, through the compartment `disabled` already
+  used (`readOnly`, `contenteditable="false"`): the browser's undo skips text
+  that is not editable, and CodeMirror ignores DOM changes in a read-only
+  editor. On the way back it is editable again before the caret returns.
+  The same undo still reaches the page from any button while the page is on
+  screen; that is older than this build (`TODO.md`).
+- **Focus.** Settings opened with focus left on the page (a click on a
+  button moves none in WebKit) or nowhere takes it to the group Settings
+  opens on; focus on the top bar's Settings, where a click in Chrome leaves
+  it, stays there. Back to the manuscript returns the caret through
+  CodeMirror's own focus, which redraws the selection and does not scroll.
+  With no chapter to return to (none open, or the corkboard) focus goes to
+  the top bar's Settings (`data-opens="settings"`), or to its lip when the
+  bar is folded. The Focus chord from Settings still closes it and enters
+  Focus, and the caret now comes back with its history.
+- **Rewrite and Restore close Settings first.** Rewrite (Cmd/Ctrl+Shift+R
+  and the top bar's button) and Restore (Cmd/Ctrl+Alt+R and the status
+  bar's) stay in reach while Settings is open; pressed there, Settings
+  closes, the caret comes back, and they act on the page, so what they act
+  on is on screen when they do. (As first built they did nothing there, not
+  even the "Select a passage first." they said before; changed with the
+  verifier fixes below.)
+- **Notices.** The editor's notices effect (`--v-notes-room` and
+  `liftCaret`) does nothing while the page is covered: the stack is over
+  Settings, and the hidden page has real geometry, so a confirmation raised
+  in Settings would have scrolled the page under it. Coming back runs it
+  once (`covered` is tracked): a stack still showing then gets its room
+  below the last line, and is lifted off the caret's line, as one raised on
+  the page is. (As first built, `covered` was read untracked and coming back
+  ran nothing; changed with the verifier fixes below.)
+- Unchanged: Focus and Settings never share the page (`isEditorOnScreen`),
+  and the binder's chord stays off in Settings.
+
+**The typeface reaches the page.**
+
+- **An id and its stack at the boundary.** `editor_font` and
+  `set_editor_font` answered a CSS stack, which Typography compared with
+  catalogue ids, so its mark never matched anything; the mock answered ids,
+  so no spec saw it. Both now answer `fonts::EditorFont { id, stack }`.
+  `fonts::resolve`, which replaces `stack_for`, gives the stored id's entry,
+  or the default's under its own id when settings name a face this catalogue
+  lacks, so the mark and the page agree. Settings files have only ever held
+  ids (one writer, `49d972c`); a missing key still defaults to
+  `system-serif`, and a dropped face or a stack where an id belongs resolves
+  to it. The command bodies are `current_font` and `choose_font`, which the
+  tests call; the old tests exercised a copy of them.
+- **On the page the way size and spacing are.** `pageStyle` adds
+  `--editor-font` in the `page` compartment, so a choice reconfigures the
+  running editor (under Settings too) and CodeMirror measures again; the
+  content's rule reads `var(--editor-font, …)`. `fontFamilyValue` keeps out a
+  stack that could end the declaration (`;`, braces, angle brackets, a
+  backslash, a line break), and a unit test runs every face in the shipped
+  catalogue through it.
+- **The default face changed for some writers.** The stylesheet named
+  "Source Serif 4" first, which no setting chose. Its fallback is now the
+  catalogue default's own stack (`system-serif`), kept equal by a unit test,
+  so a writer who has Source Serif 4 installed and never chose it now sees
+  Iowan Old Style, Palatino or the next of that stack, which is what
+  Typography marks; choosing Source Serif 4 brings it back.
+- **State.** `editorPreferences.font` holds what Rust answered, read at
+  launch and on each visit to Typography (which retries a launch read that
+  failed); the mark is `markedFont(body faces, font)`, and the sample
+  paragraph is set in the face the page is in, marked or not; a refused
+  choice leaves the page and the mark where they were and says why under the
+  list.
+- **Typography's mark and notes.** The chosen row carries
+  `.v-list-item-active`, which now draws a bar of `--accent` down its leading
+  edge (styles.css): its fill and border alone were 1.05–1.13:1 and
+  1.33–1.47:1 against the page, under WCAG 1.4.11's 3:1, and hover drew the
+  same fill. The class is shared, so the panel's open project and chapter
+  and the tour's chosen template wear the bar too. A face the catalogue
+  marks `available: false` (Source Serif 4) says "shows only where it is
+  installed" / "solo se ve donde esté instalada" instead of "already on this
+  machine".
+- **The gutter.** Line height is unitless and the gutter's rule uses only
+  size and spacing, so a face cannot change a line's height; what it changes
+  is the wrapping, and with it each paragraph's block. With numbers on and a
+  test-only monospace face, every number's top and height match its line's
+  within 1px before and after the switch, and the paragraphs take more lines
+  in it.
+- **The mock** imports `fonts/catalog.json` instead of a drifted copy of its
+  own (no `available`, `note`, `defaultBody` or `system-mono`, another
+  `system-serif` stack), answers `{ id, stack }` with Rust's fallback, and
+  exposes `fonts` so a spec can add a face.
+
+Tests. Rust, 5 new and 2 rewritten against what the commands now run: a
+stored id resolves to its entry, and anything else to the default under
+the default's id; an `EditorFont` carries its entry's id and stack; the
+answer is the id settings hold plus its stack, never the stack twice; a
+settings file naming a dropped face, holding a stack, or written before
+fonts shows and renders the default; the wire shape is exactly
+`{ id, stack }`; a choice answers what was kept and survives a reload of
+the file; only a catalogue id can be chosen. Vitest, 10 in
+`tests/unit/editor-font.test.ts`: the page style with and without a face,
+the guard on the value, every shipped face accepted, the stylesheet's
+fallback equal to the catalogue's default, the mark (an id, a stack, an id
+not offered, nothing), a face changed in place on a live editor (same DOM,
+caret and undo depth), and the store (what Rust answered, a refusal keeping
+the face); `tauri.test.ts` checks `set_editor_font` is sent an id.
+Playwright, 15 new. `tests/e2e/settings-visit.spec.ts` (11): undo and
+Restore after a visit; the caret, the selection and the scroll, with and
+without Typewriter; under Settings nothing on the page answers Tab, typing,
+undo or the scrolling keys (Rewrite and Restore were in this test as first
+built), nothing of it is offered to assistive technology, and it is inert;
+the undo key in Settings stays in Settings; Settings opened with the caret
+still on the page takes the keyboard; the layer covers exactly the panel
+and the page; a notice raised in Settings leaves the covered page where it
+was; a quit from Settings writes the change log first; the Focus chord from
+Settings; and focus with no chapter to go back to.
+`tests/e2e/editor-settings.spec.ts` (4): the chosen face on the page live,
+under Settings, in the same editor and after a reload; a refusal; settings
+naming a dropped face; the gutter.
+
+Each mechanism was removed once and the test meant for it watched fail
+(`tests/scratch/settings-visit/mutate.py`, logs in
+`tests/scratch/out/settings-visit/`), in a copy of the tree served by a Vite
+of its own on :1441 and a Rust target dir cloned from this one, never in
+the live `src/` under the shared :1420. First, all 31 checks passed
+unmutated; then 33 removals (28 in the frontend and the mock, 5 in Rust),
+53 checks (34 Playwright in Chrome, 3 in Playwright's WebKit, 8 vitest, 8
+cargo), 53 failed, each in the test meant for it. Settings swapped for the
+page again (`{#if}`) fails undo and Restore, the caret, the selection and
+the scroll with and without Typewriter, the Focus chord and the face's
+same-editor check; the old wire's stack in the id fails three Rust tests;
+the mark compared with the stack fails the face test and the dropped-face
+test. Four more checks ran for the record and passed, as expected: with
+`inert` gone, Settings opened with the caret on the page, in both engines
+(departure 3); and with the face set on the editor's host, outside
+CodeMirror, the gutter and the face tests, because CodeMirror measures again
+by itself when its content changes size. So the gutter test guards the
+alignment, not the route the face takes to the page. Missed on the way,
+each fixed before that count: removing `inert` failed nothing in either
+engine, so the keyboard test now reads the attribute; the dropped-face test
+was listed against the face read at launch, which it cannot see (the page
+shows the default either way); and the first run stopped at the mock's
+removal on a 403 from the sandbox's Vite (`/tmp` is `/private/tmp` there),
+fixed and run again. The first baseline also ran pnpm in the sandbox,
+whose check before running installed into this checkout's `node_modules`
+through the link (it recorded esbuild's build as ignored); the next pnpm
+command here put that back (`allowBuilds`, esbuild's binary in place), and
+the harness now calls the binaries.
+
+Measured with `make verify` (exit 0, 76 s): svelte-check 401 files, 0
+errors, 0 warnings; locale keys 753 in each language (no new strings);
+vitest 230 → 240 in 29 files; `cargo test` 574 → 579 unit plus 4
+integration, 16 ignored; clippy `--all-targets` 0 findings; Playwright
+199 → 214.
+
+Playwright's WebKit, the macOS app's engine, passes both specs
+(`tests/scratch/settings-visit/pw-webkit.config.ts`, 22 of 22; not in the
+gate, which runs Chrome). Looked at in Chrome on the mock
+(`tests/scratch/settings-visit/look.mjs`) at 1280×800 and 900×600, in
+English and Spanish, in Folio, Quarry and Needle, light and dark: the
+page, Settings over it, a face chosen, the way back with the selection
+where it was, keyboard focus, and a notice raised in Settings. Settings
+looks as it did; nothing about the layer animates, with or without reduced
+motion; the page logs no errors.
+
+Where this departs from the plan, none confirmed by the owner yet:
+
+1. The covered page is read-only as well as inert and hidden (above). The
+   plan had the guards in App only; the browser's own undo goes round them.
+2. The keyboard test also presses the undo key, types and presses the
+   scrolling keys with focus nowhere, and has a twin for the undo key in a
+   Settings field.
+3. `inert`, `visibility: hidden` and the read-only lock back each other up.
+   Removing both of the first two fails the keyboard test's Tab; removing
+   `visibility` fails what the page offers to assistive technology and
+   whether it reads as hidden; removing `inert` alone fails no key in Chrome
+   or in Playwright's WebKit once the page is read-only (before the lock,
+   WebKit showed what it adds, above). The keyboard test reads the attribute
+   itself, as `chrome.spec.ts` does for the folded bars.
+4. Typewriter's variant switches Typewriter on after selecting: on, it
+   pulls the page back to the caret at every change of geometry, so a scroll
+   made after it does not hold.
+5. Back from Settings with no page to go back to, focus falls to the top
+   bar's lip when the bar is folded and its Settings button is inert; the
+   top bar's Settings carries `data-opens="settings"` for App to find it.
+6. The old "Known limits" under "Settings → Editor" stays as written, with a
+   line saying the first two were fixed here.
+7. `DESIGN-VERSORIUM.md`'s implementation notes still say the chosen face
+   never reaches the editor and that the stylesheet names Source Serif 4
+   first ("Fuente por defecto del editor", "La fuente elegida no llega al
+   editor"); the plan left updating them to the owner.
+
+Not done, or not reachable from here: the real webviews (`TODO.md`); a
+machine with Source Serif 4 installed, where choosing it changes the page
+(here the page stays in the stack's next family and looks the same, and the
+row now says so beforehand). Found on the way and recorded in `TODO.md`, not
+built: the undo key reaching the page from any button, the corkboard still
+rebuilding the editor, Settings' missing Escape, `set_editor_font` taking
+`ui` and `mono` faces, the editing host named "Chapters", a dev-console
+warning in `SettingsPage.svelte`, a non-string `editorFont` costing the
+whole settings file, Typography's English face names in Spanish, "Manuscript"
+naming two things while Settings is open, and Restore taking back a typed
+word one letter at a time.
+
+**Verifier fixes (2026-10-04).** Seventeen findings came back; each was
+confirmed before acting.
+
+- **A notice stack still showing on the way back** (minor, and its twin from
+  the regressions pass). Notices raised in Settings never got their room
+  (`--v-notes-room`) or their caret lift, because the effect read `covered`
+  untracked and so did not run on the way back. Reproduced in Chrome with
+  the build's code put back (mutation M01, below), at 900×600: a caret at
+  the foot of the page came back with its line's bottom 47px below the top
+  of a one-notice stack; and with four errors raised in Settings (a 170px
+  stack over the scroller's last 178px, past the 120px foot), the chapter's
+  last line, typed at after Cmd+End, ended 54px below the stack's top. The
+  effect now tracks `covered`: nothing while it is covered, once on the way
+  back.
+- **Rewrite and Restore did nothing under Settings** (minor and nit).
+  Before this build Rewrite there said "Select a passage first."; the build
+  made it silent. Both now close Settings and act (above).
+- **The Typography mark was under 3:1** (major). Fixed with the bar above.
+  Measured in Chrome in the six theme variants
+  (`tests/scratch/settings-visit-fix/measure.mjs`), the bar is 5.85:1 to
+  6.97:1 against its own row and 5.04:1 to 7.99:1 against what is around it,
+  for Typography's chosen face and the panel's open chapter; a hovered row
+  draws none.
+- **Source Serif 4 said "already on this machine"** (minor): the note now
+  follows `available`, in a new string in both languages (754 keys each).
+- **Typography's sample previewed a face the page was not in** (nit): with
+  settings naming a face the panel does not offer (`system-mono`, by a hand
+  edit), the sample showed the first row's face. It follows the page now.
+- **A notice gone from under focus while Settings is open** (minor): the
+  notices module's last fallback was the caret, which is inert there, so
+  focus fell to `<body>`. It now tries the caret, then the group Settings
+  shows (`HOMES` in `Notices.svelte`). Reachable in WebKit: focus on a
+  notice, Settings opened by a click (which moves no focus there), Escape.
+- **Tests the gate lacked** (minor and nits): `openSettings`'s
+  `holdsFocus` branch failed only WebKit when removed; a twin test from a
+  chapter row now fails in Chrome without it (a row keeps focus after it
+  goes inert in Chrome, while the caret leaves for `<body>` the moment the
+  editor locks). The lip fallback in `closeSettings` and Typography's
+  re-read on each visit had no test; both do now.
+
+Rejected or left, with the reason: the Rust and the mock disagreeing on a
+non-string `editorFont` (no spec depends on it; recorded in `TODO.md` with
+the Rust behaviour it waits on); the face names and license shown in English
+in Spanish, and "Manuscript" naming two things (both older than this build;
+recorded in `TODO.md`); the dev-console warning in `SettingsPage.svelte`
+(already recorded, outside this item); `DESIGN-VERSORIUM.md`'s stale lines
+(the plan left them to the owner; listed in `TODO.md` now so they are not
+lost). Two removals the verifiers ran that fail no test are defence in
+depth, confirmed here for the record: the editor built without the face
+(the reconfigure effect applies it before the first paint) and `rollback()`
+checking `disabled` instead of `locked` (App's `doRestore` already closes
+Settings before it calls it).
+
+Tests, 10 new Playwright and 1 rewritten. `settings-visit.spec.ts`: focus
+on a chapter row when Settings opens goes into Settings; Rewrite (the key,
+with a selection; the top bar's button, without one) and Restore (the
+status bar's) pressed over Settings close it and act; a notice raised in
+Settings leaves the covered page alone and, on the way back, the caret's
+line clears the stack by the smallest scroll that does it (rewritten from
+"does not move the page under it", which also asserted the page did not
+move on the way back); a four-notice stack raised in Settings gets its room,
+so the last line typed at clears it; with no chapter and the top bar folded,
+focus comes back to the lip; a notice closed from the keyboard over Settings
+hands focus to Settings. `editor-settings.spec.ts`: a launch read of the
+face that failed is retried in Typography; with no read at all the page and
+the sample are in the stylesheet's face and the panel says why; settings
+naming an unoffered face mark no row and the sample is in the page's face;
+each row's note follows `available`; the chosen row's bar is 3:1 or more
+against its row and the panel in all six themes, a hovered row draws none,
+and the panel's open chapter wears it too.
+
+Each fix was removed once and its test watched fail
+(`tests/scratch/settings-visit-fix/mutate.py`, logs in
+`tests/scratch/out/settings-visit-fix/`), in a copy of the tree served by a
+Vite of its own on :1442, never the shared :1420. All 18 checks passed
+unmutated first; then 20 removals, 23 required checks (20 in Chrome, 3 in
+Playwright's WebKit), 23 failed, each in the test meant for it, among them
+the build's own untracked `covered` and its silent Rewrite and Restore put
+back. For the record, as expected: without `holdsFocus` the caret's twin
+still passes in Chrome, and without `focusLost` the row's does; the two
+defence-in-depth removals pass. Both specs pass in Playwright's WebKit
+(`tests/scratch/settings-visit-fix/pw-webkit.config.ts`, 32 of 32). Looked
+at in Chrome on the mock (`tests/scratch/settings-visit-fix/look.mjs`):
+Typography in the six themes with a row hovered, and the panel's open
+project and chapter.
+
+Measured with `make verify` (exit 0, 74 s;
+`tests/scratch/out/settings-visit-fix/verify.log`): svelte-check 401 files,
+0 errors, 0 warnings; locale keys 753 → 754 in each language; vitest 240 in
+29 files (unchanged); `cargo test` 579 unit plus 4 integration, 16 ignored
+(no Rust changed); clippy `--all-targets` 0 findings; Playwright 214 → 224.
+The two specs also ran four times over in the gate's eight workers, 128 of
+128.
+
+## A novel's language can be changed, imports keep theirs, and Scrivener synopses are kept (2026-10-04, on `feat/landing-and-docs`)
+
+Two items from `TODO.md`, built together because both run through the
+import: "A novel's language is fixed at creation, and imports are English"
+and "Scrivener synopses are read and dropped". What is left of the second is
+in `TODO.md` ("Synopses are kept and shown, but nothing writes one"); the
+first is gone from it.
+
+**One list of languages.** `LANGUAGES` (`["en", "es"]`) and `language_code`
+in `src-tauri/src/commands/project.rs`. A tag counts when it is shaped like
+one (the shape `contentLanguage` already asks of a `lang`) and its primary
+subtag is on the list, so `es-MX`, ` ES_mx `, `es-419` and `en_US` are `es`
+and `en`, and `fr`, `español` and `en-` are refused. `NOVEL_LANGUAGES` in the
+new `src/lib/i18n/languages.ts` is the frontend's copy. A Rust test and a
+vitest test hold each to the names under `languages` in both locale files,
+so neither can offer a language the interface cannot name.
+`create_project` now refuses any other code with `bad_language` before the
+folder exists, and stores the code (every caller already sent `en` or `es`).
+
+**The language can be changed.**
+
+- `update_project` takes a sixth argument, `language`, refused with
+  `bad_language` before anything is written; a call with only a language is a
+  change, not `bad_args`. `versorium.json` is written through `write_meta`, as
+  before (atomic). `api.updateProject` now takes a patch (`ProjectPatch`)
+  instead of positional arguments; the binder store's `setProjectLanguage`
+  sends the language alone and hands the answer to the open project and the
+  list, as `setExportMatter` does (both go through one `patchProject` now).
+- Project settings has a `Select`, "Manuscript language" / "Idioma del
+  manuscrito" (`dialog.language`, the name New project already gave the
+  setting), above the two checkboxes, with a hint saying what follows it
+  (screen readers on the page; every export declares it and writes its
+  closing page in it). It is bound to a writable `$derived` of the stored
+  language, so a refused change puts the picker back and says why under it,
+  without remounting it (focus stays on it). A code outside the list, in a
+  hand-edited `versorium.json`, shows as one more option, "fr (not offered)",
+  rather than as the first language; a region or a capital of a language on
+  the list shows as that language, "Español (es-MX)".
+- The open page follows at once and is not rebuilt: `MarkdownEditor` already
+  reconfigured its `lang` from `project.meta.language` through a compartment,
+  so only the store had to replace `meta`.
+- The dialog is `wide` now (560px). At 440px the title page preview and the
+  settings never sat side by side, so the dialog was one column and scrolled
+  (`scrollHeight` 940 in a 638px dialog at 1280×800 with the new field).
+  Wide, the two columns fit, but the dialog still outgrew a laptop screen,
+  and its settings now scroll inside it with Done kept in view (below,
+  "After review").
+
+**Imports keep theirs, and the dialog asks.**
+
+- `Imported` carries `language` (a code a novel can take, or null) and
+  `declaredLanguage` (the tag as the source wrote it, cut to 40 characters).
+  Markdown reads `language:` from its frontmatter (quoted either way). DOCX
+  reads `dc:language` in `docProps/core.xml`, then `w:themeFontLang` in
+  `word/settings.xml`, then `w:lang` under `w:docDefaults` in
+  `word/styles.xml`. EPUB reads its first `dc:language`. Scrivener reads none:
+  the binder file has none, nothing else in the bundle is read, and no
+  Scrivener project was at hand to find out where one keeps a language, so
+  none is guessed (a test records the decision).
+- The import preview always shows a language picker under the title ("Manuscript
+  language", as everywhere else), because
+  a language read from Word comes from its template and can be wrong. It is
+  preset to the source's language, or to the interface's when the source
+  gives none, and its hint says which: the language the file gives ("Change
+  it here if that is wrong."); that the file does not say; or the tag the file
+  gives when Versorium cannot use it.
+- `import_apply(source, title, language)`. Its body is `import_into`, with
+  the projects folder as an argument, so Rust tests run the whole apply in a
+  temp dir (it was covered only through the mock). It refuses a bad language
+  before reading the source, so nothing is created and a missing file is not
+  what is reported.
+
+**Scrivener synopses are kept.**
+
+- On the chapter, as `synopsis:` in its frontmatter (`set_synopsis` in
+  `commands/chapters.rs`), one line of JSON, which YAML reads as a
+  double-quoted string: quotes, a backslash, line breaks and a `---` on a line
+  of its own cannot end the frontmatter. `yaml_string` also escapes what JSON
+  leaves raw and YAML 1.1 readers take as a line break (U+0085, U+2028,
+  U+2029) or refuse (DEL, the C1 controls, a BOM, U+FFFE, U+FFFF). Windows
+  endings become `\n`, the margins go, and an empty synopsis writes no key.
+- Every write keeps it, because every one keeps keys it does not own:
+  `save_chapter` (the editor's saves, an applied rewrite, an agent's edits
+  over MCP, a restored snapshot), `update_chapter` (title, status) and a
+  reorder, which never opens the file. `save_chapter` and `update_chapter`
+  now share `rewrite_header`, which takes a replaced key's YAML block, list
+  or blank lines with it: retitling a hand-written `title: >` used to leave
+  its lines hanging under the key before it.
+- The corkboard prefers it. `cardText` (`src/lib/binder/cardText.ts`, out of
+  `Corkboard.svelte`) gives a synopsis, in the text colour with its line
+  breaks; or, without one, the chapter's opening prose, muted and in italics,
+  as an excerpt; or nothing ("Nothing written yet."). A screen reader hears
+  "Synopsis:" or "Opening lines:" first. The excerpt leaves scene headings out
+  (they used to be glued to the next sentence: "Morning The road bent
+  north.") and is cut at 200 characters between code points, not inside an
+  emoji. A synopsis written by hand as a YAML block reaches the card as its
+  indicator alone (`|`), and is taken as none.
+- A Scrivener export writes the stored synopsis to `synopsis.txt`, whole,
+  and the first sentence only for a chapter without one, so a synopsis comes
+  back from Scrivener → Versorium → Scrivener as it went. The import leaves
+  out a card that is only its chapter's first sentence, so Versorium →
+  Scrivener → Versorium makes no synopsis up (below, "After review"). `formats::Chapter`
+  has a `synopsis` (20 literals updated); `read_manuscript` fills it, with the
+  card's rule about a lone indicator (`readable_synopsis`). The other formats
+  have no per-chapter place and are unchanged.
+- The card's words were `--text-mute`, which on the open chapter's tinted
+  card measured 3.92:1 in Folio dark, 4.29:1 in Folio light and 4.45:1 in
+  Quarry dark: small text, under AA's 4.5:1. They are now `--text-mute` mixed
+  25% with `--text`: 5.00:1 at the lowest, 4.96 → 6.35:1 on a resting card
+  in Folio light.
+
+**The mock** stopped lying about the import: `import_apply` validates the
+language, creates the project in it, and puts the previewed chapters in with
+their bodies and synopses (it used to make an English project holding only
+the placeholder); `read_chapter` returns `synopsis` in the frontmatter;
+`update_project` takes and validates a language and checks before writing;
+`create_project` validates like Rust; and `importPreview` is exposed so a spec
+can give the file a language.
+
+Tests. Rust, 28 new and 1 rewritten: `language_code` accepts and refuses;
+`LANGUAGES` equals the locale names; a language changed through
+`update_project` reaches the file and nothing else moves, and a refused one
+leaves the file byte for byte; `create_project` refuses and leaves no
+folder; Markdown's frontmatter language (quoted, unquoted, a region, `fr`,
+none, the export round trip); DOCX's three places, their order, a language
+on a named style or with no defaults ignored, an entity, none, and the
+export round trip; EPUB's `dc:language` and its absence; Scrivener names
+none; an import takes the language given (over the file's), and refuses a
+bad one before anything exists or is read; a Scrivener synopsis lands in its
+chapter's frontmatter exactly, with the body intact; a chapter without one
+gets no key; the synopsis survives Scrivener → Versorium → Scrivener; it
+survives a save, a save with a status, a rename, a status change and a
+reorder (bytes unchanged); it is one line of JSON and an empty one writes
+nothing; a replaced key's block, list and blank lines go with it; an agent's
+four write tools over MCP and an applied rewrite keep it; the export prefers
+it; `read_manuscript` carries it; a lone indicator is none; a declared tag is
+kept as written. `importing_replaces_the_placeholder_chapter_rather_than_appending`
+now runs the apply instead of only the preview. Vitest, 15 new in
+`tests/unit/` (`card-text`, `corkboard-synopsis.render`, `novel-languages`,
+`project-language`), plus `tauri.test.ts` (the patch and the import's
+language on the wire) and `state.test.ts` (the language reaches
+`importApply`). Playwright, 6 new and 2 extended: the language changed live
+in the same editor and kept on reopening; a refused one springs back with
+its reason; the import asks when the file does not say and the new novel is
+in the one chosen; a declared language is the preset and an unusable one is
+named; the corkboard shows the imported synopsis and says which kind each
+card is; the card's words hold 4.5:1 in the six themes, on the open card
+too; and the Spanish Project settings and import question.
+
+Each mechanism was removed once and the test meant for it watched fail
+(`tests/scratch/novel-language/mutate.py`, logs in
+`tests/scratch/out/novel-language/`), in a copy of the tree served by a Vite
+of its own on :1444, with a Rust target dir cloned from this one, never in
+the live `src/` under the shared :1420. All 40 checks passed unmutated
+first (the two tests strengthened afterwards, below, pass too). Then 38
+removals (16 in the frontend and the mock, 22 in Rust), 57 required checks
+(12 Playwright, 11 vitest, 34 cargo), 57 failed, each in the test meant for
+it. Missed on the way and fixed before that count: the first
+run had 54 of 55; ignoring `w:docDefaults` when reading `w:lang` failed
+nothing, because the reader also stops at `</w:docDefaults>`, so the test
+now has a styles file with no defaults at all (and stopping there got a
+removal of its own); and taking `import_into`'s own check out failed nothing
+while `create_project` still refused, so the test now imports a missing file
+with a bad language and expects `bad_language`. One check ran for the record
+and passed, as expected: with the core properties unread, an exported DOCX
+still comes back in its language, from `styles.xml`.
+
+Measured with `make verify` (exit 0, 81 s;
+`tests/scratch/out/novel-language/verify-final.log`): svelte-check 403 files, 0
+errors, 0 warnings; locale keys 754 → 764 in each language; vitest 240 → 255
+in 33 files; `cargo test` 579 → 607 unit plus 4 integration, 16 ignored;
+clippy `--all-targets` 0 findings; Playwright 225 → 231. The two specs this
+touched also pass in Playwright's WebKit, the macOS app's engine (18 of 18,
+`tests/scratch/novel-language/pw-webkit.config.ts`; not in the gate).
+
+Looked at in Chrome on the mock (`tests/scratch/novel-language/look.mjs`,
+shots in `tests/scratch/out/novel-language/look/`) at 1280×800, in English
+and Spanish, in Folio, Quarry and Needle, light and dark: Project settings
+with its picker, focused, and with a refused change; the import preview in
+its three hints; the corkboard after an import with a synopsis of two lines.
+Found that way and fixed: the dialog scrolling (now wide), the heading glued
+to the excerpt, and the card's contrast on the open card. The only console
+error is the dev server's missing `favicon.ico`.
+
+Where this departs from the plan:
+
+1. `language_code` also asks for the shape of a tag, so `en-` and `español`
+   are refused rather than read by their first letters.
+2. `rewrite_header` is shared by `save_chapter` as well as by the title and
+   status path, so the block rule applies to `status:` and `words:` too. A
+   blank line after a replaced key goes with it.
+3. `yaml_string` escapes the YAML 1.1 line breaks and unprintables on top of
+   JSON.
+4. The Project dialog is wide; the card excerpt leaves headings out and is
+   cut between code points; the card's words are less muted (above). None of
+   these was in the plan; each came from looking at the screenshots or
+   measuring them.
+5. The import hint names the language the file gives by its name ("Español"),
+   not by the tag the file wrote (`es-MX`).
+6. `declaredLanguage` is cut to 40 characters, so a field holding a paragraph
+   does not fill the hint.
+7. DOCX's three readers share one entity resolver with the paragraph reader
+   (`resolve_entity`), which replaced its inline copy.
+
+Not done: nothing in the app creates or edits a synopsis, only Scrivener
+export carries one, and a Scrivener project's language is not read
+(`TODO.md`); the real webviews and a real Scrivener bundle were not tried.
+Found on the way, not built: the DOCX importer reads `<dc:title>` without
+unescaping it, so "A &amp; B" arrives as such; a failed import leaves the
+half-made project folder behind, and the placeholder chapter's removal
+ignores errors (`import_into`); the corkboard caches each card for as long as
+it is open, so a chapter changed meanwhile shows its old card; the open
+chapter's card's id, status and word count (`--text-mute`, 11px) measure
+3.92:1 to 4.88:1, under 4.5:1 in Folio light and dark and Quarry dark;
+`NewProjectDialog.svelte` and `Onboarding.svelte` keep their own copies of
+the language list; `create_project` writes `versorium.json` with `fs::write`
+rather than atomically; and the mock's import preview warnings are English
+prose where Rust sends codes, so the Spanish mock shows them in English.
+
+### After review (2026-10-04)
+
+The build was reviewed, and 19 findings came back. Each was checked before
+anything changed.
+
+**Fixed, each with a test that fails without the fix:**
+
+1. **Versorium → Scrivener → Versorium no longer makes up synopses.** For a
+   chapter with no synopsis, the export writes its first sentence as the
+   card, and the import kept every card it found. So each such chapter came
+   back with a "synopsis" that the corkboard announced as one, and the next
+   export repeated it after the opening had changed. A test failed on this
+   first (`a_card_that_only_repeats_the_first_sentence_is_not_a_synopsis`).
+   The import now leaves out a card equal to what `first_sentence` makes of
+   the imported chapter. `first_sentence` is the exporter's rule, now one
+   function that both sides use. The comparison is trimmed, since a card cut
+   at 200 characters can end on a space. A synopsis typed in Scrivener that
+   is word for word the first sentence is dropped the same way, and the next
+   export writes it back (FORMATS.md).
+2. **The last language picked is the one kept.** If the writer picked a
+   second language before the first answer came, the second pick was
+   compared with the stored language and dropped. Writes now go one at a
+   time. A pick made during a write waits for it and then goes, and the
+   picker shows that pick meanwhile. The picker is not disabled while it
+   writes, because that would take the focus from a keyboard user.
+3. **The closing page's preview is in the novel's language.** It uses
+   `exportLabels(language)`, the wording the export sends, and carries
+   `lang` for screen readers. The language row stays the code, as
+   `colophon_lines` writes it. The word count is bare digits, as the export
+   writes it: grouped by the interface's locale, 12,345 reads as a decimal
+   in a Spanish card.
+4. **The setting has one name.** Both pickers use `dialog.language`,
+   "Manuscript language" / "Idioma del manuscrito", as New project and
+   Onboarding already did. The two labels this build had added are gone.
+5. **Project settings fits a laptop screen.** At 1280×800 it overflowed by
+   8px in English, but by 62px in Spanish and 84px with an error showing,
+   and Done sat wholly below the edge
+   (`tests/scratch/novel-language-fix/measure-project.mjs`). Its settings now
+   scroll in a body of their own, as in the Manuscript, Rewrite and
+   onboarding dialogs, and Done stays in view. The dialog itself overflows
+   by 0px at 1280×800 and 1280×720 in both languages, and is unchanged at
+   1440×900, where it fits. A scroll box clips at its edges, and the picker
+   reaches the right one. So the body reaches 4px into the dialog's padding
+   and gives the 4px back inside, which leaves room for the 3px focus ring
+   without moving anything. The import preview's new picker and its title
+   field had the same cut on both sides (0px of room), and are fixed the
+   same way (3.5px on each side now).
+6. **A region of an offered language reads as that language.** `es-MX` shows
+   as "Español (es-MX)" (`project.languageRegion`), not as "es-MX (not
+   offered)". `novelLanguageOf` reads a tag the way `language_code` does,
+   and a test holds it to that function's test cases.
+7. **A tag that gives no language is no answer.** `und`, `mul`, `zxx`, `mis`
+   and private-use tags (Word's `x-none`) count as nothing said, in every
+   importer. A DOCX then reads its next place, instead of reporting `x-none`
+   as a language Versorium cannot use.
+8. **The Spanish hint quotes the picker's label** («Español») instead of
+   capitalising a language name mid-sentence.
+9. **Mechanisms that had no test now have one:** the synopsis card's line
+   breaks, the excerpt's italics and the synopsis's colour (computed styles
+   in Chrome, since jsdom loads no CSS); EPUB's unprefixed `<language>`;
+   the dialog passing the picker the novel's own code (a `seedLanguage` on
+   the mock's seed); and each of the mock's three language checks, seen
+   refusing with its message (`update_project` under the picker,
+   `create_project` in New project, `import_apply` in the import).
+10. **The mock.** Every answer that holds chapters now has exactly
+    `ChapterMeta`'s six fields; `update_chapter`, `reorder_chapters`,
+    `delete_chapter` and `delete_project` used to send body and synopsis
+    too, and a test now holds them to it. The preview and the apply share
+    one rule for which files can be imported, `.txt` included, as in
+    `importer_for`. A spec can hold a command's next call (`hold`,
+    `release`).
+
+**Not done, and why:**
+
+- **Half of finding 4 (DOCX).** When the core properties name a language
+  Versorium cannot use (`fr-FR`), the search still ends there; it does not
+  fall through to Word's template language further down. The core
+  properties are what somebody declared. The template's language is the
+  guess that the importer's own comment warns about, and the dialog would
+  then tell the writer "the file gives its language as Español" about a
+  file that declares French. A test pins this choice (mutation R05 below).
+- **Finding 17** (three word counters for one chapter) is outside this item.
+  It is recorded in `TODO.md`, together with how it affects the Project
+  settings preview.
+- **Finding 19** needed no code. FORMATS.md now says that a key the app
+  writes replaces any block written under it by hand.
+- **The other half of finding 14** is outside the item: New project lists
+  Español first, and both it and Onboarding keep their own language lists.
+  It is in `TODO.md`. Onboarding already listed English first, so only New
+  project differs.
+- **Finding 12:** the 84 GB clone under
+  `tests/scratch/out/novel-language/target` has been deleted.
+
+**Measured.** Each mechanism above was removed once in a copy of the tree.
+The harness is the first round's, `tests/scratch/novel-language-fix/mutate.py`,
+with its own Vite on :1444 and logs in `tests/scratch/out/novel-language-fix/`.
+All 19 checks passed unmutated first; a 20th, added with the import
+dialog's fix, passed in the live tree before its own removal. Then came 28
+removals (22 in the frontend and the mock, 6 in Rust) with 31 required
+checks (21 Playwright, 2 vitest, 8 cargo); all 31 failed, each in the test
+meant for it. The four removals behind the mock-shape test were run again
+after its boot wait was added (`mutate-rerun.log`), and all four still
+failed. Six more
+checks ran for the record and passed, as expected, because another mechanism
+holds there. For example, the mock's `import_apply` check alone is masked by
+`create_project`'s, as `import_into`'s is in Rust; with both removed, the
+import test fails.
+
+`make verify` exits 0 in 79 s
+(`tests/scratch/out/novel-language-fix/verify-final.log`):
+
+- svelte-check: 403 files, 0 errors, 0 warnings
+- locale keys: 764 → 763 in each language
+- vitest: 255 → 257, in 33 files
+- `cargo test`: 607 → 612 unit plus 4 integration, 16 ignored
+- clippy `--all-targets`: 0 findings
+- Playwright: 231 → 238
+
+The three specs this round touched also pass in Playwright's WebKit, the
+macOS app's engine: 36 of 36
+(`tests/scratch/novel-language-fix/pw-webkit.config.ts`; not in the gate).
+WebKit is where the new mock-shape test's race showed up: it read the mock
+before the app had booted. It now waits for the app first.
+
+In Chrome on the mock, at 1280×800, the following were checked by eye
+(shots in `tests/scratch/out/novel-language-fix/`): Project settings in both
+languages, the picker's focus ring at 2x at the box's edge, and the Spanish
+import preview with its picker focused.
+
+## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
+
+### Backup
+
+- **A synced folder, not only GitHub.** The project is archived as one zip,
+  `.git` included, into a folder the OS already syncs. The live repository
+  never goes inside the synced folder: those services sync file by file without
+  git's ordering or atomicity. Archives are written under a `.part` name and
+  renamed when complete; pruning only touches this project's own prefix.
+  Restore extracts **beside** the original, never over it, and zip entries go
+  through `enclosed_name`.
+- **Providers are detected, not guessed**: `~/Library/CloudStorage/Vendor-Account`
+  on macOS, Dropbox's `info.json`, the Nextcloud/ownCloud `.cfg`. A destination
+  is probed for writability, and hidden directories are skipped — the first
+  writable child of Google Drive was `.Trash`.
+- **Up to three destinations** (`MAX_DESTINATIONS = 3`), written in one pass,
+  each reporting separately. Details in "Backup, done properly" below.
+- **Deduplicated by content.** An archive is identified by a fingerprint of the
+  project — every path and every byte, each field length-prefixed so a rename
+  cannot fool it. A short form rides in the filename; the full digest sits in
+  the zip's comment. A press that changes nothing writes nothing and says so,
+  with the time of the copy already there, after reading that copy back in
+  full. **Two copies per state** per destination (`COPIES_PER_STATE = 2`), so a
+  thousand presses on an untouched novel leave two archives. Before this, ten
+  presses evicted ten real states, because pruning (default keep: 10) counted
+  identical archives.
+- What had to be fixed for that to work: `fs::read_dir` is unordered, so one
+  sorted walk now feeds both the hash and the zip; zip entries carried `now` as
+  their timestamp, so they now carry each file's own mtime; **two presses in the
+  same second silently overwrote the first** (one-second names plus
+  `fs::rename`), which was live data loss and is fixed; an in-flight
+  `.versorium-save-*.tmp` could enter an archive and no longer can. **The time
+  shown comes from the filename** — the moment the backup was asked for — not
+  the file's mtime, which differed per destination.
+- An archive whose name claims the current state but which cannot be opened is
+  reported as damaged and a fresh one written; the bad file is left to age out.
+- Installs that already had a backup folder keep it: the old `backupDir` key is
+  moved into `backupDirs` on load.
+
+### Credentials and GitHub
+
+- **GitHub tokens are in the OS credential store** (Keychain, Credential
+  Manager, Secret Service via the `keyring` crate), no longer plaintext in
+  `settings.json`. Migration clears the file only after the store accepts the
+  value; with no usable store the tokens stay where they were. The token never
+  reaches the webview: the field is write-only and answers "Connected".
+- **Push and pull work.** `git2` had been built without its `https` feature, so
+  "Create private backup" made a repository nothing could ever be sent to. Pull
+  fast-forwards or refuses with `git_diverged`; there is no merge.
+- **The token is bound to github.com over https.** It used to be attached to
+  whatever remote `.git/config` named. The remote is checked before the
+  credential callbacks are built and again inside the callback (libgit2 follows
+  redirects); the parser refuses `github.com@attacker`,
+  `github.com.attacker.tld`, `notgithub.com`, `http://` and ssh remotes.
+  Refusal has its own error code.
+
+### MCP over HTTP
+
+Streamable HTTP alongside stdio, as one stateless POST endpoint in front of the
+same JSON-RPC dispatch. Off by default, toggled in Settings → Assistants.
+Loopback only, ephemeral port, `Origin` and `Host` validated, and a per-launch
+bearer token of 256 bits from the OS CSPRNG (`getrandom`), written with the URL
+to a file at mode 600; if that randomness is unavailable the port does not
+open. The write rules are unchanged: read-only until a client is granted
+writing.
+
+### Formats
+
+- **EPUB import**, in spine order, skipping the nav document, reporting lost
+  images and styling.
+- **Scrivener 3 export** (`.scriv` bundle, one document per chapter, a synopsis
+  per card, deterministic identifiers), offered in the export dialog. Scene
+  headings flatten to separators, and that loss is reported. Writing it found
+  two Scrivener-import bugs (titles cut at `&amp;`, then spaces lost around it),
+  both fixed.
+- **A title page and a colophon** in EPUB, DOCX and PDF, each switchable per
+  project (`exportCover`, `exportColophon` in `versorium.json`, both default
+  on). In EPUB, refusing the colophon removes every trace of the word
+  Versorium from the file (a test asserts the OPF does not contain it). DOCX
+  and PDF still name Versorium in their metadata whichever way the colophon is
+  set: `<Application>Versorium</Application>` in `docProps/app.xml`, and
+  `/Creator` and `/Producer` in the PDF information dictionary. The colophon is written in the manuscript's language, not the
+  interface's (`tIn`). **The importers skip this apparatus**: EPUB on `epub:type`,
+  DOCX on this app's own paragraph style ids, so re-importing an exported file
+  does not hand back two extra chapters. A PDF of a novel with no chapters is
+  still refused as empty, title page or not. The EPUB title page first
+  carried `role="doc-tithead"`, which epubcheck rejects (`RSC-005`); fixed, and
+  the default export passes epubcheck again (see `FORMATS.md`).
+- **Author metadata**, with a work profile and a personal one; see "Author
+  metadata" below.
+
+### Binder, project and home screen
+
+- **Rename, restatus and delete** novels and chapters. A deleted chapter is
+  snapshotted into the project's git history first; a deleted novel goes to the
+  system trash, and `delete_project` refuses any folder that is not a
+  Versorium project. Renaming a novel changes `versorium.json` only, never the
+  folder.
+- **Reorder** through `chapterOrder`, Move earlier / Move later in the chapter
+  menu (Move up / Move down until the right-click work renamed them, so the
+  binder and the corkboard say the same thing); no file is renamed. See
+  "Chapter order is data" below.
+- **Project settings dialog**, reached from the binder menu, for the settings
+  that live in `versorium.json` and travel with the folder. It draws the title
+  page (`CoverPreview.svelte`) instead of describing it, and the colophon
+  preview uses the novel's own numbers.
+- **Covers in the sidebar**, from the same component, small enough that they
+  show the page shape and the initial only; dimmed when the title page is off.
+- **The home screen has two states.** Nothing on disk: the first-run copy and
+  "Take the tour". Novels on disk, none open: "Where were we", with the last
+  novel written in as the primary action. Both offer "Open a folder…".
+  `list_projects` now sorts by the newest chapter mtime instead of by path
+  descending. The tour is also reachable from Settings → Application.
+
+### Settings and the interface
+
+- **Author is its own settings group**, separate from Writing (typography).
+  Settings now has seven groups: Writing, Author, Appearance, Local AI,
+  History & backup, Assistants, Application.
+- **Local AI is organised around tasks.** "What each task uses" lists the five
+  jobs (Rewrite, Project chat, Continuity, Search, Dictation) and what each one
+  runs on; "Where models come from" lists the sources. The tabs are now Built
+  in, Ollama, Local server and Dictation.
+- **Assistants names its direction**: outside tools that reach into the novel,
+  "Assistants on this machine" for detection, and "What they are allowed to do"
+  for MCP permissions — the arrow points the other way from Local AI.
+- **Model downloads show progress.** Polling started only after the download
+  had finished, and Cancel went through a guard that ignored it while a
+  download ran; both fixed. The card draws a bar with bytes and a percentage.
+  The mock now takes longer than a poll interval, so the E2E suite can see it.
+- **Form controls look like this app's.** One stylesheet sets `color-scheme`
+  per theme (it was never set, so dark themes got light native widgets) and
+  `accent-color` to the theme accent (checkboxes were macOS blue), stops
+  checkboxes being padded like text fields, gives selects the app's chevron
+  and inputs their hover/disabled/invalid states.
+- **Shared form primitives** in `src/lib/components/forms/`: `Field`,
+  `TextField`, `NumberField`, `Select`, `Checkbox`. `Field` puts the hint in
+  `aria-describedby` and the status readout outside the accessible name;
+  `Checkbox` is strictly controlled; `NumberField` clamps on commit and commits
+  once. Migrated so far: the author fields, the title-page and colophon
+  toggles, the backup retention count, and the per-slot model picker in Local
+  AI. The rest are listed in `TODO.md`.
+- **The theme picker did nothing on a dark-mode machine**: the default `follow`
+  mode forced Needle whatever was chosen. Fixed; the picker is now a swatch per
+  theme, pinned by a test against `styles.css`.
+- **The update dialog shows its phases** — downloading, verifying, installing,
+  ready — then offers a restart.
+
+### Models, icon and build
+
+- **Four models under 1.3 GB**; see "Model catalogue" below.
+- **The icon is a V and a nib**, drawn as a stroke with a pressure profile,
+  with an ink pool at the point. The earlier needle-in-a-ring read as a compass,
+  and a teal compass in a rounded tile reads as Safari. Per-size cuts: V, nib
+  and ink from 256 px; V and nib from 64; the V alone below. Generated by
+  `make icons` from `tests/icons/generate.py`; the in-app mark is one
+  `VMark.svelte` built from the same geometry.
+- **Vulkan on Windows and Linux** (`--features vulkan` in the release matrix);
+  Metal on macOS as before. CUDA is not offered. The `.deb` declares
+  `libvulkan1` and `libssl3`, because a missing Vulkan loader stops the app
+  starting rather than falling back to CPU.
+- x86-64 release builds target `x86-64-v2` (through `RUSTFLAGS`), after
+  `GGML_CPU_ALL_VARIANTS` was found to make cmake fail on three of four legs.
+- **CI** (`.github/workflows/ci.yml`): types and components, locale parity,
+  clippy with `--all-targets -- -D warnings`, `cargo test`, end to end, and the
+  Vulkan compile check on `main`. `pnpm-workspace.yaml`, which approves the one
+  install script esbuild needs, is now committed.
+- The updater and the crash reporter point at `MAECLY/versorium-app`, the org
+  that now owns the repo.
+
+## Still open
+
+The full list, with file names, is `TODO.md`; the epubcheck result is in
+`FORMATS.md`. In short:
+
+- **Form controls still hand-written**: 26 control tags in 14 files, waiting
+  to move to the shared primitives. One of them is a live bug: the local-server
+  port in `LocalAiSection.svelte` is a bare `<input type="number" bind:value>`,
+  so clearing it sends `null` to `studio_test` / `studio_save`, which take
+  `port: u16`. `NumberField` fixes that and is not there yet.
+  `RadioCardGroup` (the export-format picker) is named, not designed or
+  written: commit `0ccb279` names it and no design for it is in the repository.
+- **Project chat, search by meaning, and dictation.** The slots exist and can
+  be assigned; nothing opens a conversation, there is no index or search box
+  using the embedding model, and there is no Whisper pack in
+  `models/catalog.json`. The Dictation tab says so.
+- **Going public**, in order: signing secrets → make the repo public → enable
+  Pages with GitHub Actions as the source → the Cloudflare CNAME → tag
+  `v0.1.0` and check the draft release before publishing it.
+- **The tokenless updater has not met a public repository yet.** The code
+  no longer needs a token (see "Updater without a token" above), but the
+  repository is still private and has no release. Today an anonymous check
+  gets GitHub's 404 and the panel says that no published version is visible.
+  Detect, verify and install without a token can only be tried after the
+  repository is public and `v0.1.0` is published.
+- **Apple notarization and Windows Authenticode.** They need purchased
+  certificates and code: the release workflow and `tauri.conf.json` are not
+  wired for either (see "Release readiness").
+- **The right-click policy is unchecked on the real webviews' release
+  builds**: a real Ctrl+click on macOS, the reload keys and the Menu key on
+  WebView2, disabled buttons on WebKitGTK (see "Right-click" above).
+- **Spelling is not checked on Linux**, and on macOS it is shown on a plain
+  WKWebView, not yet on a release build (see "Settings → Editor" above).
+- **The undo key with focus off the page undoes the page's typing**,
+  outside CodeMirror's history; and the corkboard still rebuilds the editor,
+  losing its undo history as Settings used to.
+- **One unexplained test failure.** One `cargo test` run, on an earlier and
+  smaller suite, reported 1 failure without naming it; the runs after it were
+  reported clean, and no logs of them are kept. Not diagnosed, so not claimed
+  fixed. A port clash is not the cause: the only test that opened a socket
+  then (`live_a_real_request_over_a_real_socket_is_answered` in
+  `src-tauri/src/mcp/http.rs`) is `#[ignore]`d, and it binds port 0 anyway.
+  The updater's two redirect tests, added since, open loopback sockets on
+  port 0 too.
+
+---
+
+The rest of this file is the record of how the milestones were built. Counts
+and locations in it are as they were at the time; where something has since
+moved or changed, it says so.
+
+## Known holes at the end of v1, and what became of them
+
+- **No built-in inference runtime** (M4). *Closed in PR #7*: llama.cpp runs
+  in-process. See "The inference runtime" below.
+- **No release has ever been cut** (M6). *Still true.* The repo constants and
+  the remote now agree on `MAECLY/versorium-app`.
+- **GitHub tokens were plaintext** in `settings.json`. *Closed in PR #9*: OS
+  credential store.
+- **No Scrivener export, no EPUB import** (M5). *Both closed in PR #9.*
+- **No HTTP MCP transport** (M3). *Closed in PR #9* (Streamable HTTP, off by
+  default). **No network git** (M1). *Closed in PR #9*: push, and fast-forward
+  pull.
+- **Whisper dictation packs absent** (M4). *Still true.*
+- **No Apple notarization or Windows Authenticode** — minisign only. *Still
+  true.*
 - Scene titles do not survive DOCX or PDF; characters outside WinAnsi do not
-  survive PDF. Both reported to the writer and documented in `FORMATS.md`.
-- Creative Mode remains a disabled control, as the spec requires for v1.
+  survive PDF. *Still true*, reported to the writer and documented in
+  `FORMATS.md`. (Scrivener export also flattens scene headings.)
+- Creative Mode is a disabled control with no engine behind it. That is a
+  fixed project rule, not a v1 limit: the UI says "coming soon" and nothing
+  more. *Unchanged, by design.* The tooltip (`ai.creativeSoon`) currently
+  reads "Creative mode arrives in v1.1.", which promises a version the rule
+  does not.
 
-## Post-v1 pass (branch `feat/m8-inference-runtime`)
+## Post-v1 pass (PR #7, merged)
 
 Not a milestone. This is what came out of reading the app as a reader rather
 than as its author, plus the corrections that reading forced.
@@ -265,11 +1923,12 @@ than as its author, plus the corrections that reading forced.
 
 - **Settings is a page, not a modal.** Nine unrelated concerns had accumulated
   in one scrolling dialog in the order the milestones built them. Six groups
-  now, each answering one question and saying so in a line under its heading.
-  Two placements changed on purpose: the "Git" section held two credentials for
-  unrelated jobs (authorizing update downloads vs backing up the novel) and they
-  moved beside the thing each one serves; continuity and the content filter were
-  loose in the middle of the modal and moved to the models they depend on.
+  then (seven since Author split out in PR #9), each answering one question and
+  saying so in a line under its heading. Two placements changed on purpose: the
+  "Git" section held two credentials for unrelated jobs (authorizing update
+  downloads vs backing up the novel) and they moved beside the thing each one
+  serves; continuity and the content filter were loose in the middle of the
+  modal and moved to the models they depend on.
 - **Git's vocabulary is gone from the reader's path.** commit → snapshot, repo →
   backup, commit message → what changed. `snapshot`/`instantánea` was already
   this codebase's word in `ai.checkpointNote`, so it was spread rather than
@@ -285,9 +1944,9 @@ than as its author, plus the corrections that reading forced.
   implied by the selection, with `Cmd/Ctrl+Alt+R`.
 - **The model cards say what a model is for.** They showed `{speed} • {quality}`
   and nothing else. The load-bearing fact is stated once above the ladder: the
-  seven writing models do the same three jobs and differ only in size, so the
-  choice is which one the machine can hold. nomic-embed now says it does not
-  write.
+  writing models (seven then, eleven now) do the same three jobs and differ in
+  quality, speed and memory, so the choice is which one the machine can hold.
+  nomic-embed says it does not write.
 
 ### Deliberate non-changes
 
@@ -327,10 +1986,14 @@ Three things that came from reading the crate rather than assuming it:
 
 **Limits, stated rather than discovered later:**
 
-- **Metal and CPU only. No CUDA, no Vulkan** from the current release matrix,
-  so §6.2 is half-delivered knowingly: an NVIDIA or AMD owner gets CPU speeds
-  from a `builtin` slot, and the UI says so rather than letting it read as a
-  fault. The additive follow-up is the crate's `dynamic-backends` feature.
+- **GPU backends: Metal on macOS, Vulkan on Windows and Linux, no CUDA.** When
+  PR #7 merged it was Metal and CPU only. PR #9 added the Vulkan backend to the
+  Windows and Linux release builds; one Vulkan backend reaches NVIDIA, AMD and
+  Intel. The crate's `dynamic-backends` feature, once named as the follow-up,
+  turned out not to add GPU backends at all. CUDA is deliberately not offered
+  (full toolkit on every runner, hundreds of MB in the installer, for hardware
+  Vulkan already reaches). The Vulkan build is compile-checked in CI and has
+  not been run on a GPU.
 - **In-process means a ggml assertion kills the editor.** `ggml_abort()` calls
   `abort()` even with a callback installed. This is what a sidecar would have
   bought and it is a conscious trade; it is bounded because a malformed GGUF is
@@ -341,13 +2004,18 @@ Three things that came from reading the crate rather than assuming it:
   shader cache is shared across every Metal app on the account and rotates, so
   it can recur. Shipping an ahead-of-time `default.metallib` would fix it and is
   blocked by the Metal Toolchain being a stub in Xcode 27.
-- **Dictation is still unsolved and now says so.** llama.cpp cannot load Whisper
+- **Dictation is still unsolved and says so.** llama.cpp cannot load Whisper
   and the catalogue has no speech entry, so the slot keeps refusing.
 - **CI cannot smoke-test inference** without hosting a small GGUF fixture. The
   path ships with unit coverage plus a `live_` test gated on
   `VERSORIUM_TEST_GGUF`.
 
-### Backup, done properly (2026-09-28)
+## PR #9 in detail
+
+The four parts of PR #9 that needed more than a bullet in "Merged in PR #9"
+above.
+
+### Backup, done properly (2026-09-28, PR #9)
 
 Three layers, named as layers in the UI, because they fail differently:
 
@@ -379,22 +2047,26 @@ this now reports rather than scores:
 
 A live `.git` still must not sit inside a synced folder — these services sync
 per file without git's ordering or atomicity and evict files to placeholders —
-so the artefact is one timestamped zip, and the panel says so where somebody is
-about to choose a folder.
+so the artefact is one zip whose name carries the time and the content
+fingerprint, and the panel says so where somebody is about to choose a folder.
+Deduplication came the next day; see "Backup" under PR #9 above.
 
-### Author metadata (2026-09-28)
+### Author metadata (2026-09-28, PR #9)
 
-Settings → Writing holds **two author profiles**, work and personal, and each
-field states in the UI where it lands. The fields were chosen by what the
-formats can carry, not by what a form usually asks for:
+Settings → Author (it started under Writing and became its own group) holds
+**two author profiles**, work and personal, and each field states in the UI
+where it lands. The fields were chosen by what the formats can carry, not by
+what a form usually asks for:
 
 | Field | Where it goes |
 |---|---|
 | name | creator in EPUB, DOCX, PDF, Markdown |
-| sortAs | EPUB `file-as`; guessed from the name, and the guess is the placeholder |
-| role | EPUB only, as a MARC relator; an unlisted code is dropped |
-| organization | `dc:publisher` in EPUB, `Company` in DOCX |
-| rights | `dc:rights` in EPUB, `/Subject` in PDF, `dc:description` in DOCX |
+| sortAs | EPUB `file-as`, guessed from the name when empty (the guess is the placeholder); `sortAs:` in Markdown |
+| role | EPUB, as a MARC relator (an unlisted code is dropped); `role:` in Markdown; no binary format but EPUB carries it |
+| organization | `dc:publisher` in EPUB, `Company` in DOCX, `publisher:` in Markdown |
+| rights | `dc:rights` in EPUB, `/Subject` in PDF, `dc:description` in DOCX, `rights:` in Markdown |
+
+The full per-format table is in `FORMATS.md`.
 
 No email and no address: no export format has a slot for either, and storing a
 contact detail only to look at it is not a feature.
@@ -405,7 +2077,7 @@ coming from no application; PDF had **no information dictionary**, so every
 reader's properties panel was blank; EPUB had a creator with **no file-as**, so
 a library shelved *El largo invierno* under A for Ana.
 
-### Chapter order is data, not a numbering (2026-09-28)
+### Chapter order is data, not a numbering (2026-09-28, PR #9)
 
 `versorium.json` gains `chapterOrder`. Reorder used to be impossible to do
 safely because order came from the id, the id is in the filename, and renaming
@@ -414,32 +2086,208 @@ files is what git history follows, what a backup archive contains, and what
 anything missing from the list still sorts by id, after the ordered ones, so a
 chapter restored from a backup appears rather than vanishing.
 
-### Model catalogue (2026-09-28)
+### Model catalogue (2026-09-28, PR #9)
 
 Four models under 1.3 GB — Qwen3.5 0.8B (0.58 GB), Llama 3.2 1B (0.81 GB),
 SmolLM2 1.7B (1.06 GB), Qwen3.5 2B Q3\_K\_M (1.22 GB) — with sizes and hashes
 taken from the Hugging Face **LFS object ids**, which are the sha256 the
 downloader checks. `tests/catalog/hf-files.py` is how, so the next person adding
-a model does not work it out again. Every URL in the catalogue re-checked: 12/12
-return 200. The panel gained search, family chips, a "runs on this machine"
-filter, a sort and a count, with each card's quant/context/RAM/licence folded
-behind Details — eleven models in one column of full cards is a scroll, not a
-list.
+a model does not work it out again. The catalogue now has twelve entries:
+eleven writing models, listed smallest first (0.58 GB to 17.44 GB), then the
+0.08 GB embedder last. On
+2026-09-28 every URL in it returned 200. The panel gained search, family chips,
+a "runs on this machine" filter, a sort and a count, with each card's
+quant/context/RAM/licence folded behind Details.
 
-### Still open on this branch
+## M7 DoD checklist (done)
 
-- **One unreproduced test failure.** A single `cargo test` run reported 1 failed
-  of 438 without naming it in captured output, and ten subsequent runs were
-  clean. Not diagnosed, so not claimed fixed. Ephemeral ports rule out the
-  obvious cause (the MCP http tests bind port 0).
-- **Chat UI, the embeddings search index, and Whisper dictation.** The three
-  features with a runtime behind them and no surface yet. Dictation has no
-  Whisper pack in the catalogue and the UI says so rather than pretending.
-- **Apple notarization and Windows Authenticode.** Both need purchased
-  certificates, so neither is a code problem.
+- [x] **Onboarding with no signup** — spec §14's five steps, every one skippable, a Skip that always works, and nothing created until the project step is confirmed
+- [x] **Corkboard** — a card per chapter with title, words, status and a preview, opening the chapter on click
+- [x] **Continuity check stub** — runs through a selected Ollama model, and returns `ran: false` with a reason rather than an empty report when there is none (a `builtin` model also runs it since PR #7)
+- [x] **Crash log local + Report** — scrubbed entries on disk, an issue URL prefilled from the scrubbed entry, and nothing sent unless the writer presses Report
+- [x] **Focus mode + typewriter** — both through CodeMirror compartments, so toggling never rebuilds the editor
+- [x] **Font catalogue stub** — the faces already on the machine, with Source Serif 4 listed as unavailable rather than offered with a dead URL
+
+**Limit of the M7 real-app pass** (2026-09-28): the corkboard and focus mode
+were driven through the browser end-to-end suite, which exercises the same
+components via the same buttons, but coordinate-driven clicks in the desktop
+window kept landing on the wrong control, so they were not clicked in the real
+app.
+
+## M6 DoD checklist (done)
+
+- [x] Tauri updater plugin (2.13) wired, with `createUpdaterArtifacts` and the real minisign public key
+- [x] Reads GitHub Releases of the app's own repo, over the **API asset endpoint** — the only form that serves bytes from a private repository
+- [x] **minisign + sha256** — the plugin verifies the signature, and the client verifies the digest against the release's `SHA256SUMS` before installing
+- [x] Settings → Updates (now a section of Settings → Application), using the Updates token slot that has always been separate from the novel token — optional since 2026-10-03, when checking without a token became the rule (§11 amendment)
+- [x] Dialog with **Download & Install / Later / Skip this version**
+- [x] CI workflow that builds and publishes a signed release on a `vX.Y.Z` tag, plus `RELEASING.md` (it publishes a draft; it has never run, because no tag exists)
+- [x] Channels `stable` (default) and `beta`; automatic checking on by default on stable; offline never nags
+
+## M5 DoD checklist (done)
+
+- [x] Export **Markdown** (canonical, lossless round trip), **DOCX** in standard manuscript format, **EPUB 3** (passed epubcheck 5.2.1 with zero errors and zero warnings at M5; PR #9's title page broke it with `RSC-005`; fixed, and on 2026-10-03 the default export passed with 0 errors and 0 warnings again — see `FORMATS.md`) and **PDF** (base-14 Times-Roman, nothing embedded, chapter per page, running heads)
+- [x] Import **Markdown** (tolerant of setext, CRLF, BOM, no headings, prose before the first heading), **DOCX** (H1 = chapter, across Word / Google Docs / LibreOffice / pandoc spellings), **Scrivener** best-effort (v2 and v3 layouts, binder order, trash skipped; synopses are read but not saved — see `FORMATS.md`)
+- [x] **Round trip documented** — `FORMATS.md`, per format and per direction, plus the commands to verify each output
+- [x] Losses are said out loud: an export reports what it could not carry, an import shows its losses **before** writing a project
+
+## M4 DoD checklist (done)
+
+- [x] Settings → Local AI cards moving **Download → % + Cancel → Ready → Selected**, with the weight icon, one-liner, badge, size/quality/quant/context/RAM meta, licence and repo the spec's card bullet list asks for
+- [x] `models/catalog.json` with the LOW → MID → MID+ → HIGH ladder plus an embeddings pack; **nothing downloads on its own**, HIGH least of all
+- [x] Ollama tab: daemon state, the pulled models, pull by name, remove with confirmation, install hint when it is not there
+- [x] Slots for Rewrite, Chat, Continuity, Embeddings — and Dictation — each picking its own model instead of one global choice (labelled Rewrite, Project chat, Continuity, Search, Dictation today)
+- [x] Hardware wizard: memory, cores, platform, graphics, and the largest tier that fits with 20% headroom, stated in a sentence
+- [x] Real downloads: streamed, resumable from a `.part`, one at a time, SHA256-verified, destroyed on mismatch
+- [x] Studio tab (LM Studio / llama-server, labelled "Local server" today) with a connection test; Dictation is the UI hole the spec asks for until the Whisper packs land
+- [x] i18n EN + ES (81 `localAi.*` keys at the time; 117 today)
+
+## M3 DoD checklist (done)
+
+- [x] `versorium mcp` serves stdio from the same binary — `--client <id>` comes from the config the user approved, not from the wire, so a client cannot claim another's permission
+- [x] Read tools: `list_projects`, `read_document`, `search`, `assemble_context`, `history_list` — plus `get_app_state`, `open_project`, `list_documents`, `history_blame`, `diff`, `git_status`, `git_log`, `get_style`, `codex_search`, `codex_get` (15 total)
+- [x] Write tools exist but REJECT unless the writer grants that client writing (Settings → MCP then, Settings → Assistants now): `write_document`, `insert_text`, `delete_text`, `replace_text`, `create_document`, `codex_upsert`, `git_commit`, `delete_document` (8)
+- [x] Write path: preview (no `confirm: true` → diff only, nothing touched) → git checkpoint → apply → ops `author=ai:<client>` at UTF-16 offsets. Deleting a chapter needs `acknowledge_delete` on top of `confirm`
+- [x] README documents the config snippet for Claude Code, Codex, Claude Desktop, OpenCode, Cursor and VS Code; Settings → Assistants writes it for four of them — Claude Code, Claude Desktop, Codex and OpenCode
+- [x] Warning copy about AI deleting text, verbatim from spec §7, shown above the Allow-write controls rather than behind them
+- [x] Tool log in Settings (now under Assistants): tool, client, scope, outcome, paths — never manuscript text
+- [x] i18n EN + ES (29 `mcp.*` keys at the time; 35 today); actionable copy for every error code a tool can return
+
+## How the crash log is kept from carrying a manuscript
+
+Spec §12 says zero prose, and a panic payload is whatever someone passed to
+`panic!`, so the scrubber removes rather than trusts: absolute paths collapse to
+an extension, emails and credential-shaped tokens go, and any run of six plain
+words goes with them — chapter filenames are slugified titles, so a path is
+prose too. Proved gone in tests: Spanish prose, chapter paths, `ghp_` tokens,
+sha256 hex, emails, Windows and `file://` paths, and all of their
+percent-encoded forms inside the report URL.
+
+That threshold has a price, taken deliberately: `index out of bounds: the len is
+3 but the index is 5` opens with seven plain words and that run collapses. No
+threshold both keeps that and drops seven words of somebody's novel, so the
+manuscript wins — the numbers and the panic location survive, which is what
+identifies the bug.
+
+## How the updater is kept from being a backdoor
+
+An automated review flagged the runtime-endpoint design, and it was right to
+look. The answer is that the endpoint is not configurable at all:
+
+- Owner, repo and host are **compile-time constants** (`MAECLY`,
+  `versorium-app`, `api.github.com`). There is no environment variable, no
+  setting and no command parameter that can change where an update comes from —
+  anything that could would be arbitrary code execution carrying our own
+  signature. An override "for testing" was planned and deliberately dropped for
+  exactly this reason.
+- Every URL the updater asks for is re-validated to be **https on
+  `api.github.com`** before anything is sent: the asset URLs in the API's
+  answer and, since 2026-10-03, the installer URL in `latest.json`. So a
+  tampered response cannot redirect the download. Tests run hostile inputs
+  through it, including `api.github.com.evil.example.com`.
+- **A redirect is followed only out of `api.github.com`**, and only over
+  https (`update::may_follow`), on the app's client and on the plugin's. The
+  storage host GitHub redirects a download to has to answer by itself, which
+  keeps the updates token, when there is one, on `api.github.com`.
+- `endpoints: []` in the config is not an omission: the plugin refuses a check
+  that did not set an endpoint at runtime, which closes the JS path around
+  these pins rather than opening one. A static URL could not work anyway — the
+  asset id changes with every release.
+- The **private** signing key lives outside the repository. Only the public half
+  is committed, which is what a public key is for.
+
+## How the formats were built
+
+Nothing was written from memory. A research pass built a working DOCX, EPUB and
+PDF by hand on this machine, ran epubcheck, pandoc, poppler and QuickLook
+against them, and **ablated each part to find which were genuinely required** —
+that is how we know `word/styles.xml` is not optional (without it pandoc loses
+every heading and the chapter round trip dies) while `docProps/core.xml` is. The
+Rust writers are ports of those verified builders, and the same tools run as
+`#[ignore] live_` tests.
+
+M5 added only two dependencies: `zip` and `quick-xml`. The PDF needs neither a
+crate nor a font file — Times-Roman is one of the base-14, so nothing is
+embedded.
+
+## Catalogue provenance
+
+Every `sha256` was read from Hugging Face's LFS `oid`, never guessed, and every
+`sizeBytes` confirmed with a HEAD request. The method itself was proven by
+downloading the 84 MB embedder in full and comparing `shasum -a 256` against the
+published oid. Nothing in the catalogue is gated, so the downloader needs no
+credentials. Sidecar `mmproj`/`mtp` blobs are deliberately absent — the main
+GGUF loads standalone and the extras would double the download for nothing.
+
+The spec's example models are a generation behind: Gemma 4 and Qwen 3.8 are
+current, and Gemma 4 ships `apache-2.0` and ungated where Gemma 3 was neither.
+`Qwen3-4B-Instruct-2507` stays as a mid entry because it is the only candidate
+inside the 2.3–2.6 GB band the spec names.
+
+## How the wire shapes were settled
+
+Reading the spec was not enough — it has two incompatible eras live at once. A
+throwaway logging server registered in a scratch project captured what a real
+client actually sends: **Claude Code 2.1.283 opens with `initialize` at
+protocol `2025-11-25`**, then `notifications/initialized`, `tools/list`,
+`tools/call`. Binary inspection shows Claude Code, Claude Desktop and Codex all
+carry `2026-07-28` (which deleted the handshake in favour of `server/discover`)
+while OpenCode is legacy-only — so the server answers both eras and latches
+whichever one the client opened with.
+
+## Bugs found and fixed during M7
+
+- **The corkboard fetched every chapter twice.** Its effect read the preview
+  cache to decide what to fetch and then wrote to it, so storing a preview
+  re-triggered the read that stored it. The dedupe now lives outside reactive
+  state.
+- **Onboarding advanced relative to wherever the writer stood**, so reaching the
+  project or template step from earlier landed on the wrong one.
+- **`detectAgents()` returning a non-promise** blew up the whole first step.
+- **The Report button could not open a browser** — there was no opener plugin,
+  so spec §12's "opens the browser" was a link the desktop app could not follow.
+- **Onboarding was unreachable**: nothing mounted it, because the file that
+  mounts it belonged to a different agent than the one that wrote it.
+
+## Files / structure (M7 delta)
+
+- Rust: `src-tauri/src/crash/`, `src-tauri/src/continuity/`,
+  `src-tauri/src/fonts/`, `src-tauri/src/commands/polish.rs`, `fonts/catalog.json`
+- Frontend: `src/lib/editor/modes.ts`, `src/lib/binder/Corkboard.svelte`,
+  `src/lib/onboarding/`, `src/lib/settings/TypographySection.svelte`,
+  `src/lib/settings/SafetySectionCrash.svelte`
+- Tests: `tests/e2e/m7-polish.spec.ts`, mock extended with a fresh-install flag
+
+## Architecture decisions (M7)
+
+1. **Modes go through compartments.** Toggling focus or typewriter must never
+   rebuild the editor — a test builds a real view, sets a caret, reconfigures,
+   and asserts the same DOM node, caret and text survive. That regression cost a
+   writer their selection and undo history once already.
+2. **Continuity refuses to pretend.** An empty findings list reads as "your
+   novel is consistent"; a stub that did not run has to say so.
+3. **Template chapter titles live in the locale files**, because they become
+   chapter titles inside the writer's own project and a Spanish writer should
+   not open a manuscript full of English beat names.
+4. **No Download button for a font we cannot fetch.** The catalogue lists what
+   is installed and marks Source Serif 4 unavailable.
+5. **Focus dims the chrome only once it holds neither hover nor keyboard
+   focus**, so a keyboard user never loses their place, and Escape always exits.
 
 ## Next
 
-M0–M7 are complete. The spec's own "Criterios de aceptación" (§17) is the
-remaining bar: it asks for a real release to be published and installed by three
-platforms, which needs the two human decisions above.
+M0–M7 are complete. The spec's own "Criterios de aceptación" (§17) lists eight
+criteria. One is a real release, published as `v0.1.0` and detected,
+verified, installed and relaunched on three platforms. The others include
+rewinding any word of a 4k-word chapter in under 100 ms, OpenCode replacing a
+paragraph through MCP, working fully offline with a MID GGUF, and a DOCX that
+opens in Word in basic manuscript format. `PROMPT-VERSORIUM.md`'s
+implementation notes record that no measurement or acceptance test of most of
+these is in the repo.
+
+For the release criterion, what stands in the way is the "Going public"
+sequence in `TODO.md` (signing secrets, a public repo, Pages, DNS, the first
+tag). The code change that used to be on this list is done: the updater
+checks without a GitHub token since 2026-10-03 (see "Updater without a
+token"). Whether an ordinary install, with no token, detects, verifies and
+installs a release is the part that needs the public repository and the tag.

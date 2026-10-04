@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://versorium.maecly.com/sitemap.xml

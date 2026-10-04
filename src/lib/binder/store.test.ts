@@ -1,9 +1,22 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { BinderStore } from "./store.svelte";
 import { api, type ChapterMeta, type Project } from "$lib/tauri";
+import { notices } from "$lib/notices/state.svelte";
 
 vi.mock("$lib/tauri", () => ({
-  api: { saveChapter: vi.fn(), readChapter: vi.fn(), openProject: vi.fn(), mcpSetActiveProject: vi.fn() },
+  api: {
+    saveChapter: vi.fn(),
+    readChapter: vi.fn(),
+    openProject: vi.fn(),
+    mcpSetActiveProject: vi.fn(),
+    createProject: vi.fn(),
+    createChapter: vi.fn(),
+    defaultProjectsDir: vi.fn(),
+    listProjects: vi.fn(),
+    updateProject: vi.fn(),
+    updateChapter: vi.fn(),
+    reorderChapters: vi.fn(),
+  },
   isTauri: () => true,
 }));
 vi.mock("$lib/i18n", () => ({ t: (key: string) => key }));
@@ -14,6 +27,7 @@ let store: BinderStore;
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  for (const notice of [...notices.items]) notices.dismiss(notice.id);
   store = new BinderStore();
   store.project = project;
   store.currentChapter = project.chapters[0];
@@ -21,8 +35,13 @@ beforeEach(() => {
   vi.mocked(api.readChapter).mockResolvedValue({ body: "Chapter B", frontmatter: {} });
   vi.mocked(api.openProject).mockResolvedValue(project);
   vi.mocked(api.mcpSetActiveProject).mockResolvedValue(undefined);
+  vi.mocked(api.defaultProjectsDir).mockResolvedValue("/novels");
+  vi.mocked(api.listProjects).mockResolvedValue([project]);
 });
 afterEach(() => vi.useRealTimers());
+
+/** What the binder put in the notices, as "id tier". */
+const posted = () => notices.items.map((n) => `${n.id} ${n.tier}`);
 
 describe("chapter persistence", () => {
   it("flushes typed text to chapter A before selecting B", async () => {
@@ -104,6 +123,86 @@ describe("MCP active project", () => {
     expect(api.mcpSetActiveProject).toHaveBeenCalledWith("/novel");
     expect(store.project?.path).toBe("/novel");
     expect(store.currentChapter?.id).toBe("a");
-    expect(store.error).toBeNull();
+    expect(notices.items).toEqual([]);
+  });
+});
+
+describe("what the binder reports, and where", () => {
+  it("a failed save stays on screen, once, until a save goes through", async () => {
+    vi.mocked(api.saveChapter).mockRejectedValue("io");
+    store.updateBody("first");
+    await vi.advanceTimersByTimeAsync(1000);
+    store.updateBody("first, again");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.saveChapter).toHaveBeenCalledTimes(2);
+    expect(posted()).toEqual(["binder.save persistent"]);
+    expect(store.saveState).toBe("error");
+
+    vi.mocked(api.saveChapter).mockImplementation(async (_path, file) => ({ ...chapter(file[0]), words: 3 }));
+    expect(await store.saveChapter("first, saved")).toBe(true);
+    expect(notices.items).toEqual([]);
+  });
+
+  it("a chapter that cannot be opened says so until one can", async () => {
+    vi.mocked(api.readChapter).mockRejectedValueOnce("not_found");
+    await store.openChapter(project.chapters[1]);
+    expect(posted()).toEqual(["binder.navigate persistent"]);
+    expect(store.currentChapter?.id).toBe("a");
+
+    await store.openChapter(project.chapters[1]);
+    expect(store.currentChapter?.id).toBe("b");
+    expect(notices.items).toEqual([]);
+  });
+
+  it("a novel or a chapter that cannot be made tells the dialog that asked, and posts nothing", async () => {
+    vi.mocked(api.createProject).mockRejectedValue("project_exists");
+    expect(await store.createProject("Taken", "es")).toBe("errors.generic");
+    vi.mocked(api.createChapter).mockRejectedValue("empty_title");
+    expect(await store.createChapter(" ")).toBe("errors.generic");
+    expect(notices.items, "a notice would sit behind the dialog's backdrop").toEqual([]);
+
+    vi.mocked(api.createChapter).mockResolvedValue(chapter("c"));
+    expect(await store.createChapter("Tercero")).toBeNull();
+  });
+
+  it("the list of novels that cannot be read says so until it can", async () => {
+    vi.mocked(api.listProjects).mockRejectedValueOnce("io");
+    await store.refreshProjects();
+    expect(posted()).toEqual(["binder.list persistent"]);
+    await store.refreshProjects();
+    expect(notices.items).toEqual([]);
+  });
+
+  it("an edit that fails the same way twice is one notice, gone once that edit works", async () => {
+    vi.mocked(api.updateProject).mockRejectedValue("io");
+    await store.renameProject("/novel", "Uno");
+    await store.renameProject("/novel", "Dos");
+    expect(posted()).toEqual(["binder.renameProject persistent"]);
+
+    vi.mocked(api.updateProject).mockResolvedValue({ ...project.meta, title: "Tres" });
+    vi.mocked(api.listProjects).mockResolvedValue([project]);
+    await store.renameProject("/novel", "Tres");
+    expect(notices.items).toEqual([]);
+  });
+
+  it("another action that works leaves a failed one up: what failed has still not happened", async () => {
+    vi.mocked(api.updateChapter).mockRejectedValue("io");
+    await store.updateChapter("a.md", "Uno");
+    vi.mocked(api.updateChapter).mockResolvedValue({ ...chapter("a"), status: "final" });
+    await store.updateChapter("a.md", undefined, "final");
+    vi.mocked(api.reorderChapters).mockResolvedValue([...project.chapters].reverse());
+    await store.moveChapter("a.md", 1);
+    expect(api.reorderChapters).toHaveBeenCalledTimes(1);
+    expect(posted(), "the rename is still undone").toEqual(["binder.renameChapter persistent"]);
+  });
+
+  it("the Project dialog gets its failure back, and nothing is posted behind its backdrop", async () => {
+    vi.mocked(api.updateProject).mockRejectedValue("io");
+    expect(await store.setExportMatter("/novel", false, true)).toBe("errors.generic");
+    expect(notices.items).toEqual([]);
+
+    vi.mocked(api.updateProject).mockResolvedValue({ ...project.meta, exportCover: false });
+    expect(await store.setExportMatter("/novel", false, true)).toBeNull();
+    expect(store.project?.meta.exportCover).toBe(false);
   });
 });

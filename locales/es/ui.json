@@ -4,7 +4,8 @@
     "tagline": "El estudio de novela local",
     "newProject": "Nuevo proyecto",
     "openProject": "Abrir proyecto",
-    "closeProject": "Cerrar proyecto"
+    "closeProject": "Cerrar proyecto",
+    "quitUnsaved": "Versorium no se cerró: no se pudo guardar el capítulo. {reason}"
   },
   "empty": {
     "title": "Un escritorio tranquilo, una aguja fina.",
@@ -34,6 +35,8 @@
     "corkboardHint": "Mira los capítulos como fichas en un tablero.",
     "corkboardLoading": "Leyendo capítulos…",
     "corkboardEmpty": "Todavía sin escribir.",
+    "corkboardSynopsis": "Sinopsis:",
+    "corkboardOpening": "Primeras líneas:",
     "menu": {
       "forProject": "Acciones de la novela {title}",
       "forChapter": "Acciones del capítulo {title}",
@@ -42,8 +45,8 @@
       "renameChapter": "Renombrar capítulo…",
       "deleteChapter": "Borrar capítulo",
       "markAs": "Marcar como {status}",
-      "moveUp": "Subir",
-      "moveDown": "Bajar",
+      "moveEarlier": "Mover antes",
+      "moveLater": "Mover después",
       "projectSettings": "Ajustes del proyecto…"
     },
     "rename": {
@@ -68,9 +71,36 @@
     "unsaved": "Cambios sin guardar",
     "error": "No se pudo guardar: {error}",
     "focus": "Concentración",
-    "focusHint": "Atenúa todo menos la página. Sal con Escape o acercando el cursor al borde.",
+    "focusHint": "Oculta las barras marcadas en Opciones de Concentración. Esc las vuelve a mostrar. ({keys})",
+    "focusNeedsChapter": "Abre un capítulo para usar Concentración.",
+    "focusOptions": "Opciones de Concentración",
+    "focusHeading": "Al activar Concentración, ocultar",
+    "focusOffNote": "Se aplica al activar Concentración.",
+    "focusNothingNote": "Sin nada marcado, Concentración solo atenúa la barra de estado.",
+    "focusLeaveHint": "Pulsa Esc para salir de Concentración",
+    "focusOn": "Concentración activada. Pulsa Escape para salir.",
+    "focusOff": "Concentración desactivada.",
     "typewriter": "Máquina de escribir",
     "typewriterHint": "Mantiene la línea que escribes en el tercio inferior."
+  },
+  "chrome": {
+    "hide": "Ocultar",
+    "hideBinder": "Ocultar proyectos y capítulos",
+    "showBinder": "Mostrar proyectos y capítulos",
+    "hideTopBar": "Ocultar barra superior",
+    "showTopBar": "Mostrar barra superior",
+    "withKeys": "{label} ({keys})",
+    "lipHint": "Mostrar barra superior ({keys}). Reescribir funciona sin ella: {rewriteKeys}.",
+    "binderItem": "Proyectos y capítulos",
+    "topBarItem": "Barra superior",
+    "binderHidden": "Proyectos y capítulos ocultos.",
+    "binderShown": "Proyectos y capítulos visibles.",
+    "topBarHidden": "Barra superior oculta.",
+    "topBarShown": "Barra superior visible."
+  },
+  "notices": {
+    "region": "Notificaciones",
+    "dismiss": "Cerrar"
   },
   "dialog": {
     "newProject": "Nuevo proyecto",
@@ -105,10 +135,10 @@
     },
     "nav": "Secciones de ajustes",
     "backToWriting": "← Volver al manuscrito",
-    "themeHint": "Folio es papel cálido, Quarry es gris frío, Needle es oscuro y verde. Cada uno tiene versión clara y oscura; el modo de abajo decide cuál ves.",
+    "themeHint": "Folio es papel cálido, Quarry un gris cálido más sobrio, Needle frío con un matiz verde azulado. Cada uno tiene versión clara y oscura; el modo de abajo decide cuál ves.",
     "languageHint": "Cambia solo la interfaz. Nunca toca el idioma en que escribes tu novela.",
     "groups": {
-      "writing": "Escritura",
+      "editor": "Editor",
       "author": "Autor",
       "appearance": "Apariencia",
       "localAi": "IA local",
@@ -117,7 +147,7 @@
       "app": "Aplicación"
     },
     "purpose": {
-      "writing": "Cómo se siente la página mientras escribes: la tipografía y el tamaño del manuscrito.",
+      "editor": "Cómo se ve y se comporta la página mientras escribes: la tipografía, la ortografía, el tamaño y el espaciado del texto, los números de línea, el resaltado del párrafo actual y qué hace la tecla Tab.",
       "author": "De quién es el manuscrito, tal como lo dirá el archivo exportado.",
       "appearance": "Cómo se ve Versorium, y en qué idioma habla su propia interfaz.",
       "localAi": "Qué modelo hace cada trabajo, y de dónde salen esos modelos. Nada de aquí manda tu prosa a ninguna parte.",
@@ -152,13 +182,14 @@
     "create": "Crear",
     "remotes": "Remotos",
     "noRemotes": "No hay remotos configurados.",
-    "updatesSlot": "Cuenta de actualizaciones",
+    "updatesSlot": "Token de actualizaciones (opcional)",
     "novelSlot": "Respaldo de la novela",
-    "updatesSlotHint": "Solo se usa para leer releases de maecly/versorium-app.",
+    "updatesSlotHint": "Solo hace falta mientras maecly/versorium-app sea privado, o para levantar el límite por hora que GitHub pone a las búsquedas sin token.",
     "novelSlotHint": "Solo se usa para el respaldo privado de tu novela. Nunca para actualizaciones.",
     "token": "Token de GitHub",
     "connect": "Conectar",
-    "connected": "Conectado como",
+    "updatesConnected": "Token de actualizaciones conectado como @{login}.",
+    "novelConnected": "Respaldo en GitHub conectado como @{login}.",
     "repoName": "Nombre del respaldo",
     "createRepo": "Crear respaldo privado",
     "privateDefault": "Los respaldos se crean privados.",
@@ -177,8 +208,8 @@
     "push": "Enviar a GitHub",
     "pull": "Traer de GitHub",
     "pushed": "Enviado {branch} a GitHub.",
-    "pulled": "Traídos los últimos cambios.",
-    "alreadyCurrent": "Ya está al día.",
+    "pulled": "Se trajeron de GitHub los últimos cambios.",
+    "alreadyCurrent": "Ya está al día con GitHub.",
     "storedWhere": "Se guarda en el almacén de credenciales de tu sistema, nunca en un archivo."
   },
   "errors": {
@@ -187,6 +218,7 @@
     "notFound": "Proyecto no encontrado.",
     "project_exists": "Ya existe un proyecto con ese nombre.",
     "empty_title": "El título no puede estar vacío.",
+    "bad_language": "Ese no es un idioma que Versorium ofrezca para una novela.",
     "no_repo": "Esta carpeta aún no lleva historial.",
     "no_commits": "Aún no hay instantáneas.",
     "nothing_to_commit": "No ha cambiado nada desde la última instantánea.",
@@ -231,6 +263,13 @@
     "export_docx_scene_titles_dropped": "Los títulos de escena no existen en el formato de manuscrito; los cortes de escena sí quedan.",
     "no_release": "Ninguna versión coincide con este canal.",
     "no_manifest": "Esa versión no trae el manifiesto de actualización.",
+    "update_none_visible": "Todavía no hay ninguna versión publicada a la vista: o no se ha publicado nada, o el repositorio sigue siendo privado y no hay ningún token guardado que pueda leerlo.",
+    "update_rate_limited": "Se alcanzó el límite de GitHub para buscar actualizaciones sin token. Un token de actualizaciones, guardado en Ajustes → Aplicación, lo levanta.",
+    "update_rate_limited_token": "Se alcanzó el límite de GitHub para este token de actualizaciones.",
+    "update_token_rejected": "GitHub rechazó el token de actualizaciones: es incorrecto o fue revocado. Cámbialo u olvídalo en Ajustes → Aplicación.",
+    "bad_signature": "La firma de la actualización no se pudo verificar, así que no se instaló nada.",
+    "no_checksums": "La versión no trae suma de verificación para esta descarga, así que no se instaló nada.",
+    "unsupported_platform": "Versorium no puede actualizarse solo en este sistema operativo o procesador.",
     "bad_update_host": "La actualización apuntaba a un sitio inesperado y se rechazó.",
     "continuity_no_model": "No hay modelo asignado a Continuidad. Elige uno en IA local.",
     "continuity_daemon_offline": "El daemon de Ollama no está corriendo, así que la revisión no pudo empezar.",
@@ -257,7 +296,15 @@
     "mcp_http_bind_failed": "Versorium no pudo abrir un puerto local para HTTP.",
     "mcp_http_no_entropy": "Versorium no pudo obtener bytes aleatorios del sistema operativo, así que no abrirá un puerto HTTP con un token adivinable.",
     "trash_failed": "Versorium no pudo mover eso a la papelera.",
-    "remote_not_github": "El remoto de este proyecto no es una dirección de GitHub, así que el token no se envió. Versorium solo se identifica en github.com por https."
+    "remote_not_github": "El remoto de este proyecto no es una dirección de GitHub, así que el token no se envió. Versorium solo se identifica en github.com por https.",
+    "backup_not_configured": "No se ha elegido ninguna carpeta de respaldo.",
+    "backup_dest_missing": "Esa carpeta ya no existe.",
+    "backup_dest_unwritable": "La carpeta no admite archivos nuevos: es de solo lectura o Versorium no tiene permiso.",
+    "backup_no_space": "El disco está lleno.",
+    "backup_write_failed": "No se pudo escribir el archivo.",
+    "backup_unreadable": "No se pudo volver a leer el archivo.",
+    "backup_corrupt": "El archivo no se pudo releer intacto.",
+    "repo_busy": "Un respaldo está leyendo el historial de la novela. Inténtalo de nuevo en un momento."
   },
   "languages": {
     "en": "English",
@@ -267,7 +314,7 @@
     "rewrite": "Reescribir",
     "provider": "Agente",
     "busy": "Reescribiendo…",
-    "noProviders": "No se encontró ningún agente. Instala Claude Code, Codex, OpenCode u Ollama y vuelve a comprobar en Ajustes → Agentes.",
+    "noProviders": "No se encontró ningún asistente. Instala Claude Code, Codex, OpenCode u Ollama y vuelve a comprobarlo en Ajustes → Asistentes.",
     "preview": "Vista previa",
     "original": "Original",
     "rewritten": "Reescrito",
@@ -279,7 +326,7 @@
     "kindCli": "CLI",
     "checkpointNote": "Versorium guarda un punto de control en Git antes de aplicar. Puedes revertirlo.",
     "creative": "Continuar capítulo",
-    "creativeSoon": "El modo creativo llega en la v1.1.",
+    "creativeSoon": "El modo creativo llegará. Todavía no está disponible.",
     "configuredSuffix": "(configurado)"
   },
   "agents": {
@@ -299,13 +346,13 @@
   "safety": {
     "title": "Seguridad",
     "censorship": "Censura",
-    "censorshipHint": "Activada oculta los modelos locales sin censura y pide a los agentes en la nube que mantengan el texto limpio. Desactivada prefiere rutas sin censura. El enrutado llega con IA local.",
+    "censorshipHint": "Activado, los modelos marcados sin censura se ocultan de la lista de arriba. Es todo lo que hace hoy: no cambia lo que se le pide a ningún asistente, y nada enruta las peticiones según él.",
     "on": "Activada",
     "off": "Desactivada"
   },
   "mcp": {
     "title": "Qué se les permite hacer",
-    "intro": "Aquí la flecha va al revés: un asistente se conecta a Versorium y lee tu manuscrito a través de él. Un servidor local en esta máquina (stdio), de solo lectura hasta que permitas escribir, cliente a cliente.",
+    "intro": "Aquí la flecha va al revés: un asistente se conecta a Versorium y lee tu manuscrito a través de él. Un servidor local en esta máquina — por stdio, y por HTTP solo si lo activas abajo — de solo lectura hasta que permitas escribir, cliente a cliente.",
     "command": "Comando",
     "commandHint": "Los clientes conectados lo ejecutan. Nada queda a la escucha en la red.",
     "connect": "Conectar",
@@ -430,7 +477,7 @@
       "modified": "Actualizado {when}"
     },
     "studio": {
-      "intro": "LM Studio o llama-server: cualquier cosa que hable la API de OpenAI en esta máquina.",
+      "intro": "LM Studio o llama-server, cualquier cosa que hable la API de OpenAI en esta máquina. Ya puedes probar y guardar la conexión; asignarlo a una tarea todavía no está hecho.",
       "host": "Host",
       "port": "Puerto",
       "test": "Probar conexión",
@@ -488,7 +535,7 @@
     },
     "sources": {
       "title": "De dónde salen los modelos",
-      "intro": "Cuatro maneras de tener un modelo en esta máquina. No necesitas todas; necesitas una a la que las tareas de arriba puedan apuntar."
+      "intro": "De dónde puede salir un modelo. Los integrados y los de Ollama se pueden asignar a las tareas de arriba; un servidor local se puede configurar aquí, pero ninguna tarea puede usarlo todavía."
     },
     "runsOn": {
       "none": "sin modelo todavía",
@@ -541,6 +588,9 @@
       "projectHint": "Un paquete .scriv.",
       "busy": "Leyendo…",
       "previewTitle": "Título del proyecto",
+      "languageFromSource": "El archivo indica su idioma: «{language}». Cámbialo aquí si no es correcto.",
+      "languageAsk": "El archivo no dice en qué idioma está. Elige el idioma en que está escrita la novela.",
+      "languageUnsupported": "El archivo indica su idioma: «{tag}», que Versorium no puede usar. Elige el idioma en que está escrita la novela.",
       "chapters": "Capítulos",
       "chapterWords": "{words} palabras",
       "noChapters": "Esta fuente no tiene capítulos.",
@@ -553,12 +603,13 @@
     "title": "Actualizaciones",
     "intro": "Versorium consulta sus propias versiones. No se envía nada de tu manuscrito.",
     "currentVersion": "Versión instalada",
-    "signedOut": "Inicia sesión en Ajustes → Aplicación para poder buscar actualizaciones. Sin eso Versorium no consulta nada.",
     "checkNow": "Buscar ahora",
     "checking": "Buscando…",
     "upToDate": "Esta es la versión más reciente.",
     "availableShort": "La versión {version} está disponible.",
     "never": "Todavía no se ha buscado.",
+    "offline": "No se pudo contactar con GitHub, o no respondió como se esperaba, así que no se comprobó nada.",
+    "resetsAt": "Se restablece: {time}.",
     "automatic": "Actualizaciones automáticas",
     "automaticHint": "Busca una vez al abrir. Activado por defecto en el canal estable.",
     "channel": "Canal",
@@ -567,7 +618,7 @@
       "beta": "Beta"
     },
     "channelHint": "Beta es opcional y trae trabajo sin terminar.",
-    "offlineHint": "Un problema de red se deja pasar: ni aviso ni reintentos.",
+    "offlineHint": "Una búsqueda fallida se deja pasar: ni aviso ni reintentos.",
     "gatekeeper": "Las versiones van firmadas con minisign, pero todavía sin notarizar por Apple ni Microsoft, así que el primer arranque puede avisarte.",
     "none": "Las actualizaciones las gestiona la app de escritorio.",
     "dialog": {
@@ -669,8 +720,54 @@
     "intro": "Con qué letra te muestra el editor tu prosa.",
     "sample": "El invierno fue largo, y la niña esperaba junto a la ventana.",
     "systemFace": "ya está en esta máquina",
+    "ifInstalled": "solo se ve donde esté instalada",
     "downloadLater": "Las familias descargables llegan con el gestor de fuentes en una versión posterior. Nada de esto necesita descarga.",
     "none": "La tipografía la gestiona la app de escritorio."
+  },
+  "editorSettings": {
+    "spelling": {
+      "title": "Ortografía",
+      "label": "Revisar la ortografía mientras escribes",
+      "hint": "El corrector ortográfico de tu sistema subraya las palabras que no conoce. Nada se cambia por ti: haz clic derecho en una palabra para ver sugerencias.",
+      "hintLinux": "En Linux todavía no se subraya nada: Versorium aún no activa allí el corrector ortográfico del sistema. Tu elección se guarda para cuando lo haga."
+    },
+    "text": {
+      "title": "Texto",
+      "size": "Tamaño del texto",
+      "sizes": {
+        "small": "Pequeño",
+        "medium": "Mediano",
+        "large": "Grande"
+      },
+      "spacing": "Interlineado",
+      "spacings": {
+        "compact": "Compacto",
+        "comfortable": "Cómodo",
+        "airy": "Holgado"
+      },
+      "width": "Ancho del texto",
+      "widths": {
+        "narrow": "Estrecho",
+        "medium": "Medio",
+        "wide": "Amplio"
+      }
+    },
+    "guides": {
+      "title": "Guías",
+      "lineNumbers": "Números de línea",
+      "lineNumbersHint": "Numera cada línea del capítulo tal como lo muestra el editor, también las vacías. Un párrafo cuenta como una línea, por mucho que ocupe.",
+      "activeLine": "Resaltar el párrafo actual",
+      "activeLineHint": "Una banda tenue detrás del párrafo donde está el cursor."
+    },
+    "keyboard": {
+      "title": "Teclado",
+      "tab": "Tecla Tab",
+      "tabs": {
+        "next": "Pasa al siguiente control",
+        "indent": "Sangra el párrafo"
+      },
+      "tabHint": "Las exportaciones ignoran la sangría. Con dos sangrías, el párrafo se vuelve un bloque de código en el archivo del capítulo y deja de mostrar las cursivas."
+    }
   },
   "crash": {
     "title": "Informes de fallo",
@@ -718,13 +815,17 @@
     "notFound": "no está en esta máquina",
     "choose": "Usar este",
     "chosenLabel": "Dejar de usar",
-    "chosen": "Los respaldos también irán aquí.",
+    "chosen": "{name}: los respaldos también irán ahí.",
     "pickFolder": "Elegir carpeta…",
     "turnOff": "Desactivar respaldos",
     "turnedOff": "Respaldos desactivados.",
     "keep": "Conservar los más recientes",
     "now": "Respaldar ahora",
     "working": "Trabajando…",
+    "running": "Respaldando…",
+    "runningOther": "Respaldando «{title}»…",
+    "finished": "El respaldo ha terminado; la lista de abajo está al día.",
+    "notSavedFirst": "No se ha respaldado: antes no se pudo guardar el capítulo. {reason}",
     "written": "Guardado, {size}.",
     "stored": "Respaldos guardados",
     "restore": "Restaurar",
@@ -749,8 +850,9 @@
     "sameDisk": "{path} está en el mismo disco que la novela — si ese disco falla, se van las dos.",
     "allSet": "Esto cumple la regla de las tres copias.",
     "resultOk": "{name}: guardado, {size}.",
-    "resultUnavailable": "{name}: no accesible ahora mismo. Se escribirá la próxima vez.",
-    "resultFailed": "{name}: no se pudo escribir — {reason}",
+    "resultUnavailable": "{name}: no accesible ahora mismo. Pulsa «Respaldar ahora» otra vez cuando esté conectado.",
+    "resultBusy": "{name}: se ha saltado, porque se estaba escribiendo el historial de la novela. Pulsa «Respaldar ahora» otra vez dentro de un momento.",
+    "resultFailed": "{name}: no se guardó. {reason}",
     "verify": "Comprobar",
     "verified": "Leído entero y sin daños.",
     "verifyHint": "Comprobar abre el archivo y vuelve a leer cada fichero. Un archivo que lleva un año en un disco es justo para lo que esto sirve.",
@@ -761,7 +863,12 @@
     "alsoPruned": "Se han borrado {n} más antiguas para no pasar del número que conservas.",
     "onlyWhenChanged": "Respaldar ahora escribe un archivo nuevo solo si la novela ha cambiado. Guarda dos copias de cada estado en cada destino, y a partir de ahí te lo dice en vez de escribir — pulsarlo otra vez no puede llenar la carpeta.",
     "damaged": "no se pudo leer entera",
-    "keepHint": "Archivos, no días. Con dos copias de cada estado, diez archivos son al menos cinco estados distintos de la novela."
+    "keepHint": "Archivos, no días. Con dos copias de cada estado, diez archivos son al menos cinco estados distintos de la novela.",
+    "last": {
+      "held": {
+        "clockBehind": "Un respaldo que ya está aquí tiene fecha {stamp}, posterior a la hora de este ordenador, así que no se ha borrado ninguno. Revisa la fecha y la hora de este ordenador y de cualquier otro que respalde aquí, o quita tú ese archivo."
+      }
+    }
   },
   "author": {
     "title": "Autor",
@@ -797,15 +904,18 @@
       "trl": "Traductor"
     },
     "privacy": "Estos campos se escriben en los archivos que exportas y en ningún otro sitio. Nada de esto se envía a ninguna parte, y no se pide ninguna dirección ni cuenta, porque ningún formato de exportación tiene dónde ponerla.",
-    "saved": "Guardado."
+    "saved": "Perfil de autor guardado."
   },
   "project": {
     "title": "Proyecto",
     "intro": "Ajustes que pertenecen a esta novela, no a la app. Viajan con la carpeta.",
+    "languageHint": "Los lectores de pantalla leen la página en este idioma. Cada exportación lo declara y escribe en él su página final.",
+    "languageOther": "{code} (no disponible)",
+    "languageRegion": "{language} ({code})",
     "coverLabel": "Abrir las exportaciones con una portada",
     "coverHint": "El título, tu firma, y la editorial y los derechos si tu perfil de autor los tiene. Un manuscrito que llega sin ella obliga al lector a deducir de quién es por el nombre del archivo.",
     "colophonLabel": "Cerrar las exportaciones con la ficha de esta novela",
-    "colophonHint": "Título, autor, idioma, número de capítulos y de palabras, y una línea diciendo que se escribió aquí. Si lo desactivas, no queda rastro de Versorium en el archivo.",
+    "colophonHint": "Título, autor, idioma, número de capítulos y de palabras, y una línea diciendo que se escribió aquí. Si lo desactivas, esa página final desaparece. Las propiedades del archivo siguen nombrando el programa que lo creó, como hace cualquier procesador de textos.",
     "preview": "Portada",
     "previewEmpty": "Añade un autor en Ajustes → Autor y aparecerá aquí.",
     "colophonHeading": "Sobre este libro",

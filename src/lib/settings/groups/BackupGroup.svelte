@@ -4,13 +4,17 @@
   import {
     api,
     isTauri,
+    onBackupState,
     type BackupArchive,
     type BackupCoverage,
     type BackupDestination,
     type BackupOutcome,
+    type BackupState,
     type SecretsStatus,
   } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
+  import { notices } from "$lib/notices/state.svelte";
+  import { UNKNOWN_STATE, newerState } from "$lib/backup/state";
   import { humanSize } from "$lib/models/state.svelte";
   import NumberField from "$lib/components/forms/NumberField.svelte";
 
@@ -31,7 +35,24 @@
   let coverage = $state<BackupCoverage | null>(null);
   let checked = $state<Record<string, string>>({});
   let busy = $state(false);
-  let notice = $state("");
+  /** Whether a backup is running, as Rust reports it. Kept apart from `busy`,
+      which this panel forgets whenever it is closed: leaving Settings in the
+      middle of a backup and coming back used to offer Back up now again. */
+  let backupState = $state<BackupState>(UNKNOWN_STATE);
+  let running = $derived(backupState.running !== null);
+  /** This panel's own press, from its save through to its results. */
+  let pressing = $state(false);
+  /** Why this panel's own press made no backup at all, said beside the button
+      rather than at the foot of the section. */
+  let pressError = $state("");
+  /** A run this panel did not start is going: one pressed before Settings
+      was last closed, or another novel's. It leaves no outcome to show. */
+  let foreign = false;
+  /** Such a run has ended, and the list below was read again. */
+  let finished = $state(false);
+  /** Where a restore put the copy. Kept here, not in a notice that goes by:
+      it is the one place the folder's name is shown. */
+  let restored = $state("");
   let error = $state("");
 
   let secrets = $state<SecretsStatus | null>(null);
@@ -45,6 +66,39 @@
   onMount(() => {
     if (!isTauri()) return;
     void load();
+    // Asked at once, so the button is right as soon as it can be, and again
+    // once the listener is in place: a run that ends while the listener is
+    // still being set up is otherwise never heard of. `newerState` keeps
+    // whichever report is newest, however they arrive.
+    let stop: (() => void) | undefined;
+    let gone = false;
+    const adopt = (next: BackupState) => {
+      const was = backupState.running;
+      backupState = newerState(backupState, next);
+      if (backupState.running) {
+        foreign ||= !pressing;
+        finished = false;
+      } else if (was && foreign) {
+        // Nothing here knows how it went, so say that it ended, and read the
+        // list again: it holds the archive that run made.
+        foreign = false;
+        finished = true;
+        void refresh();
+      }
+    };
+    const ask = () => void api.backupState().then(adopt).catch(() => undefined);
+    ask();
+    void onBackupState(adopt)
+      .then((off) => {
+        if (gone) return off();
+        stop = off;
+        ask();
+      })
+      .catch(() => undefined);
+    return () => {
+      gone = true;
+      stop?.();
+    };
   });
 
   async function load(): Promise<void> {
@@ -79,10 +133,11 @@
   async function toggle(path: string): Promise<void> {
     const next = chosen.includes(path) ? chosen.filter((p) => p !== path) : [...chosen, path];
     if (next.length > MAX_DESTINATIONS) {
-      notice = t("backup.full");
+      notices.inform(t("backup.full"));
       return;
     }
-    await save(next, chosen.includes(path) ? "" : t("backup.chosen"));
+    // Named: in the corner stack, "here" would point at nothing.
+    await save(next, chosen.includes(path) ? "" : t("backup.chosen", { name: name(path) }));
   }
 
   async function save(paths: string[], said: string): Promise<void> {
@@ -92,7 +147,8 @@
       results = [];
       checked = {};
       await refresh();
-      notice = paths.length === 0 ? t("backup.turnedOff") : said;
+      const done = paths.length === 0 ? t("backup.turnedOff") : said;
+      if (done) notices.inform(done, "backup.configure");
     });
   }
 
@@ -106,10 +162,28 @@
     const path = project?.path;
     if (!path) return;
     await run(async () => {
-      // Kept as a list. Two of three succeeding is a real outcome and saying
-      // either "backed up" or "failed" would be a lie in one direction.
-      results = await api.backupNow(path);
-      await refresh();
+      pressing = true;
+      pressError = "";
+      finished = false;
+      try {
+        // What is on the page, not what the 800 ms save last wrote: the press
+        // means "this". A save that fails stops here, and says that nothing
+        // was backed up, rather than backing up the older text.
+        try {
+          await store.flushAll();
+        } catch (e) {
+          pressError = t("backup.notSavedFirst", { reason: store.codeMessagePublic(e) });
+          return;
+        }
+        // Kept as a list. Two of three succeeding is a real outcome and saying
+        // either "backed up" or "failed" would be a lie in one direction.
+        results = await api.backupNow(path);
+        await refresh();
+      } catch (e) {
+        pressError = store.codeMessagePublic(e);
+      } finally {
+        pressing = false;
+      }
     });
   }
 
@@ -127,7 +201,7 @@
       // Extracted beside the original, never over it, so this cannot destroy
       // the work it exists to protect.
       const target = await api.backupRestore(archive.path, path, t("backup.restoredSuffix"));
-      notice = t("backup.restored", { path: target });
+      restored = t("backup.restored", { path: target });
     });
   }
 
@@ -136,7 +210,7 @@
       login = await api.secretsConnect("novel", token);
       token = "";
       secrets = await api.secretsStatus();
-      notice = t("git.connected") + ` @${login}`;
+      notices.inform(t("git.novelConnected", { login }), "backup.github");
     });
   }
 
@@ -154,10 +228,10 @@
     await run(async () => {
       if (direction === "push") {
         const branch = await api.gitPush(path);
-        notice = t("git.pushed", { branch });
+        notices.inform(t("git.pushed", { branch }), "backup.github");
       } else {
         const outcome = await api.gitPull(path);
-        notice = outcome.changed ? t("git.pulled") : t("git.alreadyCurrent");
+        notices.inform(outcome.changed ? t("git.pulled") : t("git.alreadyCurrent"), "backup.github");
       }
     });
   }
@@ -166,7 +240,7 @@
     if (busy) return;
     busy = true;
     error = "";
-    notice = "";
+    restored = "";
     try {
       await action();
     } catch (e) {
@@ -179,6 +253,21 @@
   function when(seconds: number): string {
     return new Date(seconds * 1000).toLocaleString(getLocale());
   }
+
+  /** A novel's title, from the binder's list, or else its folder's name. */
+  function novelTitle(path: string): string {
+    const known = store.projects.find((p) => p.path === path);
+    return known?.meta.title ?? path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+  }
+
+  /** The one live line beside Back up now. Another novel's run is named,
+      because the button is off for it too: runs go one at a time. */
+  let statusText = $derived.by(() => {
+    const run = backupState.running;
+    if (run && run.project !== project?.path) return t("backup.runningOther", { title: novelTitle(run.project) });
+    if (run || pressing) return t("backup.running");
+    return finished ? t("backup.finished") : "";
+  });
 
   /**
    * The moment the backup was asked for, not the file's mtime.
@@ -212,6 +301,8 @@
         return t("backup.resultRepaired", { name: who, size: humanSize(outcome.archive.bytes) });
       case "unavailable":
         return t("backup.resultUnavailable", { name: who });
+      case "busy":
+        return t("backup.resultBusy", { name: who });
       default:
         return t("backup.resultFailed", { name: who, reason: store.codeMessagePublic(outcome.reason) });
     }
@@ -224,7 +315,16 @@
     return pruned > 0 ? " " + t("backup.alsoPruned", { n: pruned }) : "";
   }
 
+  /** Why nothing older was deleted, when that was held back. The archive was
+      still written and read back; a clock somewhere is wrong, this one or
+      that of another computer backing up into the same folder. */
+  function heldText(outcome: BackupOutcome): string {
+    const held = "held" in outcome ? outcome.held : undefined;
+    return held ? " " + t("backup.last.held.clockBehind", { stamp: when(held.stamp) }) : "";
+  }
+
   function outcomeColor(outcome: BackupOutcome): string {
+    if ("held" in outcome && outcome.held) return "var(--warn)";
     switch (outcome.state) {
       case "ok":
       case "copy":
@@ -346,17 +446,29 @@
         {t("backup.onlyWhenChanged")}
       </p>
 
-      <div class="v-row mb-2" style="gap: 8px;">
-        <button class="v-btn v-btn-primary" disabled={busy || !project} onclick={() => void backupNow()}>
-          {busy ? t("backup.working") : t("backup.now")}
+      <div class="v-row mb-2" style="gap: 10px;">
+        <!-- Disabled for any backup Rust reports, including one this panel
+             did not start or started before it was last closed. The state is
+             said beside the button rather than on it: a disabled button's
+             text is faded below a readable contrast, and a run can last. -->
+        <button class="v-btn v-btn-primary" disabled={busy || running || !project} onclick={() => void backupNow()}>
+          {busy && !(running || pressing) ? t("backup.working") : t("backup.now")}
         </button>
+        <!-- Always in the page, so its first words are announced. -->
+        <span role="status" class="v-muted" style="font-size: 12.5px;">{statusText}</span>
       </div>
+
+      {#if pressError}
+        <p role="alert" class="m-0 mb-2" style="font-size: 12px; color: var(--warn); line-height: 1.6;">
+          {pressError}
+        </p>
+      {/if}
 
       {#if results.length > 0}
         <ul class="m-0 mb-2 flex list-none flex-col gap-1 p-0" aria-live="polite">
           {#each results as outcome (outcome.path)}
             <li style={`font-size: 12px; color: ${outcomeColor(outcome)};`}>
-              {outcomeText(outcome)}{prunedText(outcome)}
+              {outcomeText(outcome)}{prunedText(outcome)}{heldText(outcome)}
             </li>
           {/each}
         </ul>
@@ -458,8 +570,8 @@
       </div>
     {/if}
 
-    {#if notice}
-      <p class="m-0 mt-3" style="font-size: 12px; color: var(--accent);" aria-live="polite">{notice}</p>
+    {#if restored}
+      <p class="m-0 mt-3" style="font-size: 12px; color: var(--accent);" aria-live="polite">{restored}</p>
     {/if}
     {#if error}
       <p role="alert" class="m-0 mt-2" style="font-size: 12px; color: var(--warn);">{error}</p>

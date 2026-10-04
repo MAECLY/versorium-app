@@ -69,52 +69,49 @@ function typewriterScroller(): Extension {
   });
 }
 
-/** Typewriter mode: the caret's line rides at the lower third. */
+/**
+ * Typewriter mode: the caret's line rides at the lower third.
+ *
+ * The selector is `&.cm-editor .cm-content`, not `.cm-content`, on purpose.
+ * styles.css sets `.cm-editor .cm-content { padding: 48px 24px 120px }` at
+ * specificity 0,2,0 — the same as a plain theme rule — and style-mod inserts
+ * the theme's <style> at the top of <head>, so the app stylesheet came later
+ * and won. The head and tail padding never rendered: typewriter mode did
+ * nothing on a chapter shorter than the window, which is exactly the bug this
+ * padding exists to fix. The extra class makes it 0,3,0 and it wins on
+ * specificity rather than on insertion order, which nobody controls.
+ */
 export function typewriterMode(): Extension {
   return [
     typewriterScroller(),
     EditorView.theme({
-      ".cm-content": { paddingTop: TYPEWRITER_HEAD, paddingBottom: TYPEWRITER_TAIL },
+      "&.cm-editor .cm-content": { paddingTop: TYPEWRITER_HEAD, paddingBottom: TYPEWRITER_TAIL },
     }),
   ];
 }
 
 /**
- * Focus mode, editor side. The measure is already 72ch in the stylesheet, so
- * what this adds is air: the column is the only thing left on screen once the
- * chrome fades, and it should not start hard against the top edge.
- */
-export function focusMode(): Extension {
-  return EditorView.theme({
-    ".cm-content": { paddingTop: "12vh" },
-    "&": { fontSize: "1.02em" },
-  });
-}
-
-/**
- * Both modes behind compartments so they can be switched on a live editor.
+ * Typewriter behind a compartment so it can be switched on a live editor.
  *
  * This is the whole point: a prop change that rebuilt the view would throw away
  * focus, selection and undo history mid-sentence. Reconfiguring a compartment
  * leaves the state intact.
+ *
+ * Focus has no editor half. Its 12vh of air and 1.02em never rendered (the
+ * cascade typewriter's padding once lost), and making them render would move
+ * or re-wrap every line under the caret each time Focus is toggled. Focus is
+ * what it hides: src/lib/chrome/chrome.ts.
  */
 export function createModeCompartments(): {
-  focus: Compartment;
   typewriter: Compartment;
-  initial: (focus: boolean, typewriter: boolean) => Extension[];
-  reconfigure: (focus: boolean, typewriter: boolean) => ReturnType<Compartment["reconfigure"]>[];
+  initial: (typewriter: boolean) => Extension[];
+  reconfigure: (typewriter: boolean) => ReturnType<Compartment["reconfigure"]>[];
 } {
-  const focus = new Compartment();
   const typewriter = new Compartment();
-  const forFocus = (on: boolean): Extension => (on ? focusMode() : []);
   const forTypewriter = (on: boolean): Extension => (on ? typewriterMode() : []);
   return {
-    focus,
     typewriter,
-    initial: (f, t) => [focus.of(forFocus(f)), typewriter.of(forTypewriter(t))],
-    reconfigure: (f, t) => [
-      focus.reconfigure(forFocus(f)),
-      typewriter.reconfigure(forTypewriter(t)),
-    ],
+    initial: (t) => [typewriter.of(forTypewriter(t))],
+    reconfigure: (t) => [typewriter.reconfigure(forTypewriter(t))],
   };
 }

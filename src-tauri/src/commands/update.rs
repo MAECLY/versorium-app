@@ -1,10 +1,16 @@
 //! Settings → Updates: check, skip, install.
 //!
-//! Two rules from spec §11 shape everything here. Without a token the app does
-//! not check at all — no silent loop against an endpoint that will only ever
-//! answer 401. And nothing is installed until both signatures agree: the plugin
-//! verifies minisign on the bytes it downloaded, and we verify sha256 against
-//! the release's own `SHA256SUMS` before handing those bytes to the installer.
+//! Two rules from spec §11 shape everything here. A check never waits for a
+//! token: under the amendment of 2026-10-03 the repository goes public, where
+//! anyone may read its releases, so a missing token means an anonymous check
+//! rather than no check. A saved token is still sent, which keeps updates
+//! working while the repository is private and lifts GitHub's anonymous rate
+//! limit.
+//! And nothing is installed until both signatures agree: the plugin verifies
+//! minisign on the bytes it downloaded, and we verify sha256 against the
+//! release's own `SHA256SUMS` before handing those bytes to the installer. The
+//! first rule does not touch the second: with or without a token, the request
+//! goes through the same host pin and the install through the same two checks.
 
 use crate::commands::settings::SettingsStore;
 use crate::update;
@@ -83,19 +89,41 @@ pub struct UpdateStatus {
     pub available: Option<AvailableUpdate>,
     pub channel: String,
     pub automatic: bool,
-    /// An updates token is present. Separate from the novel token by design.
-    pub signed_in: bool,
+    /// An updates token is saved. Separate from the novel token by design.
+    /// Optional since the §11 amendment: it changes what a check can see and
+    /// how often it may run, not whether it runs.
+    pub token_set: bool,
     pub checking: bool,
+    /// A check has finished since launch, or since the channel changed. Without
+    /// it the panel could not tell "nothing newer" from "never asked".
+    pub checked: bool,
     /// An i18n code, never prose — the UI renders it in the reader's language.
     pub last_error: Option<String>,
+    /// When GitHub's rate limit lifts, in Unix seconds. Only with a rate-limit
+    /// code, and only when GitHub said.
+    pub resets_at: Option<u64>,
 }
 
 /// What the last check found, so the panel can be reopened without going back
 /// to the network.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct LastCheck {
     available: Option<AvailableUpdate>,
     error: Option<String>,
+    resets_at: Option<u64>,
+    checked: bool,
+}
+
+impl LastCheck {
+    /// A check that finished: an offer, or the reason there is none.
+    fn finished(available: Option<AvailableUpdate>, refusal: Option<update::Refusal>) -> Self {
+        Self {
+            available,
+            resets_at: refusal.as_ref().and_then(|r| r.resets_at),
+            error: refusal.map(|r| r.code),
+            checked: true,
+        }
+    }
 }
 
 fn last_check() -> &'static Mutex<LastCheck> {
@@ -103,10 +131,17 @@ fn last_check() -> &'static Mutex<LastCheck> {
     STATE.get_or_init(Default::default)
 }
 
-fn remember(available: Option<AvailableUpdate>, error: Option<String>) {
+fn remember(available: Option<AvailableUpdate>, refusal: Option<update::Refusal>) {
     if let Ok(mut state) = last_check().lock() {
-        state.available = available;
-        state.error = error;
+        *state = LastCheck::finished(available, refusal);
+    }
+}
+
+/// As if no check had run: another channel has other releases, so what the
+/// last one found says nothing about it.
+fn forget() {
+    if let Ok(mut state) = last_check().lock() {
+        *state = LastCheck::default();
     }
 }
 
@@ -126,33 +161,32 @@ fn hide_if_skipped(
 }
 
 fn status_from(state: &SettingsStore) -> UpdateStatus {
-    // Cheap and non-blocking: whether a credential exists, not its value. The
-    // keyring read happens in `signed_in`, off the async thread.
-    status_with(state, signed_in(state))
+    let last = last_check().lock().map(|s| s.clone()).unwrap_or_default();
+    status_with(state, token_set(state), &last)
 }
 
-/// Whether an updates token exists anywhere. Blocking (it may touch the OS
-/// credential store), so async callers wrap it.
-fn signed_in(state: &SettingsStore) -> bool {
+/// Whether an updates token is saved anywhere — never its value. Blocking (it
+/// may touch the OS credential store).
+fn token_set(state: &SettingsStore) -> bool {
     crate::secrets::updates_token(state).is_some()
 }
 
-fn status_with(state: &SettingsStore, signed_in: bool) -> UpdateStatus {
+/// Pure over its inputs, so a test can hand it any check's outcome without
+/// touching the process-wide one.
+fn status_with(state: &SettingsStore, token_set: bool, last: &LastCheck) -> UpdateStatus {
     let settings = state.get();
-    let (available, last_error) = last_check()
-        .lock()
-        .map(|s| (s.available.clone(), s.error.clone()))
-        .unwrap_or((None, None));
     UpdateStatus {
         current_version: current_version(),
-        available: hide_if_skipped(available, settings.update_skipped.as_deref()),
+        available: hide_if_skipped(last.available.clone(), settings.update_skipped.as_deref()),
         channel: settings.update_channel,
         automatic: settings.update_automatic,
-        signed_in,
+        token_set,
         // The command has returned, so by definition it is no longer checking;
         // the frontend owns its own in-flight state.
         checking: false,
-        last_error,
+        checked: last.checked,
+        last_error: last.error.clone(),
+        resets_at: last.resets_at,
     }
 }
 
@@ -167,47 +201,57 @@ fn plugin_code(error: &tauri_plugin_updater::Error) -> String {
             "no_release".into()
         }
         Error::UnsupportedArch | Error::UnsupportedOs => "unsupported_platform".into(),
+        // Our redirect rule refusing a hop (`update::may_follow`): the pin
+        // doing its job, so it is named as one rather than as the network.
+        Error::Reqwest(e) if e.is_redirect() => update::BAD_HOST.into(),
         _ => "network".into(),
     }
 }
 
-/// The headers every updater request carries.
+/// Build an updater pointed at this channel's manifest, carrying the token when
+/// there is one. `next` is what the updater is for: the plugin cannot name a
+/// rate limit on its own requests, so the release list has to show room for
+/// them first (`update::budget_covers`).
 ///
-/// Both go on the `UpdaterBuilder`, which applies them to the check **and** the
+/// `tauri.conf.json` leaves `endpoints` empty on purpose: the plugin refuses a
+/// check that never set one, so every check has to come through here — through
+/// the compiled-in owner and repo, the host pin and the redirect rule. A URL
+/// baked into the config would skip all three.
+///
+/// The headers go on the builder, which applies them to the check **and** the
 /// download — the plugin only defaults `Accept` when it is unset (`updater.rs`
 /// `check()` and `download()`), and carries the builder's map into `Update`.
 /// Setting `Accept` on our own manifest fetch alone would leave the plugin
-/// downloading the installer with the default, and GitHub would answer a
-/// private asset request with JSON metadata instead of the binary.
-fn request_headers(token: &str) -> [(reqwest::header::HeaderName, String); 2] {
-    [
-        (reqwest::header::AUTHORIZATION, format!("Bearer {token}")),
-        (reqwest::header::ACCEPT, update::ACCEPT_BINARY.to_string()),
-    ]
-}
-
-/// Build an updater pointed at this channel's manifest, carrying the token.
-///
-/// `tauri.conf.json` leaves `endpoints` empty on purpose: the plugin refuses a
-/// check that never set one, so every check has to come through here and pick
-/// up the credential. A URL baked into the config could not carry a token, and
-/// a private repo answers nothing without one.
+/// downloading the installer with the default, and GitHub would answer the
+/// asset request with JSON metadata instead of the binary.
 async fn updater_for(
     app: &tauri::AppHandle,
-    token: &str,
+    token: Option<&str>,
     channel: &str,
-) -> Result<tauri_plugin_updater::Updater, String> {
-    let manifest = update::latest_manifest_url(token, channel).await?;
-    let endpoint = reqwest::Url::parse(&manifest).map_err(|_| "bad_update_host".to_string())?;
+    next: update::Next,
+) -> Result<tauri_plugin_updater::Updater, update::Refusal> {
+    let manifest = update::latest_manifest_url(token, channel, next).await?;
+    let endpoint = reqwest::Url::parse(&manifest).map_err(|_| update::BAD_HOST.to_string())?;
 
     let mut builder = app
         .updater_builder()
         .endpoints(vec![endpoint])
-        .map_err(|_| "bad_update_host".to_string())?;
-    for (name, value) in request_headers(token) {
-        builder = builder.header(name, value).map_err(|_| "bad_token".to_string())?;
+        .map_err(|_| update::BAD_HOST.to_string())?
+        // Both of the plugin's requests are redirected to GitHub's storage
+        // host; this keeps the token from going along (`update::may_follow`).
+        .configure_client(update::plugin_client);
+    for (name, value) in update::request_headers(token, update::ACCEPT_BINARY) {
+        // Only a token with characters no header may hold gets here.
+        builder = builder.header(name, value).map_err(|_| update::TOKEN_REJECTED.to_string())?;
     }
-    builder.build().map_err(|e| plugin_code(&e))
+    Ok(builder.build().map_err(|e| plugin_code(&e))?)
+}
+
+/// The host pin, applied to the installer's URL before a byte of it is asked
+/// for. That URL comes from `latest.json`, which nothing signs, and the plugin
+/// sends the builder's headers — the token among them — wherever it points.
+fn pinned_download(download_url: &str) -> Result<(), String> {
+    update::manifest_url_for(download_url).map(|_| ())
 }
 
 #[tauri::command]
@@ -221,17 +265,14 @@ pub async fn update_check(
     state: tauri::State<'_, SettingsStore>,
 ) -> Result<UpdateStatus, String> {
     let settings = state.get();
-    let token = crate::secrets::updates_token(&state).unwrap_or_default();
-    if token.trim().is_empty() {
-        // Spec §11: no token, no check. The UI shows a sign-in prompt instead
-        // of looping against an endpoint that can only refuse us.
-        remember(None, None);
-        return Ok(status_from(&state));
-    }
+    // No token is not a reason to stay home (§11, amended 2026-10-03): it
+    // means asking anonymously. There is still no loop — this runs once per
+    // launch and once per button press.
+    let token = crate::secrets::updates_token(&state);
 
     let found = async {
-        let updater = updater_for(&app, &token, &settings.update_channel).await?;
-        updater.check().await.map_err(|e| plugin_code(&e))
+        let updater = updater_for(&app, token.as_deref(), &settings.update_channel, update::Next::Check).await?;
+        updater.check().await.map_err(|e| update::Refusal::from(plugin_code(&e)))
     }
     .await;
 
@@ -247,7 +288,7 @@ pub async fn update_check(
             );
         }
         Ok(None) => remember(None, None),
-        Err(code) => remember(None, Some(code)),
+        Err(refusal) => remember(None, Some(refusal)),
     }
     Ok(status_from(&state))
 }
@@ -258,15 +299,13 @@ pub async fn update_install(
     state: tauri::State<'_, SettingsStore>,
 ) -> Result<(), String> {
     let settings = state.get();
-    let token = crate::secrets::updates_token(&state).unwrap_or_default();
-    if token.trim().is_empty() {
-        return Err("not_signed_in".into());
-    }
+    // Optional, as for the check: anonymous when absent, sent when saved.
+    let token = crate::secrets::updates_token(&state);
 
     // Every early return past this point has to record the failure, or the
     // dialog would sit on a stale phase forever.
     set_progress(InstallProgress::at("downloading"));
-    let outcome = install_inner(&app, &token, &settings.update_channel).await;
+    let outcome = install_inner(&app, token.as_deref(), &settings.update_channel).await;
     if let Err(code) = &outcome {
         let mut failed = InstallProgress::at("failed");
         failed.error = Some(code.clone());
@@ -277,16 +316,17 @@ pub async fn update_install(
 
 async fn install_inner(
     app: &tauri::AppHandle,
-    token: &str,
+    token: Option<&str>,
     channel: &str,
 ) -> Result<(), String> {
     let assets = update::latest_release_assets(token, channel).await?;
-    let updater = updater_for(app, token, channel).await?;
+    let updater = updater_for(app, token, channel, update::Next::Install).await?;
     let update = updater
         .check()
         .await
         .map_err(|e| plugin_code(&e))?
         .ok_or_else(|| "no_release".to_string())?;
+    pinned_download(update.download_url.as_str())?;
 
     // download() verifies minisign and returns the bytes. Checking sha256 here,
     // before install(), is what makes the spec's "reject if they do not match"
@@ -356,7 +396,7 @@ pub fn update_set_channel(
         // other track would hide a version the writer never saw.
         s.update_skipped = None;
     });
-    remember(None, None);
+    forget();
     Ok(status_from(&state))
 }
 
@@ -396,26 +436,63 @@ mod tests {
     #[test]
     fn a_fresh_install_is_on_stable_and_checks_by_itself() {
         let dir = tempfile::tempdir().unwrap();
-        let status = status_from(&store(&dir));
+        let status = status_with(&store(&dir), false, &LastCheck::default());
         assert_eq!(status.channel, "stable");
         assert!(status.automatic, "spec §11: on by default on stable");
-        assert!(!status.signed_in, "no token yet");
+        assert!(!status.token_set, "no token yet, and none is needed to check");
+        assert!(!status.checked, "nothing asked yet, so nothing is claimed");
         assert_eq!(status.current_version, env!("CARGO_PKG_VERSION"));
         assert!(status.available.is_none());
     }
 
     #[test]
-    fn a_token_is_what_makes_the_app_willing_to_check() {
+    fn a_token_is_reported_but_no_longer_required() {
         let dir = tempfile::tempdir().unwrap();
         let store = store(&dir);
-        assert!(!status_from(&store).signed_in);
+        assert!(!status_from(&store).token_set);
 
         store.update(|s| s.github_updates_token = Some("ghp_example".into()));
-        assert!(status_from(&store).signed_in);
+        assert!(status_from(&store).token_set);
 
         // Whitespace is not a credential.
         store.update(|s| s.github_updates_token = Some("   ".into()));
-        assert!(!status_from(&store).signed_in);
+        assert!(!status_from(&store).token_set);
+    }
+
+    #[test]
+    fn a_finished_check_is_told_apart_from_none_at_all() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(&dir);
+
+        let never = status_with(&store, false, &LastCheck::default());
+        assert!(!never.checked && never.last_error.is_none());
+
+        // Nothing newer: an answer, not a guess.
+        let current = status_with(&store, false, &LastCheck::finished(None, None));
+        assert!(current.checked);
+        assert!(current.available.is_none() && current.last_error.is_none());
+
+        let found = status_with(&store, false, &LastCheck::finished(Some(offered("0.2.0")), None));
+        assert_eq!(found.available.unwrap().version, "0.2.0");
+    }
+
+    #[test]
+    fn a_refusal_reaches_the_panel_with_its_reset_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let limited = update::Refusal {
+            code: update::RATE_LIMITED.into(),
+            resets_at: Some(1_791_054_785),
+        };
+        let status = status_with(&store(&dir), false, &LastCheck::finished(None, Some(limited)));
+        assert!(status.checked);
+        assert_eq!(status.last_error.as_deref(), Some("update_rate_limited"));
+        assert_eq!(status.resets_at, Some(1_791_054_785));
+
+        // Only a rate limit carries a time.
+        let hidden = update::Refusal::from(update::NONE_VISIBLE.to_string());
+        let status = status_with(&store(&dir), false, &LastCheck::finished(None, Some(hidden)));
+        assert_eq!(status.last_error.as_deref(), Some("update_none_visible"));
+        assert_eq!(status.resets_at, None);
     }
 
     #[test]
@@ -450,22 +527,71 @@ mod tests {
     }
 
     #[test]
-    fn both_headers_go_on_the_builder_so_the_download_gets_them_too() {
-        let headers = request_headers("ghp_example");
-        let named = |name: &reqwest::header::HeaderName| {
+    fn the_download_gets_the_binary_accept_with_or_without_a_token() {
+        let named = |headers: &[(reqwest::header::HeaderName, String)], name: &reqwest::header::HeaderName| {
             headers.iter().find(|(n, _)| n == name).map(|(_, v)| v.clone())
         };
+        // Without this on the *download*, GitHub answers an asset request with
+        // JSON metadata and the install fails on bytes that are not an
+        // installer. The plugin applies the builder's headers to both
+        // requests, so `updater_for` putting them there is what covers it.
+        for token in [Some("ghp_example"), None] {
+            let headers = update::request_headers(token, update::ACCEPT_BINARY);
+            assert_eq!(
+                named(&headers, &reqwest::header::ACCEPT).as_deref(),
+                Some("application/octet-stream")
+            );
+            assert_eq!(
+                named(&headers, &reqwest::header::AUTHORIZATION),
+                token.map(|t| format!("Bearer {t}")),
+                "the token goes on the builder only when there is one"
+            );
+        }
+    }
 
-        assert_eq!(named(&reqwest::header::AUTHORIZATION).unwrap(), "Bearer ghp_example");
-        // Without this on the *download*, GitHub answers a private asset
-        // request with JSON metadata and the install fails on bytes that are
-        // not an installer. The plugin applies the builder's headers to both
-        // requests, so setting it here is what covers the download.
+    #[test]
+    fn the_installer_url_is_pinned_before_anything_is_downloaded() {
+        // `latest.json` is unsigned; whatever it names, the token must not be
+        // sent there, and neither may the anonymous request go.
+        assert!(pinned_download("https://api.github.com/repos/MAECLY/versorium-app/releases/assets/7").is_ok());
+        for hostile in [
+            "https://evil.example.com/repos/MAECLY/versorium-app/releases/assets/7",
+            "https://github.com/MAECLY/versorium-app/releases/download/v0.2.0/Versorium.dmg",
+            "http://api.github.com/repos/MAECLY/versorium-app/releases/assets/7",
+        ] {
+            assert_eq!(pinned_download(hostile).unwrap_err(), "bad_update_host", "{hostile}");
+        }
+    }
+
+    #[test]
+    fn a_signature_failure_still_refuses_the_install() {
+        use tauri_plugin_updater::Error;
+        // The plugin's minisign verdicts, each named rather than lost as
+        // "network". The anonymous path reaches the same `download()`.
         assert_eq!(
-            named(&reqwest::header::ACCEPT).unwrap(),
-            "application/octet-stream"
+            plugin_code(&Error::SignedVersionMismatch { signed: "0.1.0".into(), announced: "0.2.0".into() }),
+            "bad_signature"
         );
-        assert_eq!(headers.len(), 2, "every header the updater sends is pinned here");
+        assert_eq!(plugin_code(&Error::MissingSignedVersion), "bad_signature");
+        assert_eq!(plugin_code(&Error::ReleaseNotFound), "no_release");
+        assert_eq!(plugin_code(&Error::UnsupportedOs), "unsupported_platform");
+    }
+
+    #[test]
+    fn the_signing_key_and_the_empty_endpoint_list_are_unchanged() {
+        // The minisign check is only as good as the key it checks against, and
+        // `endpoints: []` is what forces every check through `updater_for` and
+        // its pins. If this test has to change, the key was rotated on purpose.
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../../tauri.conf.json")).expect("tauri.conf.json");
+        let updater = &config["plugins"]["updater"];
+        assert_eq!(
+            updater["pubkey"],
+            "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM5N0FDNjg3NDk5QUQzNDkKUldSSjA1cEpoOFo2T1Y4Y053TFNuQW1NbVRySTRCYnFhdTlVYXA5djd5b0RLL0UvTENEbmNsU2QK",
+            "minisign key id 397AC687499AD349 (RELEASING.md, section 1)"
+        );
+        assert_eq!(updater["endpoints"], serde_json::json!([]));
+        assert_eq!(config["bundle"]["createUpdaterArtifacts"], true);
     }
 
     #[test]
@@ -475,24 +601,28 @@ mod tests {
         store.update(|s| s.github_updates_token = Some("ghp_secret_value".into()));
         let json = serde_json::to_string(&status_from(&store)).unwrap();
         assert!(!json.contains("ghp_secret_value"), "a credential must not cross the wire");
-        assert!(json.contains("\"signedIn\":true"));
+        assert!(json.contains("\"tokenSet\":true"));
     }
 
     #[test]
     fn the_status_shape_is_the_one_the_frontend_reads() {
         let dir = tempfile::tempdir().unwrap();
-        let json = serde_json::to_value(status_from(&store(&dir))).unwrap();
+        let json = serde_json::to_value(status_with(&store(&dir), false, &LastCheck::default())).unwrap();
         for key in [
             "currentVersion",
             "available",
             "channel",
             "automatic",
-            "signedIn",
+            "tokenSet",
             "checking",
+            "checked",
             "lastError",
+            "resetsAt",
         ] {
             assert!(json.get(key).is_some(), "UpdateStatus is missing `{key}`");
         }
+        // The old name must not linger: the UI no longer gates on signing in.
+        assert!(json.get("signedIn").is_none());
         let offered = serde_json::to_value(offered("1.2.0")).unwrap();
         for key in ["version", "notes", "date"] {
             assert!(offered.get(key).is_some(), "AvailableUpdate is missing `{key}`");

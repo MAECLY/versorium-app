@@ -37,7 +37,9 @@ const SERVICE: &str = crate::paths::APP_IDENTIFIER;
 /// did not create.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Slot {
-    /// Authorizes downloading releases of the app itself.
+    /// Optional. Lets the updater read the app's own releases while the
+    /// repository is private, and lifts GitHub's anonymous rate limit; without
+    /// it the updater asks anonymously (spec §11, amended 2026-10-03).
     Updates,
     /// The writer's own GitHub, for their novel's private backup.
     Novel,
