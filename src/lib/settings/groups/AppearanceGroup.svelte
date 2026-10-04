@@ -57,7 +57,7 @@
 </script>
 
 <section class="mb-6" aria-label={t("settings.theme")}>
-  <h3 class="v-section-title mb-1">{t("settings.theme")}</h3>
+  <h3 class="v-h3 mb-1">{t("settings.theme")}</h3>
   <p class="v-muted m-0 mb-3" style="font-size: 12px; line-height: 1.6;">{t("settings.themeHint")}</p>
 
   <!-- A swatch, not a dropdown: a theme is a look, and a list of three words
@@ -113,7 +113,7 @@
   </ul>
 
   <fieldset class="m-0 p-0" style="border: 0;">
-    <legend class="v-section-title mb-2" style="padding: 0;">{t("settings.themeMode")}</legend>
+    <legend class="v-h4 mb-2" style="padding: 0;">{t("settings.themeMode")}</legend>
     <div class="v-row" style="gap: 6px;">
       {#each THEME_MODES as option (option)}
         <button
@@ -134,7 +134,7 @@
 </section>
 
 <section class="mb-6" aria-label={t("settings.language")}>
-  <h3 class="v-section-title mb-1">{t("settings.language")}</h3>
+  <h3 class="v-h3 mb-1">{t("settings.language")}</h3>
   <p class="v-muted m-0 mb-2" style="font-size: 12px;">{t("settings.languageHint")}</p>
   <label class="v-row" style="gap: 8px; font-size: 13px;">
     {t("settings.language")}

@@ -74,7 +74,7 @@ test("without a token a check still happens, and the token is described as optio
   await expect(slot.getByPlaceholder("GitHub token")).toBeVisible();
   await expect(
     slot.getByText(
-      "Only needed while maecly/versorium-app is private, or to lift GitHub's hourly limit on checks without a token.",
+      "Not needed to check for updates. Only lifts GitHub's hourly limit on checks made without a token.",
     ),
   ).toBeVisible();
 });

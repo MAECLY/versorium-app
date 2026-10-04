@@ -105,3 +105,7 @@ tauri = { version = "2", features = ["test"] }
 # with `rustls-no-provider` and installs ring itself before every request, and
 # the redirect tests must do the same. Already in the tree, ring included.
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# Only so tests/opener_scope.rs matches an address against the opener's scope
+# with the pattern type the plugin itself uses. Already in the tree through
+# tauri-utils and tauri-plugin-opener, at this version.
+glob = "0.3"

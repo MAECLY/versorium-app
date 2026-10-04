@@ -3,11 +3,22 @@
   import { isContextPress } from "$lib/contextmenu/policy";
   import { restoreFocus } from "$lib/components/restoreFocus";
 
-  let { label, onClose, children, wide = false }: {
+  let {
+    label,
+    onClose,
+    children,
+    wide = false,
+    role = "dialog",
+    describedBy,
+  }: {
     label: string;
     onClose: () => void;
     children: Snippet;
     wide?: boolean;
+    /** `alertdialog` for a decision that interrupts (a grant, a loss). */
+    role?: "dialog" | "alertdialog";
+    /** The id of what explains the dialog, read with its name. */
+    describedBy?: string;
   } = $props();
 
   let dialog: HTMLDialogElement;
@@ -44,11 +55,15 @@
   }
 </script>
 
+<!-- A <dialog> is a dialog already; the role is written only when it is the
+     other kind. -->
 <dialog
   bind:this={dialog}
   class="v-dialog"
   class:wide
+  role={role === "alertdialog" ? "alertdialog" : undefined}
   aria-label={label}
+  aria-describedby={describedBy}
   onclose={onClose}
   onpointerdown={dismissBackdrop}
 >

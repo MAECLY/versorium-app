@@ -80,7 +80,7 @@
 </script>
 
 <section class="mb-6" aria-label={t("author.title")}>
-  <h3 class="v-section-title mb-1">{t("author.title")}</h3>
+  <h3 class="v-h3 mb-1">{t("author.title")}</h3>
   <p class="v-muted m-0 mb-3" style="font-size: 12px; line-height: 1.6;">{t("author.intro")}</p>
 
   {#if !isTauri()}

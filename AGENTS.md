@@ -166,6 +166,10 @@ move; re-run rather than quote them.
   `src/lib/tauri.ts`, and a matching handler in `tests/e2e/mock-tauri.ts`. The
   mock rejects any command it does not know with `unknown_command <name>`, so
   without the handler the e2e suite and `make mock` cannot exercise it.
+- **A spec that touches the mock before the page shows anything opens it with
+  `gotoMock`** (`tests/e2e/mock-page.ts`). `page.goto` resolves at the load
+  event, and `src/main.ts` imports the mock after it, inside `boot()`: on a
+  cold Vite, `window.__VERSORIUM_MOCK__` is not there yet.
 - **The native window starts hidden.** `src/main.ts` mounts the app and then
   calls `api.uiReady()`, and only then is the window shown. A change to the
   boot path that skips or breaks that call leaves an invisible or white window
@@ -193,8 +197,8 @@ move; re-run rather than quote them.
 - **Form controls use the shared primitives** in `src/lib/components/forms/`:
   `Field`, `TextField`, `NumberField`, `Select`, `Checkbox`. The hint goes in
   `aria-describedby`, and a live status readout stays outside the label so it
-  never becomes part of the accessible name. 26 controls in 14 files are still
-  hand-written; `TODO.md` lists them and the command to recount.
+  never becomes part of the accessible name. 17 control tags in 11 files are
+  still hand-written; `TODO.md` lists them and the command to recount.
 - **`Checkbox` stays strictly controlled.** Two-way call sites write
   `checked={x} onChange={(v) => (x = v)}`. Do not make `checked` `$bindable`:
   an unbound bindable keeps the child's write, so a permission the backend
@@ -210,7 +214,7 @@ move; re-run rather than quote them.
 | `PROMPT-VERSORIUM.md` | The product and architecture spec. Wins on product questions. Its "Implementation notes (2026-10-03)" section lists where the code differs from the spec, with evidence |
 | `DESIGN-VERSORIUM.md` | Themes, tokens, type. Wins on visual questions. Its "Implementation notes (2026-10-03)" section does the same for design |
 | `STATUS.md` | What shipped, per milestone and after, with the known limits |
-| `TODO.md` | Half-done work, three unstarted Local AI surfaces, and the steps to go public. It is not the complete list of unbuilt spec items: the two implementation-notes sections above list more (command palette, BYOK, most CLI subcommands, the downloadable font catalogue, and others) |
+| `TODO.md` | Half-done work, three unstarted AI tasks (the ones Settings → Tasks lists under "Not built yet"), and the steps to go public. It is not the complete list of unbuilt spec items: the two implementation-notes sections above list more (command palette, BYOK, most CLI subcommands, the downloadable font catalogue, and others) |
 | `THIRD-PARTY-NOTICES.md` | Licences of bundled dependencies. A new dependency updates it |
 | `FORMATS.md` | What each import/export format keeps and loses |
 | `RELEASING.md` | The release procedure and the signing key |

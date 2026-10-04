@@ -5,6 +5,16 @@
 
 import { BACKUP_STATE_EVENT } from "$lib/backup/events";
 import shippedFonts from "../../fonts/catalog.json";
+import tauriConf from "../../src-tauri/tauri.conf.json";
+import {
+  enabledCapabilities,
+  refusal,
+  resolveOpenUrl,
+  urlAllowed,
+  type Capability,
+  type CapabilityEntry,
+  type Manifest,
+} from "./opener-acl";
 
 type Args = Record<string, unknown>;
 
@@ -134,7 +144,9 @@ interface McpLogEntry {
   client: string;
   tool: string;
   scope: "read" | "write";
-  outcome: "ok" | "denied" | "error";
+  outcome: "ok" | "preview" | "denied" | "error";
+  /** `mcp::log::FORMAT`: 2 for a line this build wrote, 0 for one from before previews were logged apart. */
+  format: number;
   detail: string;
 }
 
@@ -242,6 +254,27 @@ const calls: { cmd: string; args: Args }[] = [];
  * save. The call is still recorded, as Rust would have received it.
  */
 const failures: Record<string, string> = {};
+
+/**
+ * What `plugin:opener|open_url` may open, worked out from the files the app
+ * is built from (opener-acl.ts): the capabilities, tauri.conf.json's list of
+ * them if it has one, and the plugins' ACL manifests tauri-build writes to
+ * src-tauri/gen/schemas (tracked). Globbed rather than imported, so the
+ * manifests' 70 KB are not a type TypeScript has to infer.
+ */
+const OPEN_URL = (() => {
+  const unread = Object.keys(import.meta.glob("../../src-tauri/capabilities/*.{toml,json5}"));
+  if (unread.length) throw new Error(`mock-tauri reads JSON capabilities only, not ${unread.join(", ")}`);
+  const files = import.meta.glob<Capability>("../../src-tauri/capabilities/*.json", { eager: true, import: "default" });
+  const [acl] = Object.values(
+    import.meta.glob<Record<string, Manifest>>("../../src-tauri/gen/schemas/acl-manifests.json", { eager: true, import: "default" }),
+  );
+  const listed = (tauriConf.app.security as { capabilities?: CapabilityEntry[] }).capabilities;
+  return resolveOpenUrl(enabledCapabilities(Object.values(files), listed), acl);
+})();
+
+/** Every address the system browser was handed, oldest first: what the opener accepted. */
+const browser: string[] = [];
 
 const GB = 1024 ** 3;
 
@@ -357,7 +390,55 @@ const slots: Record<string, SlotAssignment> = {
 
 let downloadProgress: { id: string; received: number; total: number; done: boolean } | null = null;
 
-const studio = { host: "127.0.0.1", port: 1234, enabled: false };
+/**
+ * The local server the writer may save. `running` and `models` are what it
+ * would answer; `models_view` reports them only while it is saved, because
+ * Rust asks it nothing before then. A spec stops it with
+ * `__VERSORIUM_MOCK__.studio.running = false`.
+ */
+const studio = { host: "127.0.0.1", port: 1234, enabled: false, running: true, models: ["local-model"] };
+
+/** Mirrors `commands::models::studio_view`. */
+function studioView() {
+  const answering = studio.enabled && studio.running;
+  return {
+    host: studio.host,
+    port: studio.port,
+    enabled: studio.enabled,
+    running: answering,
+    models: answering ? [...studio.models] : [],
+  };
+}
+
+/**
+ * The Ollama daemon as `models_view` and `agents_detect` see it. A spec makes
+ * it stop or empty it (`__VERSORIUM_MOCK__.ollama.running = false`); the
+ * rewrite and the continuity check read the same object.
+ */
+const ollama = {
+  running: true,
+  installed: true,
+  models: [{ name: "qwen3.8:latest", sizeBytes: 17_741_872_154, modified: "2026-09-04T11:30:22Z" }],
+};
+
+function ollamaServes(tag: string): boolean {
+  return ollama.running && ollama.models.some((m) => m.name === tag);
+}
+
+/** Mirrors `agents::is_loopback`: 127.0.0.0/8, `::1` and `localhost`. */
+function isLoopbackHost(host: string): boolean {
+  const h = host.trim().toLowerCase().replace(/^\[(.*)\]$/, "$1");
+  if (h === "localhost" || h === "::1") return true;
+  const parts = h.split(".");
+  return parts.length === 4 && parts[0] === "127" && parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
+}
+
+/** Every task whose model was `kind`/`id` (or any of `kind`, without an id) goes back to none. */
+function releaseSlots(kind: string, id?: string): void {
+  for (const key of Object.keys(slots)) {
+    if (slots[key].kind === kind && (id === undefined || slots[key].id === id)) slots[key] = { kind: "none", id: "" };
+  }
+}
 
 const mcpClients: McpClient[] = [
   { id: "claude-code", name: "Claude Code", configPath: "/mock/project/.mcp.json", detected: true, installed: false, writeAllowed: false },
@@ -366,9 +447,13 @@ const mcpClients: McpClient[] = [
   { id: "opencode", name: "OpenCode", configPath: "/mock/.config/opencode/opencode.json", detected: false, installed: false, writeAllowed: false },
 ];
 
+// Oldest first, as the file is written; `mcp_log` answers newest first. The
+// preview mirrors mcp::tools::call, which logs a write that only returned its
+// diff as `preview`, never `ok`; every line carries the log's format, 2.
 const mcpLog: McpLogEntry[] = [
-  { ts: 1_759_000_000_000, client: "claude-code", tool: "read_document", scope: "read", outcome: "ok", detail: "manuscript/ch-01-the-long-winter.md" },
-  { ts: 1_759_000_060_000, client: "codex", tool: "write_document", scope: "write", outcome: "denied", detail: "write not allowed for codex" },
+  { ts: 1_759_000_000_000, client: "claude-code", tool: "read_document", scope: "read", outcome: "ok", detail: "manuscript/ch-01-the-long-winter.md", format: 2 },
+  { ts: 1_759_000_030_000, client: "claude-desktop", tool: "replace_text", scope: "write", outcome: "preview", detail: "manuscript/ch-01-the-long-winter.md · 412 chars", format: 2 },
+  { ts: 1_759_000_060_000, client: "codex", tool: "write_document", scope: "write", outcome: "denied", detail: "write not allowed for codex", format: 2 },
 ];
 
 /** The in-process engine's state. `warming` for the first call only, so a test
@@ -521,8 +606,11 @@ let mcpHttpEnabled = false;
 let llamaWarmCalls = 0;
 let llamaBusy = false;
 
+/** `__VERSORIUM_MOCK__.llama.failed = true`: the engine did not start on this computer. */
+const llama = { failed: false };
+
 /// Mirrors settings::SLOT_KINDS; Rust rejects anything else as `bad_args`.
-const SLOT_KINDS = ["none", "builtin", "ollama", "cli"];
+const SLOT_KINDS = ["none", "builtin", "ollama", "server", "cli"];
 
 const agents: AgentInfo[] = [
   { id: "claude", name: "Claude Code", path: "/mock/bin/claude", version: "2.1.0", state: "connected", models: null },
@@ -531,6 +619,15 @@ const agents: AgentInfo[] = [
   { id: "ollama", name: "Ollama", path: "/mock/bin/ollama", version: "0.6.0", state: "connected", models: ["qwen3.8:latest"] },
   { id: "gh", name: "GitHub CLI", path: "/mock/bin/gh", version: "2.60.0", state: "connected", models: null },
 ];
+
+// `?mock=tauri&agents=none`: no assistant on this computer. A URL switch
+// rather than a change made from a spec, because the app scans once at
+// launch and keeps the answer for the session (src/lib/ai/agents.ts).
+if (new URLSearchParams(location.search).get("agents") === "none") {
+  for (const agent of agents) {
+    if (agent.id !== "ollama") Object.assign(agent, { state: "missing", path: null, version: null });
+  }
+}
 
 function slugify(s: string): string {
   return s
@@ -865,7 +962,19 @@ const commands: Record<string, (args: Args) => unknown> = {
     throw "not_found";
   },
 
-  agents_detect: () => agents.map((a) => ({ ...a, models: a.models ? [...a.models] : null })),
+  // Ollama's entry is the daemon's state, as `agents_detect` merges it in Rust:
+  // connected while it answers, detected with only its binary.
+  agents_detect: () =>
+    agents.map((a) =>
+      a.id === "ollama"
+        ? {
+            ...a,
+            state: ollama.running ? "connected" : ollama.installed ? "detected" : "missing",
+            path: ollama.installed ? a.path : null,
+            models: ollama.running ? ollama.models.map((m) => m.name) : null,
+          }
+        : { ...a, models: a.models ? [...a.models] : null },
+    ),
 
   // --- M7: polish ---
   crash_list: ({ limit }) => crashes.slice(0, Number(limit ?? 20)),
@@ -876,10 +985,32 @@ const commands: Record<string, (args: Args) => unknown> = {
   crash_clear: () => {
     crashes.length = 0;
   },
+  // Mirrors continuity::check: it runs on a model on this computer, or says
+  // why it did not, and never pretends a run that did not happen was clean.
   continuity_check: () => {
-    // No model is selected for Continuity, so it refuses to pretend it ran.
     const slot = slots.continuity;
-    if (slot.kind !== "ollama") return { ran: false, reason: "continuity_no_model", findings: [] };
+    const skipped = (reason: string) => ({ ran: false, reason, findings: [] });
+    switch (slot.kind) {
+      case "builtin": {
+        // As continuity::builtin_check: a busy engine first, then the model.
+        if (llamaBusy) return skipped("continuity_busy");
+        const card = models.find((m) => m.id === slot.id);
+        if (!card || card.state !== "ready") return skipped("continuity_no_model");
+        if (!card.fits) return skipped("continuity_model_too_large");
+        break;
+      }
+      case "ollama":
+        if (!ollama.running) return skipped("continuity_daemon_offline");
+        if (!ollamaServes(slot.id)) return skipped("continuity_no_model");
+        break;
+      case "server":
+        if (!studio.enabled) return skipped("continuity_no_model");
+        if (!studio.running) return skipped("continuity_server_offline");
+        if (!studio.models.includes(slot.id)) return skipped("continuity_no_model");
+        break;
+      default:
+        return skipped("continuity_no_model");
+    }
     return { ran: true, reason: null,
              findings: [{ kind: "contradiction", detail: "Ana's eyes change colour.", chapter: "ch-02" }] };
   },
@@ -1023,12 +1154,15 @@ const commands: Record<string, (args: Args) => unknown> = {
   models_view: () => ({
     models: models.map((m) => ({ ...m })),
     hardware: { totalRamGb: 36, availableRamGb: 18, cpuCores: 12, arch: "aarch64",
-                os: "macos", gpu: "Apple unified memory (Metal)", recommendedTier: "midPlus" },
+                os: "macos", gpu: "Metal (Apple M4 Max)", recommendedTier: "midPlus" },
     slots: { ...slots },
     progress: downloadProgress,
-    ollama: { running: true, installed: true,
-              models: [{ name: "qwen3.8:latest", sizeBytes: 17_741_872_154, modified: "2026-09-04T11:30:22Z" }] },
-    studio: { ...studio },
+    ollama: {
+      running: ollama.running,
+      installed: ollama.installed,
+      models: ollama.running ? ollama.models.map((m) => ({ ...m })) : [],
+    },
+    studio: studioView(),
     censorship: settings.censorship,
     diskUsedBytes: models.filter((m) => m.state === "ready").reduce((a, m) => a + m.sizeBytes, 0),
     modelsDir: "/mock/Library/versorium/models",
@@ -1045,17 +1179,19 @@ const commands: Record<string, (args: Args) => unknown> = {
     model.state = "partial";
     downloadProgress = { id: String(id), received: 0, total: model.sizeBytes, done: false };
 
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
       let received = 0;
       // Slower than one poll interval on purpose: a real download takes
       // minutes, and a mock that finishes inside 700ms would let a panel that
       // shows nothing during a transfer pass this suite.
       const step = model.sizeBytes / 12;
       const timer = setInterval(() => {
-        // Cancelled: the command rejects and the caller stops polling.
+        // Cancelled: the command rejects, as `download::start` does, and the
+        // part already fetched stays (the model is partial, to be resumed).
         if (downloadProgress?.id !== id) {
           clearInterval(timer);
-          resolve();
+          model.receivedBytes = received;
+          reject("cancelled");
           return;
         }
         received = Math.min(model.sizeBytes, received + step);
@@ -1083,11 +1219,25 @@ const commands: Record<string, (args: Args) => unknown> = {
     }
   },
   models_progress: () => downloadProgress,
+  // Mirrors commands::models::set_slot_in: a slot names something that is
+  // there now, or it is refused and nothing changes.
   models_set_slot: ({ slot, kind, id }) => {
     const name = String(slot);
-    if (!(name in slots)) throw "bad_args";
-    if (kind === "builtin" && models.find((m) => m.id === id)?.state !== "ready") throw "not_ready";
-    slots[name] = kind === "none" ? { kind: "none", id: "" } : { kind: String(kind), id: String(id) };
+    const model = String(id ?? "");
+    if (!(name in slots) || !SLOT_KINDS.includes(String(kind))) throw "bad_args";
+    if (kind === "builtin") {
+      // As set_slot_in: an id the catalogue does not know, then one not downloaded.
+      const card = models.find((m) => m.id === model);
+      if (!card) throw "not_found";
+      if (card.state !== "ready") throw "not_ready";
+    }
+    if (kind === "ollama" && !ollamaServes(model)) throw "not_found";
+    if (kind === "server") {
+      if (!model.trim()) throw "bad_args";
+      if (!studio.enabled || !studio.running || !studio.models.includes(model)) throw "not_found";
+    }
+    if (kind === "cli" && !model.trim()) throw "bad_args";
+    slots[name] = kind === "none" ? { kind: "none", id: "" } : { kind: String(kind), id: model };
     return { ...slots };
   },
   // Credentials live in the OS store; the mock keeps presence only, because the
@@ -1183,6 +1333,7 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   llama_backend: () => {
+    if (llama.failed) return { state: "failed", device: null, gpuOffload: false };
     // The real backend reports `warming` while it compiles Metal shaders; the
     // first call here does too so the UI state is reachable in a test.
     llamaWarmCalls += 1;
@@ -1197,14 +1348,44 @@ const commands: Record<string, (args: Args) => unknown> = {
   llama_cancel: () => undefined,
   llama_unload: () => undefined,
 
-  ollama_pull: () => undefined,
-  ollama_remove: () => undefined,
-  studio_test: ({ port }) => Number(port) === 1234,
+  // Mirrors agents::ollama_pull: the daemon has to be there, and the tag is
+  // then one of its models.
+  ollama_pull: ({ name }) => {
+    const tag = String(name ?? "").trim();
+    if (!tag) throw "bad_args";
+    if (!ollama.running) throw "ollama_offline";
+    if (!ollama.models.some((m) => m.name === tag)) {
+      ollama.models.push({ name: tag, sizeBytes: 2_620_000_000, modified: new Date().toISOString() });
+    }
+    return undefined;
+  },
+  // Mirrors commands::models::ollama_remove: the tag goes, and so does every
+  // task that used it (`clear_slots_matching`).
+  ollama_remove: ({ name }) => {
+    const tag = String(name ?? "").trim();
+    if (!tag) throw "bad_args";
+    if (!ollama.running) throw "ollama_offline";
+    const at = ollama.models.findIndex((m) => m.name === tag);
+    if (at < 0) throw "ollama_failed";
+    ollama.models.splice(at, 1);
+    releaseSlots("ollama", tag);
+    return undefined;
+  },
+  // The one fake server answers at the address saved for it, while it runs.
+  studio_test: ({ host, port }) =>
+    studio.running && String(host ?? "").trim() === studio.host && Number(port) === studio.port,
+  // Mirrors studio_save: saving keeps the tasks; forgetting releases every
+  // task that ran on the server, and so does saving it at another
+  // computer's address.
   studio_save: ({ host, port, enabled }) => {
-    studio.host = String(host);
+    const trimmed = String(host ?? "").trim();
+    if (!trimmed || !Number(port)) throw "bad_args";
+    const elsewhere = !isLoopbackHost(trimmed) && trimmed.toLowerCase() !== studio.host.toLowerCase();
+    studio.host = trimmed;
     studio.port = Number(port);
     studio.enabled = Boolean(enabled);
-    return { ...studio };
+    if (!studio.enabled || elsewhere) releaseSlots("server");
+    return studioView();
   },
 
   // --- M3: MCP ---
@@ -1217,6 +1398,9 @@ const commands: Record<string, (args: Args) => unknown> = {
   mcp_set_write: ({ client, allowed }) => {
     const c = mcpClients.find((c) => c.id === client);
     if (!c) throw "mcp_client_unknown";
+    // Mirrors commands::mcp::set_write_in: a grant needs the client connected;
+    // taking one back always goes through.
+    if (allowed && !c.installed) throw "mcp_client_not_connected";
     c.writeAllowed = Boolean(allowed);
     return commands.mcp_status({});
   },
@@ -1267,10 +1451,17 @@ const commands: Record<string, (args: Args) => unknown> = {
         break;
       }
       case "ollama": {
-        const daemon = agents.find((a) => a.id === "ollama");
-        if (daemon?.state !== "connected") throw "ollama_offline";
+        if (!ollama.running) throw "ollama_offline";
         // A slot can outlive the model it names; no substituting another.
-        if (!daemon.models?.includes(model)) throw "no_provider";
+        if (!ollamaServes(model)) throw "no_provider";
+        break;
+      }
+      case "server": {
+        // Mirrors agents::server_rewrite: only a saved server, only while it
+        // answers, only a model it serves.
+        if (!studio.enabled) throw "no_provider";
+        if (!studio.running) throw "server_offline";
+        if (!studio.models.includes(model)) throw "no_provider";
         break;
       }
       case "builtin": {
@@ -1339,6 +1530,16 @@ const commands: Record<string, (args: Args) => unknown> = {
     listeners.delete(Number(eventId));
   },
   "plugin:window|destroy": () => undefined,
+  // The opener answers as the plugin would under the app's capabilities: an
+  // address its scope does not allow is refused in the plugin's words and
+  // never reaches the browser.
+  "plugin:opener|open_url": ({ url, with: program }) => {
+    const address = String(url);
+    const named = program == null ? undefined : String(program);
+    if (!OPEN_URL.granted) throw "opener.open_url not allowed by the capabilities in src-tauri/capabilities";
+    if (!urlAllowed(OPEN_URL, address, named)) throw refusal(address, named);
+    browser.push(address);
+  },
   // Rust's half of "quitting waits for the last save" (src-tauri/src/quit.rs):
   // the answer is in `calls`, as `{ saved }`.
   quit_ready: () => undefined,
@@ -1419,6 +1620,12 @@ declare global {
       /** Commands that reject, by name, with the code given. */
       failures: typeof failures;
       agents: AgentInfo[];
+      /** The Ollama daemon: running, installed, and the tags it serves. */
+      ollama: typeof ollama;
+      /** The local server: saved (`enabled`), answering, and what it serves. */
+      studio: typeof studio;
+      /** The in-process engine: `failed` makes `llama_backend` answer that it did not start. */
+      llama: typeof llama;
       mcpClients: McpClient[];
       mcpLog: McpLogEntry[];
       models: ModelCard[];
@@ -1428,6 +1635,8 @@ declare global {
       /** What GitHub answers the next check; specs set it, then press Check now. */
       github: MockGitHub;
       crashes: CrashEntry[];
+      /** Every address the system browser was handed, oldest first: what the opener accepted. */
+      browser: string[];
       /** True once the app was asked to restart into the new version. */
       relaunched: boolean;
       /** A backup in progress, and the outcomes the next Back up now returns. */
@@ -1481,7 +1690,7 @@ window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
 };
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
-    projects, settings, calls, failures, agents, mcpClients, mcpLog, models, slots, update, github, crashes,
+    projects, settings, calls, failures, agents, ollama, studio, llama, mcpClients, mcpLog, models, slots, update, github, crashes, browser,
     backup, setBackupRunning, holdBackup, releaseBackup, emit, listening, fonts, importPreview, hold, release,
     get relaunched() {
       return relaunched;

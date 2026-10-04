@@ -31,7 +31,7 @@ const status = (over: Partial<McpStatus> = {}): McpStatus => ({
   ...over,
 });
 
-const entry = { ts: 1, client: "claude-code", tool: "read_document", scope: "read" as const, outcome: "ok" as const, detail: "ch-01" };
+const entry = { ts: 1, client: "claude-code", tool: "read_document", scope: "read" as const, outcome: "ok" as const, detail: "ch-01", format: 2 };
 
 let store: McpStore;
 beforeEach(() => {
@@ -45,7 +45,8 @@ it("loads the status and the log tail", async () => {
   await store.load();
   expect(store.clients[0].name).toBe("Claude Code");
   expect(store.log).toEqual([entry]);
-  expect(api.mcpLog).toHaveBeenCalledWith(50);
+  // All Rust keeps readable: Activity filters over it in the page.
+  expect(api.mcpLog).toHaveBeenCalledWith(500);
   expect(store.error).toBeNull();
   expect(store.loading).toBe(false);
 });

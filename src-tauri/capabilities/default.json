@@ -9,6 +9,13 @@
     "core:default",
     "dialog:default",
     "core:window:allow-destroy",
-    "opener:allow-open-url"
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://*"
+        }
+      ]
+    }
   ]
 }

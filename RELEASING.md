@@ -207,7 +207,8 @@ git push origin main --tags
 ```
 
 The workflow builds macOS (Apple silicon and Intel, as separate builds), Windows
-and Linux, signs each artifact, and uploads them into a **draft** release. It is
+and Linux, signs each artifact, and uploads them into a **draft** release, each
+file named for the computer it is for (section 7 lists the names). It is
 a draft on purpose: the moment it is published, clients start being offered it.
 A final job then adds `SHA256SUMS` and rewrites `latest.json` (section 7).
 
@@ -254,16 +255,62 @@ message.
 
 ## 7. Verify the draft before you publish
 
-Check these four things, then publish.
+Check these five things, then publish.
 
-1. **`latest.json` is attached** and has an entry for each platform:
+1. **The sixteen files are there, under these names** (version `X.Y.Z`), plus
+   `latest.json` and `SHA256SUMS`. A name missing is a build that failed; a name
+   in tauri's own form (`_aarch64`, `_x64-setup`, `_x64_en-US`,
+   `-X.Y.Z-1.x86_64`) means the pattern did not reach tauri-action.
+
+   | Build | Files |
+   |---|---|
+   | macOS (Apple silicon) | `Versorium_X.Y.Z_apple_silicon.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
+   | macOS (Intel) | `Versorium_X.Y.Z_apple_intel.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
+   | Windows | `Versorium_X.Y.Z_windows_x64.exe` (the setup program), `.exe.sig`, `.msi`, `.msi.sig` |
+   | Linux | `Versorium_X.Y.Z_linux_amd64.deb`, `.deb.sig`, `.rpm`, `.rpm.sig`, `.AppImage`, `.AppImage.sig` |
+
+   Each build's matrix entry in `release.yml` gives the pattern
+   (`assetPattern`, passed to tauri-action as `releaseAssetNamePattern`), and
+   tauri-action writes `latest.json` from the same names:
+
+   | `latest.json` key | File |
+   |---|---|
+   | `darwin-aarch64`, `darwin-aarch64-app` | `Versorium_X.Y.Z_apple_silicon.app.tar.gz` |
+   | `darwin-x86_64`, `darwin-x86_64-app` | `Versorium_X.Y.Z_apple_intel.app.tar.gz` |
+   | `windows-x86_64`, `windows-x86_64-msi` | `Versorium_X.Y.Z_windows_x64.msi` |
+   | `windows-x86_64-nsis` | `Versorium_X.Y.Z_windows_x64.exe` |
+   | `linux-x86_64`, `linux-x86_64-appimage` | `Versorium_X.Y.Z_linux_amd64.AppImage` |
+   | `linux-x86_64-deb` | `Versorium_X.Y.Z_linux_amd64.deb` |
+   | `linux-x86_64-rpm` | `Versorium_X.Y.Z_linux_amd64.rpm` |
+
+   `v0.1.0` was published before the patterns, with tauri's own names
+   (`Versorium_0.1.0_aarch64.dmg`, `Versorium_0.1.0_x64-setup.exe`,
+   `Versorium_0.1.0_x64_en-US.msi`, `Versorium-0.1.0-1.x86_64.rpm`, …). The
+   app does not mind: it downloads by asset id and finds the checksum line by
+   the name the same release gives that id. The names carry the version, so a
+   link to `releases/latest/download/<name>` changes with every release, and
+   the landing page's download links (`docs/index.html` and
+   `docs/en/index.html`, which name v0.1.0's files today) have to be moved to
+   the new release's names by hand.
+
+   `[ext]` drops what told tauri's own names apart (`-setup`, `_en-US`), so two
+   files of one kind in one build would get one name. GitHub refuses the
+   second and that build fails; across builds it is worse, because tauri-action
+   deletes an asset of the same name before it uploads, so the later build
+   replaces the earlier one's file and nothing says so. A second WiX language,
+   or another bundle with an extension already used, needs a pattern that tells
+   them apart. `tests/unit/release-assets.test.ts` computes every name and the
+   `latest.json` from `release.yml` and `tauri.conf.json`, the way tauri-action
+   `action-v1.0.0` does, and fails on a clash.
+
+2. **`latest.json` is attached** and has an entry for each platform:
    `darwin-aarch64`, `darwin-x86_64`, `windows-x86_64`, `linux-x86_64`. A
    platform missing here is a platform that never updates — usually because its
    build job failed while the others succeeded. (The workflow does not run its
    final job unless every build job succeeded, so a failed platform normally
    shows up as a missing `SHA256SUMS` too.)
 
-2. **Its URLs point at `api.github.com`.** The workflow rewrites them from
+3. **Its URLs point at `api.github.com`.** The workflow rewrites them from
    `github.com/<owner>/<repo>/releases/download/...` to
    `https://api.github.com/repos/<owner>/<repo>/releases/assets/<id>`. While the
    repository is private only the API asset endpoint serves the bytes; the
@@ -275,7 +322,7 @@ Check these four things, then publish.
    from the numeric asset id at the end of the URL (`asset_name_for` in
    `src-tauri/src/update/mod.rs`).
 
-3. **`SHA256SUMS` covers the installers.** The spec (§11) asks for minisign
+4. **`SHA256SUMS` covers the installers.** The spec (§11) asks for minisign
    *and* sha256: the `.sig` files are the first half, this is the second.
 
    ```bash
@@ -283,7 +330,7 @@ Check these four things, then publish.
    sha256sum -c SHA256SUMS        # on macOS: shasum -a 256 -c SHA256SUMS
    ```
 
-4. **Install it yourself** on at least one platform before announcing, following
+5. **Install it yourself** on at least one platform before announcing, following
    the notice for that platform in section 8.
 
 Then publish the draft in the GitHub UI, or:

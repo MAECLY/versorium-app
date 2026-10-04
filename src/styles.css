@@ -254,7 +254,8 @@ textarea:disabled {
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-button:focus-visible {
+button:focus-visible,
+a[href]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -534,6 +535,33 @@ input[type="number"] {
 
 .v-btn-primary:hover:not(:disabled) {
   filter: brightness(1.08);
+}
+
+/* A button that goes somewhere else in the app, ending in ›: "Change in
+   Settings ›", "All activity ›". No box, the accent's colour, and underlined
+   at rest as well as on hover: it often sits inside a sentence, and the
+   accent alone is not far enough from the text's colour to tell it apart
+   (WCAG 1.4.1). */
+.v-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.v-link:hover:not(:disabled) {
+  text-decoration-thickness: 2px;
+}
+
+.v-link:disabled {
+  color: var(--text-mute);
+  cursor: not-allowed;
 }
 
 .v-card {
@@ -975,6 +1003,355 @@ input[type="number"] {
   background: var(--bg-app);
 }
 
+/* ------------------------------------------------------------ Settings
+
+   The rail: four labelled categories and a footer (Settings redesign SPEC
+   §2). The title and the labels are --text: --text-mute on --bg-app is
+   4.21:1 in Folio light and 4.40:1 in Quarry light, under AA, and the old
+   "SETTINGS" title was exactly that. The page you are on is --sel with a 3px
+   --accent bar on its leading edge, the way .v-list-item-active marks the
+   open chapter; an --accent fill is left for each page's one primary action.
+   No margins on classes a heading also gets utilities on: these rules are
+   outside Tailwind's layers, so they would win over its mb-* classes. */
+.v-rail-title {
+  margin: 0;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.v-rail-label {
+  margin: 14px 0 4px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.v-rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.v-rail-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 10px 5px 13px;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
+  transition: background 150ms ease-out;
+}
+
+.v-rail-item:hover {
+  background: var(--bg-elev);
+}
+
+/* After :hover on purpose: the same specificity, so the page you are on
+   keeps its mark under the pointer. */
+.v-rail-item[aria-current="page"] {
+  background: var(--sel);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.v-rail-sep {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 10px 6px;
+}
+
+/* Eleven pages since About. In the shortest window (640px high, less the top
+   bar and the status bar) the rail ran 24px past its 560px and cut "← Back to
+   the manuscript" in half; this rhythm, a little tighter, keeps it whole.
+   Taller windows keep the redesign's spacing. */
+@media (max-height: 680px) {
+  .v-rail-label {
+    margin-top: 10px;
+  }
+
+  .v-rail-list {
+    gap: 1px;
+  }
+
+  .v-rail-sep {
+    margin: 8px 6px;
+  }
+
+  .v-rail > .v-btn {
+    margin-top: 10px;
+  }
+}
+
+/* The page's H2 takes focus when a page opens, so a screen reader says
+   where the writer is; a pointer press does not need the ring. */
+.v-page-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.v-page-title:focus {
+  outline: none;
+}
+
+.v-page-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Section headings inside Settings: sentence case, the text's colour. They
+   replace .v-section-title's small capitals there. */
+.v-h3 {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.v-h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* A state's dot. Never alone: a word beside it says the same thing, and the
+   dot is aria-hidden. */
+.v-status-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-mute);
+}
+
+.v-status-dot[data-tone="ok"] {
+  background: var(--ok);
+}
+
+.v-status-dot[data-tone="warn"] {
+  background: var(--warn);
+}
+
+/* The line under a task's model: where the passage goes with that choice,
+   with the bar Rewrite's dialog already uses for the same thing. */
+.v-privacy-bar {
+  margin: 0;
+  padding: 1px 0 1px 9px;
+  border-left: 3px solid var(--privacy-local);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.v-privacy-bar[data-bar="network"],
+.v-privacy-bar[data-bar="cli"] {
+  border-left-color: var(--privacy-cli);
+}
+
+.v-privacy-bar[data-bar="mute"] {
+  border-left-color: var(--text-mute);
+}
+
+.v-privacy-bar[data-bar="warn"] {
+  border-left-color: var(--warn);
+  color: var(--warn);
+}
+
+/* A task on Tasks: its name and what it does on the left, its model on the
+   right; the select goes under the words when the page is narrow. */
+.v-task-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 16px;
+}
+
+/* A model's row: its name and line on the left, its actions on the right. */
+.v-model-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.v-model-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Measurements as label and value: About this computer. */
+.v-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0 14px;
+}
+
+.v-facts dt {
+  color: var(--text-mute);
+}
+
+.v-facts dd {
+  margin: 0;
+}
+
+/* A path or a command a writer may want to copy: monospace, selectable. */
+.v-mono-select {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  user-select: text;
+  -webkit-user-select: text;
+  overflow-wrap: anywhere;
+}
+
+/* A request on Activity: when, then who asked for what and how it went. */
+.v-activity-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 0 12px;
+  align-items: baseline;
+}
+
+/* A boxed list: one card, its rows split by hairlines. */
+.v-boxed {
+  list-style: none;
+  padding: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.v-boxed > li {
+  padding: 10px 12px;
+}
+
+.v-boxed > li + li {
+  border-top: 1px solid var(--border);
+}
+
+/* A row that opens below itself (ExpanderRow), and a plain disclosure. */
+.v-expander + .v-expander {
+  border-top: 1px solid var(--border);
+}
+
+.v-expander-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.v-expander-toggle,
+.v-disclosure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.v-expander-toggle {
+  flex: 1;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.v-disclosure {
+  font-size: 12.5px;
+}
+
+.v-expander-toggle:hover,
+.v-disclosure:hover {
+  background: color-mix(in srgb, var(--sel) 60%, transparent);
+}
+
+.v-expander-glyph {
+  flex: none;
+  width: 0.9em;
+  color: var(--text-mute);
+}
+
+.v-expander-title {
+  font-weight: 600;
+}
+
+.v-expander-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+.v-expander-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.v-expander-panel {
+  padding: 0 12px 12px 34px;
+}
+
+.v-disclosure-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.v-disclosure-region {
+  padding: 6px 0 0 18px;
+}
+
+/* A tag beside a model's name: Recommended, Uncensored. Never the accent,
+   which is for the page's one primary action. */
+.v-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  background: var(--sel);
+  color: var(--text);
+}
+
+/* A download's bar. The width eases between polls, except under reduced
+   motion (below). */
+.v-progress {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--sel);
+  overflow: hidden;
+}
+
+.v-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 300ms linear;
+}
+
 /* ---------------------------------------------------------- status bar */
 
 /* Everything keeps its size except where you are, which ends in an ellipsis. */
@@ -1314,6 +1691,11 @@ input[type="number"] {
 
 @media (prefers-reduced-motion: reduce) {
   .v-corkcard {
+    transition: none;
+  }
+
+  .v-progress > span,
+  .v-rail-item {
     transition: none;
   }
 

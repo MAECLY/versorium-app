@@ -33,8 +33,15 @@ pub async fn continuity_check(
     state: tauri::State<'_, SettingsStore>,
     path: PathBuf,
 ) -> Result<continuity::ContinuityReport, String> {
-    let slot = state.get().slots.continuity;
-    continuity::check(&path, &slot).await
+    check_in(&state, &path).await
+}
+
+/// The command, given the settings it reads (a test builds its own store):
+/// the Continuity task's model, and the local server only if it was saved.
+async fn check_in(store: &SettingsStore, path: &std::path::Path) -> Result<continuity::ContinuityReport, String> {
+    let settings = store.get();
+    let server = crate::agents::saved_server(&settings);
+    continuity::check(path, &settings.slots.continuity, server.as_ref()).await
 }
 
 #[tauri::command]
@@ -189,6 +196,39 @@ mod tests {
         assert_eq!(s.theme, "needle");
         assert_eq!(s.editor_font, "system-serif", "the new ones default");
         assert!(!s.onboarded);
+    }
+
+    #[test]
+    fn the_continuity_command_runs_on_the_saved_server_and_only_once_saved() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = crate::commands::project::create_project(crate::commands::project::CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "La aguja".into(),
+            language: "es".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&project.path);
+        let fake = crate::agents::tests::FakeServer::start(&["local-model"], "- Ana's eyes change colour in ch-02");
+        let store = store(dir.path());
+        store.update(|s| {
+            s.studio_host = fake.server.host.clone();
+            s.studio_port = fake.server.port;
+            s.slots.continuity = crate::commands::settings::SlotAssignment { kind: "server".into(), id: "local-model".into() };
+        });
+
+        // Typed in, not saved: the task has nothing to run on, and the server
+        // hears nothing.
+        let report = tauri::async_runtime::block_on(check_in(&store, &root)).unwrap();
+        assert!(!report.ran);
+        assert_eq!(report.reason.as_deref(), Some(continuity::NO_MODEL));
+        assert!(fake.seen().is_empty(), "nothing may reach a server the writer did not save");
+
+        store.update(|s| s.studio_enabled = true);
+        let report = tauri::async_runtime::block_on(check_in(&store, &root)).unwrap();
+        assert!(report.ran, "saved, the check runs on it: {report:?}");
+        assert_eq!(report.findings.len(), 1);
+        let (_, body) = fake.seen().into_iter().find(|(request, _)| request == "POST /v1/chat/completions").unwrap();
+        assert!(body.contains("La aguja"), "the novel's skeleton went to the saved server");
     }
 
     #[test]

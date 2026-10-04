@@ -1,13 +1,17 @@
-//! Settings → Local AI: the built-in GGUF catalog, the Ollama daemon, an
-//! OpenAI-compatible local server, and which of them serves each task.
+//! Settings → Tasks and Models: the built-in GGUF catalog, the Ollama daemon,
+//! the OpenAI-compatible local server, and which of them serves each task.
 //!
 //! Nothing here ever starts a download on its own (spec §6.2: "Nunca
 //! auto-descargar HIGH" — and in fact nothing at all). `models_view` only reads
-//! what is already on disk, so opening the panel is cheap and silent.
+//! what is already on disk, asks the two local daemons what they serve, and
+//! asks the local server only once the writer saved it, so opening the page is
+//! cheap and silent.
 
-use crate::commands::settings::{SettingsStore, SlotAssignment, Slots, SLOT_KINDS, SLOT_NAMES};
+use crate::agents::{self, LocalServer};
+use crate::commands::settings::{Settings, SettingsStore, SlotAssignment, Slots, SLOT_KINDS, SLOT_NAMES};
 use crate::models::{catalog, download, hardware, store};
 use serde::Serialize;
+use std::future::Future;
 use std::path::Path;
 
 /// Headroom the spec asks for before calling a model a fit (§6.2).
@@ -64,7 +68,37 @@ pub struct OllamaView {
 pub struct StudioView {
     pub host: String,
     pub port: u16,
+    /// The writer saved this server; nothing else makes Versorium reach it.
     pub enabled: bool,
+    /// It answered just now. Always false while not saved: it was not asked.
+    pub running: bool,
+    /// The model ids it serves, which a task may name. Empty unless running.
+    pub models: Vec<String>,
+}
+
+/// The local server as Settings shows it, asking it what it serves only when
+/// the writer saved it (`settings.studio_enabled`): a server typed in and not
+/// saved is never contacted. `probe` is `agents::server_status` outside tests.
+async fn studio_view<F, Fut>(settings: &Settings, probe: F) -> StudioView
+where
+    F: FnOnce(LocalServer) -> Fut,
+    Fut: Future<Output = (bool, Vec<String>)>,
+{
+    let (running, models) = match agents::saved_server(settings) {
+        Some(server) => probe(server).await,
+        None => (false, Vec::new()),
+    };
+    StudioView {
+        host: settings.studio_host.clone(),
+        port: settings.studio_port,
+        enabled: settings.studio_enabled,
+        running,
+        models: if running { models } else { Vec::new() },
+    }
+}
+
+async fn probe_server(server: LocalServer) -> (bool, Vec<String>) {
+    agents::server_status(&server).await
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -129,9 +163,12 @@ fn cards_in(dir: &Path, entries: &[catalog::ModelEntry], total_ram_gb: f32) -> V
 
 #[tauri::command]
 pub async fn models_view(state: tauri::State<'_, SettingsStore>) -> Result<LocalAiView, String> {
-    let settings = state.get();
-    let machine = hardware::probe();
     let dir = store::models_dir()?;
+    view_in(&dir, &state, ollama_view().await).await
+}
+
+/// What the Ollama daemon on this computer serves, asked over its local API.
+async fn ollama_view() -> OllamaView {
     let (running, _) = crate::agents::ollama_status().await;
     let models = if running {
         crate::agents::ollama_models()
@@ -142,22 +179,24 @@ pub async fn models_view(state: tauri::State<'_, SettingsStore>) -> Result<Local
     } else {
         Vec::new()
     };
+    OllamaView { running, models, installed: crate::agents::find_binary("ollama").is_some() }
+}
+
+/// The view, given the settings and what Ollama said: the command without
+/// `tauri::State`, so a test drives it with a store of its own and a fake
+/// local server. The saved server is asked here, through the same probe the
+/// tasks use.
+async fn view_in(dir: &Path, state: &SettingsStore, ollama: OllamaView) -> Result<LocalAiView, String> {
+    let settings = state.get();
+    let machine = hardware::probe();
     Ok(LocalAiView {
-        models: cards_in(&dir, &catalog::catalog()?.models, machine.total_ram_gb),
+        models: cards_in(dir, &catalog::catalog()?.models, machine.total_ram_gb),
         slots: settings.slots.clone(),
         progress: download::progress(),
-        ollama: OllamaView {
-            running,
-            models,
-            installed: crate::agents::find_binary("ollama").is_some(),
-        },
-        studio: StudioView {
-            host: settings.studio_host.clone(),
-            port: settings.studio_port,
-            enabled: settings.studio_enabled,
-        },
+        ollama,
+        studio: studio_view(&settings, probe_server).await,
         censorship: settings.censorship,
-        disk_used_bytes: store::disk_usage_in(&dir).unwrap_or(0),
+        disk_used_bytes: store::disk_usage_in(dir).unwrap_or(0),
         models_dir: dir.to_string_lossy().into_owned(),
         hardware: machine,
     })
@@ -200,15 +239,25 @@ pub async fn models_set_slot(
     } else {
         Vec::new()
     };
-    set_slot_in(
-        &store::models_dir()?,
-        &state,
-        &slot,
-        &kind,
-        &id,
-        &ollama_names,
-        |id| catalog::find(id).cloned(),
-    )
+    set_slot_cmd(&store::models_dir()?, &state, &slot, &kind, &id, &ollama_names).await
+}
+
+/// The command without `tauri::State`: the saved local server is asked what
+/// it serves (only for a `server` choice, and only once saved), then the
+/// rules in `set_slot_in` decide.
+async fn set_slot_cmd(
+    dir: &Path,
+    state: &SettingsStore,
+    slot: &str,
+    kind: &str,
+    id: &str,
+    ollama_names: &[String],
+) -> Result<Slots, String> {
+    let server_names: Option<Vec<String>> = match agents::saved_server(&state.get()) {
+        Some(server) if kind == "server" => Some(agents::server_status(&server).await.1),
+        _ => None,
+    };
+    set_slot_in(dir, state, slot, kind, id, ollama_names, server_names.as_deref(), |id| catalog::find(id).cloned())
 }
 
 #[tauri::command]
@@ -241,28 +290,17 @@ pub async fn studio_test(host: String, port: u16) -> Result<bool, String> {
     }
 }
 
+/// Save the local server (`enabled`), or forget it. The answer says, once
+/// saved, whether it answers and what it serves, so Settings can say so at once.
 #[tauri::command]
-pub fn studio_save(
-    state: tauri::State<SettingsStore>,
+pub async fn studio_save(
+    state: tauri::State<'_, SettingsStore>,
     host: String,
     port: u16,
     enabled: bool,
 ) -> Result<StudioView, String> {
-    let host = host.trim().to_string();
-    if host.is_empty() || port == 0 {
-        return Err("bad_args".into());
-    }
-    state.update(|s| {
-        s.studio_host = host.clone();
-        s.studio_port = port;
-        s.studio_enabled = enabled;
-    });
-    let settings = state.get();
-    Ok(StudioView {
-        host: settings.studio_host,
-        port: settings.studio_port,
-        enabled: settings.studio_enabled,
-    })
+    studio_save_in(&state, &host, port, enabled)?;
+    Ok(studio_view(&state.get(), probe_server).await)
 }
 
 // ------------------------------------------------------- testable internals
@@ -270,6 +308,35 @@ pub fn studio_save(
 // The `_in` variants take the model directory and an explicit Ollama list so
 // the rules can be tested without a real app-data dir or a live daemon —
 // the same shape `store.rs` already uses.
+
+/// Save or forget the local server. Forgetting it releases every task that
+/// ran on it: a task never outlives the server it named, the same rule a
+/// deleted model or a removed Ollama tag follows.
+///
+/// Saved again at another computer's address, it releases them too. A task
+/// goes wherever the server is, so keeping it would send the next passage to
+/// a computer the writer never chose for that task (a model of the same name
+/// is all it would take). A new port on the same computer keeps them.
+fn studio_save_in(state: &SettingsStore, host: &str, port: u16, saved: bool) -> Result<(), String> {
+    let host = host.trim().to_string();
+    if host.is_empty() || port == 0 {
+        return Err("bad_args".into());
+    }
+    state.update(|s| {
+        let elsewhere = !agents::is_loopback(&host) && !agents::same_host(&s.studio_host, &host);
+        s.studio_host = host.clone();
+        s.studio_port = port;
+        s.studio_enabled = saved;
+        if !saved || elsewhere {
+            for slot in s.slots.iter_mut() {
+                if slot.kind == "server" {
+                    *slot = SlotAssignment::default();
+                }
+            }
+        }
+    });
+    Ok(())
+}
 
 fn clear_slots_matching(state: &SettingsStore, kind: &str, id: &str) {
     state.update(|s| {
@@ -287,6 +354,9 @@ fn delete_in(dir: &Path, state: &SettingsStore, id: &str) -> Result<(), String> 
     Ok(())
 }
 
+/// `server_names` is what the saved local server serves, or None when no
+/// server is saved.
+#[allow(clippy::too_many_arguments)]
 fn set_slot_in(
     dir: &Path,
     state: &SettingsStore,
@@ -294,6 +364,7 @@ fn set_slot_in(
     kind: &str,
     id: &str,
     ollama_names: &[String],
+    server_names: Option<&[String]>,
     lookup: impl Fn(&str) -> Option<catalog::ModelEntry>,
 ) -> Result<Slots, String> {
     if !SLOT_NAMES.contains(&slot) || !SLOT_KINDS.contains(&kind) {
@@ -312,6 +383,18 @@ fn set_slot_in(
         }
         "ollama" => {
             if !ollama_names.iter().any(|name| name == id) {
+                return Err("not_found".into());
+            }
+            SlotAssignment { kind: kind.into(), id: id.into() }
+        }
+        // A model the saved server serves right now: no server saved, or a
+        // model it does not list, and the task would point at nothing.
+        "server" => {
+            if id.trim().is_empty() {
+                return Err("bad_args".into());
+            }
+            let served = server_names.ok_or_else(|| "not_found".to_string())?;
+            if !served.iter().any(|name| name == id) {
                 return Err("not_found".into());
             }
             SlotAssignment { kind: kind.into(), id: id.into() }
@@ -371,6 +454,15 @@ mod tests {
         for key in ["id", "received", "total", "done"] {
             assert!(progress.get(key).is_some(), "Progress is missing `{key}`");
         }
+
+        let studio = serde_json::to_value(StudioView {
+            host: "127.0.0.1".into(), port: 1234, enabled: true, running: true, models: vec!["m".into()],
+        })
+        .unwrap();
+        for key in ["host", "port", "enabled", "running", "models"] {
+            assert!(studio.get(key).is_some(), "StudioView is missing `{key}`");
+        }
+        assert_eq!(studio.as_object().unwrap().len(), 5, "StudioView gained or lost a field");
     }
     use super::*;
 
@@ -465,13 +557,192 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state = store_at(dir.path());
         let set = |slot: &str, kind: &str, id: &str| {
-            set_slot_in(dir.path(), &state, slot, kind, id, &[], lookup_of(vec![]))
+            set_slot_in(dir.path(), &state, slot, kind, id, &[], None, lookup_of(vec![]))
         };
         assert_eq!(set("rewriting", "none", "").unwrap_err(), "bad_args");
         assert_eq!(set("rewrite", "byok", "x").unwrap_err(), "bad_args");
         assert_eq!(set("", "", "").unwrap_err(), "bad_args");
-        // A CLI harness still needs a name.
+        // A CLI harness still needs a name, and so does a server's model.
         assert_eq!(set("rewrite", "cli", "  ").unwrap_err(), "bad_args");
+        assert_eq!(set("rewrite", "server", "").unwrap_err(), "bad_args");
+    }
+
+    #[test]
+    fn a_server_slot_needs_a_saved_server_and_a_model_it_serves() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = store_at(dir.path());
+        let served = ["local-model".to_string(), "other-model".to_string()];
+        let set = |id: &str, names: Option<&[String]>| {
+            set_slot_in(dir.path(), &state, "rewrite", "server", id, &[], names, lookup_of(vec![]))
+        };
+
+        // No server saved: there is nothing for the task to run on.
+        assert_eq!(set("local-model", None).unwrap_err(), "not_found");
+        // Saved, but it does not serve that model (or did not answer: no names).
+        assert_eq!(set("gone-model", Some(&served)).unwrap_err(), "not_found");
+        assert_eq!(set("local-model", Some(&[])).unwrap_err(), "not_found");
+        assert_eq!(state.get().slots.rewrite.kind, "none", "a refused set changes nothing");
+
+        let slots = set("local-model", Some(&served)).unwrap();
+        assert_eq!(slots.rewrite, SlotAssignment { kind: "server".into(), id: "local-model".into() });
+        assert_eq!(slots.continuity.kind, "none", "only the named slot moved");
+    }
+
+    #[test]
+    fn forgetting_the_server_releases_its_tasks() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = store_at(dir.path());
+        let served = ["local-model".to_string()];
+        let pulled = ["qwen3:32b".to_string()];
+        studio_save_in(&state, "127.0.0.1", 1234, true).unwrap();
+        for slot in ["rewrite", "continuity"] {
+            set_slot_in(dir.path(), &state, slot, "server", "local-model", &[], Some(&served), lookup_of(vec![])).unwrap();
+        }
+        set_slot_in(dir.path(), &state, "chat", "ollama", "qwen3:32b", &pulled, None, lookup_of(vec![])).unwrap();
+
+        // Saving again (a new port, say) keeps them.
+        studio_save_in(&state, "127.0.0.1", 1235, true).unwrap();
+        assert_eq!(state.get().slots.rewrite.kind, "server");
+
+        studio_save_in(&state, "127.0.0.1", 1235, false).unwrap();
+        let s = state.get();
+        assert!(!s.studio_enabled);
+        assert_eq!(s.slots.rewrite.kind, "none", "a task must never outlive its server");
+        assert_eq!(s.slots.continuity.kind, "none");
+        assert_eq!(s.slots.chat.id, "qwen3:32b", "tasks elsewhere are left alone");
+    }
+
+    #[test]
+    fn the_server_is_probed_only_once_saved() {
+        let asked = std::cell::Cell::new(0);
+        let probe = |_server: LocalServer| {
+            asked.set(asked.get() + 1);
+            std::future::ready((true, vec!["local-model".to_string()]))
+        };
+        let mut settings = Settings { studio_port: 8080, ..Default::default() };
+
+        let view = tauri::async_runtime::block_on(studio_view(&settings, probe));
+        assert_eq!(asked.get(), 0, "a server that is not saved is never contacted");
+        assert!(!view.running);
+        assert!(view.models.is_empty());
+        assert_eq!(view.port, 8080);
+
+        settings.studio_enabled = true;
+        let view = tauri::async_runtime::block_on(studio_view(&settings, probe));
+        assert_eq!(asked.get(), 1);
+        assert!(view.enabled && view.running);
+        assert_eq!(view.models, ["local-model"]);
+
+        // Saved and silent: no models offered for a server that did not answer.
+        let silent = |_server: LocalServer| std::future::ready((false, vec!["stale".to_string()]));
+        let view = tauri::async_runtime::block_on(studio_view(&settings, silent));
+        assert!(!view.running);
+        assert!(view.models.is_empty());
+    }
+
+    /// Ollama as a computer without it sees it: the view tests never reach a
+    /// daemon that happens to run on the machine running them.
+    fn no_ollama() -> OllamaView {
+        OllamaView { running: false, models: Vec::new(), installed: false }
+    }
+
+    /// A store whose local server is `server`, saved or only typed in.
+    fn store_with_server(dir: &Path, server: &LocalServer, saved: bool) -> SettingsStore {
+        let state = store_at(dir);
+        state.update(|s| {
+            s.studio_host = server.host.clone();
+            s.studio_port = server.port;
+            s.studio_enabled = saved;
+        });
+        state
+    }
+
+    #[test]
+    fn the_view_asks_the_saved_server_what_it_serves_and_an_unsaved_one_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let fake = agents::tests::FakeServer::start(&["local-model", "other-model"], "unused");
+
+        let state = store_with_server(dir.path(), &fake.server, false);
+        let view = tauri::async_runtime::block_on(view_in(dir.path(), &state, no_ollama())).unwrap();
+        assert!(!view.studio.enabled && !view.studio.running);
+        assert!(view.studio.models.is_empty());
+        assert!(fake.seen().is_empty(), "a server that is not saved is never contacted");
+
+        state.update(|s| s.studio_enabled = true);
+        let view = tauri::async_runtime::block_on(view_in(dir.path(), &state, no_ollama())).unwrap();
+        assert!(view.studio.enabled && view.studio.running, "saved, it is asked, and it answers");
+        assert_eq!(view.studio.models, ["local-model", "other-model"]);
+        assert_eq!(fake.seen().iter().map(|(r, _)| r.as_str()).collect::<Vec<_>>(), ["GET /v1/models"]);
+    }
+
+    #[test]
+    fn a_server_choice_is_checked_against_what_the_saved_server_serves() {
+        let dir = tempfile::tempdir().unwrap();
+        let fake = agents::tests::FakeServer::start(&["local-model"], "unused");
+        let set = |state: &SettingsStore, id: &str| {
+            tauri::async_runtime::block_on(set_slot_cmd(dir.path(), state, "rewrite", "server", id, &[]))
+        };
+
+        // Typed in, not saved: refused, and the server is not asked.
+        let unsaved = store_with_server(dir.path(), &fake.server, false);
+        assert_eq!(set(&unsaved, "local-model").unwrap_err(), "not_found");
+        assert!(fake.seen().is_empty());
+
+        let saved = store_with_server(dir.path(), &fake.server, true);
+        assert_eq!(set(&saved, "gone-model").unwrap_err(), "not_found", "a model it does not list");
+        let slots = set(&saved, "local-model").unwrap();
+        assert_eq!(slots.rewrite, SlotAssignment { kind: "server".into(), id: "local-model".into() });
+    }
+
+    #[test]
+    fn saving_the_server_at_another_computers_address_releases_its_tasks() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = store_at(dir.path());
+        let served = ["local-model".to_string()];
+        let on_server = |state: &SettingsStore| {
+            for slot in ["rewrite", "continuity"] {
+                set_slot_in(dir.path(), state, slot, "server", "local-model", &[], Some(&served), lookup_of(vec![])).unwrap();
+            }
+        };
+        let kinds = |state: &SettingsStore| {
+            let s = state.get();
+            (s.slots.rewrite.kind, s.slots.continuity.kind)
+        };
+
+        studio_save_in(&state, "127.0.0.1", 1234, true).unwrap();
+        on_server(&state);
+        // The same computer: another port, or another name for it, keeps them.
+        studio_save_in(&state, "127.0.0.1", 8080, true).unwrap();
+        studio_save_in(&state, "localhost", 8080, true).unwrap();
+        assert_eq!(kinds(&state), ("server".to_string(), "server".to_string()));
+
+        // Another computer: the next passage would go there unchosen.
+        studio_save_in(&state, "192.168.1.20", 8080, true).unwrap();
+        assert_eq!(kinds(&state), ("none".to_string(), "none".to_string()));
+        assert!(state.get().studio_enabled, "the server itself stays saved");
+
+        // Chosen again for that computer, a new port there keeps them; yet
+        // another computer releases them again.
+        on_server(&state);
+        studio_save_in(&state, " 192.168.1.20 ", 1234, true).unwrap();
+        assert_eq!(kinds(&state), ("server".to_string(), "server".to_string()));
+        studio_save_in(&state, "192.168.1.21", 1234, true).unwrap();
+        assert_eq!(kinds(&state), ("none".to_string(), "none".to_string()));
+
+        // Coming back to this computer keeps what was chosen there.
+        on_server(&state);
+        studio_save_in(&state, "::1", 1234, true).unwrap();
+        assert_eq!(kinds(&state), ("server".to_string(), "server".to_string()));
+    }
+
+    #[test]
+    fn the_loopback_rule_matches_the_one_settings_shows() {
+        for host in ["127.0.0.1", "127.8.9.10", "localhost", "LOCALHOST", "::1", "[::1]", " 127.0.0.1 "] {
+            assert!(agents::is_loopback(host), "{host} is this computer");
+        }
+        for host in ["192.168.1.20", "10.0.0.2", "example.com", "::2", "0.0.0.0", "localhost.example.com"] {
+            assert!(!agents::is_loopback(host), "{host} is not this computer");
+        }
     }
 
     #[test]
@@ -482,12 +753,12 @@ mod tests {
         let known = || lookup_of(vec![model.clone()]);
 
         assert_eq!(
-            set_slot_in(dir.path(), &state, "rewrite", "builtin", &model.id, &[], known())
+            set_slot_in(dir.path(), &state, "rewrite", "builtin", &model.id, &[], None, known())
                 .unwrap_err(),
             "not_ready"
         );
         assert_eq!(
-            set_slot_in(dir.path(), &state, "rewrite", "builtin", "no-such-model", &[], known())
+            set_slot_in(dir.path(), &state, "rewrite", "builtin", "no-such-model", &[], None, known())
                 .unwrap_err(),
             "not_found"
         );
@@ -495,7 +766,7 @@ mod tests {
 
         make_ready(dir.path(), &model);
         let slots =
-            set_slot_in(dir.path(), &state, "rewrite", "builtin", &model.id, &[], known()).unwrap();
+            set_slot_in(dir.path(), &state, "rewrite", "builtin", &model.id, &[], None, known()).unwrap();
         assert_eq!(slots.rewrite.kind, "builtin");
         assert_eq!(slots.rewrite.id, model.id);
         // Only the named slot moved.
@@ -509,12 +780,12 @@ mod tests {
         let pulled = ["qwen3:32b".to_string()];
 
         assert_eq!(
-            set_slot_in(dir.path(), &state, "chat", "ollama", "gemma:2b", &pulled, lookup_of(vec![]))
+            set_slot_in(dir.path(), &state, "chat", "ollama", "gemma:2b", &pulled, None, lookup_of(vec![]))
                 .unwrap_err(),
             "not_found"
         );
         let slots =
-            set_slot_in(dir.path(), &state, "chat", "ollama", "qwen3:32b", &pulled, lookup_of(vec![]))
+            set_slot_in(dir.path(), &state, "chat", "ollama", "qwen3:32b", &pulled, None, lookup_of(vec![]))
                 .unwrap();
         assert_eq!(slots.chat, SlotAssignment { kind: "ollama".into(), id: "qwen3:32b".into() });
     }
@@ -527,9 +798,9 @@ mod tests {
         make_ready(dir.path(), &model);
         let known = || lookup_of(vec![model.clone()]);
 
-        set_slot_in(dir.path(), &state, "continuity", "builtin", &model.id, &[], known()).unwrap();
+        set_slot_in(dir.path(), &state, "continuity", "builtin", &model.id, &[], None, known()).unwrap();
         let slots =
-            set_slot_in(dir.path(), &state, "continuity", "none", "", &[], known()).unwrap();
+            set_slot_in(dir.path(), &state, "continuity", "none", "", &[], None, known()).unwrap();
         assert_eq!(slots.continuity, SlotAssignment::default());
         assert_eq!(slots.continuity.kind, "none");
         assert!(slots.continuity.id.is_empty());
@@ -543,9 +814,9 @@ mod tests {
         make_ready(dir.path(), &model);
         let known = || lookup_of(vec![model.clone()]);
 
-        set_slot_in(dir.path(), &state, "rewrite", "builtin", &model.id, &[], known()).unwrap();
-        set_slot_in(dir.path(), &state, "chat", "builtin", &model.id, &[], known()).unwrap();
-        set_slot_in(dir.path(), &state, "continuity", "cli", "claude", &[], known()).unwrap();
+        set_slot_in(dir.path(), &state, "rewrite", "builtin", &model.id, &[], None, known()).unwrap();
+        set_slot_in(dir.path(), &state, "chat", "builtin", &model.id, &[], None, known()).unwrap();
+        set_slot_in(dir.path(), &state, "continuity", "cli", "claude", &[], None, known()).unwrap();
 
         delete_in(dir.path(), &state, &model.id).unwrap();
 
@@ -562,7 +833,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state = store_at(dir.path());
         let pulled = ["qwen3:32b".to_string()];
-        set_slot_in(dir.path(), &state, "chat", "ollama", "qwen3:32b", &pulled, lookup_of(vec![]))
+        set_slot_in(dir.path(), &state, "chat", "ollama", "qwen3:32b", &pulled, None, lookup_of(vec![]))
             .unwrap();
 
         clear_slots_matching(&state, "ollama", "qwen3:32b");
@@ -574,31 +845,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state = store_at(dir.path());
 
-        let save = |host: &str, port: u16, enabled: bool| -> Result<StudioView, String> {
-            let host = host.trim().to_string();
-            if host.is_empty() || port == 0 {
-                return Err("bad_args".into());
-            }
-            state.update(|s| {
-                s.studio_host = host.clone();
-                s.studio_port = port;
-                s.studio_enabled = enabled;
-            });
-            let settings = state.get();
-            Ok(StudioView {
-                host: settings.studio_host,
-                port: settings.studio_port,
-                enabled: settings.studio_enabled,
-            })
-        };
-
-        assert_eq!(save("", 1234, true).unwrap_err(), "bad_args");
-        assert_eq!(save("127.0.0.1", 0, true).unwrap_err(), "bad_args");
-        let view = save(" 127.0.0.1 ", 8080, true).unwrap();
-        assert_eq!(view.host, "127.0.0.1", "whitespace is trimmed before storing");
-        assert_eq!(view.port, 8080);
-        assert!(view.enabled);
-        assert_eq!(state.get().studio_port, 8080);
+        assert_eq!(studio_save_in(&state, "", 1234, true).unwrap_err(), "bad_args");
+        assert_eq!(studio_save_in(&state, "127.0.0.1", 0, true).unwrap_err(), "bad_args");
+        assert!(!state.get().studio_enabled, "a refused save changes nothing");
+        studio_save_in(&state, " 127.0.0.1 ", 8080, true).unwrap();
+        let s = state.get();
+        assert_eq!(s.studio_host, "127.0.0.1", "whitespace is trimmed before storing");
+        assert_eq!(s.studio_port, 8080);
+        assert!(s.studio_enabled);
     }
 
     #[test]

@@ -47,7 +47,7 @@
 <TypographySection />
 
 <section class="mb-6" aria-label={t("editorSettings.spelling.title")}>
-  <h3 class="v-section-title mb-2">{t("editorSettings.spelling.title")}</h3>
+  <h3 class="v-h3 mb-2">{t("editorSettings.spelling.title")}</h3>
   <Checkbox
     label={t("editorSettings.spelling.label")}
     hint={t(spellingHint)}
@@ -58,7 +58,7 @@
 
 {#key failures}
   <section class="mb-6" aria-label={t("editorSettings.text.title")}>
-    <h3 class="v-section-title mb-2">{t("editorSettings.text.title")}</h3>
+    <h3 class="v-h3 mb-2">{t("editorSettings.text.title")}</h3>
     <div class="v-row" style="gap: 16px; flex-wrap: wrap; align-items: flex-start;">
       <Select
         label={t("editorSettings.text.size")}
@@ -86,7 +86,7 @@
 {/key}
 
 <section class="mb-6" aria-label={t("editorSettings.guides.title")}>
-  <h3 class="v-section-title mb-2">{t("editorSettings.guides.title")}</h3>
+  <h3 class="v-h3 mb-2">{t("editorSettings.guides.title")}</h3>
   <div class="flex flex-col gap-3">
     <Checkbox
       label={t("editorSettings.guides.lineNumbers")}
@@ -105,7 +105,7 @@
 
 {#key failures}
   <section class="mb-6" aria-label={t("editorSettings.keyboard.title")}>
-    <h3 class="v-section-title mb-2">{t("editorSettings.keyboard.title")}</h3>
+    <h3 class="v-h3 mb-2">{t("editorSettings.keyboard.title")}</h3>
     <!-- Capped, not as wide as the panel: a select stretched across 760px
          reads as a text field. -->
     <div style="max-width: 460px;">

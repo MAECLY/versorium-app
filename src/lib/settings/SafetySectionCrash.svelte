@@ -80,7 +80,7 @@
 
 <section class="mb-6" aria-label={t("crash.title")}>
   <div class="v-row mb-2" style="justify-content: space-between;">
-    <h3 class="v-section-title m-0">{t("crash.title")}</h3>
+    <h3 class="v-h3 m-0">{t("crash.title")}</h3>
     {#if isTauri() && crashes.length > 0}
       <button
         class="v-btn"

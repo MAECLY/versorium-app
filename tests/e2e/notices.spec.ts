@@ -313,16 +313,22 @@ test("a setting that cannot be written stays on screen until a write goes throug
   await page.goto("/?mock=tauri");
   await page.getByRole("button", { name: "Settings" }).click();
   const settings = page.getByRole("region", { name: "Settings" });
-  await settings.getByRole("button", { name: "Local AI" }).click();
-  const censorship = settings.getByRole("checkbox", { name: "Censorship" });
+  await settings.getByRole("navigation").getByRole("button", { name: "Models", exact: true }).click();
+  // Shown by default: hiding them is the change that fails first.
+  const uncensored = settings.getByRole("checkbox", { name: "Show uncensored models", exact: true });
+  await expect(uncensored).toBeChecked();
 
   await failing(page, "set_settings", "io");
-  await censorship.check();
+  await uncensored.click();
   const error = notice(page, "File system error.");
   await expect(error).toBeVisible();
+  // The box says what is stored: a refused change is put back, not left
+  // as it was asked for beside a notice saying it did not take.
+  await expect(uncensored).toBeChecked();
 
   await healed(page, "set_settings");
-  await censorship.uncheck();
+  await uncensored.click();
+  await expect(uncensored).not.toBeChecked();
   await expect.poll(() => calls(page, "set_settings")).toBeGreaterThan(1);
   await expect(error).toHaveCount(0);
 });

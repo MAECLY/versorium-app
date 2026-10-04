@@ -1,8 +1,10 @@
-//! Settings → MCP: what the server is, who may talk to it, and what they did.
+//! Settings → Access to your novel and Activity: what the server is, who may
+//! talk to it, and what they did.
 //!
 //! Connecting a client and granting it write access are separate commands on
 //! purpose (spec §7): registering the server is harmless, letting an agent
-//! rewrite the manuscript is not, so the second never rides along with the first.
+//! rewrite the manuscript is not, so the second never rides along with the
+//! first, and is refused for a client that is not connected.
 
 use crate::commands::settings::SettingsStore;
 use crate::mcp::{clients, log};
@@ -72,13 +74,34 @@ pub fn mcp_set_write(
     allowed: bool,
 ) -> Result<McpStatus, String> {
     let id = validated(&client)?;
-    state.update(|s| {
-        s.mcp_write_clients.retain(|g| g != &id);
+    set_write_in(&state, &id, allowed, clients::installed)?;
+    status(&state)
+}
+
+/// Grant or take back write access for one catalogue client.
+///
+/// A grant needs the client connected (Versorium in its settings): a grant
+/// for a client that cannot reach Versorium protects nothing and would apply
+/// silently the day it is connected. Settings disables "Allow writing…" until
+/// then; this is the same rule where it cannot be skipped. Taking access back
+/// always goes through, so a grant left over from an older build can be
+/// cleared whatever the client's state.
+fn set_write_in(
+    store: &SettingsStore,
+    id: &str,
+    allowed: bool,
+    installed: impl Fn(&str) -> bool,
+) -> Result<(), String> {
+    if allowed && !installed(id) {
+        return Err("mcp_client_not_connected".into());
+    }
+    store.update(|s| {
+        s.mcp_write_clients.retain(|g| g != id);
         if allowed {
-            s.mcp_write_clients.push(id.clone());
+            s.mcp_write_clients.push(id.to_string());
         }
     });
-    status(&state)
+    Ok(())
 }
 
 #[tauri::command]
@@ -147,22 +170,41 @@ mod tests {
     fn granting_write_is_idempotent_and_revocable() {
         let dir = tempfile::tempdir().unwrap();
         let store = store(dir.path());
+        let connected = |_: &str| true;
 
-        // The command body, without the Tauri State wrapper.
-        let grant = |allowed: bool| {
-            store.update(|s| {
-                s.mcp_write_clients.retain(|g| g != "codex");
-                if allowed {
-                    s.mcp_write_clients.push("codex".into());
-                }
-            });
-        };
-
-        grant(true);
-        grant(true);
+        set_write_in(&store, "codex", true, connected).unwrap();
+        set_write_in(&store, "codex", true, connected).unwrap();
         assert_eq!(store.get().mcp_write_clients, vec!["codex".to_string()]);
-        grant(false);
+        set_write_in(&store, "codex", false, connected).unwrap();
         assert!(store.get().mcp_write_clients.is_empty());
+    }
+
+    #[test]
+    fn write_cannot_be_granted_to_a_client_that_is_not_connected() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(dir.path());
+        let only_claude_code = |id: &str| id == "claude-code";
+
+        assert_eq!(
+            set_write_in(&store, "codex", true, only_claude_code).unwrap_err(),
+            "mcp_client_not_connected"
+        );
+        assert!(store.get().mcp_write_clients.is_empty(), "a refused grant writes nothing");
+
+        // The connected one can be granted, and the refusal did not touch it.
+        set_write_in(&store, "claude-code", true, only_claude_code).unwrap();
+        assert_eq!(store.get().mcp_write_clients, vec!["claude-code".to_string()]);
+    }
+
+    #[test]
+    fn revoking_always_works() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(dir.path());
+        // A grant an older build left on a client that is no longer connected.
+        store.update(|s| s.mcp_write_clients = vec!["codex".into(), "opencode".into()]);
+
+        set_write_in(&store, "codex", false, |_| false).unwrap();
+        assert_eq!(store.get().mcp_write_clients, vec!["opencode".to_string()]);
     }
 
     #[test]

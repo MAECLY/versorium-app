@@ -79,13 +79,13 @@
      once-ever action where somebody works every day. This is where people look
      for it. -->
 <section class="mb-6" aria-label={t("onboarding.title")}>
-  <h3 class="v-section-title mb-1">{t("onboarding.title")}</h3>
+  <h3 class="v-h3 mb-1">{t("onboarding.title")}</h3>
   <p class="v-muted m-0 mb-2" style="font-size: 12px;">{t("onboarding.replayHint")}</p>
   <button class="v-btn" onclick={() => void onboarding.start()}>{t("onboarding.replay")}</button>
 </section>
 
 <section class="mb-6" aria-label={t("git.updatesSlot")}>
-  <h3 class="v-section-title mb-1">{t("git.updatesSlot")}</h3>
+  <h3 class="v-h3 mb-1">{t("git.updatesSlot")}</h3>
   <p class="v-muted m-0 mb-2" style="font-size: 12px;">{t("git.updatesSlotHint")}</p>
 
   <div class="v-card p-3">

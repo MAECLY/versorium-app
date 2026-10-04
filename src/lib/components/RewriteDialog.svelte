@@ -5,6 +5,8 @@
   import { store } from "$lib/binder/store.svelte";
   import { lineDiff } from "$lib/ai/diff";
   import { detectAgents } from "$lib/ai/agents";
+  import { isLoopback, serverAddress } from "$lib/settings/ai/picks";
+  import type { SettingsTarget } from "$lib/settings/pages";
   import Modal from "$lib/components/Modal.svelte";
 
   interface Props {
@@ -13,16 +15,20 @@
     onClose: () => void;
     /** Parent applies (checkpoint → write → ops); a thrown error keeps the dialog open. */
     onApply: (text: string, provider: string) => Promise<void>;
+    /** "Open Settings › Models", when there is nothing to rewrite with; App closes this first. */
+    onOpenSettings?: (target: SettingsTarget) => void;
   }
 
-  let { text, onClose, onApply }: Props = $props();
+  let { text, onClose, onApply, onOpenSettings }: Props = $props();
 
   /** One thing the passage can be sent to, as a settings slot assignment. */
   interface Choice {
     kind: SlotKind;
     id: string;
     label: string;
-    /** Set on the model configured under Settings → Local AI → Rewrite. */
+    /** Where the passage goes: this computer, a server elsewhere, or an assistant's service. */
+    where: "local" | "network" | "cli";
+    /** Set on the model configured under Settings → Tasks → Rewrite. */
     configured: boolean;
   }
 
@@ -41,9 +47,9 @@
 
   let diff = $derived(result === null ? [] : lineDiff(text, result));
   let selected = $derived(choices.find((c) => key(c) === picked));
-  // Where the passage goes (spec §2.3): weights on this machine stay here, a
-  // harness rides its own login.
-  let kind = $derived(selected?.kind === "cli" ? "cli" : "local");
+  // Where the passage goes (spec §2.3): weights on this computer stay here, a
+  // server elsewhere is the network, a harness rides its own login.
+  let kind = $derived(selected?.where ?? "local");
 
   function key(c: { kind: SlotKind; id: string }): string {
     return `${c.kind}\u0000${c.id}`;
@@ -69,13 +75,28 @@
           kind: "builtin" as const,
           id: m.id,
           label: m.label,
+          where: "local" as const,
           configured: isConfigured("builtin", m.id),
         }));
       const ollama: Choice[] = (view.ollama.running ? view.ollama.models : []).map((m) => ({
         kind: "ollama" as const,
         id: m.name,
         label: `Ollama · ${m.name}`,
+        where: "local" as const,
         configured: isConfigured("ollama", m.name),
+      }));
+      // The saved server's models, while it answers. Its address decides where
+      // the passage goes: this computer, or the network.
+      const studio = view.studio;
+      const nearby = isLoopback(studio.host);
+      const server: Choice[] = (studio.enabled && studio.running ? studio.models : []).map((model) => ({
+        kind: "server" as const,
+        id: model,
+        label: nearby
+          ? t("ai.serverChoice", { model })
+          : t("ai.remoteChoice", { model, address: serverAddress(studio) }),
+        where: nearby ? ("local" as const) : ("network" as const),
+        configured: isConfigured("server", model),
       }));
       const cli: Choice[] = agents
         .filter((a) => a.state !== "missing" && PROSE_HARNESSES.includes(a.id))
@@ -83,13 +104,16 @@
           kind: "cli" as const,
           id: a.id,
           label: a.name,
+          where: "cli" as const,
           configured: isConfigured("cli", a.id),
         }));
 
-      // Built-in weights come last only because nothing loads them yet: an
-      // option that always fails must not be what the dialog opens on. Move
-      // them first once there is an engine — local is the preferred path.
-      choices = [...ollama, ...cli, ...builtin];
+      // Models on this computer first, then a server, then the assistants:
+      // the dialog opens on what keeps the passage here, and an assistant,
+      // which sends it to a service, is used only when it is chosen (here,
+      // or as the Rewrite task in Settings). Tasks' "Choose each time…
+      // starting with models on this computer" depends on this order.
+      choices = [...builtin, ...ollama, ...server, ...cli];
       // The configured slot wins; otherwise keep a still-valid pick, then fall
       // back to the first option so the button is never armed with nothing.
       const preferred = choices.find((c) => c.configured);
@@ -164,7 +188,7 @@
         <span
           style="padding: 1px 8px; border-radius: 999px; font-weight: 600; letter-spacing: 0.03em; font-size: 11px; color: var(--accent-contrast); background: {kind === 'local' ? 'var(--privacy-local, var(--accent))' : 'var(--privacy-cli, var(--accent))'};"
         >
-          {kind === "local" ? t("ai.kindLocal") : t("ai.kindCli")}
+          {kind === "local" ? t("ai.kindLocal") : kind === "network" ? t("ai.kindNetwork") : t("ai.kindCli")}
         </span>
         <span class="v-muted">{t("ai.callGoesTo", { provider: selected.label })}</span>
       </p>
@@ -173,7 +197,12 @@
     {#if detecting}
       <p class="v-muted m-0" style="font-size: 13px;" aria-live="polite">{t("agents.checking")}</p>
     {:else if choices.length === 0 && !busy}
-      <p class="v-muted m-0" style="font-size: 13px;">{t("ai.noProviders")}</p>
+      <p class="m-0" style="font-size: 13px; line-height: 1.6;">{t("ai.noProviders")}</p>
+      {#if onOpenSettings}
+        <p class="m-0 mt-2" style="font-size: 13px;">
+          <button class="v-link" onclick={() => onOpenSettings({ page: "models" })}>{t("ai.openModels")}</button>
+        </p>
+      {/if}
     {/if}
 
     {#if error}

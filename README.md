@@ -115,10 +115,10 @@ update path has not yet run end to end.
 
 - Local-first. No SaaS, no account, no telemetry.
 - One `.md` file per chapter, inside a folder you own.
-- MCP starts read-only. Writing needs a per-client setting, with a warning shown
-  next to that setting in Settings → Assistants, and every write except
-  `git_commit` is preceded by a Git checkpoint (`git_commit` is itself the
-  restore point).
+- MCP starts read-only. Writing needs a per-client grant, made in a dialog that
+  shows the warning (Settings → Access to your novel → Allow writing…), only
+  for an app that is connected, and every write except `git_commit` is
+  preceded by a Git checkpoint (`git_commit` is itself the restore point).
 - No Creative Mode engine; the UI only says "Coming soon". Today the button is
   visible and disabled, but its tooltip reads "Creative mode arrives in v1.1."
   ("El modo creativo llega en la v1.1."), which promises a version the rule does
@@ -169,12 +169,16 @@ update path has not yet run end to end.
   Nothing downloads on its own; downloads resume and are checked against a
   sha256. A built-in llama.cpp runtime runs them in-process — Metal on macOS,
   Vulkan in the Windows and Linux release builds, CPU otherwise. Ollama models
-  can be used as well. The "Local server" tab (LM Studio or llama-server) only
-  saves a host and port and tests the connection; no task can be sent to that
-  server yet.
-- **Continuity check.** Sends chapter titles and codex entries (not the
-  manuscript) to the model in the Continuity slot — Ollama or the built-in
-  runtime — and says so plainly when it could not run.
+  can be used as well, and so can a local server (LM Studio, llama-server, or
+  any app serving the OpenAI API): once saved under Settings → Models, its
+  models can do Rewrite and Continuity. Settings → Tasks says which model does
+  each, and where the passage goes with that choice. Saving the server at
+  another computer's address releases the tasks that ran on it, so no passage
+  goes to another machine unless it was chosen for that task.
+- **Continuity check.** Manuscript → Continuity sends chapter titles, scene
+  headings and the opening of codex entries (not the manuscript) to the model
+  chosen for Continuity — built in, in Ollama, or on the local server — and
+  says so plainly when it could not run.
 - **Import and export.** Export to Markdown, DOCX, EPUB 3, PDF and Scrivener;
   import from Markdown, DOCX, EPUB and Scrivener. An import takes the novel's
   language from the source when the source gives one and asks when it does
@@ -188,9 +192,9 @@ update path has not yet run end to end.
   in your browser.
 - **First run** with no signup, every step skippable.
 
-Not there yet (from [TODO.md](TODO.md)): the Project chat, Search and Dictation
-slots in Settings → Local AI can be assigned but nothing uses them — there is no
-chat, no search by meaning, and no Whisper model for dictation.
+Not there yet (from [TODO.md](TODO.md)): Settings → Tasks lists project chat,
+search by meaning and dictation under "Not built yet" — there is no chat, no
+search by meaning, and no Whisper model for dictation.
 
 ## Build from source
 
@@ -258,21 +262,25 @@ Measured on 2026-10-03, on the head of `main` after PR #9:
 
 ## Agents
 
-Settings → Assistants looks for `claude`, `codex`, `opencode`, `ollama` (and
-checks the daemon on `127.0.0.1:11434`) and `gh`, on `PATH` and in the usual
-install locations. Nothing is stored: each tool keeps its own login.
+Settings → Assistants lists `claude`, `codex` and `opencode`, found on `PATH`
+and in the usual install locations. Nothing is stored: each tool keeps its own
+login. (Detection also looks for `ollama`, whose daemon on `127.0.0.1:11434`
+Settings → Models shows, and for `gh`, which nothing uses.)
 
 To rewrite: select a passage → **Rewrite** → pick an agent → preview the diff →
-**Apply**. The dialog says where the passage is going (Local or CLI). Before
+**Apply**. The dialog opens on a model on this computer and says where the
+passage is going (Local, Network for a server elsewhere, or CLI). Before
 applying, Versorium makes a Git checkpoint; if that fails, nothing is written.
 Then it saves the chapter and records the ops as `ai:<provider>`. A rewrite can
-go to Claude Code, Codex, OpenCode, an Ollama model, or a downloaded model run
-by the built-in runtime.
+go to Claude Code, Codex, OpenCode, an Ollama model, a model on the saved local
+server, or a downloaded model run by the built-in runtime. Settings → Tasks
+chooses one for Rewrite, or leaves it to ask each time.
 
-The Censorship switch in Settings → Local AI, when on, hides the two
+"Show uncensored models" in Settings → Models, when unticked, hides the two
 uncensored (abliterated) models — `gemma4-12b-abliterated-q4k` and
-`qwen38-27b-abliterated-q4k` — from the model list there. It does not change
-which model or agent a task is sent to.
+`qwen38-27b-abliterated-q4k` — from the catalogue there. It does not change
+which model or agent a task is sent to, and the one model marked Recommended
+is never uncensored.
 
 ## MCP server
 
@@ -285,15 +293,17 @@ can read the manuscript. It speaks stdio and is **read-only by default**.
 make mcp                                    # the same, from a source checkout
 ```
 
-Settings → Assistants shows the exact binary path to use, connects a client for
-you, and logs every tool call (tool, client, scope, outcome, paths — never
-manuscript text). The `--client` id comes from the config you approved, not
+Settings → Access to your novel shows the exact command to use and connects a
+client for you, and Settings → Activity lists every tool call in words (tool,
+client, outcome, paths — never manuscript text; a write that only returned
+its diff is logged as a preview, not as done, and a write logged before
+previews were told apart says it may have been either). The `--client` id comes from the config you approved, not
 from the wire, so one client cannot borrow another's permission.
 
 ### Over HTTP (optional, off by default)
 
-For clients that need a URL instead of starting a program, Settings → Assistants
-can also serve MCP over Streamable HTTP. It listens on `127.0.0.1` only, on a
+For clients that need a URL instead of starting a program, Settings → Access to
+your novel → Advanced can also serve MCP over Streamable HTTP. It listens on `127.0.0.1` only, on a
 port chosen at launch, checks `Origin` and `Host`, and requires a bearer token
 minted per launch. The URL and token are written to `mcp-http.json` in the app
 data folder (mode 600 on macOS and Linux). HTTP callers are identified as `unknown`,
@@ -312,9 +322,10 @@ effect at the next launch.
 `create_document`, `codex_upsert`, `git_commit`, `delete_document`.
 
 They exist but **refuse** unless you grant that specific client write access in
-Settings → Assistants. Only the four clients Versorium can connect for you —
-Claude Code, Claude Desktop, Codex and OpenCode — can be granted it. When
-granted:
+Settings → Access to your novel (Allow writing…, then a dialog that starts on
+"Keep read only"). Only the four clients Versorium can connect for you —
+Claude Code, Claude Desktop, Codex and OpenCode — can be granted it, and only
+once connected; the app refuses a grant for one that is not. When granted:
 
 1. a call without `confirm: true` returns a **diff preview** and changes nothing;
 2. Versorium makes a **Git checkpoint** first — if the snapshot fails, the write
@@ -327,7 +338,8 @@ granted:
 Deleting a document needs a second flag, `acknowledge_delete`, on top of
 `confirm`.
 
-The warning shown next to the write switch in Settings → Assistants:
+The warning that opens the Allow writing… dialog in Settings → Access to your
+novel:
 
 > **Write lets the AI change your manuscript. Versorium will snapshot Git first.
 > You can roll back. The model can still delete text if you allow the edit.**
@@ -337,8 +349,8 @@ with Git outside the app.
 
 ### Connecting a client by hand
 
-Settings → Assistants does this for Claude Code, Claude Desktop, Codex and
-OpenCode. For Claude Code and Codex it runs the client's own CLI; for Claude
+Settings → Access to your novel does this for Claude Code, Claude Desktop,
+Codex and OpenCode. For Claude Code and Codex it runs the client's own CLI; for Claude
 Desktop and OpenCode it edits the JSON file and keeps a `.versorium-backup` copy
 first. Restart the client afterwards. To do it yourself, replace
 `/path/to/versorium` with the path shown in that panel.

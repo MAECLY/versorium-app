@@ -392,8 +392,8 @@ test("a tall stack raised in Settings gets its room below the last line on the w
   await failing(page, "set_settings", "io");
   await saveAuthorName(page, "Ana Ruiz");
   await failing(page, "set_settings", "bad_args");
-  await settings(page).getByRole("button", { name: "Local AI", exact: true }).click();
-  await settings(page).getByRole("region", { name: "Safety" }).getByRole("checkbox").click();
+  await settings(page).getByRole("navigation").getByRole("button", { name: "Models", exact: true }).click();
+  await settings(page).getByRole("checkbox", { name: "Show uncensored models", exact: true }).click();
   await failing(page, "git_commit", "no_repo");
   await statusBar(page).getByRole("button", { name: "Save snapshot" }).click();
   await failing(page, "git_auto_checkpoint", "nothing_to_commit");

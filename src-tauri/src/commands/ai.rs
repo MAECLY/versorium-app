@@ -5,7 +5,7 @@
 //! then splice + save, then ops with `author = "ai:<provider>"`.
 
 use crate::agents::{self, AgentInfo};
-use crate::commands::settings::SlotAssignment;
+use crate::commands::settings::{SettingsStore, SlotAssignment};
 use crate::commands::chapters::save_chapter;
 use crate::commands::project::split_frontmatter;
 use crate::ops::Op;
@@ -36,16 +36,31 @@ pub async fn agents_detect() -> Vec<AgentInfo> {
 ///
 /// `kind` + `id` are the same shape as a settings slot, so the caller can send
 /// the configured Rewrite slot straight through. They travel together because
-/// `kind` alone cannot name an Ollama tag or a catalog entry.
+/// `kind` alone cannot name an Ollama tag or a catalog entry. A `server` choice
+/// goes to the local server only if the writer saved one.
 #[tauri::command]
-pub async fn ai_rewrite(kind: String, id: String, text: String) -> Result<String, String> {
+pub async fn ai_rewrite(
+    state: tauri::State<'_, SettingsStore>,
+    kind: String,
+    id: String,
+    text: String,
+) -> Result<String, String> {
+    rewrite_in(&state, kind, id, &text).await
+}
+
+/// The command, given the settings it reads: tested with a store of its own,
+/// because `tauri::State` cannot be built in a test. The saved local server
+/// comes from the settings here, never from the caller, so the frontend
+/// cannot point a rewrite at an address the writer did not save.
+async fn rewrite_in(store: &SettingsStore, kind: String, id: String, text: &str) -> Result<String, String> {
     if text.trim().is_empty() {
         return Err("ai_empty".into());
     }
     if !crate::commands::settings::SLOT_KINDS.contains(&kind.as_str()) {
         return Err("bad_args".into());
     }
-    agents::rewrite(&SlotAssignment { kind, id }, &text).await
+    let server = agents::saved_server(&store.get());
+    agents::rewrite(&SlotAssignment { kind, id }, text, server.as_ref()).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -264,6 +279,52 @@ mod tests {
         assert!(!log.iter().any(|c| c.message.starts_with("checkpoint: before ai rewrite")));
         let raw = fs::read_to_string(p.join(&ch.file)).unwrap();
         assert!(raw.ends_with("Old sentence one."));
+    }
+
+    /// A store whose local server is the fake one, saved or only typed in.
+    fn store_pointing_at(dir: &Path, server: &agents::LocalServer, saved: bool) -> SettingsStore {
+        let store = SettingsStore::load(dir.join("settings.json"));
+        store.update(|s| {
+            s.studio_host = server.host.clone();
+            s.studio_port = server.port;
+            s.studio_enabled = saved;
+        });
+        store
+    }
+
+    #[test]
+    fn the_rewrite_command_sends_a_server_task_to_the_saved_server() {
+        let dir = tempfile::tempdir().unwrap();
+        let fake = agents::tests::FakeServer::start(&["local-model"], "The winter ended.");
+        let store = store_pointing_at(dir.path(), &fake.server, true);
+
+        let out = tauri::async_runtime::block_on(rewrite_in(&store, "server".into(), "local-model".into(), "The long winter came."))
+            .unwrap();
+        assert_eq!(out, "The winter ended.");
+        let (_, body) = fake.seen().into_iter().find(|(request, _)| request == "POST /v1/chat/completions").unwrap();
+        assert!(body.contains("The long winter came."), "the passage went to the server the writer saved");
+    }
+
+    #[test]
+    fn the_rewrite_command_never_reaches_a_server_that_was_not_saved() {
+        let dir = tempfile::tempdir().unwrap();
+        let fake = agents::tests::FakeServer::start(&["local-model"], "Should never be asked.");
+        // The address is typed in, not saved.
+        let store = store_pointing_at(dir.path(), &fake.server, false);
+
+        let err = tauri::async_runtime::block_on(rewrite_in(&store, "server".into(), "local-model".into(), "Prose."))
+            .unwrap_err();
+        assert_eq!(err, "no_provider");
+        assert!(fake.seen().is_empty(), "nothing may reach a server the writer did not save");
+        // And the checks before any dispatch still hold.
+        assert_eq!(
+            tauri::async_runtime::block_on(rewrite_in(&store, "server".into(), "local-model".into(), "  ")).unwrap_err(),
+            "ai_empty"
+        );
+        assert_eq!(
+            tauri::async_runtime::block_on(rewrite_in(&store, "byok".into(), "x".into(), "Prose.")).unwrap_err(),
+            "bad_args"
+        );
     }
 
     #[test]

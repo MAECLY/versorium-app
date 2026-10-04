@@ -339,7 +339,7 @@
 </script>
 
 <section class="mb-6" aria-label={t("backup.title")}>
-  <h3 class="v-section-title mb-1">{t("backup.title")}</h3>
+  <h3 class="v-h3 mb-1">{t("backup.title")}</h3>
   <p class="v-muted m-0 mb-3" style="font-size: 12px; line-height: 1.6;">{t("backup.intro")}</p>
 
   {#if !isTauri()}
@@ -352,7 +352,7 @@
       <p class="v-muted m-0 mt-1" style="font-size: 12px; line-height: 1.6;">{t("backup.layerHistoryHint")}</p>
     </div>
 
-    <h4 class="v-section-title mb-1">{t("backup.layerDestinations")}</h4>
+    <h4 class="v-h4 mb-1">{t("backup.layerDestinations")}</h4>
     <p class="v-muted m-0 mb-1" style="font-size: 12px;">{t("backup.limit", { n: MAX_DESTINATIONS })}</p>
     <p class="v-muted m-0 mb-2" style="font-size: 12px; line-height: 1.6;">{t("backup.liveRepoHint")}</p>
 
@@ -476,7 +476,7 @@
 
       {#each archives as [dir, stored] (dir)}
         {#if stored.length > 0}
-          <h4 class="v-section-title mb-1 mt-3">{name(dir)}</h4>
+          <h4 class="v-h4 mb-1 mt-3">{name(dir)}</h4>
           <ul class="m-0 flex list-none flex-col gap-1 p-0">
             {#each stored as archive (archive.path)}
               <li class="v-row" style="gap: 10px; font-size: 12px; padding: 2px 0;">
@@ -517,7 +517,7 @@
 
     <!-- Layer 3. It needs an account and a token, which a synced folder does
          not. Collapsed so the simple path is the visible one. -->
-    <h4 class="v-section-title mb-1 mt-4">{t("backup.layerGithub")}</h4>
+    <h4 class="v-h4 mb-1 mt-4">{t("backup.layerGithub")}</h4>
     <button
       class="v-btn"
       style="padding: 2px 10px; font-size: 12px;"

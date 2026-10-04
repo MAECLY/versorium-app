@@ -1,8 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
+import { gotoMock } from "./mock-page";
 
 // M7 DoD in the browser: focus and typewriter, the corkboard, onboarding
-// without a signup, crash reports that carry no prose, the continuity stub,
-// and the font catalogue. Runs against the mocked IPC.
+// without a signup, crash reports that carry no prose, the continuity check
+// (Manuscript › Continuity), and the font catalogue. Runs against the mocked
+// IPC.
 
 async function withProject(page: Page, title = "El largo invierno") {
   await page.goto("/?mock=tauri");
@@ -72,18 +74,127 @@ test("a crash report carries no manuscript and is not sent on its own", async ({
   expect(await page.evaluate(() => window.__VERSORIUM_MOCK__.calls.some((c) => c.cmd === "crash_report_url"))).toBe(false);
 });
 
-test("the continuity check says it did not run rather than reporting nothing", async ({ page }) => {
+/** Manuscript › Continuity, from the top bar. */
+async function openContinuity(page: Page) {
+  await page.getByRole("banner").getByRole("button", { name: "Manuscript" }).click();
+  const dialog = page.getByRole("dialog", { name: "Manuscript" });
+  await dialog.getByRole("tab", { name: "Continuity" }).click();
+  return dialog;
+}
+
+const rail = (page: Page) =>
+  page.getByRole("region", { name: "Settings" }).getByRole("navigation", { name: "Settings sections" });
+
+test("the continuity check lives in the manuscript and says when it has no model", async ({ page }) => {
   await withProject(page);
-  // Continuity only runs from a local model, so it sits with the models.
-  const settings = await openSettings(page, "Local AI");
-  const continuity = settings.getByRole("region", { name: "Continuity check" });
+  const dialog = await openContinuity(page);
 
-  await expect(continuity.getByText(/needs a local model selected/)).toBeVisible();
-  await continuity.getByRole("button", { name: "Run check" }).click();
+  await expect(dialog.getByText("Continuity has no model yet.")).toBeVisible();
+  // Nothing to run it on, so it cannot start, and cannot imply the novel is consistent.
+  await expect(dialog.getByRole("button", { name: "Check the manuscript" })).toBeDisabled();
+  await expect(dialog.getByText("Nothing contradictory found.")).toHaveCount(0);
 
-  // No model is assigned, so it must not imply the manuscript is consistent.
-  await expect(continuity.getByText(/No model is selected for Continuity|continuity_no_model/)).toBeVisible();
-  await expect(continuity.getByText("Nothing contradictory found.")).toBeHidden();
+  await dialog.getByRole("button", { name: "Choose one in Settings ›" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(rail(page).getByRole("button", { name: "Tasks", exact: true })).toHaveAttribute("aria-current", "page");
+  // Where the choice is made, ready to make it.
+  await expect(page.getByRole("combobox", { name: "Model for Continuity" })).toBeFocused();
+  // And Settings no longer runs the check itself.
+  const settings = page.getByRole("region", { name: "Settings" });
+  await expect(settings.getByRole("button", { name: /Run check|Check the manuscript/ })).toHaveCount(0);
+});
+
+test("a continuity check with a model lists what it found", async ({ page }) => {
+  await withProject(page);
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.continuity = { kind: "ollama", id: "qwen3.8:latest" };
+  });
+  const dialog = await openContinuity(page);
+
+  await expect(dialog.getByText("Runs on qwen3.8:latest, on this computer.")).toBeVisible();
+  await dialog.getByRole("button", { name: "Check the manuscript" }).click();
+  await expect(dialog.getByText("Ana's eyes change colour.")).toBeVisible();
+  await expect(dialog.getByText("Contradiction", { exact: true })).toBeVisible();
+
+  // A check that cannot run says why instead of reporting a clean novel.
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.ollama.running = false;
+  });
+  await dialog.getByRole("button", { name: "Check the manuscript" }).click();
+  await expect(dialog.getByText("Ollama isn't running, so the check couldn't start.")).toBeVisible();
+  await expect(dialog.getByText("Ana's eyes change colour.")).toHaveCount(0);
+});
+
+test("a check says it is reading while it runs, and a closed dialog forgets it", async ({ page }) => {
+  await withProject(page);
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.continuity = { kind: "ollama", id: "qwen3.8:latest" };
+    window.__VERSORIUM_MOCK__.hold("continuity_check");
+  });
+  let dialog = await openContinuity(page);
+  await dialog.getByRole("button", { name: "Check the manuscript" }).click();
+  const reading = dialog.getByRole("button", { name: "Reading…" });
+  await expect(reading).toBeDisabled();
+  await expect(dialog.locator('[aria-live="polite"][aria-busy="true"]')).toHaveCount(1);
+  await page.evaluate(() => window.__VERSORIUM_MOCK__.release("continuity_check"));
+  await expect(dialog.getByText("Ana's eyes change colour.")).toBeVisible();
+  await expect(dialog.locator('[aria-live="polite"][aria-busy="true"]')).toHaveCount(0);
+
+  // Closed and opened again: the dialog starts clean, not on the last result.
+  await page.keyboard.press("Escape");
+  dialog = await openContinuity(page);
+  await expect(dialog.getByText("Runs on qwen3.8:latest, on this computer.")).toBeVisible();
+  await expect(dialog.getByText("Ana's eyes change colour.")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Check the manuscript" })).toBeEnabled();
+});
+
+test("with no novel open, the check waits for one even with a model chosen", async ({ page }) => {
+  await gotoMock(page);
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.continuity = { kind: "builtin", id: "gemma3-1b-q4km" };
+  });
+  // No novel, so no Manuscript button: Settings' link is the way in.
+  await page.getByRole("banner").getByRole("button", { name: "Settings" }).click();
+  await rail(page).getByRole("button", { name: "Tasks", exact: true }).click();
+  await page.getByRole("button", { name: "Run it from Manuscript › Continuity" }).click();
+  const dialog = page.getByRole("dialog", { name: "Manuscript" });
+  await expect(dialog.getByText("Runs on Gemma 3 1B, on this computer.")).toBeVisible();
+  await expect(dialog.getByText("Open a novel first.")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Check the manuscript" })).toBeDisabled();
+});
+
+test("the Continuity tab reads the chosen model afresh each time it opens", async ({ page }) => {
+  await withProject(page);
+  let dialog = await openContinuity(page);
+  await expect(dialog.getByText("Continuity has no model yet.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  // Chosen since (from Settings, or anywhere): the next opening says so.
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.continuity = { kind: "builtin", id: "gemma3-1b-q4km" };
+  });
+  dialog = await openContinuity(page);
+  await expect(dialog.getByText("Runs on Gemma 3 1B, on this computer.")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Check the manuscript" })).toBeEnabled();
+});
+
+test("Change in Settings › from the Manuscript dialog over an open Settings moves Settings there", async ({
+  page,
+}) => {
+  await withProject(page);
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.slots.continuity = { kind: "builtin", id: "gemma3-1b-q4km" };
+  });
+  await openSettings(page, "Author");
+  // Settings covers the page, not the top bar: the dialog opens over it.
+  const dialog = await openContinuity(page);
+  await expect(dialog.getByText("Runs on Gemma 3 1B, on this computer.")).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Change in Settings ›" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(rail(page).getByRole("button", { name: "Tasks", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(rail(page).getByRole("button", { name: "Author", exact: true })).not.toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("combobox", { name: "Model for Continuity" })).toBeFocused();
+  await expect(page.getByRole("combobox", { name: "Model for Continuity" })).toHaveValue("builtin:gemma3-1b-q4km");
 });
 
 test("typography offers what is installed and promises no download", async ({ page }) => {
@@ -103,6 +214,12 @@ test("onboarding runs on a fresh install and never asks for an account", async (
 
   const tour = page.getByRole("dialog", { name: "Welcome to Versorium" });
   await expect(tour).toBeVisible();
+  // The size words Settings → Models uses, not a "pack" of its own.
+  await expect(tour.getByText("36 GB of memory and 12 cores: models up to Large fit comfortably.")).toBeVisible();
+  await tour.getByRole("button", { name: "Next" }).click();
+  // Found, not "Connected": that word belongs to Access to your novel.
+  await expect(tour.getByRole("listitem").filter({ hasText: "Claude Code" })).toContainText("Found");
+  await expect(tour.getByRole("listitem").filter({ hasText: "OpenCode" })).toContainText("Not found");
   // Spec §14 ends on "sin signup": nothing may ask for an account.
   await expect(tour.getByLabel(/e-?mail/i)).toHaveCount(0);
   await expect(tour.getByLabel(/password|contraseña/i)).toHaveCount(0);

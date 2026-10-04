@@ -388,6 +388,23 @@ mod tests {
     }
 
     #[test]
+    fn every_write_tool_logs_its_preview_as_a_preview() {
+        let (fx, mut session) = fixture("claude-code", true);
+        let before = commit_count(&fx.root);
+        for name in write_tools() {
+            let mut args = sample_args(name, &fx.chapter.file);
+            args.as_object_mut().unwrap().remove("confirm");
+            let out = tool_call(&mut session, name, &args).unwrap();
+            assert_eq!(out.structured.unwrap()["applied"], false, "{name} previews without confirm");
+            let logged = crate::mcp::log::read_from(&session.log_path(), 1);
+            assert_eq!(logged[0].tool, name);
+            assert_eq!(logged[0].outcome, "preview", "{name}'s preview must not be logged as done");
+        }
+        assert_eq!(commit_count(&fx.root), before);
+        assert_eq!(body_of(&fx.root, &fx.chapter.file), SECRET);
+    }
+
+    #[test]
     fn a_granted_write_without_confirm_previews_and_touches_nothing() {
         let (fx, mut session) = fixture("claude-code", true);
         let before = commit_count(&fx.root);
