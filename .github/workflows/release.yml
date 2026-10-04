@@ -167,6 +167,17 @@ jobs:
           install_runtime: true
           cache: true
 
+      # MSVC cannot open files whose path passes 260 characters, and the
+      # Vulkan shader generator's CMake try-compile under
+      # src-tauri\target\release\build\llama-cpp-sys-2-<hash>\out\build\ggml\…
+      # does ("C1083: Cannot open source file"). A short target directory
+      # keeps every path under the limit; tauri build reads CARGO_TARGET_DIR,
+      # so the bundles are found there.
+      - name: Short build directory (Windows)
+        if: startsWith(matrix.platform, 'windows')
+        shell: pwsh
+        run: echo "CARGO_TARGET_DIR=C:\t" >> $env:GITHUB_ENV
+
       # Pinned to the toolchain the app is developed and tested with, so a
       # release is built the way it was tested. (The SIGSEGV first blamed on
       # 1.99.0 came from the x86 RUSTFLAGS reaching the aarch64 build; see
