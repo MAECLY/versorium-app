@@ -1,7 +1,6 @@
 //! Project lifecycle: create, open, list. One folder per novel,
 //! one Markdown file per chapter (PROMPT §4 layout).
 
-use crate::i18n;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -132,9 +131,15 @@ pub fn ui_ready(window: tauri::WebviewWindow) -> Result<(), String> {
 
 #[tauri::command]
 pub fn default_projects_dir() -> Result<PathBuf, String> {
-    dirs::document_dir()
-        .ok_or_else(|| i18n::t("en", "no_home"))
-        .map(|d| d.join("Versorium"))
+    projects_dir_from(dirs::document_dir(), dirs::home_dir()).ok_or_else(|| "no_home".to_string())
+}
+
+/// `~/Documents/Versorium`. On Linux `dirs::document_dir()` comes from the XDG
+/// user-dirs file and is `None` where that file was never written — a minimal
+/// install, a server, a fresh account — which left the project list failing
+/// on first launch. `$HOME/Documents` is then used, as the XDG default is.
+fn projects_dir_from(documents: Option<PathBuf>, home: Option<PathBuf>) -> Option<PathBuf> {
+    documents.or_else(|| home.map(|h| h.join("Documents"))).map(|d| d.join("Versorium"))
 }
 
 #[tauri::command]
@@ -697,6 +702,23 @@ mod tests {
             ["Alfa", "Zafiro"]
         );
     }
+
+    #[test]
+    fn without_xdg_documents_the_projects_folder_is_home_documents() {
+        // Seen on Ubuntu 22.04 with no ~/.config/user-dirs.dirs: the project
+        // list failed on first launch.
+        assert_eq!(
+            projects_dir_from(None, Some(PathBuf::from("/home/ana"))),
+            Some(PathBuf::from("/home/ana/Documents/Versorium"))
+        );
+        assert_eq!(
+            projects_dir_from(Some(PathBuf::from("/home/ana/Documentos")), Some(PathBuf::from("/home/ana"))),
+            Some(PathBuf::from("/home/ana/Documentos/Versorium")),
+            "the XDG folder wins when it is set"
+        );
+        assert_eq!(projects_dir_from(None, None), None);
+    }
+
 }
 
 /// Rename a novel, set its author, its export matter or its language, in any
@@ -772,4 +794,5 @@ pub fn delete_project(path: PathBuf, parent: PathBuf) -> Result<Vec<Project>, St
     }
     trash::delete(&path).map_err(|_| "trash_failed".to_string())?;
     list_projects(parent)
+
 }
