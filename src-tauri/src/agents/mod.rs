@@ -268,7 +268,15 @@ pub fn find_binary(name: &str) -> Option<PathBuf> {
 /// spawn failure / timeout / read error. stdin is null; stderr is discarded
 /// (crash logs must never carry manuscript text, spec §7.7).
 fn run_capped(bin: &Path, args: &[String], timeout: Duration) -> Option<String> {
-    let mut child = Command::new(bin)
+    run_capped_in(bin, args, None, timeout)
+}
+
+fn run_capped_in(bin: &Path, args: &[String], dir: Option<&Path>, timeout: Duration) -> Option<String> {
+    let mut command = Command::new(bin);
+    if let Some(dir) = dir {
+        command.current_dir(dir);
+    }
+    let mut child = command
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -500,8 +508,13 @@ pub fn rewrite_prompt(text: &str) -> String {
 
 /// The CLI harnesses that can rewrite prose, and the flag that makes each one
 /// answer a single prompt and exit. `gh` is not here: it is for git, not prose.
-const CLI_HARNESSES: [(&str, &[&str]); 3] =
-    [("claude", &["-p"]), ("codex", &["exec"]), ("opencode", &["run"])];
+/// Codex refuses to run outside a git repository it trusts, and a harness
+/// always runs in an empty scratch folder (`cli_rewrite`), hence its flag.
+const CLI_HARNESSES: [(&str, &[&str]); 3] = [
+    ("claude", &["-p"]),
+    ("codex", &["exec", "--skip-git-repo-check"]),
+    ("opencode", &["run"]),
+];
 
 /// Rewrite `text` with the model assigned to a slot. Errors are stable codes:
 /// `no_provider` (nothing assigned, a harness that is not installed, a model
@@ -563,11 +576,31 @@ async fn cli_rewrite(bin: &str, args: &[&str], text: &str) -> Result<String, Str
     let path = find_binary(bin).ok_or_else(|| "no_provider".to_string())?;
     let mut all: Vec<String> = args.iter().map(|s| s.to_string()).collect();
     all.push(prompt);
-    let out = tauri::async_runtime::spawn_blocking(move || run_capped(&path, &all, CLI_TIMEOUT))
-        .await
-        .map_err(|_| "io".to_string())?
-        .ok_or_else(|| "ai_failed".to_string())?;
+    let out = tauri::async_runtime::spawn_blocking(move || {
+        // An app opened from the Finder or the Start menu starts in `/` or
+        // System32: Codex refuses to run there, and any harness would read
+        // whatever project instructions it found around it. An empty folder
+        // of its own gives the passage and nothing else.
+        let scratch = scratch_dir().ok()?;
+        let out = run_capped_in(&path, &all, Some(&scratch), CLI_TIMEOUT);
+        let _ = std::fs::remove_dir_all(&scratch);
+        out
+    })
+    .await
+    .map_err(|_| "io".to_string())?
+    .ok_or_else(|| "ai_failed".to_string())?;
     Ok(out)
+}
+
+/// A new, empty folder under the system temp directory for one harness run.
+fn scratch_dir() -> std::io::Result<PathBuf> {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let dir = std::env::temp_dir().join(format!("versorium-cli-{}-{nanos}", std::process::id()));
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir)
 }
 
 /// Rewrite through the in-process engine.
@@ -731,6 +764,8 @@ pub(crate) mod tests {
     }
 
     /// Real harnesses on this machine (not run in CI): `cargo test -- --ignored live_`.
+    /// A harness whose own provider is down here can be left out by name:
+    /// `VERSORIUM_LIVE_SKIP=opencode`.
     #[test]
     #[ignore = "talks to the agents installed on this machine"]
     fn live_detect_and_rewrite_with_installed_agents() {
@@ -742,7 +777,9 @@ pub(crate) mod tests {
         eprintln!("ollama daemon online={online} models={models:?}");
 
         let passage = "La niña esperó junto a la ventana toda la noche, pero nadie vino.";
-        let mut slots = vec![slot("cli", "claude")];
+        // Every harness, run from `/` as an app opened from the Finder is.
+        std::env::set_current_dir("/").unwrap();
+        let mut slots: Vec<SlotAssignment> = CLI_HARNESSES.iter().map(|(bin, _)| slot("cli", bin)).collect();
         // Name a model the daemon really serves, so this exercises the path a
         // configured slot takes rather than a default.
         if online {
@@ -752,8 +789,9 @@ pub(crate) mod tests {
         }
         for assignment in &slots {
             let installed = |id: &str| agents.iter().any(|a| a.id == id && a.state != "missing");
+            let skipped = std::env::var("VERSORIUM_LIVE_SKIP").unwrap_or_default();
             let usable = match assignment.kind.as_str() {
-                "cli" => installed(&assignment.id),
+                "cli" => installed(&assignment.id) && !skipped.split(',').any(|s| s.trim() == assignment.id),
                 "ollama" => online,
                 _ => false,
             };
@@ -1018,6 +1056,30 @@ pub(crate) mod tests {
         let plain = bin.path().join("notexec");
         std::fs::write(&plain, "data").unwrap();
         assert!(find_in_dirs("notexec", [bin.path().to_path_buf()]).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_harness_runs_in_an_empty_folder_of_its_own() {
+        let bin = tempfile::tempdir().unwrap();
+        let exe = bin.path().join("pwdcli");
+        std::fs::write(&exe, "#!/bin/sh\npwd\nls -A | wc -l\n").unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let scratch = scratch_dir().unwrap();
+        let out = run_capped_in(&exe, &[], Some(&scratch), Duration::from_secs(5)).unwrap();
+        let mut lines = out.lines();
+        let cwd = std::fs::canonicalize(lines.next().unwrap()).unwrap();
+        assert_eq!(cwd, std::fs::canonicalize(&scratch).unwrap());
+        assert_eq!(lines.next().unwrap().trim(), "0");
+        let _ = std::fs::remove_dir_all(&scratch);
+        assert_ne!(scratch_dir().unwrap(), scratch);
+    }
+
+    #[test]
+    fn codex_is_told_it_may_run_outside_a_repository() {
+        let (_, args) = CLI_HARNESSES.iter().find(|(bin, _)| *bin == "codex").unwrap();
+        assert!(args.contains(&"--skip-git-repo-check"));
     }
 
     #[test]
