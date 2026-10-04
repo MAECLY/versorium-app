@@ -185,13 +185,19 @@ the old Focus fade from the rail.
 Requested on 2026-10-04: the zip backup runs only when the writer presses Back
 up now; the writer should be able to pick when it runs on its own. Specified on
 2026-10-04 in three phases (the spec sits outside the repo, at
-`/tmp/versorium-backup-schedule/SPEC.md`; copy it in before /tmp is cleared).
+`/tmp/versorium-backup-schedule/SPEC.md`, copied to `~/Documents/Github/.versorium-design/` outside the repo).
 
 - **Phase 0 is done** (STATUS.md, "Backup Phase 0"), the repository lock
   included. Open for the owner: a second Back up now queues behind the first
   and makes its own run, after its own save; the spec's Phase 1 has it join
   the first, whose plan predates that save. Phase 1's scheduler has to pick
   one. A pull locks the history for its local half only, not for the fetch.
+- **Two git writers skip the repository lock:** `git_branch_create`
+  (writes the branch, then HEAD) and `git_checkout_file` (rewrites
+  `.git/index`). A branch created during a backup's capture can leave an
+  archive whose HEAD names a branch file it does not hold. Narrow window; take
+  the lock in both before Phase 1. Also, `errors.repo_busy` blames a backup,
+  but the holder can be a pull or an MCP commit.
 - **Found in Phase 0's review, for Phase 1:** the id that tells this
   computer's temporary files from another's lives in the app's folder, so a
   Mac set up with Migration Assistant shares it with the old one (one failed
