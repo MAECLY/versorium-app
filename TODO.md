@@ -181,6 +181,17 @@ reach the page the way size and spacing do, as a custom property on
 
 ## Queued, designed or under review
 
+### Choose when the backup runs
+
+Requested on 2026-10-04: today the zip backup (iCloud Drive, another disk and
+the other destinations) runs only when the writer presses Back up now
+(Settings → History and backup). The writer should be able to pick when it
+runs on its own. Not designed yet; the choices to weigh are a schedule (daily,
+weekly), on quit, and after so many snapshots, plus what happens when a
+destination is missing at that moment (an unplugged disk) and how a failure is
+reported without a modal. `backup_now` already plans once and dedups by
+content, so a scheduled run of an unchanged novel writes nothing.
+
 ### Notifications have no module and never hide
 
 There is no notification module. 21 files render their own notice or error
@@ -202,6 +213,8 @@ Centralise the transient ones and leave the rest where they are:
   where they are.
 
 ### Collapsible binder and top bar, and what Focus hides
+
+Asked for again on 2026-10-04; next after the landing.
 
 Requested: the binder and the top bar fold away and come back, and Focus
 becomes a toggle with a menu choosing what it hides. A design panel is
@@ -241,20 +254,6 @@ neither is a release build of the real webviews. Still to do by hand:
   the hit lands on the zone around them. A right-click on a checkbox and on
   its label leaves it as it was (WebKit toggles it on the release's
   `auxclick`, which the policy cancels; shown on macOS WebKit only).
-
-### Quitting from the app menu or the Dock skips the last save
-
-Cmd+Q, Quit from the Dock and logging out go through `NSApp terminate:`, and
-the close path that saves never runs. tao 0.37.1 answers
-`applicationWillTerminate` with `AppState::exit` and implements no
-`applicationShouldTerminate` (`platform_impl/macos/app_delegate.rs:130-134`);
-Tauri's default app menu carries `PredefinedMenuItem::quit`
-(`tauri-2.12.0/src/menu/menu.rs:194`); and `CloseRequested` is emitted only
-from tao's own window `CloseRequested` (`tauri-runtime-wry-2.12.0/src/lib.rs:4269`).
-So `onCloseRequested` in `App.svelte`, which flushes, never runs, and up to
-800 ms of typing plus the pending ops batch are lost. Nothing listens for
-`beforeunload` or `pagehide` either. The fix needs an explicit app menu whose
-Quit goes through the close path.
 
 ### See what changed, the way a code editor shows it
 

@@ -364,6 +364,27 @@ font chosen under Typography still does not reach the editor (`TODO.md`, and
 creation and every import is created as English, so the manuscript's `lang` is
 only as right as that (`TODO.md`).
 
+## Quitting waits for the last save (2026-10-04, on `feat/landing-and-docs`)
+
+Cmd+Q, Quit from the Dock, logging out and shutting down used to skip the
+save: AppKit's `terminate:` reaches tao's `applicationWillTerminate`, which
+Tauri turns into an exit that cannot be cancelled, so up to 800 ms of typing
+and the pending change-log batch were lost. `src-tauri/src/quit.rs` adds
+`applicationShouldTerminate:` to tao's app delegate class, answers
+`NSTerminateLater`, asks the frontend to save (`versorium://quit-requested`,
+`src/lib/app/quit.ts`) and replies once it has. A save that fails cancels the
+quit and says so; no answer within 5 s quits anyway, so a broken page cannot
+keep the app open. macOS only; Windows and Linux quit through the window's
+close, which already saved.
+
+Measured on the real app, in an instance with its own `HOME` and data folder
+on a copy of a novel: " QUITTEST" typed and Cmd+Q pressed straight after
+(about 2 ms after the last keystroke). With the fix the chapter file and the
+change log both held it. The same steps on the build without the fix showed
+the word on screen in a capture taken between typing and Cmd+Q, and left the
+file without it and no change log for the day. Unit tests cover the reply-once
+gate (`quit::tests`) and the save-then-answer order (`quit.test.ts`).
+
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 
 ### Backup
@@ -571,9 +592,6 @@ The full list, with file names, is `TODO.md`; the epubcheck result is in
   English**, which the manuscript's `lang` and every export's language field
   inherit.
 - **A visit to Settings rebuilds the editor**, losing its undo history.
-- **Quitting from the app menu or the Dock skips the last save.** Cmd+Q goes
-  through `NSApp terminate:`, not the close path that flushes, so up to 800 ms
-  of typing and the pending ops batch are lost.
 - **One unexplained test failure.** One `cargo test` run, on an earlier and
   smaller suite, reported 1 failure without naming it; the runs after it were
   reported clean, and no logs of them are kept. Not diagnosed, so not claimed
