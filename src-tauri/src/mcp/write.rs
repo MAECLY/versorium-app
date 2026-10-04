@@ -8,6 +8,7 @@
 
 use crate::commands::chapters::save_chapter;
 use crate::commands::project::{self, split_frontmatter};
+use crate::git::lock::{Wait, BACKGROUND_WAIT};
 use crate::mcp::session::Session;
 use crate::mcp::tools::{arg_bool, arg_str, arg_usize, ToolDef, ToolOutput};
 use crate::ops::Op;
@@ -71,8 +72,13 @@ pub fn call(session: &mut Session, tool: &ToolDef, args: &Value) -> Result<ToolO
 
 /// Snapshot the project before touching it. A failed snapshot aborts the write:
 /// without a restore point the user cannot roll the agent back.
+///
+/// Waits up to ten seconds for a backup reading the history: this process has
+/// no window to freeze. Still held after that, the agent is told `repo_busy`
+/// and nothing is written.
 fn checkpoint(root: &Path, tool: &str, client: &str) -> Result<(), String> {
-    match crate::git::repo::commit_all(root, &format!("checkpoint: before mcp {tool} ({client})")) {
+    let message = format!("checkpoint: before mcp {tool} ({client})");
+    match crate::git::repo::commit_all_waiting(root, &message, Wait::Upto(BACKGROUND_WAIT)) {
         Ok(_) => Ok(()),
         Err(code) if code == "nothing_to_commit" => Ok(()),
         Err(code) => Err(code),
@@ -284,7 +290,7 @@ fn git_commit(session: &mut Session, args: &Value) -> Result<ToolOutput, String>
     }
 
     // No separate checkpoint here: the commit itself is the restore point.
-    let sha = crate::git::repo::commit_all(&root, &message)?;
+    let sha = crate::git::repo::commit_all_waiting(&root, &message, Wait::Upto(BACKGROUND_WAIT))?;
     Ok(ToolOutput::with(
         format!("Committed {}.", &sha[..sha.len().min(7)]),
         json!({ "applied": true, "sha": sha }),
@@ -424,6 +430,39 @@ mod tests {
         assert_eq!(ops.iter().map(|o| o.kind.as_str()).collect::<Vec<_>>(), vec!["delete", "insert"]);
         assert_eq!(ops[0].text, "La");
         assert_eq!((ops[1].from, ops[1].to), (0, 2));
+    }
+
+    #[test]
+    fn a_write_waits_out_a_backup_reading_the_history_instead_of_failing() {
+        // This process has no window to freeze, so it waits for a backup's
+        // capture to end rather than refusing the agent.
+        let (fx, mut session) = fixture("claude-code", true);
+        let reading = |root: &Path, millis: u64| {
+            let lock = crate::git::lock::RepoLock::acquire(root, Wait::TryOnly).unwrap();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(millis));
+                drop(lock);
+            })
+        };
+
+        // Longer than a commit on the app's main thread would wait.
+        let backup = reading(&fx.root, 2500);
+        let out = tool_call(
+            &mut session,
+            "replace_text",
+            &json!({ "file": fx.chapter.file, "from": 0, "to": 2, "text": "LA", "confirm": true }),
+        )
+        .unwrap();
+        backup.join().unwrap();
+        assert_eq!(out.structured.unwrap()["applied"], true);
+        assert_eq!(crate::git::repo::log(&fx.root, 1).unwrap()[0].message, "checkpoint: before mcp replace_text (claude-code)");
+
+        // Its own commit tool, the same way.
+        let backup = reading(&fx.root, 300);
+        let out = tool_call(&mut session, "git_commit", &json!({ "message": "agent", "confirm": true })).unwrap();
+        backup.join().unwrap();
+        assert_eq!(out.structured.unwrap()["applied"], true);
+        assert_eq!(crate::git::repo::log(&fx.root, 1).unwrap()[0].message, "agent");
     }
 
     #[test]

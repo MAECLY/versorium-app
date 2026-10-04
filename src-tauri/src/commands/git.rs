@@ -1,5 +1,6 @@
 //! Tauri commands wrapping the git engine + GitHub API.
 
+use crate::git::lock::{self, Wait};
 use crate::git::{github, repo};
 use std::path::PathBuf;
 
@@ -18,15 +19,22 @@ pub fn git_diff(path: PathBuf) -> Result<String, String> {
     repo::diff(&path)
 }
 
-#[tauri::command]
+/// Save snapshot.
+///
+/// Off the main thread, because it can wait: a backup reading the history
+/// holds the repository lock for a moment, and the window must not freeze for
+/// it. `App.doCommit` saves before calling this, so nothing is reordered.
+#[tauri::command(async)]
 pub fn git_commit(path: PathBuf, message: String) -> Result<String, String> {
     let msg = message.trim();
     if msg.is_empty() {
         return Err("empty_message".to_string());
     }
-    repo::commit_all(&path, msg)
+    repo::commit_all_waiting(&path, msg, Wait::Upto(lock::BACKGROUND_WAIT))
 }
 
+/// The 60-second checkpoint. It never waits: while a backup is reading the
+/// history it commits nothing, and the next minute does.
 #[tauri::command]
 pub fn git_auto_checkpoint(path: PathBuf) -> Result<Option<String>, String> {
     let st = repo::status(&path)?;
@@ -35,8 +43,11 @@ pub fn git_auto_checkpoint(path: PathBuf) -> Result<Option<String>, String> {
     if !dirty {
         return Ok(None);
     }
-    let sha = repo::commit_all(&path, "checkpoint: autosave")?;
-    Ok(Some(sha))
+    match repo::commit_all_waiting(&path, "checkpoint: autosave", Wait::TryOnly) {
+        Ok(sha) => Ok(Some(sha)),
+        Err(code) if code == lock::BUSY => Ok(None),
+        Err(code) => Err(code),
+    }
 }
 
 #[tauri::command]
@@ -130,4 +141,58 @@ async fn novel_token() -> Result<String, String> {
         .await
         .map_err(|_| "io".to_string())??
         .ok_or_else(|| "not_signed_in".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::git::lock::RepoLock;
+    use std::path::Path;
+    use std::time::{Duration, Instant};
+
+    fn novel_with_a_change() -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("el-faro");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("ch-01.md"), "Uno.\n").unwrap();
+        repo::init_with_commit(&root).unwrap();
+        std::fs::write(root.join("ch-01.md"), "Dos.\n").unwrap();
+        (dir, root)
+    }
+
+    /// The novel's history held, as a backup reading it holds it, for `held`.
+    fn read_for(root: &Path, held: Duration) -> std::thread::JoinHandle<()> {
+        let lock = RepoLock::acquire(root, Wait::TryOnly).unwrap();
+        std::thread::spawn(move || {
+            std::thread::sleep(held);
+            drop(lock);
+        })
+    }
+
+    #[test]
+    fn save_snapshot_waits_out_a_backup_reading_the_history() {
+        // Longer than a commit on the main thread would wait.
+        let (_dir, root) = novel_with_a_change();
+        let backup = read_for(&root, Duration::from_millis(2500));
+        let sha = git_commit(root.clone(), "Instantánea".into());
+        backup.join().unwrap();
+        assert_eq!(sha.map(|sha| sha.len()), Ok(40));
+    }
+
+    #[test]
+    fn a_commit_made_on_the_main_thread_waits_two_seconds_at_most() {
+        // The checkpoint before an AI rewrite or a chapter delete: it waits
+        // out a capture, and past two seconds says the history is busy.
+        let (_dir, root) = novel_with_a_change();
+        let backup = read_for(&root, Duration::from_millis(300));
+        assert!(repo::commit_all(&root, "checkpoint: before ai rewrite").is_ok());
+        backup.join().unwrap();
+
+        std::fs::write(root.join("ch-01.md"), "Tres.\n").unwrap();
+        let _stuck = RepoLock::acquire(&root, Wait::TryOnly).unwrap();
+        let started = Instant::now();
+        assert_eq!(repo::commit_all(&root, "checkpoint: before deleting ch-01.md").unwrap_err(), lock::BUSY);
+        let waited = started.elapsed();
+        assert!(waited >= Duration::from_secs(2) && waited < Duration::from_secs(3), "{waited:?}");
+    }
 }
