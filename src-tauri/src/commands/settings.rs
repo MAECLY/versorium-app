@@ -499,6 +499,21 @@ pub(crate) fn apply_patch(s: &mut Settings, patch: &serde_json::Value) {
     if let Some(layout) = patch.get("layout") {
         s.layout.apply(layout);
     }
+    // The author profiles, which Settings → Author saves whole. Each profile
+    // is read on its own, so a malformed one costs that profile and never the
+    // other; the active one is only ever "work" or "hobby".
+    if let Some(profiles) = patch.get("authorProfiles") {
+        for (key, slot) in [("work", &mut s.author_profiles.work), ("hobby", &mut s.author_profiles.hobby)] {
+            if let Some(Ok(profile)) = profiles.get(key).map(|v| serde_json::from_value::<AuthorProfile>(v.clone())) {
+                *slot = profile;
+            }
+        }
+    }
+    if let Some(v) = patch.get("authorProfile").and_then(|v| v.as_str()) {
+        if matches!(v, "work" | "hobby") {
+            s.author_profile = v.into();
+        }
+    }
     // mcpWriteClients / mcpActiveProject / slots / studio* / editorFont are
     // deliberately NOT patchable from here: granting write, pointing a task
     // at a model, aiming at a local endpoint and choosing a font that must
@@ -915,5 +930,32 @@ mod tests {
         // And back, as the next launch reads it.
         let again: Settings = serde_json::from_value(json).unwrap();
         assert_eq!(again.layout, s.layout);
+    }
+
+    #[test]
+    fn the_author_profiles_settings_saves_are_kept() {
+        // Settings → Author sends both profiles and the active one. Without
+        // these arms in apply_patch every edit was dropped on disk, while the
+        // browser mock (which accepts any shape) kept the E2E tests green.
+        let mut s = Settings::default();
+        let patch = serde_json::json!({
+            "authorProfiles": {
+                "work": { "name": "Ana Ruiz", "sortAs": "Ruiz, Ana", "role": "aut", "organization": "Minotauro", "rights": "© 2026 Ana Ruiz" },
+                "hobby": { "name": "A. R. Nocturna" }
+            },
+            "authorProfile": "hobby"
+        });
+        apply_patch(&mut s, &patch);
+        assert_eq!(s.author_profiles.work.organization, "Minotauro");
+        assert_eq!(s.author_profiles.work.sort_as, "Ruiz, Ana");
+        assert_eq!(s.author_profiles.hobby.name, "A. R. Nocturna");
+        assert_eq!(s.author_profile, "hobby");
+
+        // A malformed profile costs that profile only, and an unknown active
+        // name is refused.
+        apply_patch(&mut s, &serde_json::json!({ "authorProfiles": { "work": 7, "hobby": { "name": "B" } }, "authorProfile": "nobody" }));
+        assert_eq!(s.author_profiles.work.name, "Ana Ruiz");
+        assert_eq!(s.author_profiles.hobby.name, "B");
+        assert_eq!(s.author_profile, "hobby");
     }
 }
