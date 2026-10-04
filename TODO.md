@@ -181,6 +181,17 @@ reach the page the way size and spacing do, as a custom property on
 
 ## Queued, designed or under review
 
+### Settings: redesign Local AI and Assistants, and group the sidebar
+
+Requested on 2026-10-04. Local AI and Assistants are hard to understand: too
+much on one page, different kinds of thing mixed together. Study both as they
+are, research how comparable apps present model management and connected
+tools, and redesign them — possibly split into more pages, or a second or
+third level in the Settings sidebar. The sidebar itself should be grouped into
+categories so each page's purpose is clear; today all seven groups sit at one
+level. Research and design first; the build waits for the collapsible
+binder/top bar work, which also touches `SettingsPage.svelte`.
+
 ### Choose when the backup runs
 
 Requested on 2026-10-04: today the zip backup (iCloud Drive, another disk and
