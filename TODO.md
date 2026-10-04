@@ -146,6 +146,102 @@ to the product is not in the repository: the oldest document is the original
 product prompt, `PROMPT-APP-NOVELA-DESKTOP.md` (2026-09-11), which still sits
 outside it.
 
+### Settings › About and the release names: the checks no automation reaches
+
+Built on 2026-10-04 (see "Settings › About, and platform names on release
+assets" in `STATUS.md`). Playwright drives About in Chrome on the mocked IPC,
+and `tests/unit/release-assets.test.ts` computes every asset name and
+`latest.json` from `release.yml` the way tauri-action `action-v1.0.0` does.
+Neither is a real webview or a real release:
+
+- **The links in the real webviews.** Checked once in WKWebView (macOS 27,
+  `tauri dev`, 2026-10-04; see "After review" under About in `STATUS.md`): a
+  press on the repository link opened it in Chrome once the capability had
+  its https scope, and showed the failure line before; with macOS keyboard
+  navigation off, Tab went through the six links in order and then to "Check
+  for updates in Application ›", a button, so on this Mac Tab reaches buttons
+  here too (compare "macOS, the Tab order" below). Option-Tab left the links
+  for the page itself. Still to check: the other five links (same code path,
+  same scope), the middle button and Cmd-click, a right-click on a selected
+  link, Tab with keyboard navigation on (the system setting was not
+  changed), and WebView2 and WebKitGTK for all of it. WebKit's handling of
+  the middle button's release and of a link drag (`draggable="false"`) is
+  not tested anywhere.
+- **The first tag build with the new names (v0.1.1).** The draft holds the
+  sixteen names `RELEASING.md` §7 lists, `latest.json` has its eleven keys
+  pointing at them in the API form, `SHA256SUMS` lists them, and an install of
+  v0.1.0 updates to v0.1.1 on at least one platform. The app reads an update
+  by asset id and its checksum line by that asset's name, so v0.1.0's
+  different names should not matter; until that update runs, this is reading
+  the code, not an observation.
+- **VoiceOver and NVDA** read each link as its words, then "(opens in your
+  browser)"; the author's as "… (opens www.maecly.com/about in your
+  browser)". Chrome's computed names are tested; no screen reader has read
+  them.
+
+### Found while building About and the release names, not part of them
+
+- **The Linux `.rpm` is named `…_linux_ubuntu_amd64.rpm`**, the owner's
+  pattern, though rpm is the Fedora and openSUSE format; and the `.AppImage`,
+  which runs on any distribution, is `…_linux_ubuntu_amd64.AppImage`. A
+  writer on Fedora may read both as "not for me". Keep the names, take
+  `[name]_[version]_linux_amd64[ext]` for the Linux build, or stop building
+  the rpm (`--bundles deb,appimage`): the owner's call. tauri-action's
+  pattern is one per build, so a different word per Linux file would need
+  separate builds or a rename in `finalise`.
+- **`finalise` does not check that every platform is in `latest.json`.**
+  Older than this change: each build merges its entries into the release's
+  `latest.json` and uploads it again (tauri-action's
+  `upload-version-json.ts`), so two builds finishing together can drop one
+  platform's keys. `finalise` checks that each URL present is an asset of
+  this release, not that `darwin-aarch64`, `darwin-x86_64`, `windows-x86_64`
+  and `linux-x86_64` are all there; only `RELEASING.md` step 2, by eye, would
+  see one missing. `finalise` should fail when any is.
+- **The tests of this build are untracked**: `git status` shows
+  `tests/unit/about-group.render.test.ts`, `external.test.ts`,
+  `release-assets.test.ts`, `opener-acl.test.ts`, `settings-pages.test.ts`,
+  `settings-keys.test.ts` (and eight more unit tests from earlier builds),
+  `tests/e2e/settings-about.spec.ts`, `tests/e2e/opener-acl.ts` and
+  `src-tauri/tests/opener_scope.rs` as `??`. `make verify` runs them; CI runs
+  only what is committed, so they go in the feature's commit.
+- **A writer cannot copy an About address** without the browser failing
+  first: a link is not text to the right-click policy (deliberately), a drag
+  across it selects nothing, and a select-all copy carries the hidden "(opens
+  in your browser)". Accept it, or later add a "copy address" action; not
+  the engine's link menu.
+- **The Windows setup program loses "setup"**: its `[ext]` is `.exe`, so it
+  is `Versorium_X.Y.Z_windows_x64.exe` beside the `.msi`.
+  `[name]_[version]_windows_x64[setup][ext]` would keep `-setup`; the owner's
+  pattern was kept as given.
+- **The landing links v0.1.0's files by tauri's names**
+  (`docs/index.html` and `docs/en/index.html`, lines 254-258:
+  `releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg`, `…_x64.dmg`,
+  `…_x64-setup.exe`, `…_x64_en-US.msi`, `…_amd64.deb`,
+  `Versorium-0.1.0-1.x86_64.rpm`, `…_amd64.AppImage`). They keep working for
+  v0.1.0. When the landing moves to v0.1.1 it has to use the new names
+  (`releases/download/v0.1.1/Versorium_0.1.1_apple_silicon.dmg`,
+  `…_apple_intel.dmg`, `…_windows_x64.exe`, `…_windows_x64.msi`,
+  `…_linux_ubuntu_amd64.deb`, `.rpm`, `.AppImage`). Every name carries the
+  version, so one fixed `releases/latest/download/<name>` link is not possible
+  without a version-free pattern.
+- **Four places still say no release exists**: the top of `STATUS.md`
+  ("No release has been cut"), README's Status, `RELEASING.md`'s "Where
+  things stand on 2026-10-03", and step 5 of "Going public" below. v0.1.0 was
+  tagged and published on 2026-10-04 (20:23 UTC).
+- **`SafetySectionCrash.svelte` opens the issue page with its own copy of the
+  opener code** (`openIssue`), without the https check; it could call
+  `openExternal` (`src/lib/external.ts`). Its Report button opened nothing in
+  v0.1.0: the capability's empty opener scope refused it, as it refused
+  About's links. The https scope opens it now (its `issues/new?…` address is
+  in `src-tauri/tests/opener_scope.rs`), and a refusal there still says
+  nothing on the page.
+- **`THIRD-PARTY-NOTICES.md` is bundled** (`bundle.resources` in
+  `tauri.conf.json`) but About does not link it.
+- **actionlint has one finding in `release.yml`**, older than this change:
+  SC2035 (info) on `sha256sum *` in "Write SHA256SUMS". `sha256sum -- *`
+  answers it; `./*` would not do, because every line would then name
+  `./Versorium_…`, which the app's lookup by name would miss.
+
 ### Settings, regrouped: the checks no automation reaches, and what it left
 
 Built on 2026-10-04 (see "Settings, regrouped" in `STATUS.md`; the spec is

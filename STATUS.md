@@ -1917,6 +1917,299 @@ outside the gate (`settings-tasks`, `settings-nav`, `m3-mcp`, `m4-models`,
 `m2-rewrite`, `m7-polish`): 91 of 92 pass; the one that fails is "every page
 is reachable with Tab", for the reason in `TODO.md`.
 
+## Settings › About, and platform names on release assets (2026-10-04, on `feat/landing-and-docs`)
+
+The content of v0.1.1, as the owner asked for it on 2026-10-04. The version
+is not bumped and nothing was tagged or published: the owner's release step
+does both.
+
+**About / Acerca de.** A new page in Settings' footer, after Application:
+- **Versorium**, its tagline, and the installed version as the running app
+  reports it (`app_info`, Cargo's version, which the top bar already showed),
+  not the updater's record of it. In the browser preview, which has no app, a
+  dash.
+- **Made by** Miguel Angel Esparza Calero (→ `https://www.maecly.com/about`),
+  **Website** `www.maecly.com`, **Source code** `github.com/MAECLY/versorium-app`.
+- **License**: open source under the GNU AGPL-3.0, with "Read the license on
+  GitHub" (`…/blob/main/LICENSE`); contributions under the CLA, with "Read the
+  CLA on GitHub" (`…/blob/main/CLA.md`). Both files are on `main`.
+- **Where updates come from**: only the releases of that repository, each
+  checked against Versorium's signing key and against the published checksums
+  before it is installed (what `src-tauri/src/update/mod.rs` does); "See the
+  releases on GitHub"; and "Check for updates in Application ›", which goes to
+  Application with focus on Check now (a new target, `{ page: "app", focus:
+  "updates" }`). The updater is not duplicated. This section is shown in the
+  desktop app only, as the updater is.
+
+Names and addresses are data (`src/lib/about.ts`); a unit test holds
+`REPOSITORY` to the updater's compiled-in `UPDATE_OWNER`/`UPDATE_REPO`. The
+words are 17 new keys per language (925 each, 908 before).
+
+**The first links that leave the app.** `src/` had no `<a href>` until now.
+`ExternalLink.svelte` is one: it opens through `openExternal`
+(`src/lib/external.ts`), which hands an https address to the opener plugin
+(`openUrl`; as first built, the capability granted `open-url` with no scope,
+which the plugin reads as "open nothing": see "After review" below),
+opens a tab with `noopener,noreferrer` in the browser preview, and refuses
+any other scheme before either. Every way a webview follows a link by itself
+is cancelled: a click (with Ctrl, ⌘ or Shift, and Enter, included), the middle
+button (which opens the browser instead) and a drag. A link's name is its
+words and then a hidden "(opens in your browser)"; the author's name says
+"(opens www.maecly.com/about in your browser)". No icon: the redesign allows
+only `›`, `▸`/`▾` and `←`. When the opener refuses, the link's own section
+says "Your browser could not be opened. The address is:" with the address,
+selectable, and the next link that opens takes the line away. Two app-wide
+rules had to learn about links:
+- the focus ring (`styles.css`) covered inputs, selects, textareas and
+  buttons; it covers `a[href]` too;
+- the right-click policy counts `a[href]` as a control (`NOT_TEXT` in
+  `src/lib/contextmenu/policy.ts`), so a right-click on a selected link never
+  gets the engine's menu, whose Open Link would load the page in Versorium's
+  own window.
+
+**Release asset names.** Each build in `.github/workflows/release.yml` now
+has an `assetPattern`, which the tag build passes to tauri-action as
+`releaseAssetNamePattern`: `[name]_[version]_apple_silicon[ext]`,
+`…_apple_intel[ext]`, `…_windows_x64[ext]` and `…_linux_ubuntu_amd64[ext]`
+(quoted: an unquoted `[name]…` is a YAML list). What tauri-action does with
+them was read in its source at `action-v1.0.0` (commit `1deb371`), not
+assumed:
+- `src/utils.ts` `renderNamePattern` replaces `[key]` with the artifact's
+  field of that name: `[name]` is `productName`, `[version]` is
+  `tauri.conf.json`'s version.
+- `[ext]` is the first entry of the action's extension list that the file name
+  contains, so `.app.tar.gz.sig`, `.msi.sig` and `.exe.sig` stay whole, while
+  the `-setup` and `_en-US` of tauri's own names drop out. The `.app`
+  directory is never uploaded (`src/index.ts`).
+- With a pattern, every file takes it except `latest.json`. GitHub keeps
+  these names as given, so name and label agree.
+- `src/upload-version-json.ts` pairs each `.sig` with the file named like it
+  less `.sig`, and takes the platform keys from the target, not from the name.
+- A clash between builds is silent: `src/upload-release-assets.ts` deletes an
+  asset of the same name before it uploads. Within one build GitHub refuses
+  the second file and the job fails.
+
+The sixteen files are
+`Versorium_<version>_apple_silicon.{dmg,app.tar.gz,app.tar.gz.sig}`, the same
+for `apple_intel`, `…_windows_x64.{exe,exe.sig,msi,msi.sig}` and
+`…_linux_ubuntu_amd64.{deb,deb.sig,rpm,rpm.sig,AppImage,AppImage.sig}`, and
+`latest.json`'s eleven keys point at the `.app.tar.gz` (both darwin keys and
+their `-app`), the `.msi` (`windows-x86_64` and `-msi`), the `.exe` (`-nsis`),
+the `.AppImage` (`linux-x86_64` and `-appimage`), the `.deb` and the `.rpm`.
+`finalise` matches `latest.json` against the release's own listing by id or
+by name, so its logic did not change; its comment says so. The app reads an
+update by asset id and its checksum line by that asset's name, so neither
+cares about the scheme. `actionlint` on the workflow reports one finding,
+SC2035 (info) on `sha256sum *`, which it reports on the file before this
+change too. `RELEASING.md` §5 and §7 list the names, the `latest.json` keys,
+v0.1.0's older names, the landing's links that name files, and what makes two
+names clash.
+
+**Where the redesign spec was overridden or stale.** The spec
+(`~/Documents/Github/.versorium-design/versorium-settings-redesign/SPEC.md`,
+outside the repo, so not edited) fixes the rail at ten pages and says new
+features never add rail items (§0.1, §2.1). About is the owner's explicit
+request and sits in the footer, outside the categories, with Application,
+the other page about Versorium itself: the rail is eleven pages. The rule for
+features is unchanged. §2.3 estimated the rail at 537 px and checked it only
+at 1280×800. Measured in Chrome, it is 584 px with eleven pages (about 553 px
+with ten, from the same measurements). The shortest window
+(`tauri.conf.json`'s 1024×640) leaves it 560 px under the two bars, so the
+rail scrolled there and cut "← Back to the manuscript" in half. Below 680 px
+of window height the rail's rhythm is now a little tighter: the labels' top
+margin goes from 14 to 10 px, the gaps between pages from 2 to 1 px, the
+rule's margins from 10 to 8 px and the Back button's from 14 to 10 px. It fits
+then (about 555 px). Taller windows keep the spec's spacing. §6.1 had no focus
+target on Application; it has one now. §3's glyph list never considered a
+link that leaves the app, so those links carry no glyph and say it in their
+accessible name. §8 relied on a focus ring that did not cover links. §10.3's
+"Application in the footer" is "Application, then About".
+
+**Tests.** Vitest: `release-assets.test.ts` (new, 11 tests: a port of
+tauri-action's naming, extension, signature-pairing and priority rules,
+checked first against the published v0.1.0, whose sixteen names and
+`latest.json` it reproduces exactly; then the patterns as the workflow
+writes them, all sixteen new names, no clash with each other or with
+`latest.json` and `SHA256SUMS`, the `latest.json` keys, a pre-release
+version, one WiX language, the pinned action version, and the `finalise`
+Python itself, run with `python3` on new-name inputs: API URLs accepted,
+browser URLs rewritten to API ids, an old name or a foreign id refused with
+`::error::`), `about-group.render.test.ts` (new, 9), `external.test.ts`
+(new, 4), `settings-pages.test.ts` (the footer and the new target),
+`settings-keys.test.ts` (scans `ExternalLink.svelte` too) and
+`policy.test.ts` (a selected link is not text). Playwright:
+`settings-about.spec.ts` (new, 8 tests: the page in English and Spanish, the
+version the mock's `app_info` reports, `0.1.0-mock`, which the updater's
+`0.1.0` is not; every link's address and accessible name; every link, the
+middle button, ⌘/Ctrl and Shift through `plugin:opener|open_url` with the
+window still on Versorium and no second page; the Tab order, the focus ring
+and Enter; landing on Check now; the failure line; and a right-click on a
+selected link) and `settings-nav.spec.ts` (eleven pages, End reaches About,
+the Spanish rail, the whole rail inside the shortest window, and About's
+muted words, links and failure line at AA in all six themes).
+
+**Each mechanism broken once.** Two scratch scripts, logs beside them:
+- `tests/scratch/about-release/mutate-release.mjs` mutates copies of
+  `release.yml` and `tauri.conf.json`, never the tree. All 11 mutations were
+  caught: the input removed, Intel given Apple silicon's pattern, a pattern
+  unquoted, one without `[ext]`, Windows keeping `[setup]`, the action bumped
+  past the version the port was read from, `finalise` no longer rewriting by
+  name, no longer refusing a missing name, or no longer checking an id, two
+  WiX languages, and the v1 updater archives.
+- `tests/scratch/about-release/mutate-about.py` mutates in place and restores
+  each file byte for byte. Of its first 25 mutations, 24 were caught the
+  first time; the 26th, added with the short-window rhythm, was caught when
+  it was added. They are: a click not cancelled; nothing opened; the middle
+  button ignored; the right button's release opening the link; the hidden
+  name gone; the place never named; a draggable link; any scheme opened; a
+  new tab that keeps its opener; the updater's version shown instead of the
+  app's; a failure swallowed or never cleared; the shortcut landing on
+  Application's title; Check now unmarked; `focusKey` ignoring Application;
+  About missing from the rail or showing Application's page; no focus ring on
+  links; links as text to the right-click policy; a changed address; a
+  repository that no longer matches the updater's; Spanish names in English;
+  the updates section or the `app_info` call outside the app; the Spanish page
+  name missing; and the short-window rhythm gone (584 px in 560).
+- The one that was not, a link opening on the right button's release, got
+  past a unit test that looked one microtask after the release, while the
+  opener waits on a dynamic import. That test now waits for a later middle
+  press to land first, and the E2E right-click test checks that the opener
+  heard nothing. Both catch it now (`mutate-about-rerun.log`, with the middle
+  button and the policy mutations run again against the stronger tests).
+
+**Measured.** `make verify` on the finished tree exits 0:
+- svelte-check: 0 errors and 0 warnings over 424 files (420 before);
+- locale parity: 925 keys per language (908);
+- vitest: 45 files, 362 tests (42 and 336);
+- `cargo test`: 641 unit and 4 integration, 16 ignored (Rust is unchanged);
+- clippy `--all-targets -D warnings`: clean;
+- Playwright: 309 passed (300).
+
+The baseline run before the build had 299 Playwright tests passing and one
+(`notices.spec.ts`, "a notice never sits on the line being written") failing
+with "Test timeout of 30000ms exceeded while setting up "page"", which is not
+the test's own code. It passed in the final run. The new test files also
+type-check under a scratch `tsconfig` (`tests/scratch/about-release/`); the
+project's own `tsconfig` does not include `tests/`. The page was looked at in
+Chrome on `?mock=tauri&seed=1` (`tests/scratch/about-release/about-look.mjs`):
+English and Spanish, Folio light, Quarry dark and Needle light and dark, at
+1280×800 and 1024×640, with a link focused and with the failure line.
+
+**Not reached by automation**, listed in `TODO.md` ("Settings › About and the
+release names: the checks no automation reaches"): the links in WKWebView,
+WebView2 and WebKitGTK; screen readers on the links' names; and the first tag
+build with the new names, an update from v0.1.0 to v0.1.1 included.
+
+### After review (2026-10-04)
+
+**No link opened in the real app.** `opener:allow-open-url` "enables the
+open_url command without any pre-configured scope" (tauri-plugin-opener
+2.6.0), and the plugin's `open_url` opens only what its scope allows:
+`Scope::is_url_allowed` is `allowed.iter().any(..)`, false for an empty list.
+Nothing else in the capability or in `tauri.conf.json` gave it a scope. So
+every About link was refused with "Not allowed to open url …", and so was a
+crash report's Report button, which shipped like that in v0.1.0. Seen in the
+real window before the fix (`tauri dev` on this Mac, Ajustes › Acerca de, the
+repository link pressed through macOS accessibility): the page said "No se
+pudo abrir el navegador. La dirección es:
+https://github.com/MAECLY/versorium-app" and Chrome got no tab
+(`tests/scratch/about-release/real-app-before.log`). The capability now
+grants the command with an https scope, the rule `openExternal` already
+applies in the page:
+`{ "identifier": "opener:allow-open-url", "allow": [{ "url": "https://*" }] }`.
+`opener:default` was not taken: it also opens `http:`, `mailto:` and `tel:`.
+The build regenerated `src-tauri/gen/schemas/capabilities.json`. After the
+fix the same press opened the repository in Chrome. Chrome's history has the
+visit at 16:46:27, its selected tab is `github.com/MAECLY/versorium-app`, and
+the page shows no failure line (`real-app-after.log`). In that window, with
+macOS keyboard navigation off, Tab went from About's title through the six
+links in page order, then to "Busca actualizaciones en Aplicación ›" and the
+status bar's "EN"; Option-Tab went to the page itself and stayed there
+(`real-app-tab.log`).
+
+**Why no test saw it.** The in-browser mock answered every `plugin:*`
+command, and the tests checked that `plugin:opener|open_url` was called, not
+that anything opened. Two layers now hold the capability:
+- `src-tauri/tests/opener_scope.rs` (new, 3 tests) builds the app's own
+  context (`generate_context!(test = true)`: the capabilities resolved
+  against the plugins' ACL manifests, as the shipped binary is built) on
+  Tauri's mock runtime and asks `plugin:opener|open_url` from the main window,
+  through Tauri's IPC authorisation and scope lookup. A stand-in plugin named
+  `opener` does what the real command does short of opening anything: the
+  command and global scopes, a deny before any allow, the same glob type, and
+  the same words for a refusal. About's six addresses and a crash report's
+  `issues/new?…` are allowed. `http`, `file`, `mailto`, `tel`, `javascript`,
+  `data`, `ftp`, `smb`, `x-apple.systempreferences` and a named program are
+  refused. The real plugin, under the same context, refuses in the same
+  words. It is asked only what would start nothing if it were wrongly let
+  through: a file and a program that do not exist.
+- The mock's opener (`tests/e2e/opener-acl.ts`, used by `mock-tauri.ts`)
+  resolves `src-tauri/capabilities/*.json` against
+  `src-tauri/gen/schemas/acl-manifests.json` the way tauri-utils does. That
+  covers permissions, sets and `default`; inline and permission scopes; the
+  plugin's global scope; the window; a denial from any capability; and
+  `tauri.conf.json`'s list of capabilities. It then checks the address the
+  way the plugin does. A refused address never reaches
+  `__VERSORIUM_MOCK__.browser`, which the About tests read now instead of
+  the IPC call. `tests/unit/opener-acl.test.ts` (new, 9 tests) pins each rule
+  and the shipped capability.
+
+The Rust test's first version had a defect, which its own mutation run
+found. `#[tauri::command]` names a command's plugin after its crate
+(`tauri-plugin-*`), so in this crate the stand-in's `GlobalScope` read the
+app's global scope, not the opener's. Under `opener:default` it refused https,
+which the plugin allows. It also let the real plugin be asked
+`http://www.maecly.com`, which Chrome opened twice (16:57:59 in the mutation
+run, 17:04:22 reproducing it). The stand-in now reads the plugin's global
+scope (`OpenerGlobalScope`), and the real plugin is only asked addresses
+that start nothing.
+
+**The other findings.** The failure line is now tested for each of the six
+links, in that link's own section (unit, and E2E in English and Spanish).
+Before, only License's was tested. The three section titles are checked as
+level-3 headings under the page's level-2 title, in both languages. When
+`app_info` refuses, the version shows "—" and the refusal is handled; vitest
+fails a run on an unhandled rejection. `releaseAssetNamePattern` is checked as
+an input directly under the step's `with:`, not in an `env:` block or in
+another input's text. Recorded in `TODO.md` and not changed:
+- `finalise` does not check that all four platforms are in `latest.json`;
+- "ubuntu" is on the AppImage too, not just the rpm;
+- an About address cannot be copied unless the browser fails first;
+- the tests of this build are untracked until the feature's commit.
+
+**Each mechanism broken once.** `tests/scratch/about-release/mutate-opener.py`
+caught 17 of 17 (`mutate-opener.log`):
+- the capability with no scope, with the plugin's default set, or without
+  the command;
+- the mock's opener ignoring the scope, or never reaching the browser;
+- the resolver dropping the global scope, a deny, the window check, an
+  inline scope or the program, counting a denial for its window only, or
+  granting regardless;
+- the releases link's or the card's failure line removed;
+- License's or the updates title not a heading;
+- `app_info`'s refusal unhandled.
+
+Run again against the final Rust test, the no-scope and no-command
+capabilities are caught, and the default set fails at the stand-in, not at
+the plugin (`mutate-opener-r2.log`). `mutate-release.mjs` has two more
+mutations: the pattern in an `env:` block, and the pattern only in the
+release body's text. It caught 13 of 13 (`mutate-release-r2.log`).
+
+**Measured.** `make verify` exits 0 (2 min 1 s):
+- svelte-check: 0 errors and 0 warnings over 426 files;
+- locale parity: 925 keys per language;
+- vitest: 46 files, 372 tests;
+- `cargo test`: 643 unit, 4 `mcp_stdio` and 3 `opener_scope`, 16 ignored.
+  The 2 new unit tests are ae509c6's (Codex), committed meanwhile by another
+  session;
+- clippy `--all-targets -D warnings`: clean;
+- Playwright: 311 passed.
+
+The run before it failed one Playwright test of 311, `chrome.spec.ts` "a
+chapter made with the peek's + opens", in setup: "browser.newContext:
+Target page, context or browser has been closed". It passed alone (29 of 29
+in that file) and in the run above.
+
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 
 ### Backup
