@@ -378,7 +378,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          release_id=$(gh api "repos/$REPO/releases/tags/$GITHUB_REF_NAME" --jq '.id')
+          # releases/tags/<tag> answers 404 for a draft, and this release is
+          # one until a person publishes it; the listing includes drafts.
+          release_id=$(gh api --paginate "repos/$REPO/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id" | head -n1)
+          test -n "$release_id" || { echo "::error::no release for $GITHUB_REF_NAME"; exit 1; }
           gh api --paginate "repos/$REPO/releases/$release_id/assets" > release-assets.json
           python3 - <<'REWRITE'
           import json, os, sys, urllib.parse
