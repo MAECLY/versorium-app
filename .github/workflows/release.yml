@@ -83,6 +83,11 @@ jobs:
             name: Windows
     runs-on: ${{ matrix.platform }}
     env:
+      # llama.cpp uses std::filesystem, which macOS has from 10.15. The Intel
+      # build's default deployment target is older and the C++ compile fails
+      # ("'path' is unavailable: introduced in macOS 10.15"); the same floor is
+      # declared to the bundle in tauri.conf.json. Ignored off macOS.
+      MACOSX_DEPLOYMENT_TARGET: "10.15"
       # The default x86_64 Rust target advertises no CPU features, so an x64 build
       # otherwise ships SSE2-baseline kernels and a modern machine runs local
       # inference far slower than its hardware allows. build.rs reads target-cpu
