@@ -403,6 +403,16 @@ jobs:
                   print(f"::error::latest.json names {name} for {target}, which is not an asset of this release")
               sys.exit(1)
 
+          # Each build merges its entries into latest.json and uploads it
+          # again, so two builds that finish together can drop one platform,
+          # and an updater on it would never hear of the release.
+          required = ["darwin-aarch64", "darwin-x86_64", "windows-x86_64", "linux-x86_64"]
+          absent = [k for k in required if k not in manifest.get("platforms", {})]
+          if absent:
+              for key in absent:
+                  print(f"::error::latest.json has no {key} entry; re-run the build for that platform")
+              sys.exit(1)
+
           with open("latest.json", "w") as f:
               json.dump(manifest, f, indent=2)
           print(json.dumps(manifest, indent=2))

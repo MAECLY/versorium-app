@@ -489,9 +489,17 @@ describe("finalise, with the new names", () => {
   const idOf = (name: string) => listing().find((asset) => asset.name === name)?.id;
   const silicon = `Versorium_${VERSION}_apple_silicon.app.tar.gz`;
   const nsis = `Versorium_${VERSION}_windows_x64.exe`;
+  /** The four entries an updater on each platform reads, as tauri-action writes them; a test overrides some. */
+  const complete = (over: Record<string, string>) => ({
+    "darwin-aarch64": `${API}${idOf(silicon)}`,
+    "darwin-x86_64": `${API}${idOf(`Versorium_${VERSION}_apple_intel.app.tar.gz`)}`,
+    "windows-x86_64": `${API}${idOf(`Versorium_${VERSION}_windows_x64.msi`)}`,
+    "linux-x86_64": `${API}${idOf(`Versorium_${VERSION}_linux_amd64.AppImage`)}`,
+    ...over,
+  });
 
   it("accepts the API URLs tauri-action writes, when they are assets of this release", () => {
-    const result = rewrite({ "darwin-aarch64": `${API}${idOf(silicon)}`, "windows-x86_64-nsis": `${API}${idOf(nsis)}` });
+    const result = rewrite(complete({ "windows-x86_64-nsis": `${API}${idOf(nsis)}` }));
     expect(result.status, result.stdout + result.stderr).toBe(0);
     expect(result.written?.["darwin-aarch64"].url).toBe(`${API}${idOf(silicon)}`);
     expect(result.written?.["windows-x86_64-nsis"].url).toBe(`${API}${idOf(nsis)}`);
@@ -499,7 +507,7 @@ describe("finalise, with the new names", () => {
 
   it("rewrites a browser URL to the API one, by the asset's new name", () => {
     const browser = `https://github.com/${REPO}/releases/download/v${VERSION}/`;
-    const result = rewrite({ "darwin-aarch64": `${browser}${silicon}`, "windows-x86_64-nsis": `${browser}${nsis}` });
+    const result = rewrite(complete({ "darwin-aarch64": `${browser}${silicon}`, "windows-x86_64-nsis": `${browser}${nsis}` }));
     expect(result.status, result.stdout + result.stderr).toBe(0);
     expect(result.written?.["darwin-aarch64"].url).toBe(`${API}${idOf(silicon)}`);
     expect(result.written?.["windows-x86_64-nsis"].url).toBe(`${API}${idOf(nsis)}`);
@@ -513,5 +521,16 @@ describe("finalise, with the new names", () => {
     const byId = rewrite({ "darwin-aarch64": `${API}1` });
     expect(byId.status).toBe(1);
     expect(byId.stdout).toContain("::error::latest.json names 1 for darwin-aarch64");
+  });
+
+  it("refuses a latest.json that lost a platform, so its updaters are not left behind", () => {
+    const all = complete({});
+    expect(rewrite(all).status).toBe(0);
+    for (const key of Object.keys(all)) {
+      const rest = Object.fromEntries(Object.entries(all).filter(([k]) => k !== key));
+      const result = rewrite(rest);
+      expect(result.status, key).toBe(1);
+      expect(result.stdout).toContain(`::error::latest.json has no ${key} entry`);
+    }
   });
 });

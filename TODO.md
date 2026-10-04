@@ -182,14 +182,7 @@ Neither is a real webview or a real release:
 ### Found while building About and the release names, not part of them
 
 - ~~The Linux files said `ubuntu`~~: the owner chose `…_linux_amd64[ext]` (2026-10-04), which fits the `.rpm` and the AppImage too.
-- **`finalise` does not check that every platform is in `latest.json`.**
-  Older than this change: each build merges its entries into the release's
-  `latest.json` and uploads it again (tauri-action's
-  `upload-version-json.ts`), so two builds finishing together can drop one
-  platform's keys. `finalise` checks that each URL present is an asset of
-  this release, not that `darwin-aarch64`, `darwin-x86_64`, `windows-x86_64`
-  and `linux-x86_64` are all there; only `RELEASING.md` step 2, by eye, would
-  see one missing. `finalise` should fail when any is.
+- ~~`finalise` did not check that every platform is in `latest.json`~~: it now fails when darwin-aarch64, darwin-x86_64, windows-x86_64 or linux-x86_64 is missing.
 - **The tests of this build are untracked**: `git status` shows
   `tests/unit/about-group.render.test.ts`, `external.test.ts`,
   `release-assets.test.ts`, `opener-acl.test.ts`, `settings-pages.test.ts`,
