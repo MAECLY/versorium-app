@@ -1,6 +1,6 @@
 # Versorium by MAECLY
 
-> Free and open-source desktop writing studio for novelists, for macOS, Windows and Linux. Local-first: each chapter is a plain Markdown file in a folder the writer owns, each novel is its own git repository, and AI is optional and chosen by the writer. Apache-2.0. No release has been published yet, and so far the app has only been run on macOS.
+> Free and open-source desktop writing studio for novelists, for macOS, Windows and Linux. Local-first: each chapter is a plain Markdown file in a folder the writer owns, each novel is its own git repository, and AI is optional and chosen by the writer. AGPL-3.0. No release has been published yet, and so far the app has only been run on macOS.
 
 ## Canonical pages
 
@@ -11,7 +11,7 @@
 - [Source code](https://github.com/MAECLY/versorium-app)
 - [Releases](https://github.com/MAECLY/versorium-app/releases/latest): installers will be published here; none has been built or published yet
 - [Issues](https://github.com/MAECLY/versorium-app/issues)
-- [Licence: Apache-2.0](https://github.com/MAECLY/versorium-app/blob/main/LICENSE)
+- [Licence: AGPL-3.0](https://github.com/MAECLY/versorium-app/blob/main/LICENSE)
 - [Trademark policy](https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md)
 
 ## What it does
@@ -68,4 +68,4 @@ What the release workflow will build for the first release. It has never run, so
 
 MAECLY. Created by Miguel Esparza (https://www.maecly.com/). Contact: hola@maecly.com.
 
-Versorium, the lowercase wordmark and the mark (a written V with a fountain-pen nib) are trademarks of MAECLY; the Apache-2.0 licence grants no right to use them, and forks must change them before distributing.
+Versorium, the lowercase wordmark and the mark (a written V with a fountain-pen nib) are trademarks of MAECLY; the AGPL-3.0 licence grants no right to use them, and forks must change them before distributing.

@@ -10,7 +10,7 @@ Product facts: https://versorium.maecly.com/llms.txt
 Repository: https://github.com/MAECLY/versorium-app
 Releases: https://github.com/MAECLY/versorium-app/releases/latest
 Issues: https://github.com/MAECLY/versorium-app/issues
-Licence: Apache-2.0
+Licence: AGPL-3.0 (open source; contributions under CLA.md)
 Contact: hola@maecly.com
 
 Summary: Free and open-source desktop writing studio for novelists, made for macOS, Windows and Linux; no release has been published yet, and so far it has only been run on macOS. Each chapter is a plain Markdown file in a folder the writer owns, each novel is a git repository with automatic snapshots and a per-keystroke operations log, and AI is optional: a model run inside the app with llama.cpp, Ollama, or the writer's own command-line tools (Claude Code, Codex, OpenCode). No account and no telemetry.

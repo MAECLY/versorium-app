@@ -1,6 +1,6 @@
 # Third-party notices
 
-Versorium is licensed under Apache-2.0 (see `LICENSE`). It links third-party
+Versorium is licensed under the GNU Affero General Public License v3.0 (see `LICENSE`; it was Apache-2.0 until 2026-10-04). It links third-party
 code into its binary and its webview, and several of those licences require
 their notices to travel with the program. This file ships inside the
 application bundle (`bundle.resources` in `src-tauri/tauri.conf.json`), not
@@ -123,9 +123,8 @@ links OpenSSL on macOS as well as on Linux:
 
   OpenSSL — Apache License 2.0. Copyright (c) 1998-2025 The OpenSSL Project
   Authors; Copyright (c) 1995-1998 Eric A. Young, Tim J. Hudson. All rights
-  reserved. The full licence text is the Apache License 2.0 in `LICENSE` at
-  the root of this repository (the same text Versorium is published under);
-  OpenSSL's own copy is at https://www.openssl.org/source/license.html.
+  reserved. The full licence text is in `LICENSES/Apache-2.0.txt`; OpenSSL's
+  own copy is at https://www.openssl.org/source/license.html.
 
 ### Zstandard
 

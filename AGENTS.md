@@ -214,7 +214,7 @@ move; re-run rather than quote them.
 | `THIRD-PARTY-NOTICES.md` | Licences of bundled dependencies. A new dependency updates it |
 | `FORMATS.md` | What each import/export format keeps and loses |
 | `RELEASING.md` | The release procedure and the signing key |
-| `TRADEMARKS.md`, `LICENSE` | Name and mark use; Apache-2.0 |
+| `TRADEMARKS.md`, `LICENSE`, `CLA.md`, `CONTRIBUTING.md` | Name and mark use; AGPL-3.0 (since 2026-10-04, was Apache-2.0); contributions need the CLA |
 | `AGENT-BOOTSTRAP.md` | The original prompt that built M0–M7. Kept for history. Do not follow it: it tells an agent to build the app from scratch without asking questions. |
 
 ## State of things outside the code

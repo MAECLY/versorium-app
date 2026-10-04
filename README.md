@@ -12,8 +12,12 @@ Project site: **https://versorium.maecly.com**
 
 - Repository: `github.com/MAECLY/versorium-app`
 - App id: `dev.versorium.app` · version `0.1.0` · macOS bundle `Versorium.app`
-- License: [Apache-2.0](LICENSE) · Marks: [TRADEMARKS.md](TRADEMARKS.md) ·
-  Bundled third-party licences: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+- License: [AGPL-3.0](LICENSE) · Contributions: [CLA.md](CLA.md), [CONTRIBUTING.md](CONTRIBUTING.md) ·
+  Marks: [TRADEMARKS.md](TRADEMARKS.md) · Bundled third-party licences:
+  [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+- Copyright © 2026 Miguel Angel Esparza Calero (MAECLY). Open source under the
+  GNU Affero General Public License v3.0; the owner also offers it under other
+  terms (write to hola@maecly.com for a commercial licence).
 
 ## Status
 

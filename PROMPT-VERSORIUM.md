@@ -17,6 +17,9 @@ Repo canónico de la app: **`github.com/maecly/versorium-app`** (org **maecly**,
 Eso es el código de Versorium, no el repo de las novelas del usuario.  
 Copyright y marca: fundador / maecly.  
 Licencia de código: Apache-2.0 (lista para cuando se haga público; en privado el código es de maecly).  
+
+> **Enmienda (2026-10-04).** El fundador cambió la licencia a **GNU AGPL-3.0** con un **CLA** para las contribuciones (`CLA.md`), en lugar de Apache-2.0: sigue siendo código abierto, el fundador conserva el copyright y la marca, y puede ofrecer el código con otros términos (licencias comerciales, versiones de pago) gracias al CLA. El texto original de esta especificación no se ha cambiado.
+
 Marca: `TRADEMARKS.md` — forks deben cambiar nombre y logo.
 
 Si una decisión no está aquí, elige la opción más simple, local-first y reversible. No inventes SaaS, cuentas obligatorias ni markup de tokens.
