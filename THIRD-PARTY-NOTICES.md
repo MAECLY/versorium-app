@@ -380,3 +380,19 @@ Details. As recorded in `models/catalog.json`:
 
 A licence is the writer's to accept, so Versorium shows it rather than
 accepting it on their behalf.
+
+---
+
+## Website (`docs/`)
+
+The landing page at versorium.maecly.com is not part of the app. It ships one
+font of its own:
+
+- **Aguja Display** (`docs/assets/fonts/aguja-display-400.woff2`): a modified
+  version of Source Serif 4 by Adobe — one weight (400) at optical size 60,
+  subset to Latin and renamed, as the SIL Open Font License 1.1 requires of a
+  modified version. Built reproducibly by `tests/landing/fonts.py`. The
+  copyright line, the modification notice and the full licence text are in
+  `docs/assets/fonts/OFL.txt`, which is served beside the font.
+
+The page loads nothing from any other server.

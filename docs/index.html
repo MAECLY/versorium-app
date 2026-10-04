@@ -1,489 +1,325 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
-  <title>Versorium · Estudio de novela libre y de código abierto, en tu ordenador | MAECLY</title>
-  <meta name="description" content="Versorium, estudio de novela para tu ordenador: capítulos en Markdown en una carpeta tuya, historial en git y la IA que elijas, o ninguna. Gratis y libre.">
-  <meta name="author" content="Miguel Esparza · MAECLY">
-  <meta name="robots" content="index,follow,max-image-preview:large">
-  <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#e4ebe9" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0f1615" media="(prefers-color-scheme: dark)">
-  <link rel="canonical" href="https://versorium.maecly.com/">
-  <link rel="alternate" hreflang="es" href="https://versorium.maecly.com/">
-  <link rel="alternate" hreflang="en" href="https://versorium.maecly.com/en/">
-  <link rel="alternate" hreflang="x-default" href="https://versorium.maecly.com/">
-  <link rel="manifest" href="site.webmanifest">
-  <link rel="icon" href="assets/icon-32.png" type="image/png" sizes="32x32">
-  <link rel="icon" href="assets/icon-16.png" type="image/png" sizes="16x16">
-  <link rel="apple-touch-icon" href="assets/icon-256.png">
-  <link rel="stylesheet" href="assets/site.css">
-  <script src="assets/theme.js"></script>
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="MAECLY">
-  <meta property="og:locale" content="es_ES">
-  <meta property="og:locale:alternate" content="en_GB">
-  <meta property="og:title" content="Versorium · Estudio de novela libre y de código abierto, en tu ordenador">
-  <meta property="og:description" content="Estudio de novela libre y de código abierto para macOS, Windows y Linux: tus capítulos en Markdown, tu historial en git y la IA que elijas, o ninguna. Aún sin versión publicada.">
-  <meta property="og:url" content="https://versorium.maecly.com/">
-  <meta property="og:image" content="https://versorium.maecly.com/assets/og.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Versorium: el editor con un capítulo abierto y, a la izquierda, el archivador de la novela.">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Versorium · Estudio de novela libre y de código abierto, en tu ordenador">
-  <meta name="twitter:description" content="Tus capítulos en Markdown, tu historial en git y la IA que elijas, o ninguna. Libre, gratis y en tu ordenador.">
-  <meta name="twitter:image" content="https://versorium.maecly.com/assets/og.png">
-  <meta name="twitter:image:alt" content="Versorium: el editor con un capítulo abierto y, a la izquierda, el archivador de la novela.">
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@graph": [
-        {"@type":"WebSite","@id":"https://versorium.maecly.com/#website","url":"https://versorium.maecly.com/","name":"Versorium · MAECLY","inLanguage":["es","en"]},
-        {"@type":"Person","@id":"https://www.maecly.com/#miguel","name":"Miguel Esparza","url":"https://www.maecly.com/","email":"mailto:hola@maecly.com","jobTitle":"Full-Stack Developer & Content Creator"},
-        {"@type":"SoftwareApplication","@id":"https://versorium.maecly.com/#software","name":"Versorium","description":"Estudio de escritorio para novelistas que trabaja en tu ordenador: cada capítulo es un archivo Markdown en una carpeta tuya, cada novela es un repositorio git y la IA es opcional y la elige quien escribe.","url":"https://versorium.maecly.com/","sameAs":["https://github.com/MAECLY/versorium-app"],"downloadUrl":"https://github.com/MAECLY/versorium-app/releases/latest","applicationCategory":"BusinessApplication","applicationSubCategory":"Writing","operatingSystem":"macOS, Windows, Linux","isAccessibleForFree":true,"license":"https://www.apache.org/licenses/LICENSE-2.0","author":{"@id":"https://www.maecly.com/#miguel"},"inLanguage":["es","en"],"image":"https://versorium.maecly.com/assets/og.png","screenshot":"https://versorium.maecly.com/assets/shots/es/editor-needle-light.webp","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
-        {"@type":"FAQPage","@id":"https://versorium.maecly.com/#faq","mainEntity":[
-          {"@type":"Question","name":"¿Mi novela sale de mi ordenador?","acceptedAnswer":{"@type":"Answer","text":"No, salvo para lo que tú pidas. La novela es una carpeta en tu disco y Versorium no lleva analítica ni telemetría. Por su cuenta, la app solo hace una cosa por la red: al abrirse busca actualizaciones en GitHub, sin nada de tu novela, y puedes desactivarlo en Ajustes → Aplicación. Todo lo demás ocurre cuando lo pides: descargar un modelo de Hugging Face, enviar la novela a GitHub o traerla, o reescribir con Claude Code, Codex u OpenCode, que mandan el pasaje a su propio servicio; por eso el diálogo de Reescribir marca cada proveedor como Local o CLI. Si eliges como destino de un respaldo una carpeta sincronizada, como iCloud Drive o Dropbox, la app te indica que esa copia sale del equipo. Los informes de fallo se guardan en tu equipo, sin prosa, y solo salen si pulsas Informar."}},
-          {"@type":"Question","name":"¿Necesito una cuenta?","acceptedAnswer":{"@type":"Answer","text":"No. No hay registro ni cuenta de Versorium, y la app busca actualizaciones sin pedirte nada. Un token de GitHub solo hace falta si decides enviar la novela a un repositorio de GitHub y traerla de vuelta; para las actualizaciones es opcional. Se guarda en el almacén de credenciales del sistema, nunca en un archivo."}},
-          {"@type":"Question","name":"¿Tengo que instalar git?","acceptedAnswer":{"@type":"Answer","text":"No. Versorium lleva git dentro (libgit2): cada novela es un repositorio desde que la creas, sin instalar nada. Si ya usas git, puedes abrir la carpeta con tus herramientas de siempre."}},
-          {"@type":"Question","name":"¿Qué IA usa?","acceptedAnswer":{"@type":"Answer","text":"Ninguna, hasta que eliges una. Puedes descargar un modelo del catálogo para que corra dentro de la app con llama.cpp, usar Ollama o pasar el trabajo a Claude Code, Codex u OpenCode. Hoy la IA reescribe pasajes, enseñando antes la diferencia, y revisa la continuidad a partir de los títulos de los capítulos y el códice. El chat, la búsqueda por significado y el dictado todavía no existen."}},
-          {"@type":"Question","name":"¿Qué quiere decir «libre y de código abierto» aquí?","acceptedAnswer":{"@type":"Answer","text":"Que el código se publica con licencia Apache-2.0: puedes usarlo, estudiarlo, cambiarlo y redistribuirlo, también con fines comerciales, conservando los avisos de la licencia. La app es gratis y no pide cuenta. El nombre y la marca de Versorium no entran en la licencia: un fork tiene que cambiarlos antes de distribuirse."}},
-          {"@type":"Question","name":"¿Puedo llevarme la novela a otro programa?","acceptedAnswer":{"@type":"Answer","text":"Sí. Los capítulos ya son archivos Markdown que abre cualquier editor, y la app exporta a Markdown, DOCX, EPUB 3, PDF y proyectos de Scrivener 3. Para empezar desde otro programa, importa Markdown, DOCX, EPUB y proyectos de Scrivener; DOCX, EPUB y Scrivener pierden las negritas, las cursivas y la división en escenas."}}
-        ]}
-      ]
-    }
-  </script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>Versorium · Programa gratis para escribir tu novela | MAECLY</title>
+<meta name="description" content="Escribe tu novela en tu ordenador: cada borrador queda guardado, sin cuenta y con la IA apagada hasta que la llames. Gratis y de código abierto.">
+<meta name="author" content="Miguel Esparza · MAECLY">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#e4ebe9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1615" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://versorium.maecly.com/">
+<link rel="alternate" hreflang="es" href="https://versorium.maecly.com/">
+<link rel="alternate" hreflang="en" href="https://versorium.maecly.com/en/">
+<link rel="alternate" hreflang="x-default" href="https://versorium.maecly.com/">
+<link rel="manifest" href="site.webmanifest">
+<link rel="icon" href="assets/icon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="assets/icon-16.png" type="image/png" sizes="16x16">
+<link rel="apple-touch-icon" href="assets/icon-256.png">
+<link rel="preload" href="assets/fonts/aguja-display-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/theme.js"></script>
+<script src="assets/motion.js" defer></script>
+<script src="assets/download.js" defer></script>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MAECLY">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:title" content="Versorium · Escribe tu novela. Cada borrador queda guardado.">
+<meta property="og:description" content="Si Versorium desaparece mañana, tu novela no: son archivos en tu ordenador, con cada borrador guardado. Gratis y de código abierto; aún sin versión publicada.">
+<meta property="og:url" content="https://versorium.maecly.com/">
+<meta property="og:image" content="https://versorium.maecly.com/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Versorium: «Escribe tu novela. Cada borrador queda guardado.» junto a la app, con el capítulo «La aguja» abierto.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="Versorium: «Escribe tu novela. Cada borrador queda guardado.» junto a la app, con el capítulo «La aguja» abierto.">
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@graph": [
+{"@type":"WebSite","@id":"https://versorium.maecly.com/#website","url":"https://versorium.maecly.com/","name":"Versorium · MAECLY","inLanguage":["es","en"]},
+{"@type":"Person","@id":"https://www.maecly.com/#miguel","name":"Miguel Esparza","url":"https://www.maecly.com/","email":"mailto:hola@maecly.com","jobTitle":"Full-Stack Developer & Content Creator"},
+{"@type":"SoftwareApplication","@id":"https://versorium.maecly.com/#software","name":"Versorium","description":"Programa de escritorio gratis y de código abierto para escribir novelas en tu ordenador: cada capítulo es un archivo de texto en una carpeta tuya, cada borrador queda guardado con instantáneas automáticas, y la IA es opcional y la elige quien escribe. Aún sin versión publicada; de momento solo se ha probado en macOS.","url":"https://versorium.maecly.com/","sameAs":["https://github.com/MAECLY/versorium-app"],"applicationCategory":"BusinessApplication","applicationSubCategory":"Writing","operatingSystem":"macOS, Windows, Linux","isAccessibleForFree":true,"license":"https://www.apache.org/licenses/LICENSE-2.0","author":{"@id":"https://www.maecly.com/#miguel"},"inLanguage":["es","en"],"image":"https://versorium.maecly.com/assets/og.png","screenshot":"https://versorium.maecly.com/assets/shots/es/corkboard-needle-light.webp","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
+{"@type":"FAQPage","@id":"https://versorium.maecly.com/#faq","mainEntity":[
+{"@type":"Question","name":"¿Mi novela sale de mi ordenador?","acceptedAnswer":{"@type":"Answer","text":"Solo si tú lo pides: al enviarla a GitHub, al reescribir con una herramienta externa o al respaldarla en una carpeta que se sincroniza. Por su cuenta, la app solo busca actualizaciones, sin nada de tu novela, y puedes desactivarlo. Sin telemetría."}},
+{"@type":"Question","name":"¿Necesito una cuenta o saber git?","acceptedAnswer":{"@type":"Answer","text":"Cuenta, no: no hay registro. Git, tampoco para escribir: Versorium hace las instantáneas por ti con el git que lleva dentro. Por ahora solo hace falta para volver a una antigua."}},
+{"@type":"Question","name":"¿Qué IA usa?","acceptedAnswer":{"@type":"Answer","text":"Ninguna hasta que elijas una: un modelo dentro de la propia app, Ollama, o Claude Code, Codex u OpenCode, que envían el pasaje a su propio servicio. Hoy la IA reescribe pasajes y revisa la continuidad."}},
+{"@type":"Question","name":"¿Puedo traer mi novela de Scrivener o Word?","acceptedAnswer":{"@type":"Answer","text":"Sí: importa Scrivener, DOCX, EPUB y Markdown, y te enseña una vista previa antes de crear nada. Desde DOCX, EPUB o Scrivener se pierden negritas, cursivas y escenas."}},
+{"@type":"Question","name":"¿Por qué es gratis?","acceptedAnswer":{"@type":"Answer","text":"Es código abierto (Apache-2.0) y lo hace una persona. No hay versión de pago ni anuncios, y la app no recoge datos."}}
+]}
+]
+}
+</script>
 </head>
 <body>
-  <a class="skip" href="#contenido">Saltar al contenido</a>
+<svg width="0" height="0" class="sr-hidden-defs" aria-hidden="true" focusable="false"><symbol id="nib-stroke" viewBox="0 0 200 12" preserveAspectRatio="none"><path pathLength="1" d="M3 8.5C38 5.2 74 9.6 112 6.8S170 5.1 197 7.4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol><symbol id="rule" viewBox="0 0 1200 8" preserveAspectRatio="none"><path pathLength="1" d="M0 4.5C220 3.2 420 5.6 640 4.1S1010 3.6 1188 4.4" fill="none" stroke-width="1.4"/></symbol><defs><path id="v-s" d="M23.6 21.0L25.2 26.0L26.8 31.0L28.4 36.0L30.1 41.1L31.9 46.2L33.7 51.3L35.5 56.5L38.3 61.3L41.1 66.1L44.0 71.0L46.9 75.9L49.9 80.8L51.7 80.0L49.9 74.5L48.2 69.1L46.5 63.8L44.8 58.4L43.2 53.2L40.7 48.3L38.3 43.5L35.9 38.7L33.6 33.9L31.3 29.2L29.0 24.5L26.8 19.8Z"/><path id="v-h" d="M52.5 81.4L55.4 76.4L58.1 71.3L60.8 66.2L63.5 61.1L66.0 55.9L68.5 50.7L71.0 45.4L73.4 40.1L75.7 34.7L77.9 29.3L80.1 23.9L82.2 18.4L80.2 17.6L78.0 23.0L75.7 28.4L73.3 33.7L70.9 38.9L68.4 44.2L65.9 49.3L63.2 54.5L60.5 59.5L57.8 64.6L54.9 69.6L52.0 74.5L49.1 79.4Z"/></defs></svg>
+<a class="skip" href="#contenido">Saltar al contenido</a>
 
-  <header class="topbar">
-    <div class="wrap topbar-inner">
-      <a class="brand" href="./">
-        <svg class="vmark" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="M23.6 21.0L25.2 26.0L26.8 31.0L28.4 36.0L30.1 41.1L31.9 46.2L33.7 51.3L35.5 56.5L38.3 61.3L41.1 66.1L44.0 71.0L46.9 75.9L49.9 80.8L51.7 80.0L49.9 74.5L48.2 69.1L46.5 63.8L44.8 58.4L43.2 53.2L40.7 48.3L38.3 43.5L35.9 38.7L33.6 33.9L31.3 29.2L29.0 24.5L26.8 19.8Z"/><path class="hair" d="M52.5 81.4L55.4 76.4L58.1 71.3L60.8 66.2L63.5 61.1L66.0 55.9L68.5 50.7L71.0 45.4L73.4 40.1L75.7 34.7L77.9 29.3L80.1 23.9L82.2 18.4L80.2 17.6L78.0 23.0L75.7 28.4L73.3 33.7L70.9 38.9L68.4 44.2L65.9 49.3L63.2 54.5L60.5 59.5L57.8 64.6L54.9 69.6L52.0 74.5L49.1 79.4Z"/></svg>
-        <span>versorium</span>
-      </a>
-      <nav class="topnav" aria-label="Secciones">
-        <a href="#distinto">Por qué</a>
-        <a href="#temas">Temas</a>
-        <a class="keep" href="#descargar">Descargar</a>
-        <a href="#preguntas">Preguntas</a>
-      </nav>
-      <a class="lang" href="en/" hreflang="en" lang="en">EN<span class="sr-only"> · Read this page in English</span></a>
-    </div>
-  </header>
+<header class="topbar">
+<div class="wrap topbar-inner">
+<a class="brand" href="./"><svg class="vmark is-drawn" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><mask id="vh-m1" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-shade" pathLength="1" stroke-width="11" stroke-linejoin="round" d="M24.1 17.6L25.2 20.4L27.1 25.2L29.1 30.1L31.0 35.0L33.0 39.9L35.1 44.9L37.2 49.8L39.4 54.9L41.5 59.8L43.8 64.9L46.1 70.0L48.4 75.2L50.8 80.4L52.1 83.1"/></mask><mask id="vh-m2" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-hair" pathLength="1" stroke-width="7" stroke-linejoin="round" d="M49.3 83.0L50.8 80.4L53.7 75.5L56.5 70.4L59.3 65.4L62.0 60.3L64.6 55.2L67.2 50.0L69.7 44.8L72.2 39.5L74.5 34.2L76.8 28.9L79.0 23.4L81.2 18.0L82.3 15.2"/></mask><use class="v-ink" href="#v-s" mask="url(#vh-m1)"/><use class="v-ink hair" href="#v-h" mask="url(#vh-m2)"/></svg><span>versorium</span></a>
+<a class="btn btn-primary btn-small header-cta" href="#descargar">Avísame</a>
+<nav class="topnav" aria-label="Secciones">
+<a href="#como">Cómo funciona</a>
+<a href="detalles/#limites">Límites</a>
+<a href="#preguntas">Preguntas</a>
+</nav>
+<a class="lang" href="en/" hreflang="en" lang="en">EN<span class="sr-only"> · Read this page in English</span></a>
+<div class="ribbon-well" aria-hidden="true"><div class="ribbon"></div></div>
+</div>
+</header>
 
-  <main id="contenido" tabindex="-1">
-    <section class="hero" aria-labelledby="titulo">
-      <div class="wrap">
-        <p class="eyebrow">El estudio de novela en tu ordenador</p>
-        <h1 id="titulo">Un escritorio tranquilo,<br> una aguja fina.</h1>
-        <p class="lead">Versorium es un estudio de escritura para novelistas que funciona en tu propio ordenador: cada capítulo es un archivo Markdown en una carpeta tuya, cada cambio queda en el historial y la IA es la que tú elijas, o ninguna.</p>
-        <div class="hero-meta">
-          <div class="actions">
-            <a class="btn btn-primary" href="#descargar">Descargar</a>
-            <a class="btn" href="https://github.com/MAECLY/versorium-app">Código fuente</a>
-          </div>
-          <ul class="facts">
-            <li>Gratis</li>
-            <li>Código abierto, Apache-2.0</li>
-            <li>Para macOS, Windows y Linux</li>
-            <li>En español e inglés</li>
-            <li>Sin cuenta</li>
-            <li class="unreleased">Aún sin versión publicada</li>
-          </ul>
-        </div>
+<main id="contenido" tabindex="-1">
+<section class="hero" aria-labelledby="titulo">
+<div class="wrap">
+<div class="hero-head">
+<a class="pill" href="detalles/#limites"><span class="pill-dot" aria-hidden="true"></span>Aún sin publicar · solo probada en macOS</a>
+<h1 id="titulo">Escribe tu novela.<br> Cada borrador queda <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>guardado</span>.</h1>
+</div>
+<div class="hero-body">
+<div class="hero-copy">
+<p class="sub">Una app para tu ordenador que funciona sin conexión. La IA está apagada hasta que la llames.</p>
+<div class="actions hero-cta">
+<a class="btn btn-primary" href="#descargar">Avísame cuando salga</a>
+<a class="btn" href="#como" data-desktop>Cómo funciona <span aria-hidden="true">↓</span></a>
+<button class="btn" type="button" data-share data-phone>Envíatelo al ordenador</button>
+</div>
+<p class="assure">Gratis · Sin cuenta · <a href="https://github.com/MAECLY/versorium-app">Código abierto</a></p>
+<div class="picker" id="theme-picker" role="group" aria-labelledby="pick-label">
+<span class="picker-label" id="pick-label">Pruébala en tus colores</span>
+<fieldset class="themes"><legend class="sr-only">Tema</legend>
+<label class="swatch-pill sw-folio"><input type="radio" name="theme" value="folio"><span class="sw-dot" aria-hidden="true"></span>Folio</label>
+<label class="swatch-pill sw-quarry"><input type="radio" name="theme" value="quarry"><span class="sw-dot" aria-hidden="true"></span>Quarry</label>
+<label class="swatch-pill sw-needle"><input type="radio" name="theme" value="needle"><span class="sw-dot" aria-hidden="true"></span>Needle</label>
+</fieldset>
+<fieldset class="modes" aria-labelledby="mode-l"><span class="modes-label" id="mode-l">Modo</span>
+<label class="mode-pill" title="Claro"><input type="radio" name="mode" value="light"><svg class="mode-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" fill="none" stroke="currentColor"/></svg><span class="sr-only">Claro</span></label>
+<label class="mode-pill" title="Oscuro"><input type="radio" name="mode" value="dark"><svg class="mode-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13.6 9.8A5.8 5.8 0 0 1 6.2 2.4a5.8 5.8 0 1 0 7.4 7.4Z" fill="none" stroke="currentColor"/></svg><span class="sr-only">Oscuro</span></label>
+<label class="mode-pill" title="Como el sistema"><input type="radio" name="mode" value="follow"><svg class="mode-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor"/><path d="M8 2.4a5.6 5.6 0 0 0 0 11.2Z" fill="currentColor"/></svg><span class="sr-only">Como el sistema</span></label>
+</fieldset>
+</div>
+<p class="aside no-picker">Sin JavaScript, la página sigue el modo de tu sistema.</p>
+</div>
 
-        <figure class="shot hero-shot">
-          <div class="window">
-            <picture data-shot="assets/shots/es/editor" data-widths="1280,2560">
-              <source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="assets/shots/es/editor-detail" data-widths="460,920" width="460" height="500" sizes="(max-width: 616px) calc(100vw - 42px), 575px" srcset="assets/shots/es/editor-detail-needle-dark@1x.webp 460w, assets/shots/es/editor-detail-needle-dark.webp 920w">
-              <source media="(max-width: 719px)" data-mode="light" data-shot="assets/shots/es/editor-detail" data-widths="460,920" width="460" height="500" sizes="(max-width: 616px) calc(100vw - 42px), 575px" srcset="assets/shots/es/editor-detail-needle-light@1x.webp 460w, assets/shots/es/editor-detail-needle-light.webp 920w">
-              <source media="(prefers-color-scheme: dark)" data-mode="dark" sizes="(min-width: 1184px) 1118px, (min-width: 720px) calc(100vw - 66px), calc(100vw - 42px)" srcset="assets/shots/es/editor-needle-dark@1x.webp 1280w, assets/shots/es/editor-needle-dark.webp 2560w">
-              <img data-mode="light" data-eager src="assets/shots/es/editor-needle-light@1x.webp" srcset="assets/shots/es/editor-needle-light@1x.webp 1280w, assets/shots/es/editor-needle-light.webp 2560w" sizes="(min-width: 1184px) 1118px, (min-width: 720px) calc(100vw - 66px), calc(100vw - 42px)" width="1280" height="800" loading="lazy" fetchpriority="high" alt="El editor de Versorium con el capítulo «La aguja» abierto. Empieza: «Contó los escalones al subir…»." data-alt="Versorium con una novela abierta. A la izquierda, el archivador: dos novelas y los ocho capítulos de «Lo que no figura», cada uno con su estado (final, revisado o borrador). En el centro, el texto del capítulo «La aguja». Arriba, el botón Reescribir, el botón Continuar capítulo, que está desactivado, y los botones Manuscrito, Abrir proyecto y Ajustes; abajo, la barra de estado con 273 palabras, Guardado, y los botones Guardar instantánea, Historial y Restaurar.">
-            </picture>
-          </div>
-          <figcaption>Captura de la app: un capítulo abierto en el editor<span class="wide-only">, con las novelas y sus capítulos a la izquierda</span>. La novela es un ejemplo escrito para esta página.</figcaption>
-        </figure>
-      </div>
-    </section>
+<figure class="hero-figure">
+<div class="replica-frame"><div class="replica" aria-hidden="true">
+<div class="r-top"><svg class="r-v" viewBox="0 0 100 100"><use href="#v-s"/><use class="hair" href="#v-h"/></svg><span class="r-brand">versorium</span><span class="r-actions"><span class="r-btn is-primary">Reescribir</span><span class="r-sep"></span><span class="r-btn">Manuscrito</span><span class="r-btn">Abrir proyecto</span><span class="r-btn">Ajustes</span></span></div>
+<div class="r-main">
+<div class="r-side">
+<span class="r-sec">Proyectos</span><span class="r-list r-projects">
+<span class="r-item is-active"><span class="r-title">Lo que no figura</span><span class="r-meta">701 palabras</span></span>
+<span class="r-item"><span class="r-title">Cuentos de invierno</span><span class="r-meta">31 palabras</span></span>
+</span>
+<span class="r-sec r-sec-ch">Capítulos</span><span class="r-list">
+<span class="r-item"><span class="r-id">ch-01</span><span class="r-title">El inventario</span><span class="r-meta">final</span></span>
+<span class="r-item is-active"><span class="r-id">ch-02</span><span class="r-title">La aguja</span><span class="r-meta">revisado</span></span>
+<span class="r-item"><span class="r-id">ch-03</span><span class="r-title">Suficiente</span><span class="r-meta">revisado</span></span>
+<span class="r-item"><span class="r-id">ch-04</span><span class="r-title">Las cartas</span><span class="r-meta">borrador</span></span>
+<span class="r-item"><span class="r-id">ch-05</span><span class="r-title">Niebla</span><span class="r-meta">borrador</span></span>
+<span class="r-item"><span class="r-id">ch-06</span><span class="r-title">El remo</span><span class="r-meta">borrador</span></span>
+<span class="r-item"><span class="r-id">ch-07</span><span class="r-title">La visita</span><span class="r-meta">borrador</span></span>
+<span class="r-item"><span class="r-id">ch-08</span><span class="r-title">Marea baja</span><span class="r-meta">borrador</span></span>
+</span>
+</div>
+<div class="r-editor"><div class="r-doc">
+<p class="r-p">Contó los escalones al subir y otra vez al bajar, porque la primera cuenta le dio cuarenta y tres y no se fiaba de sí misma después del barco. Eran cuarenta y dos. El que sobraba era el umbral de la sala de la lámpara, más alto que los demás, gastado en el centro por cien años de botas.</p>
+<p class="r-p is-active">Arriba, la lente ocupaba todo el aire. No esperaba que fuera tan grande ni tan limpia: alguien había seguido puliéndola después de que la apagaran, y ese alguien no aparecía en ningún papel del ayuntamiento.<span class="t-done"></span><span class="t-caret"></span><span class="t-rest"> Nadie le había dicho que el faro aún tuviera dueño.</span></p>
+<p class="r-p">Anotó en el cuaderno: <span class="r-em"><span class="r-mark">*</span>Lente de Fresnel, primer orden, intacta.<span class="r-mark">*</span></span> Luego tachó <span class="r-em"><span class="r-mark">*</span>intacta<span class="r-mark">*</span></span>. No sabía qué palabra correspondía a una cosa que nadie usaba y todo el mundo cuidaba.</p>
+</div></div>
+</div>
+<div class="r-status"><span class="r-where">ch-02 · La aguja</span><span class="r-words"><span class="r-words-n">283</span> palabras</span><span class="r-save"><span class="r-save-label"><span class="is-saved">Guardado</span><span class="is-saving">Guardando…</span></span><span class="r-sep"></span><span class="r-dot"></span><svg class="r-ring" viewBox="0 0 100 26" preserveAspectRatio="none"><path pathLength="1" d="M81 2.6C60 0.8 32 1 15 2.2C5.5 3 0.9 7.6 1 13.4C1.1 19.4 6.4 24.4 17.5 24.8C40 25.6 64 25.4 84 24.4C94.4 23.8 99.1 19.4 99 13C98.9 7 94.6 3 84.5 2.4C79 2 73.5 2.4 67 3.4"/></svg></span><span class="r-bar-btn">Guardar instantánea</span><span class="r-bar-btn">Historial</span><span class="r-bar-btn">↩ Restaurar</span><span class="r-spacer"></span><span class="r-bar-btn">Fichas</span><span class="r-bar-btn">Concentración</span><span class="r-bar-btn">Máquina de escribir</span><span class="r-sep"></span><span class="r-bar-btn">EN</span></div>
+</div></div>
+<p class="sr-only">Versorium con el capítulo «La aguja» abierto. Se escribe una frase, la barra de estado pasa a «Guardado» y el punto del historial se apaga cuando se guarda una instantánea.</p>
+<figcaption class="caption-row"><span>Recreación de la app con texto de ejemplo. Tiempo acelerado.</span><button class="replay" type="button" aria-label="Repetir la animación">↻ Repetir</button></figcaption>
+</figure>
+</div>
+</div>
+</section>
 
-    <section class="section" id="distinto" aria-labelledby="distinto-titulo">
-      <div class="wrap">
-        <div class="section-head">
-          <p class="eyebrow">Por qué</p>
-          <h2 id="distinto-titulo">Lo que lo hace distinto</h2>
-          <p class="intro">Cuatro decisiones de fondo. Cada una tiene su motivo, y algunas un límite que hoy conviene saber.</p>
-        </div>
+<section class="section s-lost" id="como" aria-labelledby="como-titulo">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap s-lost-grid">
+<div class="s-head">
+<span class="chapter-mark" aria-hidden="true">I</span>
+<h2 id="como-titulo">Nada se <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>pierde</span>.</h2>
+<p class="lead">Versorium guarda mientras escribes. Cada minuto, y antes de que la IA toque nada, hace una instantánea.</p>
+</div>
 
-        <div class="reasons">
-          <article class="reason" aria-labelledby="local-titulo">
-            <div class="reason-text">
-              <p class="eyebrow">En tu equipo</p>
-              <h3 id="local-titulo">Tu novela vive en tu disco</h3>
-              <p>Una novela lleva años. En ese tiempo un servicio puede cerrar, cambiar sus condiciones o perder tu cuenta; una carpeta en tu disco sigue ahí. Versorium guarda cada novela como una carpeta normal, funciona sin conexión y no lleva analítica ni telemetría.</p>
-              <p>Por su cuenta, solo hace una cosa por la red: al abrirse busca actualizaciones en GitHub, sin nada de tu novela, y puedes desactivarlo en Ajustes → Aplicación. Todo lo demás ocurre cuando lo pides: descargar un modelo, enviar la novela a GitHub o traerla, o reescribir con una herramienta de línea de comandos, que manda el pasaje a su propio servicio.</p>
-              <p>Los cambios se guardan solos, de forma atómica, 800 ms después de que dejes de escribir. <b>Respaldar ahora</b> mete la novela entera, con su historial, en un zip y lo deja en hasta tres sitios: iCloud Drive, Google Drive, OneDrive, Dropbox, Nextcloud, ownCloud o un segundo disco. Restaurar lo extrae al lado de la novela, nunca encima.</p>
-              <p class="note"><span class="note-label">Hoy</span> El respaldo se hace cuando pulsas el botón; nada está programado.</p>
-            </div>
-            <figure class="shot visual">
-              <pre class="code tree"><code>lo-que-no-figura/
-├── versorium.json
-├── manuscript/
-│   ├── ch-01-lo-que-no-figura.md
-│   ├── ch-02-la-aguja.md
-│   ├── …
-│   └── ch-08-marea-baja.md
-├── codex/  plot/  research/
-├── style/  prompts/  snapshots/
-├── .versorium/ops/
-└── .git/</code></pre>
-              <figcaption>Una novela en disco, tal como la crea Versorium: <code>versorium.json</code> guarda el título, el idioma y el orden; <code>.versorium/ops/</code>, cada cambio; <code>.git/</code>, las instantáneas. Todo se abre con cualquier editor de texto.</figcaption>
-            </figure>
-          </article>
+<figure class="stage" data-reveal>
+<div class="stage-box">
+<svg class="pile" viewBox="20 4 444 344" aria-hidden="true" focusable="false"><g class="sheet-1" transform="translate(28 40) rotate(-7)"><g class="sheet-anim"><path class="sheet-paper" d="M2 3L228 0L230 288L0 290Z"/><path class="sheet-lines" d="M24 70H198M24 96H212M24 122H186M24 148H118M24 174H204M24 200H192M24 226H134"/><text class="sheet-time" x="9" y="27">17:55</text></g></g><g class="sheet-2" transform="translate(94 34) rotate(-3)"><g class="sheet-anim"><path class="sheet-paper" d="M1 2L229 1L230 289L0 289Z"/><path class="sheet-lines" d="M24 70H206M24 96H190M24 122H214M24 148H150M24 174H196M24 200H210M24 226H122"/><text class="sheet-time" x="9" y="27">18:31</text></g></g><g class="sheet-3" transform="translate(160 30) rotate(2)"><g class="sheet-anim"><path class="sheet-paper" d="M0 1L228 3L229 290L2 288Z"/><path class="sheet-lines" d="M24 70H210M24 96H196M24 122H168M24 148H202M24 174H214M24 200H188M24 226H146"/><text class="sheet-time" x="9" y="27">18:40</text></g></g><g class="sheet-4" transform="translate(226 34) rotate(5)"><g class="sheet-anim"><path class="sheet-paper" d="M2 3L210 0L230 19L230 288L0 290Z"/><path class="sheet-fold" d="M210 0L212 19L230 19Z"/><path class="sheet-lines" d="M24 70H204M24 96H214M24 122H190M24 148H128M24 174H208M24 200H196M24 226H158"/><text class="sheet-time" x="9" y="27">18:52</text></g></g></svg>
+<div class="window stage-card"><picture data-shot="assets/shots/es/history" data-widths="1214">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" srcset="assets/shots/es/history-needle-dark.webp">
+<img data-mode="light" src="assets/shots/es/history-needle-light.webp" width="607" height="208" loading="lazy" alt="El panel Historial, pestaña Instantáneas: autoguardados del 4 de octubre a las 17:55 y a las 18:52, una instantánea tomada antes de reescribir con IA a las 18:31 y una descrita a mano, «La aguja, segunda versión», a las 18:40; debajo, dos del día anterior.">
+</picture></div>
+</div>
+<figcaption>Así las lista el panel Historial. Volver a una, por ahora, requiere git.</figcaption>
+</figure>
 
-          <article class="reason" aria-labelledby="historial-titulo">
-            <div class="reason-text">
-              <p class="eyebrow">Historial</p>
-              <h3 id="historial-titulo">La historia, pulsación a pulsación</h3>
-              <p>Cada cambio en el editor se anota como una operación —qué se escribió o se borró, dónde y quién: tú o una IA— en un registro que solo crece, guardado dentro de la novela. Cada 200 operaciones se guarda también el capítulo entero.</p>
-              <p>Además, cada novela es un repositorio git. Versorium hace una instantánea cada minuto si hubo cambios, antes de que una IA escriba y antes de borrar un capítulo, y tú puedes guardar las tuyas con una descripción.</p>
-              <p><b>Restaurar</b> (<kbd>Cmd/Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd>) devuelve el texto anterior de la selección, o de la palabra bajo el cursor.</p>
-              <p class="note"><span class="note-label">Hoy</span> Restaurar alcanza a la sesión en curso, hasta 1000 cambios. Las instantáneas y el registro guardado en disco no se pueden consultar ni recuperar desde la app; volver a una instantánea se hace con git, por fuera. El registro sí lo pueden leer los asistentes conectados por MCP.</p>
-            </div>
-            <div class="visual">
-              <figure class="shot">
-                <div class="window">
-                  <picture data-shot="assets/shots/es/history" data-widths="1214">
-                    <source media="(prefers-color-scheme: dark)" data-mode="dark" srcset="assets/shots/es/history-needle-dark.webp">
-                    <img data-mode="light" src="assets/shots/es/history-needle-light.webp" width="607" height="208" loading="lazy" decoding="async" alt="El panel Historial, pestaña Instantáneas: tres instantáneas automáticas (checkpoint: autosave), una tomada antes de una reescritura con IA, una descrita a mano («La aguja, segunda versión») y una tomada antes de borrar un capítulo, cada una con su fecha y hora y firmada por Versorium.">
-                  </picture>
-                </div>
-                <figcaption>Las últimas instantáneas en el panel Historial.</figcaption>
-              </figure>
-              <figure class="shot">
-                <pre class="code jsonl"><code><span class="code-name">.versorium/ops/ch-02/2026-10-03.jsonl</span><span class="op">{"seq":1841,<wbr>"ts":1791046265874,<wbr>"author":"human",<wbr>"kind":"delete",<wbr>"from":663,<wbr>"to":669,<wbr>"text":"quería"}</span><span class="op">{"seq":1842,<wbr>"ts":1791046266503,<wbr>"author":"human",<wbr>"kind":"insert",<wbr>"from":663,<wbr>"to":664,<wbr>"text":"c"}</span><span class="op">{"seq":1843,<wbr>"ts":1791046266661,<wbr>"author":"human",<wbr>"kind":"insert",<wbr>"from":664,<wbr>"to":665,<wbr>"text":"u"}</span><span class="op">{"seq":1844,<wbr>"ts":1791046266790,<wbr>"author":"human",<wbr>"kind":"insert",<wbr>"from":665,<wbr>"to":666,<wbr>"text":"i"}</span></code></pre>
-                <figcaption>Cuatro líneas del registro: una palabra borrada y las tres primeras letras de la que la sustituye.</figcaption>
-              </figure>
-            </div>
-          </article>
+<figure class="clip s-restore" data-clip data-clip-ms="3800">
+<div class="window"><picture data-shot="assets/shots/es/restore" data-widths="1544">
+<source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="assets/shots/es/restore-detail" data-widths="756" width="378" height="390" srcset="assets/shots/es/restore-detail-needle-dark.webp">
+<source media="(max-width: 719px)" data-mode="light" data-shot="assets/shots/es/restore-detail" data-widths="756" width="378" height="390" srcset="assets/shots/es/restore-detail-needle-light.webp">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" srcset="assets/shots/es/restore-needle-dark.webp">
+<img data-mode="light" src="assets/shots/es/restore-needle-light.webp" width="772" height="390" loading="lazy" alt="En el editor, una frase borrada vuelve a su sitio al pulsar ↩ Restaurar en la barra de estado.">
+</picture></div>
+<figcaption class="caption-row"><span>¿Borraste una frase en esta sesión? ↩ Restaurar la devuelve.</span><button class="clip-replay" type="button" aria-label="Repetir la grabación">↻ Repetir</button></figcaption>
+</figure>
+</div>
+</section>
 
-          <article class="reason" aria-labelledby="ia-titulo">
-            <div class="reason-text">
-              <p class="eyebrow">IA</p>
-              <h3 id="ia-titulo">La IA que elijas, o ninguna</h3>
-              <p>Versorium no trae ninguna IA activada. Si la quieres, eliges de dónde sale: un modelo que corre dentro de la app con llama.cpp, Ollama si ya lo usas, o las herramientas que ya tienes en la terminal: Claude Code, Codex u OpenCode.</p>
-              <p>Para la IA integrada hay un catálogo de 11 modelos de escritura en cuatro tamaños, de 0,58 a 17,4 GB. La app te recomienda el tamaño mayor que cabe con holgura en tu equipo, solo descarga cuando pulsas Descargar, retoma lo que se cortó y comprueba cada archivo con <span class="nobreak">SHA-256</span>.</p>
-              <p>Al reescribir, seleccionas un pasaje y ves la diferencia antes de aplicarla; Versorium hace antes una instantánea y apunta el cambio a nombre de la IA. Cada proveedor aparece marcado como Local o CLI, porque una herramienta CLI envía el pasaje a su propio servicio.</p>
-              <p>Los asistentes que se conectan por MCP —Claude Code, Claude Desktop, Codex y OpenCode se configuran con un clic; Cursor y VS Code, a mano— solo leen, salvo que des permiso de escritura a uno concreto. Aun así, cada escritura devuelve primero la diferencia y solo se aplica con una segunda llamada que la confirma, después de una instantánea.</p>
-              <p class="note"><span class="note-label">Hoy</span> La IA hace dos trabajos: reescribir y revisar la continuidad, que razona sobre los títulos de los capítulos y extractos del códice, no sobre la prosa. El chat, la búsqueda por significado y el dictado todavía no existen. La IA integrada corre dentro de la app, así que si su motor falla, Versorium se cierra con él; el autoguardado y las instantáneas acotan lo que se pierde.</p>
-            </div>
-            <figure class="shot visual">
-              <div class="window window-dialog">
-                <picture data-shot="assets/shots/es/rewrite" data-widths="1120">
-                  <source media="(prefers-color-scheme: dark)" data-mode="dark" srcset="assets/shots/es/rewrite-needle-dark.webp">
-                  <img data-mode="light" src="assets/shots/es/rewrite-needle-light.webp" width="560" height="426" loading="lazy" decoding="async" alt="El diálogo Reescribir. El agente es Qwen3 4B Instruct 2507, marcado como Local: «Esta llamada va a Qwen3 4B Instruct 2507». La vista previa muestra un párrafo sin cambios, el párrafo original en rojo y la versión propuesta en verde. Abajo, «Versorium guarda un punto de control en Git antes de aplicar. Puedes revertirlo.» y los botones Descartar y Aplicar.">
-                </picture>
-              </div>
-              <figcaption>Reescribir con un modelo que corre en la app. Nada cambia hasta que pulsas Aplicar. El texto propuesto es un ejemplo escrito para esta página, no una respuesta del modelo.</figcaption>
-            </figure>
-          </article>
+<section class="section s-yours" id="tuya" aria-labelledby="tuya-titulo">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap">
+<div class="s-head">
+<span class="chapter-mark" aria-hidden="true">II</span>
+<h2 id="tuya-titulo"><span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>Tuya</span>, de principio a fin.</h2>
+</div>
+<div class="tiles">
+<div class="tile">
+<h3>Una carpeta en tu disco</h3>
+<p>Cada capítulo es un archivo de texto que se abre sin Versorium.</p>
+<div class="tile-fig" data-reveal><svg class="folder" viewBox="0 0 280 180" aria-hidden="true" focusable="false"><defs><clipPath id="folder-in"><path d="M0 0H280V164H0Z"/></clipPath></defs><path class="folder-back" d="M18 26L104 26L118 40L262 40L262 164L18 164Z"/><g clip-path="url(#folder-in)"><g transform="rotate(-9 90 75)"><g class="fsheet fsheet-1"><rect class="fsheet-paper" x="48" y="20" width="84" height="110" rx="3"/><text class="fsheet-name" x="57" y="35">ch-01</text><path class="fsheet-lines" d="M57 46H114M57 54H106M57 62H112"/></g></g><g transform="rotate(9 190 75)"><g class="fsheet fsheet-3"><rect class="fsheet-paper" x="148" y="20" width="84" height="110" rx="3"/><text class="fsheet-name end" x="223" y="35">ch-03</text><path class="fsheet-lines" d="M166 46H223M166 54H215M166 62H221"/></g></g><g class="fsheet fsheet-2"><rect class="fsheet-paper" x="98" y="20" width="84" height="110" rx="3"/><text class="fsheet-name" x="107" y="35">ch-02</text><path class="fsheet-lines" d="M107 46H164M107 54H156M107 62H162"/></g></g><path class="folder-front" d="M14 92L266 92L252 168L28 168Z"/><text class="folder-name" x="140" y="134">manuscript/</text></svg></div>
+</div>
+<div class="tile">
+<h3>La IA, solo si la llamas</h3>
+<p>Tú eliges cuál, y no escribe nada sin tu permiso.</p>
+<div class="tile-fig" data-reveal><svg class="dial" viewBox="0 0 280 180" aria-hidden="true" focusable="false"><path class="dial-arc" d="M40 150A100 100 0 0 1 240 150"/><path class="dial-ticks" d="M60.3 104L46.5 96M140 58V42M219.7 104L233.5 96"/><g class="needle"><path class="needle-north" d="M140 64L146 150H134Z"/><path class="needle-south" d="M134 150L140 172L146 150Z"/><circle class="needle-pivot" cx="140" cy="150" r="5"/></g></svg><ul class="dial-labels"><li aria-current="true">Apagada</li><li>En tu ordenador</li><li>Tu herramienta</li></ul></div>
+</div>
+<div class="tile">
+<h3>Llévatela a donde quieras</h3>
+<p>Exporta a DOCX con formato de manuscrito, EPUB, PDF y Scrivener.</p>
+<div class="tile-fig" data-reveal><svg class="fan" viewBox="0 0 280 180" aria-hidden="true" focusable="false"><g class="fan-card fan-card-1"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name" x="118" y="27">DOCX</text></g><g class="fan-card fan-card-5"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name end" x="162" y="27">MD</text></g><g class="fan-card fan-card-2"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name" x="118" y="27">EPUB</text></g><g class="fan-card fan-card-4"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name end" x="162" y="27">Scrivener</text></g><g class="fan-card fan-card-3"><rect class="fan-paper" x="111" y="10" width="58" height="90" rx="4"/><text class="fan-name mid" x="140" y="27">PDF</text></g><g class="fan-sheet"><rect class="fan-paper" x="104" y="64" width="72" height="96" rx="3"/><path class="fan-lines" d="M114 80H166M114 90H162M114 100H166M114 110H146M114 124H164M114 134H158M114 144H138"/></g></svg></div>
+</div>
+</div>
+</div>
+</section>
 
-          <article class="reason" aria-labelledby="archivos-titulo">
-            <div class="reason-text">
-              <p class="eyebrow">Archivos</p>
-              <h3 id="archivos-titulo">Archivos que se abren sin Versorium</h3>
-              <p>Cada capítulo es un archivo <code>.md</code> con una cabecera YAML. La cabecera la lleva la app —título, estado, palabras— y el resto es tu texto, sin formato propietario. Renombrar un capítulo cambia el título, no el archivo; el orden se guarda en <code>versorium.json</code>.</p>
-              <p>No hace falta instalar git: va dentro de la app. Si ya lo usas, la carpeta es un repositorio normal.</p>
-              <p>Exporta a Markdown, a DOCX con formato de manuscrito estándar, a EPUB 3 (pasa epubcheck 5.2.1 sin errores ni avisos), a PDF y a un proyecto de Scrivener 3. DOCX, EPUB y PDF llevan portada tipográfica y colofón, y puedes quitar cualquiera de los dos en cada proyecto. Importa Markdown, DOCX, EPUB y proyectos de Scrivener, y te enseña una vista previa, con sus avisos, antes de escribir nada.</p>
-              <p>Puedes enviar la novela a un repositorio de GitHub y traerla de vuelta. El token vive en el almacén de credenciales del sistema y solo viaja a github.com.</p>
-              <p class="note"><span class="note-label">Hoy</span> El repositorio de GitHub y su remoto se preparan fuera de la app, y traer cambios solo funciona si las dos historias no se han separado: no fusiona. DOCX y Scrivener pierden los títulos de escena, y avisan de ello; el PDF los imprime, salvo el de la primera escena de cada capítulo, que se pierde sin aviso. El PDF va en tamaño carta, con <span class="nobreak">Times-Roman</span>, y sustituye, con aviso, los emoji y las escrituras no latinas.</p>
-            </div>
-            <figure class="shot visual">
-              <pre class="code prose-file"><code><span class="code-name">manuscript/ch-02-la-aguja.md</span><span class="k">---</span>
-id: ch-02
-title: "La aguja"
-pov: null
-status: "revised"
-words: 273
-<span class="k">---</span>
-Contó los escalones al subir y otra vez al bajar, porque la primera cuenta le dio cuarenta y tres y no se fiaba de sí misma después del barco. Eran cuarenta y dos. El que sobraba era el umbral de la sala de la lámpara, más alto que los demás, gastado en el centro por cien años de botas.
+<section class="section s-desk" id="mesa" aria-labelledby="mesa-titulo">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap">
+<div class="s-head">
+<span class="chapter-mark" aria-hidden="true">III</span>
+<h2 id="mesa-titulo">Una mesa para <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>escribir</span>.</h2>
+</div>
+<div class="steps">
+<div class="step">
+<div class="step-text"><h3>Fichas.</h3><p>Toda la novela, de un vistazo.</p></div>
+<figure class="step-fig step-fig-cork"><div class="window"><picture data-shot="assets/shots/es/corkboard" data-widths="1280,2560">
+<source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="assets/shots/es/corkboard-detail" data-widths="260,520" width="260" height="460" sizes="325px" srcset="assets/shots/es/corkboard-detail-needle-dark@1x.webp 260w, assets/shots/es/corkboard-detail-needle-dark.webp 520w">
+<source media="(max-width: 719px)" data-mode="light" data-shot="assets/shots/es/corkboard-detail" data-widths="260,520" width="260" height="460" sizes="325px" srcset="assets/shots/es/corkboard-detail-needle-light@1x.webp 260w, assets/shots/es/corkboard-detail-needle-light.webp 520w">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" sizes="(min-width: 1024px) 663px, calc(100vw - 64px)" srcset="assets/shots/es/corkboard-needle-dark@1x.webp 1280w, assets/shots/es/corkboard-needle-dark.webp 2560w">
+<img data-mode="light" src="assets/shots/es/corkboard-needle-light@1x.webp" srcset="assets/shots/es/corkboard-needle-light@1x.webp 1280w, assets/shots/es/corkboard-needle-light.webp 2560w" sizes="(min-width: 1024px) 663px, calc(100vw - 64px)" width="1280" height="800" loading="lazy" alt="La vista Fichas, con una ficha por capítulo. La de «La aguja», marcada como la abierta, lleva su número, su estado (revisado), el título, el comienzo del texto y 273 palabras; debajo está la de «El remo»." data-alt="La vista Fichas: ocho fichas, una por capítulo de «Lo que no figura», cada una con su número, su estado, el título, el comienzo del texto y el recuento de palabras. La ficha de «La aguja» está marcada como la abierta.">
+</picture><svg class="annot" viewBox="0 0 1280 800" aria-hidden="true" focusable="false"><ellipse class="annot-mark" cx="634" cy="205.5" rx="132" ry="117" transform="rotate(-3 634 205.5)" pathLength="1" fill="none" stroke-width="3" stroke-linecap="round"/></svg></div></figure>
+</div>
+<div class="step">
+<div class="step-text"><h3>Concentración.</h3><p>Solo tú y la página.</p></div>
+<figure class="step-fig step-fig-focus"><div class="window"><picture data-shot="assets/shots/es/focus" data-widths="1280,2560">
+<source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="assets/shots/es/focus-detail" data-widths="420,840" width="420" height="480" sizes="(max-width: 564px) calc(100vw - 40px), 525px" srcset="assets/shots/es/focus-detail-needle-dark@1x.webp 420w, assets/shots/es/focus-detail-needle-dark.webp 840w">
+<source media="(max-width: 719px)" data-mode="light" data-shot="assets/shots/es/focus-detail" data-widths="420,840" width="420" height="480" sizes="(max-width: 564px) calc(100vw - 40px), 525px" srcset="assets/shots/es/focus-detail-needle-light@1x.webp 420w, assets/shots/es/focus-detail-needle-light.webp 840w">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" sizes="(min-width: 1024px) 663px, calc(100vw - 64px)" srcset="assets/shots/es/focus-needle-dark@1x.webp 1280w, assets/shots/es/focus-needle-dark.webp 2560w">
+<img data-mode="light" src="assets/shots/es/focus-needle-light@1x.webp" srcset="assets/shots/es/focus-needle-light@1x.webp 1280w, assets/shots/es/focus-needle-light.webp 2560w" sizes="(min-width: 1024px) 663px, calc(100vw - 64px)" width="1280" height="800" loading="lazy" alt="El comienzo de «La aguja» en modo Concentración." data-alt="La app en modo Concentración: se ocultan el panel «Proyectos y capítulos» y la barra superior, y quedan la página de «La aguja» y la barra de estado, con Concentración pulsado.">
+</picture><svg class="annot" viewBox="0 0 1280 800" aria-hidden="true" focusable="false"><path class="annot-mark" d="M244.8 72 q-10 0 -10 10 V204.8 q0 10 10 10" pathLength="1" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div></figure>
+</div>
+<div class="step">
+<div class="step-text"><h3>Reescribir.</h3><p>Ves cada cambio antes de aplicarlo.</p><p class="small">Grabación real; el texto propuesto es un ejemplo.</p></div>
+<figure class="step-fig clip" data-clip data-clip-ms="2500"><div class="dialog-stage"><div class="window window-dialog"><picture data-shot="assets/shots/es/rewrite" data-widths="1120">
+<source media="(prefers-color-scheme: dark)" data-mode="dark" srcset="assets/shots/es/rewrite-needle-dark.webp">
+<img data-mode="light" src="assets/shots/es/rewrite-needle-light.webp" width="560" height="426" loading="lazy" alt="El diálogo Reescribir. El agente es Qwen3 4B Instruct 2507, marcado como Local: «Esta llamada va a Qwen3 4B Instruct 2507». La vista previa muestra un párrafo sin cambios, el párrafo original en rojo y la versión propuesta en verde. Abajo, «Versorium guarda un punto de control en Git antes de aplicar. Puedes revertirlo.» y los botones Descartar y Aplicar.">
+</picture></div></div>
+<div class="caption-row"><button class="clip-replay" type="button" aria-label="Repetir la grabación">↻ Repetir</button></div>
+</figure>
+</div>
+</div>
+<p class="chips">Máquina de escribir · Corrector ortográfico · Tamaño y ancho del texto · Plantillas · Respaldo en un clic · En español e inglés</p>
+</div>
+</section>
 
-Arriba, la lente ocupaba todo el aire. <span class="c">…</span></code></pre>
-              <figcaption>El capítulo de la captura, tal como está en disco.</figcaption>
-            </figure>
-          </article>
-        </div>
-      </div>
-    </section>
+<section class="section s-get" id="descargar" aria-labelledby="descargar-titulo">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap s-get-grid">
+<div>
+<h2 id="descargar-titulo">La primera versión, <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>en camino</span>.</h2>
+<p class="lead">Aún no hay nada que descargar: síguela y sabrás el día que salga.</p>
+<div class="actions">
+<a class="btn btn-primary btn-large" href="https://github.com/MAECLY/versorium-app">Avísame en GitHub</a>
+<button class="btn btn-large" type="button" data-share data-phone>Envíatelo al ordenador</button>
+</div>
+<p class="hint">En GitHub: <span lang="en">Watch → Custom → Releases</span> · <a href="https://github.com/MAECLY/versorium-app/releases.atom">o síguela por RSS</a></p>
+<p class="hint" data-phone><a href="mailto:?subject=Versorium%20(para%20abrir%20en%20el%20ordenador)&amp;body=https%3A%2F%2Fversorium.maecly.com%2F%23descargar">Por correo</a> · <button class="btn-link copy" type="button" data-copy="https://versorium.maecly.com/#descargar" data-done="Copiado" data-failed="No se pudo copiar; mantén pulsado el enlace." data-status="copiado-enlace">Copiar enlace</button><span class="sr-only" id="copiado-enlace" role="status"></span></p>
+<ul class="platforms" aria-label="Plataformas">
+<li data-os="mac"><span class="os-dot is-tried" aria-hidden="true"></span>macOS · probada<span class="is-yours-label"> · tu sistema</span></li>
+<li data-os="win"><span class="os-dot" aria-hidden="true"></span>Windows · sin probar<span class="is-yours-label"> · tu sistema</span></li>
+<li data-os="linux"><span class="os-dot" aria-hidden="true"></span>Linux · sin probar<span class="is-yours-label"> · tu sistema</span></li>
+</ul>
+</div>
+<aside class="limits" aria-labelledby="todavia">
+<h3 id="todavia">Lo que aún no hace</h3>
+<ul>
+<li>La IA solo reescribe y revisa la continuidad.</li>
+<li>Volver a una instantánea requiere git.</li>
+<li>Los respaldos se hacen a mano.</li>
+<li>Sin firma: macOS y Windows avisarán al abrirla.</li>
+<li>Importar de Word, EPUB o Scrivener pierde negritas, cursivas y escenas.</li>
+</ul>
+<a href="detalles/#limites">Ver todos los límites <span aria-hidden="true">→</span></a>
+</aside>
+</div>
+</section>
 
-    <section class="section" id="mesa" aria-labelledby="mesa-titulo">
-      <div class="wrap">
-        <div class="section-head">
-          <p class="eyebrow">En la mesa</p>
-          <h2 id="mesa-titulo">Lo que hay en la mesa</h2>
-          <p class="intro">Pocas herramientas, pensadas para pasar muchas horas con un manuscrito.</p>
-        </div>
-        <figure class="shot desk-shot">
-          <div class="window">
-            <picture data-shot="assets/shots/es/corkboard" data-widths="1280,2560">
-              <source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="assets/shots/es/corkboard-detail" data-widths="320,640" width="320" height="380" sizes="(max-width: 441px) calc(100vw - 42px), 400px" srcset="assets/shots/es/corkboard-detail-needle-dark@1x.webp 320w, assets/shots/es/corkboard-detail-needle-dark.webp 640w">
-              <source media="(max-width: 719px)" data-mode="light" data-shot="assets/shots/es/corkboard-detail" data-widths="320,640" width="320" height="380" sizes="(max-width: 441px) calc(100vw - 42px), 400px" srcset="assets/shots/es/corkboard-detail-needle-light@1x.webp 320w, assets/shots/es/corkboard-detail-needle-light.webp 640w">
-              <source media="(prefers-color-scheme: dark)" data-mode="dark" sizes="(min-width: 1184px) 1118px, (min-width: 720px) calc(100vw - 66px), calc(100vw - 42px)" srcset="assets/shots/es/corkboard-needle-dark@1x.webp 1280w, assets/shots/es/corkboard-needle-dark.webp 2560w">
-              <img data-mode="light" src="assets/shots/es/corkboard-needle-light@1x.webp" srcset="assets/shots/es/corkboard-needle-light@1x.webp 1280w, assets/shots/es/corkboard-needle-light.webp 2560w" sizes="(min-width: 1184px) 1118px, (min-width: 720px) calc(100vw - 66px), calc(100vw - 42px)" width="1280" height="800" loading="lazy" decoding="async" alt="La vista Fichas, con una ficha por capítulo. La de «La aguja», marcada como la abierta, lleva su número, su estado (revisado), el título, el comienzo del texto y 273 palabras; debajo está la de «El remo»." data-alt="La vista Fichas: ocho fichas, una por capítulo de «Lo que no figura», cada una con su número, su estado, el título, el comienzo del texto y el recuento de palabras. La ficha de «La aguja» está marcada como la abierta.">
-            </picture>
-          </div>
-          <figcaption>Fichas: los capítulos como tarjetas. Un clic abre el capítulo.</figcaption>
-        </figure>
+<section class="section s-faq" id="preguntas" aria-labelledby="preguntas-titulo">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap faq-grid">
+<h2 id="preguntas-titulo">Antes de que <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>preguntes</span>.</h2>
+<div class="faq">
+<details><summary>¿Mi novela sale de mi ordenador?</summary><div class="answer"><p>Solo si tú lo pides: al enviarla a GitHub, al reescribir con una herramienta externa o al respaldarla en una carpeta que se sincroniza. Por su cuenta, la app solo busca actualizaciones, sin nada de tu novela, y puedes desactivarlo. Sin telemetría.</p></div></details>
+<details><summary>¿Necesito una cuenta o saber git?</summary><div class="answer"><p>Cuenta, no: no hay registro. Git, tampoco para escribir: Versorium hace las instantáneas por ti con el git que lleva dentro. Por ahora solo hace falta para volver a una antigua.</p></div></details>
+<details><summary>¿Qué IA usa?</summary><div class="answer"><p>Ninguna hasta que elijas una: un modelo dentro de la propia app, Ollama, o Claude Code, Codex u OpenCode, que envían el pasaje a su propio servicio. Hoy la IA reescribe pasajes y revisa la continuidad.</p></div></details>
+<details><summary>¿Puedo traer mi novela de Scrivener o Word?</summary><div class="answer"><p>Sí: importa Scrivener, DOCX, EPUB y Markdown, y te enseña una vista previa antes de crear nada. Desde DOCX, EPUB o Scrivener se pierden negritas, cursivas y escenas.</p></div></details>
+<details><summary>¿Por qué es gratis?</summary><div class="answer"><p>Es código abierto (<span class="nobreak">Apache-2.0</span>) y lo hace una persona. No hay versión de pago ni anuncios, y la app no recoge datos.</p></div></details>
+</div>
+</div>
+</section>
 
-        <dl class="desk">
-          <div>
-            <dt>El editor</dt>
-            <dd>Markdown con CodeMirror, el recuento de palabras en la barra de estado y <kbd>Cmd/Ctrl</kbd>+<kbd>F</kbd> para buscar dentro del capítulo.</dd>
-          </div>
-          <div>
-            <dt>Concentración y máquina de escribir</dt>
-            <dd>Concentración atenúa todo menos la página, y con Escape siempre se sale. Máquina de escribir mantiene fija en pantalla la línea que escribes.</dd>
-          </div>
-          <div>
-            <dt>Archivador</dt>
-            <dd>Crear, renombrar y reordenar capítulos, y marcarlos como borrador, revisado o final. Borrar uno hace antes una instantánea; borrar una novela la manda a la papelera del sistema.</dd>
-          </div>
-          <div>
-            <dt>Plantillas</dt>
-            <dd>En blanco, Tres actos, Save the Cat y Kishōtenketsu, en la guía del primer arranque, que puedes repetir desde Ajustes → Aplicación. Solo ponen títulos de capítulo, nunca prosa, en el idioma de la interfaz.</dd>
-          </div>
-          <div>
-            <dt>Portada y autoría</dt>
-            <dd>Portada tipográfica y colofón en DOCX, EPUB y PDF. Dos perfiles de autor, trabajo y personal, cuyos datos llegan a los metadatos de cada formato menos Scrivener.</dd>
-          </div>
-          <div>
-            <dt>Español e inglés</dt>
-            <dd>Toda la interfaz en los dos idiomas. Empieza en el de tu sistema y se cambia cuando quieras.</dd>
-          </div>
-          <div>
-            <dt>Sin cuenta</dt>
-            <dd>Ni registro ni cuenta. La primera vez, cinco pasos que puedes saltarte; nada se crea hasta que confirmas el proyecto.</dd>
-          </div>
-          <div>
-            <dt>Informes de fallo sin prosa</dt>
-            <dd>Se guardan en tu equipo sin rutas, direcciones de correo ni tokens, y sin prosa: se quita cualquier tramo de seis palabras o más. Solo salen si pulsas Informar, que abre una incidencia de GitHub en tu navegador.</dd>
-          </div>
-          <div>
-            <dt>Credenciales en el llavero</dt>
-            <dd>Los tokens van al almacén de credenciales del sistema (Llavero, Administrador de credenciales o Secret Service), nunca a un archivo de ajustes.</dd>
-          </div>
-        </dl>
-      </div>
-    </section>
+<section class="closing" id="cierre" aria-labelledby="cierre-titulo">
+<div class="wrap closing-inner">
+<svg class="vc" data-reveal viewBox="0 0 100 100" aria-hidden="true" focusable="false"><mask id="vc-m1" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-shade" pathLength="1" stroke-width="11" stroke-linejoin="round" d="M24.1 17.6L25.2 20.4L27.1 25.2L29.1 30.1L31.0 35.0L33.0 39.9L35.1 44.9L37.2 49.8L39.4 54.9L41.5 59.8L43.8 64.9L46.1 70.0L48.4 75.2L50.8 80.4L52.1 83.1"/></mask><mask id="vc-m2" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-hair" pathLength="1" stroke-width="7" stroke-linejoin="round" d="M49.3 83.0L50.8 80.4L53.0 76.7L55.1 73.0L57.2 69.2L59.3 65.4L61.3 61.6L63.3 57.8L65.3 53.9L67.2 50.0L69.1 46.1L71.0 42.2L72.8 38.2L74.3 34.0"/></mask><use class="v-ink" href="#v-s" mask="url(#vc-m1)"/><use class="v-ink hair" href="#v-h" mask="url(#vc-m2)"/><g class="v-nib"><path class="v-ink" d="M72.0 40.1L79.5 33.5L82.4 23.3L76.6 20.9L71.4 30.2Z"/><path class="v-cut" d="M73.5 36.6L77.2 27.7" fill="none" stroke-width="2.4" stroke-linecap="round"/><circle class="v-hole" cx="77.2" cy="27.7" r="1.7"/></g></svg>
+<h2 id="cierre-titulo">Si Versorium desaparece mañana, tu novela no.</h2>
+<div class="actions">
+<a class="btn btn-invert btn-large" href="https://github.com/MAECLY/versorium-app" data-desktop>Avísame en GitHub</a>
+<button class="btn btn-invert btn-large" type="button" data-share data-phone>Envíatelo al ordenador</button>
+</div>
+<p class="assure">Gratis · Sin cuenta · Código abierto</p>
+</div>
+</section>
+</main>
 
-    <section class="section" id="temas" aria-labelledby="temas-titulo">
-      <div class="wrap">
-        <div class="section-head">
-          <p class="eyebrow">Temas</p>
-          <h2 id="temas-titulo">Tres temas, de día y de noche</h2>
-          <p class="intro">Folio es papel de libro; Quarry, gris cálido; Needle, verde pizarra. Cada uno tiene versión clara y oscura, y puede seguir el modo claro u oscuro de tu sistema. Esta página está hecha con los <a href="https://github.com/MAECLY/versorium-app/blob/main/src/styles.css">mismos valores que la app</a>: lo que elijas aquí es lo que verías allí.</p>
-        </div>
-
-        <div class="picker" id="theme-picker">
-          <fieldset>
-            <legend class="eyebrow">Tema</legend>
-            <div class="choices">
-              <label class="choice">
-                <input type="radio" name="theme" value="folio">
-                <span class="swatch sw-folio"><span class="page" aria-hidden="true"><i></i><i></i><i></i><b></b></span><span class="swatch-name">Folio <span aria-hidden="true">✓</span></span></span>
-              </label>
-              <label class="choice">
-                <input type="radio" name="theme" value="quarry">
-                <span class="swatch sw-quarry"><span class="page" aria-hidden="true"><i></i><i></i><i></i><b></b></span><span class="swatch-name">Quarry <span aria-hidden="true">✓</span></span></span>
-              </label>
-              <label class="choice">
-                <input type="radio" name="theme" value="needle">
-                <span class="swatch sw-needle"><span class="page" aria-hidden="true"><i></i><i></i><i></i><b></b></span><span class="swatch-name">Needle <span aria-hidden="true">✓</span></span></span>
-              </label>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend class="eyebrow">Modo</legend>
-            <div class="choices choices-modes">
-              <label class="choice"><input type="radio" name="mode" value="light"><span class="mode">Claro</span></label>
-              <label class="choice"><input type="radio" name="mode" value="dark"><span class="mode">Oscuro</span></label>
-              <label class="choice"><input type="radio" name="mode" value="follow"><span class="mode">Seguir el sistema</span></label>
-            </div>
-          </fieldset>
-        </div>
-        <p class="aside no-picker">Sin JavaScript, la página usa Needle y sigue el modo claro u oscuro de tu sistema.</p>
-        <p class="aside">La app empieza en Folio, siguiendo el sistema; esta página, en Needle.</p>
-
-        <figure class="shot themes-shot">
-          <div class="window">
-            <picture data-shot="assets/shots/es/settings" data-shot-pinned="assets/shots/es/settings-pinned" data-widths="1280,2560">
-              <source media="(max-width: 719px) and (prefers-color-scheme: dark)" data-mode="dark" data-shot="assets/shots/es/settings-detail" data-shot-pinned="assets/shots/es/settings-pinned-detail" data-widths="444,888" width="444" height="198" sizes="(max-width: 596px) calc(100vw - 42px), 555px" srcset="assets/shots/es/settings-detail-needle-dark@1x.webp 444w, assets/shots/es/settings-detail-needle-dark.webp 888w">
-              <source media="(max-width: 719px)" data-mode="light" data-shot="assets/shots/es/settings-detail" data-shot-pinned="assets/shots/es/settings-pinned-detail" data-widths="444,888" width="444" height="198" sizes="(max-width: 596px) calc(100vw - 42px), 555px" srcset="assets/shots/es/settings-detail-needle-light@1x.webp 444w, assets/shots/es/settings-detail-needle-light.webp 888w">
-              <source media="(prefers-color-scheme: dark)" data-mode="dark" sizes="(min-width: 1184px) 1118px, (min-width: 720px) calc(100vw - 66px), calc(100vw - 42px)" srcset="assets/shots/es/settings-needle-dark@1x.webp 1280w, assets/shots/es/settings-needle-dark.webp 2560w">
-              <img data-mode="light" src="assets/shots/es/settings-needle-light@1x.webp" srcset="assets/shots/es/settings-needle-light@1x.webp 1280w, assets/shots/es/settings-needle-light.webp 2560w" sizes="(min-width: 1184px) 1118px, (min-width: 720px) calc(100vw - 66px), calc(100vw - 42px)" width="1280" height="522" loading="lazy" decoding="async" alt="Las muestras de los tres temas en la sección Apariencia de Ajustes, Folio, Quarry y Needle, con Needle marcado, y debajo los botones de modo, con «Seguir el sistema» elegido entre Claro, Oscuro y Seguir el sistema." data-alt-detail="Las muestras de los tres temas en la sección Apariencia de Ajustes, Folio, Quarry y Needle, con {theme} marcado, y debajo los botones de modo, con «{mode}» elegido entre Claro, Oscuro y Seguir el sistema." data-alt="Ajustes, sección Apariencia: los tres temas, Folio, Quarry y Needle, como muestras de página, con {theme} marcado; el modo «{mode}» elegido entre Claro, Oscuro y Seguir el sistema; y el idioma de la interfaz en Español.">
-            </picture>
-          </div>
-          <figcaption>Ajustes → Apariencia, en la app, con el tema que tengas elegido aquí.</figcaption>
-        </figure>
-      </div>
-    </section>
-
-    <section class="section" id="todavia" aria-labelledby="todavia-titulo">
-      <div class="wrap">
-        <div class="section-head">
-          <p class="eyebrow">Todavía no</p>
-          <h2 id="todavia-titulo">Lo que todavía no hace</h2>
-          <p class="intro">Mejor saberlo antes de descargar.</p>
-        </div>
-        <ul class="notyet">
-          <li>Conversar con la novela: el hueco para un modelo de chat existe en Ajustes, la ventana no.</li>
-          <li>Buscar por significado. La búsqueda de la app es la de texto, dentro del capítulo.</li>
-          <li>Dictar: no hay modelo de voz.</li>
-          <li>Continuar un capítulo con IA (el modo creativo): el botón Continuar capítulo se ve, pero está desactivado.</li>
-          <li>Volver a una instantánea antigua o recuperar un capítulo borrado desde la app. Hoy se hace con git.</li>
-          <li>Consultar desde la app el registro de cambios guardado en disco.</li>
-          <li>Crear el repositorio de GitHub o añadir el remoto desde la app.</li>
-          <li>Copias de seguridad programadas.</li>
-          <li>Generar con un servidor local compatible con OpenAI, como LM Studio o <span class="nobreak">llama-server</span>: por ahora solo se prueba la conexión.</li>
-          <li>Ordenar capítulos arrastrándolos, portadas con imagen y fuentes descargables.</li>
-          <li>Editores propios para el códice, la trama o la documentación: las carpetas existen, pero se rellenan fuera de la app.</li>
-          <li>Firma de Apple y de Windows: consulta <a href="#primera-vez">«La primera vez que la abras»</a>, más abajo.</li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="section" id="descargar" aria-labelledby="descargar-titulo">
-      <div class="wrap">
-        <div class="section-head">
-          <p class="eyebrow">Descargar</p>
-          <h2 id="descargar-titulo">Para macOS, Windows y Linux</h2>
-          <p class="intro">Versorium es gratis. <strong>Todavía no hay ninguna versión publicada, y aún no se ha construido ningún instalador.</strong> Los instaladores estarán en la página de versiones de GitHub cuando salga la primera, y los enlaces de abajo ya apuntan allí. <strong>Hasta ahora, la app solo se ha ejecutado en macOS.</strong></p>
-        </div>
-
-        <div class="platforms">
-          <article class="card platform" aria-labelledby="mac-titulo">
-            <h3 id="mac-titulo">macOS</h3>
-            <p>La primera versión traerá dos descargas en <code>.dmg</code>: una para Apple silicon y otra para Intel.</p>
-            <p class="detail">La app se ha ejecutado en un Mac con Apple silicon (un M4 Max), donde la IA integrada usa Metal: la primera vez tarda unos 15 s en compilar, y la app lo adelanta al arrancar. En un Mac con Intel no se ha probado.</p>
-            <a class="btn" href="https://github.com/MAECLY/versorium-app/releases/latest">Página de versiones<span class="sr-only"> (macOS)</span></a>
-          </article>
-          <article class="card platform" aria-labelledby="win-titulo">
-            <h3 id="win-titulo">Windows</h3>
-            <p>La primera versión traerá un instalador para x64, en MSI y en NSIS.</p>
-            <p class="detail">La app todavía no se ha ejecutado en Windows. La IA integrada usará Vulkan (NVIDIA, AMD, Intel); no habrá CUDA, a propósito. Necesitará un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2).</p>
-            <a class="btn" href="https://github.com/MAECLY/versorium-app/releases/latest">Página de versiones<span class="sr-only"> (Windows)</span></a>
-          </article>
-          <article class="card platform" aria-labelledby="linux-titulo">
-            <h3 id="linux-titulo">Linux</h3>
-            <p>La primera versión traerá <code>.deb</code>, <code>.rpm</code> y AppImage para x64, construidos en Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
-            <p class="detail">La app todavía no se ha ejecutado en Linux: allí solo corren las pruebas automáticas, y la IA integrada se compila con Vulkan, pero ninguna GPU real la ha usado. El <code>.deb</code> declarará libvulkan1 y libssl3. Necesitará un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2). Para guardar un token hará falta Secret Service; si no está disponible, la app te avisará.</p>
-            <a class="btn" href="https://github.com/MAECLY/versorium-app/releases/latest">Página de versiones<span class="sr-only"> (Linux)</span></a>
-          </article>
-        </div>
-
-        <h3 class="notices-title" id="primera-vez">La primera vez que la abras</h3>
-        <div class="notices">
-          <article class="card notice" aria-labelledby="aviso-mac">
-            <p class="eyebrow">macOS</p>
-            <h4 id="aviso-mac">macOS dirá que la app está dañada. No lo está.</h4>
-            <p>El paquete no llevará firma de Developer ID, así que macOS lo pondrá en cuarentena y Gatekeeper mostrará el mensaje más engañoso que tiene. Quita la marca de cuarentena una sola vez, en Terminal:</p>
-            <div class="command">
-              <div class="command-line"><pre><code>xattr -rd com.apple.quarantine /Applications/<wbr>Versorium.app</code></pre></div>
-              <button class="btn btn-small copy" type="button" data-copy="xattr -rd com.apple.quarantine /Applications/Versorium.app" data-done="Copiado" data-failed="No se pudo copiar; selecciona el texto." data-status="copiado-mac">Copiar</button>
-              <span class="sr-only" id="copiado-mac" role="status"></span>
-            </div>
-            <p>Hazlo solo con una copia descargada de la <a href="https://github.com/MAECLY/versorium-app/releases/latest">página de versiones</a>: esa marca es la comprobación que te protege de una descarga manipulada.</p>
-          </article>
-          <article class="card notice" aria-labelledby="aviso-win">
-            <p class="eyebrow">Windows</p>
-            <h4 id="aviso-win">SmartScreen interrumpirá el instalador.</h4>
-            <p>El instalador no estará firmado, por la misma razón que el paquete de macOS, así que Windows mostrará la pantalla azul «Windows protegió su PC». Elige <b>Más información</b> y después <b>Ejecutar de todas formas</b>. Las versiones firmadas necesitan certificados de Apple y de Microsoft, que aún no existen, y cambios en el flujo de publicación.</p>
-          </article>
-        </div>
-
-        <p class="updates">Las actualizaciones van firmadas con minisign: la app solo instala una si su firma coincide con la clave pública que lleva dentro y si su <span class="nobreak">SHA-256</span> coincide con el <code>SHA256SUMS</code> de la versión. Las busca una vez al abrirse, sin cuenta ni token, y puedes desactivarlo en Ajustes → Aplicación. Un token de GitHub es opcional: solo hace falta para leer un repositorio privado o para superar el límite de 60 consultas por hora que GitHub impone sin token. Como todavía no hay ninguna versión publicada, este camino aún no se ha probado de principio a fin.</p>
-      </div>
-    </section>
-
-    <section class="section" id="preguntas" aria-labelledby="preguntas-titulo">
-      <div class="wrap">
-        <div class="section-head">
-          <p class="eyebrow">Preguntas</p>
-          <h2 id="preguntas-titulo">Lo que conviene preguntar antes</h2>
-        </div>
-        <div class="faq">
-          <details>
-            <summary>¿Mi novela sale de mi ordenador?</summary>
-            <div class="answer">
-              <p>No, salvo para lo que tú pidas. La novela es una carpeta en tu disco y Versorium no lleva analítica ni telemetría.</p>
-              <p>Por su cuenta, la app solo hace una cosa por la red: al abrirse busca actualizaciones en GitHub, sin nada de tu novela, y puedes desactivarlo en Ajustes → Aplicación. Todo lo demás ocurre cuando lo pides: descargar un modelo de Hugging Face, enviar la novela a GitHub o traerla, o reescribir con Claude Code, Codex u OpenCode, que mandan el pasaje a su propio servicio; por eso el diálogo de Reescribir marca cada proveedor como Local o CLI. Si eliges como destino de un respaldo una carpeta sincronizada, como iCloud Drive o Dropbox, la app te indica que esa copia sale del equipo. Los informes de fallo se guardan en tu equipo, sin prosa, y solo salen si pulsas Informar.</p>
-            </div>
-          </details>
-          <details>
-            <summary>¿Necesito una cuenta?</summary>
-            <div class="answer">
-              <p>No. No hay registro ni cuenta de Versorium, y la app busca actualizaciones sin pedirte nada.</p>
-              <p>Un token de GitHub solo hace falta si decides enviar la novela a un repositorio de GitHub y traerla de vuelta; para las actualizaciones es opcional. Se guarda en el almacén de credenciales del sistema, nunca en un archivo.</p>
-            </div>
-          </details>
-          <details>
-            <summary>¿Tengo que instalar git?</summary>
-            <div class="answer">
-              <p>No. Versorium lleva git dentro (libgit2): cada novela es un repositorio desde que la creas, sin instalar nada. Si ya usas git, puedes abrir la carpeta con tus herramientas de siempre.</p>
-            </div>
-          </details>
-          <details>
-            <summary>¿Qué IA usa?</summary>
-            <div class="answer">
-              <p>Ninguna, hasta que eliges una. Puedes descargar un modelo del catálogo para que corra dentro de la app con llama.cpp, usar Ollama o pasar el trabajo a Claude Code, Codex u OpenCode.</p>
-              <p>Hoy la IA reescribe pasajes, enseñando antes la diferencia, y revisa la continuidad a partir de los títulos de los capítulos y el códice. El chat, la búsqueda por significado y el dictado todavía no existen.</p>
-            </div>
-          </details>
-          <details>
-            <summary>¿Qué quiere decir «libre y de código abierto» aquí?</summary>
-            <div class="answer">
-              <p>Que el código se publica con licencia <span class="nobreak">Apache-2.0</span>: puedes usarlo, estudiarlo, cambiarlo y redistribuirlo, también con fines comerciales, conservando los avisos de la licencia. La app es gratis y no pide cuenta.</p>
-              <p>El nombre y la marca de Versorium no entran en la licencia: un fork tiene que cambiarlos antes de distribuirse.</p>
-            </div>
-          </details>
-          <details>
-            <summary>¿Puedo llevarme la novela a otro programa?</summary>
-            <div class="answer">
-              <p>Sí. Los capítulos ya son archivos Markdown que abre cualquier editor, y la app exporta a Markdown, DOCX, EPUB 3, PDF y proyectos de Scrivener 3.</p>
-              <p>Para empezar desde otro programa, importa Markdown, DOCX, EPUB y proyectos de Scrivener; DOCX, EPUB y Scrivener pierden las negritas, las cursivas y la división en escenas.</p>
-            </div>
-          </details>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <div class="wrap">
-      <div class="footer-top">
-        <a class="brand" href="./">
-          <svg class="vmark" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="M23.6 21.0L25.2 26.0L26.8 31.0L28.4 36.0L30.1 41.1L31.9 46.2L33.7 51.3L35.5 56.5L38.3 61.3L41.1 66.1L44.0 71.0L46.9 75.9L49.9 80.8L51.7 80.0L49.9 74.5L48.2 69.1L46.5 63.8L44.8 58.4L43.2 53.2L40.7 48.3L38.3 43.5L35.9 38.7L33.6 33.9L31.3 29.2L29.0 24.5L26.8 19.8Z"/><path class="hair" d="M52.5 81.4L55.4 76.4L58.1 71.3L60.8 66.2L63.5 61.1L66.0 55.9L68.5 50.7L71.0 45.4L73.4 40.1L75.7 34.7L77.9 29.3L80.1 23.9L82.2 18.4L80.2 17.6L78.0 23.0L75.7 28.4L73.3 33.7L70.9 38.9L68.4 44.2L65.9 49.3L63.2 54.5L60.5 59.5L57.8 64.6L54.9 69.6L52.0 74.5L49.1 79.4Z"/></svg>
-          <span>versorium</span>
-        </a>
-        <nav aria-label="Enlaces">
-          <ul>
-            <li><a href="https://github.com/MAECLY/versorium-app">Código fuente</a></li>
-            <li><a href="https://github.com/MAECLY/versorium-app/blob/main/LICENSE">Licencia <span class="nobreak">Apache-2.0</span></a></li>
-            <li><a href="https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md">Marcas</a></li>
-            <li><a href="https://github.com/MAECLY/versorium-app/blob/main/THIRD-PARTY-NOTICES.md">Avisos de terceros</a></li>
-            <li><a href="en/" hreflang="en" lang="en">English</a></li>
-          </ul>
-        </nav>
-      </div>
-      <div class="legal">
-        <p>Versorium, el logotipo en minúsculas versorium y su marca —una V escrita, con la plumilla que la trazó— son de MAECLY. El código se publica con licencia <span class="nobreak">Apache-2.0</span>, que no da derecho a usar esas marcas: un fork tiene que cambiar el nombre y la marca antes de distribuirse. Los demás nombres que aparecen aquí son de sus dueños y solo describen compatibilidad.</p>
-        <p>Hecho por Miguel Esparza · <a href="https://www.maecly.com/">MAECLY</a> · <a href="mailto:hola@maecly.com">hola@maecly.com</a></p>
-        <p>Esta página no usa cookies, analítica ni recursos de terceros. El tema que elijas se guarda en este navegador y en ningún otro sitio.</p>
-      </div>
-    </div>
-  </footer>
+<footer class="footer">
+<div class="wrap">
+<div class="footer-top">
+<div>
+<a class="brand" href="./"><svg class="vmark" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use class="v-ink" href="#v-s"/><use class="v-ink hair" href="#v-h"/></svg><span>versorium</span></a>
+<p class="tagline">Un escritorio tranquilo, una aguja fina.</p>
+</div>
+<nav aria-label="Enlaces"><ul>
+<li><a href="https://github.com/MAECLY/versorium-app">Código</a></li>
+<li><a href="https://github.com/MAECLY/versorium-app/blob/main/LICENSE">Licencia</a></li>
+<li><a href="https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md">Marca</a></li>
+<li><a href="https://github.com/MAECLY/versorium-app/blob/main/THIRD-PARTY-NOTICES.md">Avisos de terceros</a></li>
+<li><a href="detalles/">Límites y detalles</a></li>
+<li><a href="llms.txt">llms.txt</a></li>
+<li><a href="en/" hreflang="en" lang="en">English</a></li>
+</ul></nav>
+</div>
+<div class="legal">
+<p>Versorium y su marca son de MAECLY; la licencia <span class="nobreak">Apache-2.0</span> no los cubre. Hecho por Miguel Esparza · <a href="mailto:hola@maecly.com">hola@maecly.com</a></p>
+<p class="proof"><span class="proof-nojs">Sin cookies ni analítica, y nada de otros servidores: compruébalo en la pestaña Red.</span><span class="proof-js">Sin cookies ni analítica. Peticiones a otros servidores desde que llegaste: <b class="req-count">0</b></span> <span class="proof-ext" hidden>No las hace esta página (su política de seguridad lo impide): suelen venir de extensiones del navegador.</span></p>
+</div>
+</div>
+</footer>
 </body>
 </html>

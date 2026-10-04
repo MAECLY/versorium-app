@@ -5,6 +5,7 @@ Publisher: MAECLY
 Author: Miguel Esparza
 Canonical: https://versorium.maecly.com/
 English: https://versorium.maecly.com/en/
+Limits and details (ES): https://versorium.maecly.com/detalles/ · (EN): https://versorium.maecly.com/en/details/
 Product facts: https://versorium.maecly.com/llms.txt
 Repository: https://github.com/MAECLY/versorium-app
 Releases: https://github.com/MAECLY/versorium-app/releases/latest

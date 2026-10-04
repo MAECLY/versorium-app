@@ -3,6 +3,11 @@
    parsed: no flash of the wrong palette, and nothing moves when the picker
    appears. The choice is kept in localStorage and goes nowhere else.
 
+   It also decides, before the first paint, the classes the stylesheet reads:
+   js (the scripted controls may show), data-os and phone (which download path
+   to offer), and ink (the hero will type its sentence; only when the visitor
+   allows motion and has not asked to save data).
+
    Screenshots follow the theme too. Each <picture data-shot> names its files
    by pattern; when the theme changes, the sources are rewritten and the
    browser fetches the one variant it now needs. A <source> that carries its
@@ -83,6 +88,38 @@
   }
 
   root.classList.add("js");
+
+  /* The visitor's system, for the download path. A phone gets "send it to
+     your computer" instead of a link it cannot use; iPadOS reports a Mac, so
+     a Mac with a touch screen is taken for one. */
+  var ua = navigator.userAgent || "";
+  var plat = (navigator.userAgentData && navigator.userAgentData.platform) || "";
+  var os =
+    /Android/i.test(ua) || plat === "Android"
+      ? "android"
+      : /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+        ? "ios"
+        : plat === "macOS" || /Mac OS X|Macintosh/.test(ua)
+          ? "mac"
+          : plat === "Windows" || /Windows/.test(ua)
+            ? "win"
+            : plat === "Linux" || plat === "Chrome OS" || /Linux|X11|CrOS/.test(ua)
+              ? "linux"
+              : "other";
+  root.setAttribute("data-os", os);
+  if (os === "ios" || os === "android") root.classList.add("phone");
+
+  function stillPreferred() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  try {
+    var light = navigator.connection && navigator.connection.saveData;
+    if (!stillPreferred() && !light) root.classList.add("ink");
+  } catch (e) {
+    /* No ink: the page is already in its finished state. */
+  }
+
   apply();
 
   /* --------------------------------------------------------- screenshots */
@@ -94,8 +131,9 @@
 
   /* The picker's own label for the current mode, in the page's language. */
   function modeLabel() {
-    var label = document.querySelector('#theme-picker input[name="mode"][value="' + state.mode + '"] + .mode');
-    return label ? label.textContent : state.mode;
+    var input = document.querySelector('#theme-picker input[name="mode"][value="' + state.mode + '"]');
+    var label = input && input.closest ? input.closest("label") : null;
+    return label ? label.textContent.replace(/\s+/g, " ").trim() : state.mode;
   }
 
   /* The media query under which a picture shows its phone crop, read from the
@@ -124,12 +162,9 @@
       for (var j = 0; j < parts.length; j += 1) {
         var el = parts[j];
         /* A phone's crop names its own files; everything else uses the
-           picture's. A shot of the app's own theme picker has a second set,
-           taken with Light or Dark pressed instead of Follow system, so it can
-           match this page's; its crop has one too. */
+           picture's. */
         var from = el.hasAttribute("data-shot") ? el : picture;
-        var pinned = state.mode !== "follow" && from.getAttribute("data-shot-pinned");
-        var base = pinned || from.getAttribute("data-shot");
+        var base = from.getAttribute("data-shot");
         var widths = (from.getAttribute("data-widths") || "").split(",");
         var variant = state.theme + "-" + modeFor(el.getAttribute("data-mode") || "light");
         var next = files(base, variant, widths);
@@ -169,13 +204,61 @@
     swapShots();
   }
 
+  /* The new theme spreads from where it was chosen, like ink. The point is
+     written to two custom properties on <html> (the CSSOM, which the CSP
+     allows), only after a choice, never at load. */
+  function inkTransition(update, point) {
+    if (!document.startViewTransition || stillPreferred()) {
+      update();
+      return;
+    }
+    root.style.setProperty("--ink-x", Math.round(point.x) + "px");
+    root.style.setProperty("--ink-y", Math.round(point.y) + "px");
+    root.classList.add("vt-ink");
+    var end = function () {
+      root.classList.remove("vt-ink");
+    };
+    try {
+      var transition = document.startViewTransition(update);
+      transition.finished.then(end, end);
+    } catch (e) {
+      end();
+      update();
+    }
+  }
+
   function wirePicker() {
     var picker = document.getElementById("theme-picker");
     if (!picker) return;
     syncPicker();
+    var pressed = null;
+    picker.addEventListener(
+      "pointerdown",
+      function (event) {
+        pressed = { x: event.clientX, y: event.clientY };
+      },
+      true
+    );
+    picker.addEventListener(
+      "keydown",
+      function () {
+        pressed = null;
+      },
+      true
+    );
     picker.addEventListener("change", function (event) {
       var target = event.target;
-      if (target && target.type === "radio") choose(target.name, target.value);
+      if (!target || target.type !== "radio") return;
+      var point = pressed;
+      pressed = null;
+      if (!point) {
+        /* From the keyboard: the centre of the pill that was chosen. */
+        var box = (target.closest ? target.closest("label") || target : target).getBoundingClientRect();
+        point = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      }
+      inkTransition(function () {
+        choose(target.name, target.value);
+      }, point);
     });
   }
 
@@ -229,31 +312,6 @@
     }
   }
 
-  /* --------------------------------------------------------------- hero */
-
-  /* The HTML can name only one variant of the hero shot, and the browser's
-     preload scanner would fetch it before this script could say which one the
-     visitor needs; a returning visitor on Folio or Quarry would then download
-     the hero twice. So the hero ships with loading="lazy", which keeps the
-     scanner away, and is switched to eager here the moment the parser inserts
-     it, already pointing at the right file. Without script it still loads,
-     lazily, at the first layout. */
-  function promote() {
-    swapShots();
-    var eager = document.querySelectorAll("img[data-eager]");
-    for (var i = 0; i < eager.length; i += 1) {
-      if (eager[i].getAttribute("loading") !== "eager") eager[i].setAttribute("loading", "eager");
-    }
-  }
-
-  var watcher = null;
-  if (document.readyState === "loading" && window.MutationObserver) {
-    watcher = new MutationObserver(function () {
-      if (document.querySelector("img[data-eager]:not([loading='eager'])")) promote();
-    });
-    watcher.observe(root, { childList: true, subtree: true });
-  }
-
   /* Turning a tablet, or narrowing a window, swaps a crop for its full window
      or back; the alt text has to swap with it. */
   function wireBreakpoints() {
@@ -269,12 +327,36 @@
     }
   }
 
+  /* Focus is never left under the sticky header. scroll-padding-top in the
+     stylesheet makes the browser stop below it; but Firefox does not scroll
+     at all for a control it counts as on screen, even when the header covers
+     it. After a keyboard focus has settled, such a control is brought out
+     (scrollIntoView honours the same padding). */
+  function wireFocusClearance() {
+    var header = document.querySelector(".topbar");
+    if (!header || !window.requestAnimationFrame) return;
+    document.addEventListener("focusin", function (event) {
+      var el = event.target;
+      if (!el || !el.getBoundingClientRect || header.contains(el)) return;
+      window.requestAnimationFrame(function () {
+        var keyboard = true;
+        try {
+          keyboard = el.matches(":focus-visible");
+        } catch (e) {
+          /* No :focus-visible: treat every focus as the keyboard's. */
+        }
+        if (document.activeElement !== el || !keyboard) return;
+        if (el.getBoundingClientRect().top < header.getBoundingClientRect().bottom) el.scrollIntoView({ block: "nearest" });
+      });
+    });
+  }
+
   function ready() {
-    if (watcher) watcher.disconnect();
-    promote();
+    swapShots();
     wireBreakpoints();
     wirePicker();
     wireCopy();
+    wireFocusClearance();
   }
 
   if (document.readyState === "loading") {
