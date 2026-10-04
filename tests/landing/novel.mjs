@@ -108,6 +108,10 @@ Fue la primera noche que Irene subió a la sala de la lámpara sin ningún motiv
 
 Anotó en el cuaderno: *Lente de Fresnel, primer orden, intacta.* Después tachó *intacta*: no encontraba la palabra para algo que nadie usaba y que todos, sin embargo, seguían cuidando.`,
     },
+    // The sentence the hero window types at the end of the hero chapter's
+    // second paragraph (docs/index.html), with its leading space: the
+    // paragraph's text plus this is what the app would hold afterwards.
+    typed: " Nadie le había dicho que el faro aún tuviera dueño.",
     // A described snapshot, the kind a writer types in the History panel.
     describedSnapshot: "La aguja, segunda versión",
     // A chapter deleted early on; only its snapshot message survives.
@@ -202,10 +206,14 @@ It was the first night Irene climbed to the lamp room for no reason at all.
 
 She wrote in her notebook: *Fresnel lens, first order, intact.* Then she crossed out *intact*: she could not find the word for something nobody used and everyone, even so, kept looking after.`,
     },
+    typed: " Nobody had told her the lighthouse still had an owner.",
     describedSnapshot: "The needle, second pass",
     deletedFile: "manuscript/ch-09-loose-notes.md",
   },
 };
+
+/** The typed sentence of each language (novels[lang].typed), for importers that want only it. */
+export const typed = { es: novels.es.typed, en: novels.en.typed };
 
 /**
  * The snapshot history shown in the History panel, oldest first.

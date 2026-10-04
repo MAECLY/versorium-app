@@ -1,81 +1,120 @@
-// Language lens: compares the Spanish and English landing pages structurally.
-// Usage: node tests/landing/language-parity.mjs [baseUrl]
+// Language lens: the Spanish and English pages say the same things in the same
+// shape (site spec §12.7): the same sections in the same order, the same
+// headings per level, the same FAQ and limits counts, the same pictures per
+// section, the same buttons and links per section; and each page's FAQ
+// JSON-LD equals its visible answers. Also the details pages. Per section,
+// also: the same picture files (shots/es/x ↔ shots/en/x), the same links to
+// other sites, the same behaviour hooks (data-reveal, data-clip, data-share,
+// data-phone, data-desktop, data-os) and the same number of ids; per page,
+// hreflang pointing at each other, the same JSON-LD node types, and the same
+// <head> resources.
+//
+//   node tests/landing/language-parity.mjs [baseUrl]   (or SITE_URL=…)
+
 import { chromium } from "@playwright/test";
 
-const base = process.argv[2] || "http://localhost:8715";
+const base = process.argv[2] || process.env.SITE_URL || "http://localhost:8700";
 const browser = await chromium.launch({ channel: "chrome" });
-const out = {};
+const problems = [];
 
-for (const [lang, path] of [["es", "/"], ["en", "/en/"]]) {
-  const page = await browser.newPage();
+async function shape(route) {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
-  const failed = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  page.on("requestfailed", (r) => failed.push(r.url()));
-  page.on("response", (r) => r.status() >= 400 && failed.push(r.status() + " " + r.url()));
-  await page.goto(base + path, { waitUntil: "networkidle" });
-  // Force-load lazy images.
-  await page.evaluate(() => document.querySelectorAll("img").forEach((i) => (i.loading = "eager")));
-  await page.waitForTimeout(500);
+  await page.goto(base + route, { waitUntil: "networkidle" });
   const data = await page.evaluate(() => {
-    const q = (s) => [...document.querySelectorAll(s)];
-    const sections = q("main section").map((s) => ({
-      id: s.id,
-      h: q.call(null, "#" + (s.id || "x") + " h1, #" + (s.id || "x") + " h2").map((h) => h.textContent.trim()),
-      paras: s.querySelectorAll("p").length,
+    const q = (root, s) => [...root.querySelectorAll(s)];
+    const sections = q(document, "main section, main > .wrap > .prose > section").map((s) => ({
+      tag: s.className.split(" ").find((c) => c.startsWith("s-") || c === "hero" || c === "closing") || "section",
+      h: q(s, "h1, h2, h3").map((h) => h.tagName),
+      p: s.querySelectorAll("p").length,
       li: s.querySelectorAll("li").length,
-      dt: s.querySelectorAll("dt").length,
+      img: s.querySelectorAll("img").length,
+      picture: s.querySelectorAll("picture").length,
       details: s.querySelectorAll("details").length,
-      imgs: s.querySelectorAll("img").length,
-      pre: s.querySelectorAll("pre").length,
-      notes: s.querySelectorAll(".note").length,
+      buttons: s.querySelectorAll("button").length,
       links: s.querySelectorAll("a").length,
-      kbd: s.querySelectorAll("kbd").length,
-      code: s.querySelectorAll("code").length,
-      b: s.querySelectorAll("b, strong").length,
-      words: s.innerText.split(/\s+/).filter(Boolean).length,
+      svg: s.querySelectorAll("svg").length,
+      files: q(s, "img, source")
+        .map((e) => (e.getAttribute("src") || e.getAttribute("srcset") || "").split(/[\s,]+/)[0])
+        .map((u) => new URL(u, location.href).pathname.replace(/\/(es|en)\//, "/<lang>/").split("/").slice(-2).join("/")),
+      external: q(s, "a[href]")
+        .map((a) => a.href)
+        .filter((h) => !h.startsWith(location.origin))
+        // A mail's subject and body are in the page's language.
+        .map((h) => (h.startsWith("mailto:") ? "mailto:" : h))
+        .sort(),
+      hooks: ["data-reveal", "data-clip", "data-share", "data-phone", "data-desktop", "data-os"].map((h) => `${h}:${s.querySelectorAll(`[${h}]`).length}`),
+      ids: s.querySelectorAll("[id]").length,
     }));
-    const imgs = q("img").map((i) => ({ alt: i.alt, src: i.currentSrc, ok: i.complete && i.naturalWidth > 0 }));
-    const aria = q("[aria-label]").map((e) => e.getAttribute("aria-label"));
-    const ld = JSON.parse(document.querySelector('script[type="application/ld+json"]').textContent);
-    const faq = ld["@graph"].find((n) => n["@type"] === "FAQPage").mainEntity;
-    const visibleFaq = q(".faq details").map((d) => ({
-      q: d.querySelector("summary").textContent.trim(),
-      a: [...d.querySelectorAll(".answer p")].map((p) => p.textContent.trim()).join(" "),
-    }));
-    const faqMatch = faq.map((f, i) => ({
-      qSame: f.name === visibleFaq[i]?.q,
-      aSame: f.acceptedAnswer.text === visibleFaq[i]?.a,
-    }));
+    const ld = document.querySelector('script[type="application/ld+json"]');
+    let faq = null;
+    if (ld) {
+      const node = JSON.parse(ld.textContent)["@graph"].find((n) => n["@type"] === "FAQPage");
+      if (node) {
+        document.querySelectorAll(".faq details").forEach((d) => (d.open = true));
+        const visible = q(document, ".faq details").map((d) => ({ q: d.querySelector("summary").textContent.trim(), a: d.querySelector(".answer").textContent.replace(/\s+/g, " ").trim() }));
+        faq = node.mainEntity.map((f, i) => f.name === visible[i]?.q && f.acceptedAnswer.text === visible[i]?.a);
+      }
+    }
+    const graph = ld ? JSON.parse(ld.textContent)["@graph"].map((n) => n["@type"]) : [];
     return {
+      graph,
+      canonical: document.querySelector('link[rel="canonical"]')?.href,
+      alternates: Object.fromEntries(q(document, 'link[rel="alternate"][hreflang]').map((l) => [l.hreflang, l.href])),
+      headResources: q(document, "head link[href], head script[src]")
+        .filter((e) => !["canonical", "alternate"].includes(e.getAttribute("rel")))
+        .map((e) => `${e.tagName}:${e.getAttribute("rel") || ""}:${new URL(e.getAttribute("href") || e.getAttribute("src"), location.href).pathname.replace(/^\/en\//, "/")}`),
       lang: document.documentElement.lang,
-      title: document.title,
-      ogLocale: document.querySelector('meta[property="og:locale"]').content,
-      ogAlt: document.querySelector('meta[property="og:locale:alternate"]').content,
-      hreflang: q('link[rel="alternate"][hreflang]').map((l) => l.hreflang + "=" + l.href),
-      canonical: document.querySelector('link[rel="canonical"]').href,
-      langLinks: q("a[hreflang]").map((a) => a.hreflang + "->" + a.href),
       sections,
-      imgs,
-      aria,
-      faqMatch,
-      themeAttr: document.documentElement.getAttribute("data-theme"),
+      limits: q(document, ".limits li, .limit-list li").length,
+      faq,
+      headerLinks: q(document, ".topbar a").length,
+      footerLinks: q(document, ".footer a").length,
     };
   });
-  // Exercise the picker and capture the localized dynamic alt.
-  await page.click('#theme-picker input[name="theme"][value="quarry"]', { force: true });
-  await page.click('#theme-picker input[name="mode"][value="dark"]', { force: true });
-  data.dynamicAlt = await page.evaluate(() => document.querySelector("picture[data-shot-pinned] img").alt);
-  data.dynamicSrc = await page.evaluate(() => document.querySelector("picture[data-shot-pinned] img").getAttribute("src"));
-  await page.click('#theme-picker input[name="mode"][value="follow"]', { force: true });
-  await page.click('#theme-picker input[name="theme"][value="needle"]', { force: true });
-  // Copy button status text.
   data.errors = errors;
-  data.failed = failed;
-  out[lang] = data;
   await page.close();
+  return data;
+}
+
+for (const [es, en] of [
+  ["/", "/en/"],
+  ["/detalles/", "/en/details/"],
+]) {
+  const a = await shape(es);
+  const b = await shape(en);
+  const where = `${es} ↔ ${en}`;
+  if (a.lang !== "es" || b.lang !== "en") problems.push(`${where}: lang ${a.lang}/${b.lang}`);
+  if (a.sections.length !== b.sections.length) problems.push(`${where}: ${a.sections.length} vs ${b.sections.length} sections`);
+  a.sections.forEach((s, i) => {
+    const t = b.sections[i];
+    if (!t) return;
+    for (const k of Object.keys(s)) {
+      if (JSON.stringify(s[k]) !== JSON.stringify(t[k])) problems.push(`${where}: section ${i + 1} (${s.tag}) ${k}: ${JSON.stringify(s[k])} vs ${JSON.stringify(t[k])}`);
+    }
+  });
+  for (const k of ["limits", "headerLinks", "footerLinks"]) if (a[k] !== b[k]) problems.push(`${where}: ${k} ${a[k]} vs ${b[k]}`);
+  for (const k of ["graph", "headResources"]) if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) problems.push(`${where}: ${k} ${JSON.stringify(a[k])} vs ${JSON.stringify(b[k])}`);
+  // Each page names the other as its translation, and itself as its own.
+  if (a.alternates.es !== a.canonical || a.alternates.en !== b.canonical) problems.push(`${es}: hreflang es=${a.alternates.es} en=${a.alternates.en}`);
+  if (b.alternates.en !== b.canonical || b.alternates.es !== a.canonical) problems.push(`${en}: hreflang es=${b.alternates.es} en=${b.alternates.en}`);
+  if (JSON.stringify(a.alternates) !== JSON.stringify(b.alternates)) problems.push(`${where}: the hreflang sets differ`);
+  for (const [route, d] of [
+    [es, a],
+    [en, b],
+  ]) {
+    if (d.faq && d.faq.some((ok) => !ok)) problems.push(`${route}: FAQ JSON-LD differs from the visible answers`);
+    for (const e of d.errors) problems.push(`${route}: ${e}`);
+  }
+  console.log(`${where}: ${a.sections.length} sections, ${a.limits} limits each`);
 }
 await browser.close();
-
-console.log(JSON.stringify(out, null, 1));
+if (problems.length) {
+  console.log(`\n${problems.length} difference(s):`);
+  for (const p of problems) console.log(" -", p);
+  process.exitCode = 1;
+} else {
+  console.log("both languages have the same shape");
+}

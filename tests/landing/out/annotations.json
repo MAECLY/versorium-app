@@ -1,0 +1,56 @@
+{
+  "es": {
+    "corkboard": {
+      "card": {
+        "x": 516,
+        "y": 100.5,
+        "w": 236,
+        "h": 210
+      },
+      "ellipse": {
+        "cx": 634,
+        "cy": 205.5,
+        "rx": 132,
+        "ry": 117,
+        "rotate": -3
+      }
+    },
+    "focus": {
+      "paragraph": {
+        "x": 262.8,
+        "y": 72,
+        "w": 792.9,
+        "h": 142.8
+      },
+      "bracket": "M244.8 72 q-10 0 -10 10 V204.8 q0 10 10 10"
+    }
+  },
+  "en": {
+    "corkboard": {
+      "card": {
+        "x": 516,
+        "y": 100.5,
+        "w": 236,
+        "h": 228
+      },
+      "ellipse": {
+        "cx": 634,
+        "cy": 214.5,
+        "rx": 132,
+        "ry": 126,
+        "rotate": -3
+      }
+    },
+    "focus": {
+      "paragraph": {
+        "x": 262.8,
+        "y": 72,
+        "w": 792.9,
+        "h": 142.8
+      },
+      "bracket": "M244.8 72 q-10 0 -10 10 V204.8 q0 10 10 10"
+    }
+  },
+  "viewBox": "0 0 1280 800",
+  "note": "CSS px of the 1280x800 captures (record.mjs). corkboard: the current card and the ellipse drawn around it; focus: the paragraph with the caret and the bracket beside it (site spec §7.7)."
+}

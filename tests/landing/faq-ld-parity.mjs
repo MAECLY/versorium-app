@@ -18,8 +18,9 @@ for (const path of ["/", "/en/"]) {
     const ld = JSON.parse(document.querySelector('script[type="application/ld+json"]').textContent);
     const faq = ld["@graph"].find((n) => n["@type"] === "FAQPage").mainEntity;
     const dom = [...document.querySelectorAll(".faq details")].map((d) => ({
-      q: d.querySelector("summary").innerText.trim(),
-      a: [...d.querySelectorAll(".answer p")].map((p) => p.innerText.trim()).join(" "),
+      // textContent, not innerText: an answer that is still opening has no rendered text yet.
+      q: d.querySelector("summary").textContent.trim(),
+      a: [...d.querySelectorAll(".answer p")].map((p) => p.textContent.replace(/\s+/g, " ").trim()).join(" "),
     }));
     return dom.map((d, i) => ({
       q: d.q,

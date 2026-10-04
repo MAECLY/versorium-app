@@ -7,20 +7,27 @@
 //
 //   node tests/landing/tokens.mjs           # rewrite the block
 //   node tests/landing/tokens.mjs --check   # compare only
+//   APP_REF=HEAD node tests/landing/tokens.mjs --check   # against the committed app
 
+import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const ROOT = path.resolve(new URL("../..", import.meta.url).pathname);
 const APP_CSS = path.join(ROOT, "src/styles.css");
-const SITE_CSS = path.join(ROOT, "docs/assets/site.css");
+// DOCS_DIR points the check at another copy of docs/ (verify-selftest.mjs).
+const SITE_CSS = path.join(process.env.DOCS_DIR ?? path.join(ROOT, "docs"), "assets/site.css");
 const BEGIN = "/* tokens:begin — copied from src/styles.css by tests/landing/tokens.mjs; do not edit by hand */";
 const END = "/* tokens:end */";
 
 /** Every top-level rule whose selector names a theme, in source order, exactly as written. */
 export async function appTokens() {
   // Comments belong to the app's file, not to the copy; none sit inside a token block.
-  const css = (await readFile(APP_CSS, "utf8")).replace(/\/\*[\s\S]*?\*\//g, "");
+  // APP_REF=HEAD compares with the app as committed rather than the working tree.
+  const source = process.env.APP_REF
+    ? execFileSync("git", ["-C", ROOT, "show", `${process.env.APP_REF}:src/styles.css`], { encoding: "utf8" })
+    : await readFile(APP_CSS, "utf8");
+  const css = source.replace(/\/\*[\s\S]*?\*\//g, "");
   const rules = [];
   let depth = 0;
   let preludeStart = 0;

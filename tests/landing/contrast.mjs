@@ -48,24 +48,25 @@ export function contrast(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
-/** [foreground, background, minimum, where it is used] */
+/** [foreground, background, minimum, where it is used]; a minimum of 0 marks a
+    pair the page does not paint (listed so nobody starts to). */
 export const PAIRS = [
-  ["--text", "--bg-app", 4.5, "body text on the page"],
-  ["--text", "--bg-editor", 4.5, "body text on the page panels"],
-  ["--text", "--bg-panel", 4.5, "text in panels"],
-  ["--text", "--bg-elev", 4.5, "text in cards"],
-  ["--text-mute", "--bg-editor", 4.5, "secondary text on page panels"],
-  ["--text-mute", "--bg-elev", 4.5, "secondary text in cards"],
-  ["--text-mute", "--bg-app", 4.5, "secondary text on the page background"],
-  ["--text-mute", "--bg-panel", 4.5, "secondary text in panels"],
-  ["--accent", "--bg-app", 4.5, "links on the page background"],
-  ["--accent", "--bg-editor", 4.5, "links on page panels"],
+  ["--text", "--bg-app", 4.5, "header and footer text"],
+  ["--text", "--bg-editor", 4.5, "body text on the page"],
+  ["--text", "--bg-elev", 4.5, "text in cards, pills and buttons"],
+  ["--text-mute", "--bg-editor", 4.5, "captions, hints, the dial's labels"],
+  ["--text-mute", "--bg-elev", 4.5, "secondary text in cards (details pages)"],
+  ["--accent", "--bg-app", 4.5, "links in the footer"],
+  ["--accent", "--bg-editor", 4.5, "links on the page"],
   ["--accent", "--bg-elev", 4.5, "links in cards"],
-  ["--accent", "--bg-panel", 4.5, "links in panels"],
-  ["--accent-contrast", "--accent", 4.5, "primary button label"],
-  ["--warn", "--bg-elev", 4.5, "notice heading in cards"],
-  ["--warn", "--bg-editor", 4.5, "notice text on page panels"],
-  ["--accent", "--bg-app", 3, "focus ring, selected outline (non-text)"],
+  ["--accent-contrast", "--accent", 4.5, "primary buttons; the closing band's text"],
+  ["--accent", "--accent-contrast", 4.5, "the closing band's button"],
+  ["--ok", "--bg-app", 3, "\"Guardado\" in the app window (part of a picture)"],
+  ["--accent", "--bg-editor", 3, "ink underlines, rules, annotations (non-text)"],
+  ["--accent", "--bg-app", 3, "focus ring on the header, selected outline (non-text)"],
+  ["--warn", "--bg-elev", 3, "the pill's dot and the notices' rule (non-text)"],
+  ["--text-mute", "--bg-app", 0, "not used: under 4.5 in Folio and Quarry Light"],
+  ["--text-mute", "--bg-panel", 0, "not used: under 4.5 in Folio Light"],
 ];
 
 const all = tokens();

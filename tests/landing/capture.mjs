@@ -14,44 +14,52 @@
 //     fixture's invented models, so no screenshot shows a model the app does not
 //     offer;
 //   - ai_rewrite returns a written alternative of the selected passage instead
-//     of the fixture's "— rewritten by …" echo.
+//     of the fixture's "— rewritten by …" echo, after a short wait (150 ms; the
+//     recordings in record.mjs ask for 600 ms so the busy state is seen).
+//
+// The page's images are made by record.mjs, which uses this file's boot() and
+// steps and also measures the phone crops and the annotation boxes. This
+// command line is for references and probes.
 //
 // Usage (the Vite dev server must be up on :1420; it is reused if running):
-//   node tests/landing/capture.mjs                     # everything
+//   node tests/landing/capture.mjs                     # the page's stills, no crop boxes
 //   node tests/landing/capture.mjs --lang es --theme needle-light --shot editor
+//   RAW_DIR=/tmp/versorium-landing/reference node tests/landing/capture.mjs --shot editor --viewport 1024x640
 // Raw PNGs (and the crop box of each, as JSON) go to $RAW_DIR, default
 // /tmp/versorium-landing/raw; encode.py turns them into docs/assets/shots/.
+// The editor shot is no longer on the page (the hero window is HTML); at
+// 1024x640 it is the reference the hero replica is compared with (site spec
+// §12.8), in /tmp only.
+//
+// This file is also a module: record.mjs and record-trial.mjs import boot(),
+// the steps and the helpers, so a recording and a screenshot are always of the
+// same seeded app. The command line runs only when this file is the entry.
 
 import { chromium } from "@playwright/test";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { history, novels } from "./novel.mjs";
 
 const ROOT = path.resolve(new URL("../..", import.meta.url).pathname);
 const APP = process.env.APP_URL ?? "http://localhost:1420/";
 const RAW = process.env.RAW_DIR ?? "/tmp/versorium-landing/raw";
 
-const VIEWPORT = { width: 1280, height: 800 };
-const SCALE = 2;
+export const VIEWPORT = { width: 1280, height: 800 };
+export const SCALE = 2;
 
-const ALL_THEMES = ["folio", "quarry", "needle"].flatMap((t) => [`${t}-light`, `${t}-dark`]);
-const ALL_SHOTS = ["editor", "settings", "settings-pinned", "rewrite", "corkboard", "history", "focus"];
+export const ALL_THEMES = ["folio", "quarry", "needle"].flatMap((t) => [`${t}-light`, `${t}-dark`]);
+// The stills encode.py makes (the rewrite still comes with its clip, from
+// record.mjs). `editor`, `rewrite` and the two settings shots still have steps
+// below, for references and probes; they are captured only on request.
+const ALL_SHOTS = ["corkboard", "history", "focus"];
 // Shots taken with the mode chosen explicitly (Light or Dark pressed) rather
 // than following the system, so the landing page can show the picker in the
 // same state as its own.
-const PINNED = new Set(["settings-pinned"]);
-
-function arg(name, fallback) {
-  const at = process.argv.indexOf(`--${name}`);
-  return at > 0 ? process.argv[at + 1].split(",") : fallback;
-}
-
-const langs = arg("lang", ["es", "en"]);
-const themes = arg("theme", ALL_THEMES);
-const shots = arg("shot", ALL_SHOTS);
+export const PINNED = new Set(["settings-pinned"]);
 
 /** The real catalogue, shaped as the models_view command returns it. */
-async function catalogue() {
+export async function catalogue() {
   const raw = JSON.parse(await readFile(path.join(ROOT, "models/catalog.json"), "utf8"));
   // Two writing models on disk, the rest offered for download: a machine a
   // week into using the app, not one that downloaded everything.
@@ -182,7 +190,7 @@ function installSeed(seed) {
           };
         }
         if (cmd === "ai_rewrite") {
-          await new Promise((r) => setTimeout(r, 150));
+          await new Promise((r) => setTimeout(r, seed.rewriteDelay));
           return seed.rewrite.result;
         }
         return invoke(cmd, args);
@@ -192,18 +200,37 @@ function installSeed(seed) {
   });
 }
 
-async function boot(browser, lang, variant, catalogueModels, pinned = false) {
+/**
+ * A browser context with the seeded app open on the hero chapter.
+ *
+ * `reducedMotion` is "reduce" for stills, so no transition is caught halfway;
+ * recordings pass "no-preference" so the app's own transitions play as a
+ * writer sees them. `viewport` defaults to the 1280x800 the stills are taken
+ * at; the restore clip uses the app's minimum window, 1024x640
+ * (src-tauri/tauri.conf.json). `rewriteDelay` is how long the adjusted
+ * ai_rewrite waits before answering. `clock` installs Playwright's fake clock
+ * before the app loads; it keeps running in step with real time until the
+ * caller pauses it, after which a recording advances it frame by frame.
+ */
+export async function boot(
+  browser,
+  lang,
+  variant,
+  catalogueModels,
+  pinned = false,
+  { reducedMotion = "reduce", viewport = VIEWPORT, rewriteDelay = 150, clock = false } = {},
+) {
   const [theme, mode] = variant.split("-");
   const novel = novels[lang];
   const context = await browser.newContext({
-    viewport: VIEWPORT,
+    viewport,
     deviceScaleFactor: SCALE,
     locale: lang === "es" ? "es-ES" : "en-US",
     timezoneId: "Europe/Madrid",
     // The app follows the system, as it does on a fresh install; the system is
     // what picks light or dark.
     colorScheme: mode,
-    reducedMotion: "reduce",
+    reducedMotion,
   });
   await context.addInitScript(installSeed, {
     title: novel.title,
@@ -213,10 +240,12 @@ async function boot(browser, lang, variant, catalogueModels, pinned = false) {
     shelf: novel.shelf,
     history: history(lang),
     rewrite: novel.rewrite,
+    rewriteDelay,
     rewriteModel: "qwen3-4b-instruct-2507-q4km",
     catalogue: catalogueModels,
     settings: { uiLocale: lang, theme, themeMode: pinned ? mode : "follow", onboarded: true },
   });
+  if (clock) await context.clock.install();
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -232,18 +261,71 @@ async function boot(browser, lang, variant, catalogueModels, pinned = false) {
 }
 
 /** Park the pointer where it hovers nothing, so no control shows a hover state. */
-async function rest(page) {
-  await page.mouse.move(VIEWPORT.width - 4, 300);
+export async function rest(page) {
+  const { width } = page.viewportSize();
+  await page.mouse.move(width - 4, 300);
 }
 
-async function blur(page) {
+export async function blur(page) {
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
 }
 
+/**
+ * Select the passage novel.rewrite names and open the Rewrite dialog on it,
+ * with its list of models filled in. Returns the dialog.
+ */
+export async function openRewrite(page, lang, novel) {
+  const { from, to } = novel.rewrite;
+  await page.locator(".cm-content").evaluate(
+    (el, range) => {
+      // EditorView.findFromDOM, without being able to import it here.
+      const tile = el.cmTile;
+      const view = tile?.root?.view ?? tile?.view;
+      const doc = view.state.doc.toString();
+      const start = doc.indexOf(range.from);
+      const end = doc.indexOf(range.to, start) + range.to.length;
+      view.dispatch({ selection: { anchor: start, head: end } });
+      view.focus();
+    },
+    { from, to },
+  );
+  const label = lang === "es" ? "Reescribir" : "Rewrite";
+  await page.getByRole("banner").getByRole("button", { name: label, exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: label });
+  await dialog.waitFor();
+  await page.waitForFunction(() => {
+    const select = document.querySelector("dialog[open] select");
+    return select && select.options.length > 0;
+  });
+  return dialog;
+}
+
+/**
+ * The dialog alone. Any margin around it shows the prose behind the scrim cut
+ * off mid-line and mid-word, because the dialog is narrower than the text
+ * column it covers. The box is rounded inward to whole device pixels, so no
+ * backdrop shows along the straight edges; the page rounds the corners to the
+ * dialog's own radius, recorded here.
+ */
+export async function dialogBox(dialog) {
+  const box = await dialog.boundingBox();
+  const radius = await dialog.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
+  const inward = (v, up) => (up ? Math.ceil(v * SCALE) : Math.floor(v * SCALE)) / SCALE;
+  const x = inward(box.x, true);
+  const y = inward(box.y, true);
+  return {
+    x,
+    y,
+    width: inward(box.x + box.width, false) - x,
+    height: inward(box.y + box.height, false) - y,
+    radius,
+  };
+}
+
 /** Each step brings the app to the state it shows and returns the crop, in CSS px. */
-const steps = {
+export const steps = {
   async editor(page) {
     await blur(page);
     return null;
@@ -255,7 +337,7 @@ const steps = {
     await page.getByRole("radiogroup").first().waitFor();
     await blur(page);
     const select = await page.locator("select").last().boundingBox();
-    return { x: 0, y: 0, width: VIEWPORT.width, height: Math.ceil(select.y + select.height + 40) };
+    return { x: 0, y: 0, width: page.viewportSize().width, height: Math.ceil(select.y + select.height + 40) };
   },
 
   async "settings-pinned"(page, lang) {
@@ -263,48 +345,12 @@ const steps = {
   },
 
   async rewrite(page, lang, novel) {
-    const { from, to } = novel.rewrite;
-    await page.locator(".cm-content").evaluate(
-      (el, range) => {
-        // EditorView.findFromDOM, without being able to import it here.
-        const tile = el.cmTile;
-        const view = tile?.root?.view ?? tile?.view;
-        const doc = view.state.doc.toString();
-        const start = doc.indexOf(range.from);
-        const end = doc.indexOf(range.to, start) + range.to.length;
-        view.dispatch({ selection: { anchor: start, head: end } });
-        view.focus();
-      },
-      { from, to },
-    );
+    const dialog = await openRewrite(page, lang, novel);
     const label = lang === "es" ? "Reescribir" : "Rewrite";
-    await page.getByRole("banner").getByRole("button", { name: label, exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: label });
-    await dialog.waitFor();
-    await page.waitForFunction(() => {
-      const select = document.querySelector("dialog[open] select");
-      return select && select.options.length > 0;
-    });
     await dialog.getByRole("button", { name: label, exact: true }).click();
     await dialog.getByRole("region", { name: lang === "es" ? "Vista previa" : "Preview" }).waitFor();
     await blur(page);
-    // The dialog alone. Any margin around it shows the prose behind the scrim
-    // cut off mid-line and mid-word, because the dialog is narrower than the
-    // text column it covers. The box is rounded inward to whole device pixels,
-    // so no backdrop shows along the straight edges; the page rounds the
-    // corners to the dialog's own radius, recorded here.
-    const box = await dialog.boundingBox();
-    const radius = await dialog.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
-    const inward = (v, up) => (up ? Math.ceil(v * SCALE) : Math.floor(v * SCALE)) / SCALE;
-    const x = inward(box.x, true);
-    const y = inward(box.y, true);
-    return {
-      x,
-      y,
-      width: inward(box.x + box.width, false) - x,
-      height: inward(box.y + box.height, false) - y,
-      radius,
-    };
+    return dialogBox(dialog);
   },
 
   async corkboard(page, lang) {
@@ -351,44 +397,65 @@ const steps = {
 
   async focus(page, lang) {
     await page.getByRole("button", { name: lang === "es" ? "Concentración" : "Focus", exact: true }).click();
-    // The status bar stays lit while its own button has focus (that is the
-    // :focus-within escape hatch working); a writer's focus is on the page.
+    // Focus folds the binder and the top bar away (both ticked by default)
+    // and keeps the status bar. The first Focus of a session says "Press Esc
+    // to leave Focus" there for 4 s, in place of where you are; the picture
+    // is of writing in Focus, after it. A writer's focus is on the page.
+    await page.locator(".v-status-hint").waitFor({ state: "detached", timeout: 8000 });
     await blur(page);
-    await page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height / 2);
+    const { width, height } = page.viewportSize();
+    await page.mouse.move(width / 2, height / 2);
     await page.waitForTimeout(300);
     return null;
   },
 };
 
-const browser = await chromium.launch({ channel: "chrome", headless: true });
-const catalogueModels = await catalogue();
-let failures = 0;
-try {
-  for (const lang of langs) {
-    await mkdir(path.join(RAW, lang), { recursive: true });
-    for (const variant of themes) {
-      for (const shot of shots) {
-        const { context, page, errors, novel } = await boot(browser, lang, variant, catalogueModels, PINNED.has(shot));
-        const base = path.join(RAW, lang, `${shot}-${variant}`);
-        try {
-          const crop = await steps[shot](page, lang, novel);
-          if (shot !== "focus") await rest(page);
-          await page.waitForTimeout(250);
-          await page.screenshot({ path: `${base}.png`, animations: "disabled" });
-          await writeFile(`${base}.json`, JSON.stringify({ scale: SCALE, viewport: VIEWPORT, crop }));
-          if (errors.length) throw new Error(`page errors: ${errors.join(" | ")}`);
-          console.log("wrote", `${lang}/${shot}-${variant}.png`, crop ? JSON.stringify(crop) : "");
-        } catch (e) {
-          failures += 1;
-          console.error(`FAILED ${lang} ${variant} ${shot}:`, e.message);
-          await page.screenshot({ path: path.join(RAW, `FAILED-${lang}-${shot}-${variant}.png`) }).catch(() => {});
-        } finally {
-          await context.close();
+function arg(name, fallback) {
+  const at = process.argv.indexOf(`--${name}`);
+  return at > 0 ? process.argv[at + 1].split(",") : fallback;
+}
+
+async function main() {
+  const langs = arg("lang", ["es", "en"]);
+  const themes = arg("theme", ALL_THEMES);
+  const shots = arg("shot", ALL_SHOTS);
+  const [w, h] = arg("viewport", [`${VIEWPORT.width}x${VIEWPORT.height}`])[0].split("x").map(Number);
+  const viewport = { width: w, height: h };
+
+  const browser = await chromium.launch({ channel: "chrome", headless: true });
+  const catalogueModels = await catalogue();
+  let failures = 0;
+  try {
+    for (const lang of langs) {
+      await mkdir(path.join(RAW, lang), { recursive: true });
+      for (const variant of themes) {
+        for (const shot of shots) {
+          const { context, page, errors, novel } = await boot(
+            browser, lang, variant, catalogueModels, PINNED.has(shot), { viewport },
+          );
+          const base = path.join(RAW, lang, `${shot}-${variant}`);
+          try {
+            const crop = await steps[shot](page, lang, novel);
+            if (shot !== "focus") await rest(page);
+            await page.waitForTimeout(250);
+            await page.screenshot({ path: `${base}.png`, animations: "disabled" });
+            await writeFile(`${base}.json`, JSON.stringify({ scale: SCALE, viewport, crop }));
+            if (errors.length) throw new Error(`page errors: ${errors.join(" | ")}`);
+            console.log("wrote", `${lang}/${shot}-${variant}.png`, crop ? JSON.stringify(crop) : "");
+          } catch (e) {
+            failures += 1;
+            console.error(`FAILED ${lang} ${variant} ${shot}:`, e.message);
+            await page.screenshot({ path: path.join(RAW, `FAILED-${lang}-${shot}-${variant}.png`) }).catch(() => {});
+          } finally {
+            await context.close();
+          }
         }
       }
     }
+  } finally {
+    await browser.close();
   }
-} finally {
-  await browser.close();
+  process.exitCode = failures ? 1 : 0;
 }
-process.exitCode = failures ? 1 : 0;
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

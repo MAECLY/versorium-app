@@ -1,0 +1,702 @@
+{
+ "en": {
+  "restore": {
+   "folio-dark": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 103794,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 43564,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 1544
+   },
+   "folio-light": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 101948,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 43578,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 1544
+   },
+   "needle-dark": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 103806,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 43574,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 1544
+   },
+   "needle-light": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 103150,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 44432,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 1544
+   },
+   "quarry-dark": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 103154,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 43668,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 1544
+   },
+   "quarry-light": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 103862,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 44034,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 1544
+   }
+  },
+  "restore-detail": {
+   "folio-dark": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 66112,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 26886,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 756
+   },
+   "folio-light": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 65142,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 26976,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 756
+   },
+   "needle-dark": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 66502,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 27038,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 756
+   },
+   "needle-light": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 65922,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 27270,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 756
+   },
+   "quarry-dark": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 65746,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 26846,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 756
+   },
+   "quarry-light": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 65946,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3607
+    },
+    "frames": 40,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 26986,
+     "colours": 64,
+     "frame": 39
+    },
+    "width": 756
+   }
+  },
+  "rewrite": {
+   "folio-dark": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 39282,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 846,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 38396,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "folio-light": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 40230,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 846,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 39284,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "needle-dark": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 39818,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 846,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 39102,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "needle-light": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 39962,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 846,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 39510,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "quarry-dark": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 39482,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 846,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 38732,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "quarry-light": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 39790,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 846,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 39038,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   }
+  }
+ },
+ "es": {
+  "restore": {
+   "folio-dark": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 107650,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 44380,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 1544
+   },
+   "folio-light": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 105434,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 44074,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 1544
+   },
+   "needle-dark": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 106700,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 44380,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 1544
+   },
+   "needle-light": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 106356,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 44870,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 1544
+   },
+   "quarry-dark": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 107282,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 44592,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 1544
+   },
+   "quarry-light": {
+    "anim": {
+     "budget": 71680,
+     "bytes": 107568,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 40960,
+     "bytes": 45138,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 1544
+   }
+  },
+  "restore-detail": {
+   "folio-dark": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 69330,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 27146,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 756
+   },
+   "folio-light": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 67982,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 27332,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 756
+   },
+   "needle-dark": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 68790,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 26942,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 756
+   },
+   "needle-light": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 68790,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 27330,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 756
+   },
+   "quarry-dark": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 68454,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 27132,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 756
+   },
+   "quarry-light": {
+    "anim": {
+     "budget": 46080,
+     "bytes": 68604,
+     "colours": 64,
+     "fps": 12,
+     "ms": 3524
+    },
+    "frames": 39,
+    "height": 780,
+    "start": 0,
+    "still": {
+     "budget": 25600,
+     "bytes": 27290,
+     "colours": 64,
+     "frame": 38
+    },
+    "width": 756
+   }
+  },
+  "rewrite": {
+   "folio-dark": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 40632,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 852,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 39580,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "folio-light": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 41564,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 852,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 40456,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "needle-dark": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 41018,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 852,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 40212,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "needle-light": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 41340,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 852,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 40920,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "quarry-dark": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 40928,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 852,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 39988,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   },
+   "quarry-light": {
+    "anim": {
+     "budget": 92160,
+     "bytes": 41052,
+     "colours": 256,
+     "fps": 12,
+     "ms": 2445
+    },
+    "frames": 27,
+    "height": 852,
+    "start": 16,
+    "still": {
+     "budget": 61440,
+     "bytes": 40478,
+     "colours": 256,
+     "frame": 0
+    },
+    "width": 1120
+   }
+  }
+ }
+}
