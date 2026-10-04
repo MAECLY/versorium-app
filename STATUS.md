@@ -193,7 +193,7 @@ and the session Restore works from; nothing listens for `beforeunload`. One
 module now decides every right-click, in this order:
 
 - **Binder rows and corkboard cards open their item menu,** the same
-  `ItemMenu` as the row's ⋯, built by the same `chapterActions` /
+  menu as the row's ⋯ (`src/lib/components/Menu.svelte` since 2026-10-04), built by the same `chapterActions` /
   `projectActions` (`src/lib/binder/itemActions.svelte.ts`), at the pointer.
   Shift+F10 and the Menu key open it on a focused row, its ⋯ or a card. The
   row or card is outlined (`.v-menu-target`) while its menu is open; nothing
@@ -229,7 +229,7 @@ How it is wired, and why:
   also lets Shift+F5 reload the dev window; only the refresh keys, so
   Ctrl+Shift+R (Rewrite) stays cancelled there too. `import.meta.env.DEV` is
   a build-time constant, so none of it is in a release bundle.
-- **Focus is handed back.** `ItemMenu` is `role="menu"` with roving focus
+- **Focus is handed back.** The menu is `role="menu"` with roving focus
   (arrows wrap, Home/End, Escape, Tab), `position: fixed` and clamped inside
   the window, one open at a time, and on every close returns focus to what had
   it, going through `EditorView.focus()` for the manuscript
@@ -384,6 +384,85 @@ change log both held it. The same steps on the build without the fix showed
 the word on screen in a capture taken between typing and Cmd+Q, and left the
 file without it and no change log for the day. Unit tests cover the reply-once
 gate (`quit::tests`) and the save-then-answer order (`quit.test.ts`).
+
+## Collapsible binder, top bar and Focus options (2026-10-04, on `feat/landing-and-docs`)
+
+The projects-and-chapters panel and the top bar fold away and come back, and
+Focus is a toggle with a menu saying what it hides. Built from the design
+chosen on 2026-10-04 (proposal #1, amended; summarised under "Collapsible
+binder and top bar" in `TODO.md` until now).
+
+- **Each surface has a Hide and leaves a labelled way back.** Hide sits at the
+  end of the PROJECTS row, and at the end of the top bar as "Hide top bar"
+  (a bare "Hide" in an app's chrome reads as ⌘H). The panel folds to a 28px
+  rail reading "Projects and chapters" bottom to top (named "Show projects
+  and chapters"), the bar to a 24px lip, "Show top bar". A folded surface is
+  `inert` at once and `visibility: hidden` once its 160ms are over; it stays
+  mounted. A click on Hide, the rail or the lip leaves focus where it was,
+  so a writer's caret stays in the text; keyboard focus inside a folding
+  surface moves to its rail or lip, and from there back to its Hide; and
+  focus that was nowhere (WebKit leaves it on `<body>` after a click on any
+  button) lands in the text. Chords: ⌃⌘S, ⌥⌘T and ⇧⌘F on macOS,
+  Ctrl+Shift+S/T/F elsewhere, checked against every keymap the editor loads
+  (`src/lib/chrome/keys.ts`); a chord says what it did through a polite live
+  region.
+- **The layout is remembered; Focus is not.** `layout` in settings.json
+  (`binderOpen`, `topBarOpen`, `focusHidesBinder`, `focusHidesTopBar`, all
+  true by default) is read leniently, like `editor`, so a hand-edited value
+  costs only itself. `focusMode` is kept so files round-trip, and never read:
+  every launch starts with Focus off, so an upgrade never opens into hidden
+  bars.
+- **Focus is a mask over that layout.** `[Focus|⋯]`: the ⋯ opens Focus
+  options, two `menuitemcheckbox` items under "When Focus is on, hide"
+  (Projects and chapters, Top bar). Focus folds the ticked surfaces and never
+  writes the layout, so leaving it puts back exactly what was there. The rules
+  are one pure module, `src/lib/chrome/chrome.ts` ("act on what you see":
+  Show on a surface Focus hid opens a floating peek that moves no text and
+  closes once used; anywhere else Hide and Show change the layout).
+- **Nothing is a trap.** The status bar never folds and holds the pressed
+  Focus pill. In Focus the rail and lip stay in place but sleep while you type
+  (invisible and taking no click, their room kept) and wake on 8px of pointer
+  travel, measured on `window`; a press where one sleeps wakes them without
+  taking the caret. While you type the bar's buttons drop their borders and
+  keep their fills, which hold their labels at AA. A peek closes once used
+  (a chapter chosen or made with its +, a top-bar action), on Escape, on a
+  press outside it, and when Tab takes focus out of it. Escape peels one
+  layer: an open menu, then a peek, then Focus; a key the editor already used
+  (search panel, a completion list, collapsing a selection) is not taken.
+  Focus needs an open chapter, ends when the last one goes, and never shares
+  the page with the corkboard or Settings. The first entry each session shows
+  "Press Esc to leave Focus" for 4s in place of where you are. With both
+  Focus options unticked, Focus only quiets the status bar, and its menu
+  says so.
+- **One menu.** `ItemMenu.svelte` became `src/lib/components/Menu.svelte`,
+  which also renders checkbox items, opens upward from the status bar (and
+  keeps growing upward when its note changes while open), does type-ahead
+  and ↑/↓ on its button, and exports `closeOpenMenu()` for a panel that folds
+  with a menu open in it. A highlighted destructive item gets a lighter fill,
+  so its --warn label holds AA (4.61:1 at the least).
+- **The editor keeps its layers to itself.** `.cm-editor` is
+  `isolation: isolate`, so CodeMirror's search panel (z-index 300) no longer
+  paints over, and takes the clicks of, the panel peeking above it.
+- **Focus's editor half is gone.** `focusMode()`'s 12vh and 1.02em never
+  rendered (the cascade typewriter's padding once lost); it was deleted rather
+  than made to move every line under the caret. This replaces M7 decision 5
+  ("Focus dims the chrome") below.
+- **Escape straight after typing.** CodeMirror's completion closed its pending,
+  invisible query on Escape for ~100ms after each keystroke, which would have
+  swallowed the Escape that leaves Focus. Escape now closes a completion list
+  only while one is showing (`src/lib/editor/cm.ts`).
+
+Tests: five Rust tests on `layout` and `apply_patch` (which `set_settings` now
+calls, so the patch the frontend sends is tested as Rust reads it); 32 unit
+tests in `tests/unit/` (the model, the chords, the menu in jsdom); 29 E2E tests
+in `tests/e2e/chrome.spec.ts`, plus updated `bars`, `m7-polish` and
+`context-menu` specs. Each mechanism was removed in turn to see its test fail
+(`tests/scratch/mutate.py`, `tests/scratch/mutate-e2e.py`, and
+`tests/scratch/fix-mutate.py` for the verifier round). `chrome.spec.ts` and
+`bars.spec.ts` also pass in Playwright's WebKit, the engine of the macOS app
+(`tests/scratch/pw-webkit.config.ts`; not in the gate, which runs Chrome
+only). The real webviews are not driven yet: see "Collapsible binder and top
+bar: the checks no automation reaches" in `TODO.md`.
 
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 

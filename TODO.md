@@ -143,19 +143,6 @@ make that value wrong more often than it should be:
 The importer should take the language (the Markdown frontmatter carries one;
 the import dialog could ask), and Project settings needs a language picker.
 
-### Focus mode's editor half never renders
-
-`focusMode()` in `src/lib/editor/modes.ts` gives the column 12vh of air above
-the text and the editor 1.02em. Neither shows: its `.cm-content` rule is
-0,2,0, the same as `.cm-editor .cm-content` in `styles.css`, which loads later
-and wins — the cascade typewriter's padding lost until its selector became
-`&.cm-editor .cm-content` — and 1.02em on `.cm-editor` never reaches the
-content, whose size is set in pixels. Measured with
-`tests/scratch/focus-mode-padding-probe.mjs`: 48px of padding with Focus off
-and on. Raising the selector the way typewriter's was raised would make the
-12vh appear, which changes how Focus looks, so it is a design call before it
-is a fix.
-
 ### A visit to Settings rebuilds the editor
 
 `App.svelte` swaps the editor for `SettingsPage` (`{#if showSettings}`), so
@@ -189,8 +176,9 @@ are, research how comparable apps present model management and connected
 tools, and redesign them — possibly split into more pages, or a second or
 third level in the Settings sidebar. The sidebar itself should be grouped into
 categories so each page's purpose is clear; today all seven groups sit at one
-level. Research and design first; the build waits for the collapsible
-binder/top bar work, which also touches `SettingsPage.svelte`.
+level. Research and design first. The collapsible binder/top bar work it
+waited on is in (2026-10-04); it touched `SettingsPage.svelte` only to drop
+the old Focus fade from the rail.
 
 ### Choose when the backup runs
 
@@ -223,24 +211,38 @@ Centralise the transient ones and leave the rest where they are:
   outcomes, a field's validation error. Those are the record the writer reads
   where they are.
 
-### Collapsible binder and top bar, and what Focus hides
+### Collapsible binder and top bar: the checks no automation reaches
 
-Asked for again on 2026-10-04; next after the landing.
+Built on 2026-10-04 (see "Collapsible binder, top bar and Focus options" in
+`STATUS.md`). Playwright drives it in Chrome on the mocked IPC
+(`tests/e2e/chrome.spec.ts`); the real webviews are still to be checked by
+hand:
 
-Requested: the binder and the top bar fold away and come back, and Focus
-becomes a toggle with a menu choosing what it hides. A design panel is
-choosing between four approaches. Today's Focus has two measured defects to
-fix whichever design wins:
+- **macOS, WKWebView:** seen once, read-only, through accessibility while the
+  dev app ran: the rail and the lip are buttons named "Mostrar proyectos y
+  capítulos" / "Mostrar barra superior", collapsed, and nothing of the folded
+  panel or bar is in the tree. Not yet pressed or keyed: that ⌃⌘S, ⌥⌘T and
+  ⇧⌘F reach the page (no menu item takes them); that a click on the ⋯ still
+  puts focus on the first item, so Escape stays in the menu; that the rail's
+  words render bottom to top; that the sleeping rail and lip wake on pointer
+  travel and take no click while asleep; and, in full screen, that the lip
+  just under the system menu bar can be clicked once that bar retracts.
+  Keyboard navigation off (the macOS default): Tab skips every button in
+  WebKit, so check that Option+Tab reaches the rail, the lip, both Hides and
+  ⋯ (Focus options), and from ⋯ the two items, with ↓ and Space. Playwright's
+  WebKit does all of it (`tests/scratch/fix-webkit-tab-probe.mjs` for the Tab
+  order; `chrome.spec.ts` presses Option+Tab there). Also that a click on
+  Hide, the rail or the lip while writing leaves the caret in the text:
+  Playwright's WebKit passes `chrome.spec.ts` (`tests/scratch/pw-webkit.config.ts`),
+  but WKWebView is the one that ships.
+- **Windows, WebView2:** see the Windows list under Right-click below.
+- **Linux, WebKitGTK:** Ctrl+Shift+S, T and F reach the page; `inert` is
+  honoured (WebKitGTK 2.40 and later).
 
-- **The mouse cannot bring faded chrome back.** `.v-focus .v-chrome` sets
-  `pointer-events: none`, which makes the element unhoverable, so the
-  `:hover` rule meant to reveal it never matches (opacity stays 0.08 with the
-  pointer on it). Escape is the only way out, nothing on screen says so, and
-  the Focus toggle sits inside the faded status bar.
-- **It gives the text no room.** The faded binder still occupies its 240px.
-
-Note: what was asked for as a "combobox" is a menu of `menuitemcheckbox`
-items, or a disclosure with real checkboxes. A combobox picks one value.
+Deferred, by design: a native View menu carrying the same three commands.
+It would mean translating the whole macOS menu bar, checking that an
+accelerator does not fire twice, and a Rust surface the mock cannot exercise;
+the in-window controls already reach every state on all three platforms.
 
 ### Right-click: the checks no automation reaches
 
@@ -259,6 +261,9 @@ neither is a release build of the real webviews. Still to do by hand:
   and fields still show their menu with spelling. If preventDefault does not
   stop F5 or Ctrl+R, the fallback is `with_webview` →
   `ICoreWebView2Settings3::SetAreBrowserAcceleratorKeysEnabled(false)`.
+  Ctrl+Shift+S, Ctrl+Shift+T and Ctrl+Shift+F reach the page (they fold the
+  binder and the top bar and toggle Focus) and start no Edge feature, Web
+  Capture (Ctrl+Shift+S in Edge) included.
 - **Linux, WebKitGTK:** a right-click on the disabled Creative button, and on a
   row while a chapter is loading, shows no page menu. If it does, give
   `.v-list-item:disabled` and `.v-corkcard:disabled` `pointer-events: none`, so
