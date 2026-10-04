@@ -6,20 +6,35 @@
   import { store } from "$lib/binder/store.svelte";
   import { formats, bodyWords } from "$lib/formats/state.svelte";
   import { warningMessage } from "$lib/i18n/errors";
-  import { humanSize } from "$lib/models/state.svelte";
+  import { humanSize, models } from "$lib/models/state.svelte";
+  import { continuityModel } from "$lib/settings/ai/picks";
+  import { continuityRunner } from "$lib/continuity/state.svelte";
+  import type { SettingsTarget } from "$lib/settings/pages";
   import Modal from "$lib/components/Modal.svelte";
   import Select from "$lib/components/forms/Select.svelte";
+  import ContinuityPanel from "$lib/components/ContinuityPanel.svelte";
 
-  let { onClose }: { onClose: () => void } = $props();
+  type Tab = "export" | "import" | "continuity";
 
-  type Tab = "export" | "import";
-  const TABS: Tab[] = ["export", "import"];
+  let {
+    onClose,
+    initialTab = "export",
+    onOpenSettings,
+  }: {
+    onClose: () => void;
+    /** The tab it opens on: Settings' "Run it from Manuscript › Continuity" asks for that one. */
+    initialTab?: Tab;
+    /** A link to Settings from inside the dialog; App closes the dialog first. */
+    onOpenSettings?: (target: SettingsTarget) => void;
+  } = $props();
+
+  const TABS: Tab[] = ["export", "import", "continuity"];
   const FORMATS: ExportFormat[] = ["md", "docx", "epub", "pdf", "scriv"];
   /** Spec §9: these two print the surname in every running head. */
   const NEEDS_AUTHOR: ExportFormat[] = ["docx", "pdf"];
 
-  let tab = $state<Tab>("export");
-  let tabRefs: HTMLButtonElement[] = [];
+  let tab = $state<Tab>(untrack(() => initialTab));
+  let tabRefs = $state<HTMLButtonElement[]>([]);
   let format = $state<ExportFormat>("md");
   let author = $state("");
   let importTitle = $state("");
@@ -29,11 +44,22 @@
   let project = $derived(store.project);
   let missingAuthor = $derived(NEEDS_AUTHOR.includes(format) && author.trim() === "");
   let preview = $derived(formats.preview);
+  /** The model Continuity runs on. No assistant: Continuity runs only on this computer. */
+  let continuityOn = $derived(models.view ? continuityModel(models.view, []) : null);
+  let canCheck = $derived(isTauri() && project !== null && continuityOn !== null);
 
   onMount(() => {
     author = store.project?.meta.author ?? "";
     formats.clearResult();
+    // Opened on a tab other than the first, focus starts on that tab rather
+    // than on the close button, so the keyboard is where the link pointed.
+    if (initialTab !== "export") tabRefs[TABS.indexOf(initialTab)]?.focus();
   });
+
+  async function checkManuscript(): Promise<void> {
+    const path = project?.path;
+    if (path && canCheck) await continuityRunner.run(path);
+  }
 
   // The preview names the project and may give its language; let the writer
   // change either before it exists. The interface's language is only a
@@ -260,6 +286,16 @@
         {/if}
       {/if}
     </div>
+
+    <!-- Continuity -->
+    <div
+      id="manuscript-panel-continuity"
+      role="tabpanel"
+      aria-labelledby="manuscript-tab-continuity"
+      hidden={tab !== "continuity"}
+    >
+      <ContinuityPanel chosen={continuityOn} active={tab === "continuity"} {onOpenSettings} />
+    </div>
   </div>
 
   <div
@@ -273,6 +309,14 @@
         onclick={() => void doExport()}
       >
         {formats.busy ? t("manuscript.export.busy") : t("manuscript.export.action")}
+      </button>
+    {:else if tab === "continuity"}
+      <button
+        class="v-btn v-btn-primary"
+        disabled={!canCheck || continuityRunner.busy}
+        onclick={() => void checkManuscript()}
+      >
+        {continuityRunner.busy ? t("continuity.running") : t("continuity.run")}
       </button>
     {:else if preview}
       <button class="v-btn" disabled={formats.busy} onclick={() => formats.discardPreview()}>
