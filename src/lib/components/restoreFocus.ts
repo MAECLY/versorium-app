@@ -1,6 +1,18 @@
 import { EditorView } from "@codemirror/view";
 
 /**
+ * A mousedown handler for controls a press must not move focus for: the
+ * Hide buttons, the rail and the lip. Without it a click takes the caret out
+ * of the manuscript in either engine: WebKit, the macOS app's, gives focus to
+ * nothing (a button there takes none from a click) and leaves it on <body>,
+ * and Chrome gives it to the button. Keyboard activation is untouched, so
+ * focus that was really on the control still moves on from it.
+ */
+export function keepFocusOnPress(event: MouseEvent): void {
+  event.preventDefault();
+}
+
+/**
  * Gives focus back to an element without scrolling to it, and returns whether
  * it landed.
  *

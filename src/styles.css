@@ -29,6 +29,8 @@
   --radius-control: 8px;
   --radius-card: 12px;
   --radius-dialog: 16px;
+  /* What floats over the page: menus and the panels Focus lets peek. */
+  --shadow-menu: 0 6px 20px rgb(0 0 0 / 0.16);
 }
 
 [data-theme="folio-dark"] {
@@ -156,6 +158,8 @@
 
 [data-theme$="-dark"] {
   color-scheme: dark;
+  /* A shadow at the light themes' strength vanishes on a dark page. */
+  --shadow-menu: 0 6px 20px rgb(0 0 0 / 0.45);
 }
 
 html,
@@ -607,10 +611,14 @@ input[type="number"] {
 
 /* ---------------------------------------------------------------- editor */
 
+/* isolation: CodeMirror's panels and tooltips (z-index 300 and up) stay
+   inside the editor's own stacking context. Without it the search panel
+   painted over the panel Focus lets peek (z-index 30) and took its clicks. */
 .cm-editor {
   background: transparent;
   color: var(--text);
   height: 100%;
+  isolation: isolate;
 }
 
 .cm-editor .cm-scroller {
@@ -715,27 +723,289 @@ input[type="number"] {
   border-bottom: 1px dotted var(--ai);
 }
 
-/* ------------------------------------------------- focus mode / corkboard */
+/* ------------------------------------------------ the folding surfaces
 
-/* DESIGN → Motion: "chrome se desvanece", transitions 120–180ms ease-out.
-   The chrome keeps its layout box so nothing reflows on the way in or out —
-   only its opacity and its ability to take a click change. */
-.v-chrome {
-  transition: opacity 160ms ease-out;
+   The projects-and-chapters panel and the top bar fold for real, into a
+   28px rail and a 24px lip: the text gets their room. Each slot carries
+   data-view from src/lib/chrome/chrome.ts: open, collapsed, or peek (Focus
+   hid it and the writer asked to see it, so it floats over the page without
+   moving the text). DESIGN → Motion: 120–180ms ease-out, and only what the
+   writer caused moves.
+
+   A folded surface is inert at once (the attribute, from App) and
+   visibility: hidden once its 160ms are over, through a delayed transition,
+   with no JS. It stays mounted, so the binder keeps its scroll position. */
+
+/* The Hide buttons and the binder's +: same metrics, after .v-btn on purpose. */
+.v-btn-small {
+  padding: 2px 8px;
+  font-size: 12px;
 }
 
-.v-focus .v-chrome {
-  opacity: 0.08;
+.v-topbar-slot {
+  position: relative;
+  flex-shrink: 0;
+  height: 48px;
+  transition: height 160ms ease-out;
+}
+
+.v-topbar-slot[data-view="collapsed"],
+.v-topbar-slot[data-view="peek"] {
+  height: 24px;
+}
+
+.v-binder-slot {
+  position: relative;
+  flex-shrink: 0;
+  width: 240px;
+  transition: width 160ms ease-out;
+}
+
+.v-binder-slot[data-view="collapsed"],
+.v-binder-slot[data-view="peek"] {
+  width: 28px;
+}
+
+/* Folding clips the panel like a shade; a peek must overflow its slot. */
+.v-topbar-slot[data-view="collapsed"],
+.v-binder-slot[data-view="collapsed"] {
+  overflow: hidden;
+}
+
+.v-topbar-slot > header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.v-binder-slot > aside {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
+/* Opening: the contents fade in once the slot has some width, so titles never
+   re-wrap into a squashed column. Folding: they fade out first. */
+.v-topbar-slot > header,
+.v-binder-slot > aside {
+  transition: opacity 100ms ease-out 60ms;
+}
+
+.v-topbar-slot[data-view="collapsed"] > header,
+.v-binder-slot[data-view="collapsed"] > aside {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 80ms ease-out,
+    visibility 0s linear 160ms;
+}
+
+/* A peek floats over the page, opaque, above the edge it came from. In: a
+   short slide from its own side. Out: instant. */
+.v-binder-slot[data-view="peek"] > aside {
+  z-index: 30;
+  box-shadow: var(--shadow-menu);
+  animation: v-peek-x 140ms ease-out;
+}
+
+.v-topbar-slot[data-view="peek"] > header {
+  z-index: 35;
+  /* The header has no background of its own: the page would show through. */
+  background: var(--bg-app);
+  box-shadow: var(--shadow-menu);
+  animation: v-peek-y 140ms ease-out;
+}
+
+@keyframes v-peek-x {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+@keyframes v-peek-y {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* The rail and the lip: one ordinary button each, labelled in --text, which
+   holds AA where --text-mute does not (4.2:1 on --bg-app in Folio Light).
+   Under the panel in paint order: a folding panel fades out over its edge,
+   and an inert one is clicked through (inert hit-tests as pointer-events:
+   none). */
+.v-edge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  font-size: 12px;
+  transition:
+    opacity 120ms ease-out,
+    background 150ms ease-out;
+}
+
+/* --bg-elev alone is 1.11–1.24:1 against the edge's own fill, too faint to
+   say "this is a button" before the click; the accent border is the one
+   every .v-btn shows on hover. */
+.v-edge:hover {
+  background: var(--bg-elev);
+  border-color: var(--accent);
+}
+
+/* Inside, not around: the rail sits against the window's edge. */
+.v-edge:focus-visible {
+  outline-offset: -2px;
+}
+
+.v-edge-lip {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border);
+}
+
+.v-edge-rail {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 28px;
+  align-items: flex-start;
+  padding-top: 12px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+}
+
+/* Bottom to top, the way a book's spine reads on a shelf in Spain and France. */
+.v-edge-rail .v-edge-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+
+/* The top bar peeking floats 48px tall from the window's top, 24px into the
+   rail below its lip: the rail's word starts below it, not cut off under it. */
+.v-topbar-slot[data-view="peek"] + .v-middle .v-edge-rail {
+  padding-top: 36px;
+}
+
+/* In Focus the edges sleep while the writer types: invisible AND unclickable,
+   so nothing invisible can swallow a click, with their space kept so the text
+   never moves when they wake. They wake on 8px of pointer travel (a listener
+   on window, App.svelte), while a peek or Focus options is open, and while
+   one has keyboard focus. Where a surface is folded the page runs to the
+   window's edge, and CodeMirror's dotted focus frame, the last line drawn
+   around the text, goes too: the caret already says where focus is. */
+.v-shell[data-focus] .v-binder-slot:not([data-view="open"]),
+.v-shell[data-focus] .v-topbar-slot:not([data-view="open"]) {
+  background: var(--bg-editor);
+}
+
+/* Only the top bar folded, the panel open: the band above the panel is the
+   panel's (240px, its right border included), so the panel runs to the top
+   of the window instead of starting under a strip of page. */
+.v-shell[data-focus]:has(.v-binder-slot[data-view="open"]) .v-topbar-slot:not([data-view="open"]) {
+  background: linear-gradient(
+    to right,
+    var(--bg-panel) 239px,
+    var(--border) 239px 240px,
+    var(--bg-editor) 240px
+  );
+}
+
+.v-shell[data-focus] .cm-editor.cm-focused {
+  outline: none;
+}
+
+.v-shell[data-focus]:not([data-awake]) .v-edge:not(:focus-visible) {
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 180ms ease-out;
 }
 
-/* Reaching for it brings it back, so focus mode is never a trap. Escape is
-   the other way out, wired in App.svelte. */
-.v-focus .v-chrome:hover,
-.v-focus .v-chrome:focus-within {
-  opacity: 1;
-  pointer-events: auto;
+/* ---------------------------------------------------------- status bar */
+
+/* Everything keeps its size except where you are, which ends in an ellipsis. */
+.v-status > * {
+  flex-shrink: 0;
 }
+
+.v-status .v-status-where {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v-status-fixed {
+  white-space: nowrap;
+}
+
+.v-status-hint {
+  white-space: nowrap;
+  color: var(--text);
+}
+
+/* Focus, quiet: while the writer types, the bar's buttons drop their borders.
+   Only the borders: their 11.5px --text-mute labels hold AA on the --bg-elev
+   fill (4.75:1 at least, in every theme) and not on the bar's --bg-app
+   (4.21:1 in Folio Light, 4.40:1 in Quarry Light), so the fill stays. The
+   pressed Focus keeps its accent, the one strong mark on the page and the
+   way back out. Pointer or keyboard in the bar brings the borders back. */
+.v-shell[data-quiet] .v-status:not(:hover):not(:focus-within) .v-btn:not([aria-pressed="true"]) {
+  border-color: transparent;
+}
+
+/* [Focus|⋯]: two buttons joined by one shared border. */
+.v-split {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.v-split > div {
+  display: flex;
+}
+
+.v-split-start {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* The bar's own 8px sides, not narrower: ⋯ is 21px tall, under WCAG 2.5.8's
+   24, and shares a border with Focus, so it passes on spacing alone. At
+   29px wide a 24px circle on its centre stays clear of Focus's box. */
+.v-split-end {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* The hovered or focused half draws its border over the shared one. */
+.v-split-start:is(:hover, :focus-visible),
+.v-split-end:is(:hover, :focus-visible) {
+  position: relative;
+  z-index: 1;
+}
+
+/* No transitions until the saved layout is drawn: a folded panel must not
+   animate shut at launch, any more than the theme fades in. */
+.v-shell:not([data-ready]),
+.v-shell:not([data-ready]) * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* --------------------------------------------------------------- corkboard */
 
 .v-corkcard {
   display: flex;
@@ -763,6 +1033,100 @@ input[type="number"] {
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev));
 }
 
+/* ---------------------------------------------------------------- menus
+
+   Menu.svelte: the binder's ⋯, a card's right-click, Focus options. Placed
+   after .v-btn and .v-bar-btn on purpose: the ⋯ trigger carries .v-btn too,
+   and these single-class rules win over it on source order. */
+
+.v-menu-pop {
+  position: fixed;
+  z-index: 30;
+  min-width: 176px;
+  padding: 4px;
+  /* Its own colour: the status bar's menu would inherit --text-mute. */
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-menu);
+}
+
+/* A menu of settings has a heading and a note to fit; actions are short. */
+.v-menu-pop:has(.v-menu-heading) {
+  min-width: 220px;
+}
+
+.v-menu-dots {
+  padding: 0 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  border: 0;
+  background: transparent;
+}
+
+.v-menu-item {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.v-menu-item:hover,
+.v-menu-item:focus-visible {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.v-menu-danger {
+  color: var(--warn);
+}
+
+/* 12.5px --warn on the 12% highlight is 4.38:1 in Folio Light and 4.24:1 in
+   Quarry Light, under AA in the very state a keyboard reads it in. On 6% it
+   is 4.61:1 at the least, across the six themes. */
+.v-menu-item.v-menu-danger:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+/* A fixed column, so labels line up whether ticked or not. */
+.v-menu-check {
+  flex: none;
+  width: 16px;
+}
+
+.v-menu-heading {
+  padding: 5px 9px 3px;
+  font-size: 11.5px;
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+
+/* width 0 + min-width 100%: the note wraps inside the width the items set,
+   instead of stretching the menu to one long line. */
+.v-menu-note {
+  width: 0;
+  min-width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 0;
+  padding: 6px 9px 3px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-mute);
+}
+
+.v-menu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
+}
+
 /* The row or card whose item menu is open. Without it, "Delete chapter" from a
    right-click reads as acting on the chapter that is open, not the one under
    the pointer. After .v-list-item-active on purpose: same specificity, so
@@ -772,8 +1136,18 @@ input[type="number"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .v-chrome,
   .v-corkcard {
     transition: none;
+  }
+
+  /* !important: the folding rules they cancel are more specific. */
+  .v-binder-slot,
+  .v-binder-slot > *,
+  .v-topbar-slot,
+  .v-topbar-slot > *,
+  .v-edge,
+  [data-view="peek"] > * {
+    transition: none !important;
+    animation: none !important;
   }
 }

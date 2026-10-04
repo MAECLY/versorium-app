@@ -298,7 +298,10 @@ test("Shift+F10 and the Menu key open row and card menus from the keyboard", asy
   await expect(menu(page)).toHaveCount(0);
   expect(await focused(page)).toBe(rowKey);
 
-  // The Menu key; Tab closes and moves on from the row, to its ⋯.
+  // The Menu key; Tab closes and moves on from the row, to its ⋯. Chrome's
+  // Tab: WebKit's, the macOS app's, skips buttons unless the system's
+  // keyboard navigation is on, and Option+Tab is how a default Mac reaches
+  // them, so in WebKit this step fails as written (TODO.md, macOS checks).
   await page.keyboard.press("ContextMenu");
   await expect(menu(page)).toHaveCount(1);
   await page.keyboard.press("Tab");
@@ -831,20 +834,26 @@ test("a right-click or Ctrl-click on a dialog's backdrop does not dismiss it", a
 });
 
 test("Escape closes an open menu without leaving Focus mode", async ({ page }) => {
+  await onPlatform(page, "mac");
   await withProject(page);
-  await page.getByRole("contentinfo").getByRole("button", { name: "Focus" }).click();
-  await expect(page.locator(".v-focus")).toHaveCount(1);
+  const focusToggle = page.getByRole("contentinfo").getByRole("button", { name: "Focus", exact: true });
+  await focusToggle.click();
+  await expect(focusToggle).toHaveAttribute("aria-pressed", "true");
 
-  // focus-within brings the faded binder back.
+  // Focus folded the binder away; its chord brings it back as a peek, with
+  // focus on the open chapter's row.
+  await page.keyboard.press("Control+Meta+KeyS");
   const row = chapterRow(page, "El largo invierno");
   const key = await keyOf(page, row);
-  await row.focus();
+  await expect(row).toBeFocused();
   await page.keyboard.press("Shift+F10");
   await expect(menu(page)).toHaveCount(1);
   await page.keyboard.press("Escape");
 
+  // One layer: the menu. The peek and Focus are still there.
   await expect(menu(page)).toHaveCount(0);
-  await expect(page.locator(".v-focus")).toHaveCount(1);
+  await expect(page.locator(".v-binder-slot")).toHaveAttribute("data-view", "peek");
+  await expect(focusToggle).toHaveAttribute("aria-pressed", "true");
   expect(await focused(page)).toBe(key);
 });
 

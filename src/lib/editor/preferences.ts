@@ -194,7 +194,7 @@ const ACTIVE_LINE = highlightActiveLine();
 const TAB_INDENTS = keymap.of([indentWithTab]);
 
 /**
- * The preferences behind compartments, like focus and typewriter.
+ * The preferences behind compartments, like typewriter.
  *
  * Reconfiguring a compartment changes a running editor in place; rebuilding
  * the view would throw away the caret, the selection and the undo history in

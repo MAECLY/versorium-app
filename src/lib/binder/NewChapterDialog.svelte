@@ -3,14 +3,23 @@
   import { t } from "$lib/i18n";
   import Modal from "$lib/components/Modal.svelte";
 
-  let { onClose }: { onClose: () => void } = $props();
+  let {
+    onClose,
+    onCreated,
+  }: {
+    onClose: () => void;
+    /** The new chapter is open, after the dialog has gone: a peek it came from closes on it. */
+    onCreated?: () => void;
+  } = $props();
 
   let title = $state("");
 
   async function submit(): Promise<void> {
     if (!title.trim() || store.loading) return;
     await store.createChapter(title);
-    if (!store.error) onClose();
+    if (store.error) return;
+    onClose();
+    onCreated?.();
   }
 </script>
 

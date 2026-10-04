@@ -126,8 +126,12 @@ export async function doDelete(): Promise<void> {
   for (const key of [target.next, target.prev]) {
     if (restoreFocus(findItem(target.surface, key))) return;
   }
-  // The list is empty: the way to make the next one.
-  restoreFocus(document.querySelector(target.kind === "chapter" ? "[data-item-fallback]" : "main .v-btn-primary"));
+  // The list is empty: the way to make the next one, then the home screen's
+  // first action, then the rail. A folded panel's + is inert and refuses
+  // focus, which is what moves the chain on to the next.
+  for (const fallback of ["[data-item-fallback]", "main .v-btn-primary", ".v-edge-rail"]) {
+    if (restoreFocus(document.querySelector(fallback))) return;
+  }
 }
 
 /**

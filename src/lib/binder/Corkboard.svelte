@@ -2,7 +2,7 @@
   import { store } from "$lib/binder/store.svelte";
   import { api, isTauri, type ChapterMeta } from "$lib/tauri";
   import { t } from "$lib/i18n";
-  import ItemMenu from "$lib/binder/ItemMenu.svelte";
+  import Menu from "$lib/components/Menu.svelte";
   import { contextMenuZone } from "$lib/contextmenu/policy";
   import { chapterActions, chapterKey, runChapterAction } from "$lib/binder/itemActions.svelte";
 
@@ -58,7 +58,7 @@
   // The card's menu is the chapter's binder menu, opened where the writer's
   // pointer already is: index-card apps put card actions on right-click. Only
   // ever called, never rendered from, which is why it is not state.
-  const menus: Record<string, ReturnType<typeof ItemMenu> | null> = {};
+  const menus: Record<string, ReturnType<typeof Menu> | null> = {};
   let menuFor = $state<string | null>(null);
 
   function trackMenu(key: string, open: boolean): void {
@@ -119,11 +119,11 @@
                never also click the card open. No ⋯ ("almost no icons"): the
                binder's ⋯ for the same chapter is the visible route. -->
           <!-- svelte-ignore binding_property_non_reactive -->
-          <ItemMenu
+          <Menu
             bind:this={menus[key]}
             trigger={false}
             label={t("binder.menu.forChapter", { title: chapter.title })}
-            actions={chapterActions(chapter)}
+            items={chapterActions(chapter)}
             onChoose={(id) => runChapterAction(chapter, id, "board")}
             onOpenChange={(open) => trackMenu(key, open)}
           />

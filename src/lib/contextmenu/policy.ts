@@ -1,4 +1,5 @@
 import type { Attachment } from "svelte/attachments";
+import { acceleratorLetter } from "$lib/chrome/keys";
 
 /**
  * Who a right-click belongs to, settled once per click.
@@ -22,11 +23,16 @@ import type { Attachment } from "svelte/attachments";
 
 export type ContextMenuVerdict = "native" | "suppress";
 
-/** Where an item menu opens: a point, and which of its edges sits on it. */
+/**
+ * Where an item menu opens: a point, which of its edges sits on it, and
+ * whether it hangs below the point or stands above it (the status bar's
+ * menus, which have no room below).
+ */
 export interface MenuAnchor {
   x: number;
   y: number;
   align?: "start" | "end";
+  side?: "below" | "above";
 }
 
 const TEXT_INPUT = new Set(["text", "search", "password", "email", "url", "tel", "number"]);
@@ -38,7 +44,7 @@ const TEXT_INPUT = new Set(["text", "search", "password", "email", "url", "tel",
  * toward suppression costs a right-click Copy on a selection that runs across
  * a control; erring the other way shows Reload.
  */
-const NOT_TEXT = 'button, select, label, [role="button"], [role="menu"], [role="menuitem"]';
+const NOT_TEXT = 'button, select, label, [role="button"], [role="menu"], [role="menuitem"], [role="menuitemcheckbox"]';
 
 function onMac(): boolean {
   return /Mac/.test(navigator.platform);
@@ -290,19 +296,6 @@ export function contextMenuZone(options: {
       node.removeEventListener("keydown", onKeyDown);
     };
   };
-}
-
-/**
- * The letter an accelerator is matched on. On a Latin layout that is `key`.
- * On Cyrillic, Greek or Hebrew, `key` is not a Latin letter while Windows
- * still reports the Latin virtual key, so WebView2 reloads on the key in the R
- * position; `code` stands in for it. Not with Alt held: AltGr arrives as
- * Ctrl+Alt and types characters such as ®, which must reach the page.
- */
-function acceleratorLetter(event: KeyboardEvent): string {
-  const key = event.key.toLowerCase();
-  if (/^[a-z]$/.test(key)) return key;
-  return !event.altKey && /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : "";
 }
 
 function refreshKey(event: KeyboardEvent): boolean {

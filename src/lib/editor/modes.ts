@@ -91,43 +91,27 @@ export function typewriterMode(): Extension {
 }
 
 /**
- * Focus mode, editor side. The measure is already the writer's (Settings →
- * Editor, 72ch unless changed), so what this adds is air: the column is the
- * only thing left on screen once the chrome fades, and it should not start
- * hard against the top edge. Neither the air nor the 1.02em renders yet
- * (TODO.md, "Focus mode's editor half never renders").
- */
-export function focusMode(): Extension {
-  return EditorView.theme({
-    ".cm-content": { paddingTop: "12vh" },
-    "&": { fontSize: "1.02em" },
-  });
-}
-
-/**
- * Both modes behind compartments so they can be switched on a live editor.
+ * Typewriter behind a compartment so it can be switched on a live editor.
  *
  * This is the whole point: a prop change that rebuilt the view would throw away
  * focus, selection and undo history mid-sentence. Reconfiguring a compartment
  * leaves the state intact.
+ *
+ * Focus has no editor half. Its 12vh of air and 1.02em never rendered (the
+ * cascade typewriter's padding once lost), and making them render would move
+ * or re-wrap every line under the caret each time Focus is toggled. Focus is
+ * what it hides: src/lib/chrome/chrome.ts.
  */
 export function createModeCompartments(): {
-  focus: Compartment;
   typewriter: Compartment;
-  initial: (focus: boolean, typewriter: boolean) => Extension[];
-  reconfigure: (focus: boolean, typewriter: boolean) => ReturnType<Compartment["reconfigure"]>[];
+  initial: (typewriter: boolean) => Extension[];
+  reconfigure: (typewriter: boolean) => ReturnType<Compartment["reconfigure"]>[];
 } {
-  const focus = new Compartment();
   const typewriter = new Compartment();
-  const forFocus = (on: boolean): Extension => (on ? focusMode() : []);
   const forTypewriter = (on: boolean): Extension => (on ? typewriterMode() : []);
   return {
-    focus,
     typewriter,
-    initial: (f, t) => [focus.of(forFocus(f)), typewriter.of(forTypewriter(t))],
-    reconfigure: (f, t) => [
-      focus.reconfigure(forFocus(f)),
-      typewriter.reconfigure(forTypewriter(t)),
-    ],
+    initial: (t) => [typewriter.of(forTypewriter(t))],
+    reconfigure: (t) => [typewriter.reconfigure(forTypewriter(t))],
   };
 }

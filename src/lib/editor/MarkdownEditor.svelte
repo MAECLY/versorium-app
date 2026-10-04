@@ -15,8 +15,6 @@
     projectPath: string;
     chapterId: string;
     disabled?: boolean;
-    /** Chrome fades and the column gets air (DESIGN → Motion). */
-    focus?: boolean;
     /** The caret's line rides at the lower third. */
     typewriter?: boolean;
     /** Settings → Editor. */
@@ -33,7 +31,6 @@
     projectPath,
     chapterId,
     disabled = false,
-    focus = false,
     typewriter = false,
     preferences = EDITOR_DEFAULTS,
     language = "",
@@ -48,9 +45,9 @@
   const source = Annotation.define<"external" | "rollback">();
   const editable = new Compartment();
   const editing = (locked: boolean) => [EditorState.readOnly.of(locked), EditorView.editable.of(!locked)];
-  // Focus and typewriter live in compartments for the same reason `editable`
-  // does: toggling one must reconfigure the running editor, never rebuild it.
-  // So do the writer's preferences, and the novel's language with them.
+  // Typewriter lives in a compartment for the same reason `editable` does:
+  // toggling it must reconfigure the running editor, never rebuild it. So do
+  // the writer's preferences, and the novel's language with them.
   const modes = createModeCompartments();
   const choices = createPreferenceCompartments();
   // Parents pass `store.project.path` / `store.currentChapter.id`; those objects are
@@ -75,7 +72,7 @@
       parent,
       state: createMarkdownState(initialDoc, [
         editable.of(editing(untrack(() => disabled))),
-        ...modes.initial(untrack(() => focus), untrack(() => typewriter)),
+        ...modes.initial(untrack(() => typewriter)),
         ...choices.initial(untrack(() => preferences), untrack(() => language)),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
@@ -138,7 +135,7 @@
   });
 
   $effect(() => {
-    view?.dispatch({ effects: modes.reconfigure(focus, typewriter) });
+    view?.dispatch({ effects: modes.reconfigure(typewriter) });
   });
 
   // Derived for the reason docKey is: the parent reads the language off

@@ -36,7 +36,7 @@
 <div class="flex min-h-0 flex-1" role="region" aria-label={t("settings.title")}>
   <!-- The rail: one entry per group, current one marked for screen readers too. -->
   <nav
-    class="v-chrome flex flex-shrink-0 flex-col gap-1 overflow-y-auto p-3"
+    class="flex flex-shrink-0 flex-col gap-1 overflow-y-auto p-3"
     style="width: 210px; border-right: 1px solid var(--border);"
     aria-label={t("settings.nav")}
   >
