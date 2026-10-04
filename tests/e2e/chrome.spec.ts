@@ -58,7 +58,8 @@ const hideBinder = (page: Page) => page.getByRole("button", { name: "Hide projec
 const hideTopBar = (page: Page) => page.getByRole("button", { name: "Hide top bar" });
 const focusButton = (page: Page) => page.getByRole("contentinfo").getByRole("button", { name: "Focus", exact: true });
 const focusOptions = (page: Page) => page.getByRole("button", { name: "Focus options" });
-const liveRegion = (page: Page) => page.locator('[role="status"].sr-only');
+/** The chords' region, not the notices' two (data-notices). */
+const liveRegion = (page: Page) => page.locator('[role="status"].sr-only:not([data-notices])');
 
 function inert(locator: Locator): Promise<boolean> {
   return locator.evaluate((el) => el.hasAttribute("inert"));

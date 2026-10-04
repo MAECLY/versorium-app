@@ -96,7 +96,7 @@ test("rewrite without a selection explains itself", async ({ page }) => {
   await createProject(page, "No Selection");
   await page.locator(".cm-content").click();
   await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
-  await expect(page.getByRole("alert")).toContainText("Select a passage first.");
+  await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Select a passage first.");
 });
 
 test("settings: agents cards and censorship toggle persist", async ({ page }) => {

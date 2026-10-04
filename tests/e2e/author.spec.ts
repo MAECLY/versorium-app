@@ -42,7 +42,7 @@ test("the two profiles are kept apart", async ({ page }) => {
   await author.getByLabel("Name").fill("Ana Ruiz");
   await author.getByLabel("Publisher or company").fill("Minotauro");
   await author.getByLabel("Publisher or company").blur();
-  await expect(author.getByText("Saved.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Notifications" }).getByText("Author profile saved.")).toBeVisible();
 
   await author.getByRole("button", { name: /Personal/ }).click();
   // The whole point: filling one leaves the other empty.

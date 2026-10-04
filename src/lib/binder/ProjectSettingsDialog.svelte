@@ -42,8 +42,17 @@
   // The project's own author wins, exactly as the exporter decides it.
   let byline = $derived(project?.meta.author.trim() || profile?.name.trim() || "");
 
+  /**
+   * Why a box's last change did not stick, said under that box: a notice
+   * would sit behind this dialog's backdrop, unread. The box itself springs
+   * back (Checkbox is strictly controlled).
+   */
+  let errors = $state<{ cover: string; colophon: string }>({ cover: "", colophon: "" });
+
   async function save(next: { cover?: boolean; colophon?: boolean }): Promise<void> {
-    await store.setExportMatter(path, next.cover ?? cover, next.colophon ?? colophon);
+    const which = next.cover === undefined ? "colophon" : "cover";
+    const failed = await store.setExportMatter(path, next.cover ?? cover, next.colophon ?? colophon);
+    errors = { ...errors, [which]: failed ?? "" };
   }
 
   let words = $derived(project?.chapters.reduce((total, c) => total + c.words, 0) ?? 0);
@@ -76,6 +85,7 @@
       <Checkbox
         label={t("project.coverLabel")}
         hint={t("project.coverHint")}
+        error={errors.cover}
         checked={cover}
         onChange={(next) => void save({ cover: next })}
       />
@@ -84,6 +94,7 @@
         <Checkbox
           label={t("project.colophonLabel")}
           hint={t("project.colophonHint")}
+          error={errors.colophon}
           checked={colophon}
           onChange={(next) => void save({ colophon: next })}
         />

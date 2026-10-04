@@ -96,6 +96,10 @@
     "topBarHidden": "Barra superior oculta.",
     "topBarShown": "Barra superior visible."
   },
+  "notices": {
+    "region": "Notificaciones",
+    "dismiss": "Cerrar"
+  },
   "dialog": {
     "newProject": "Nuevo proyecto",
     "title": "Título",
@@ -182,7 +186,8 @@
     "novelSlotHint": "Solo se usa para el respaldo privado de tu novela. Nunca para actualizaciones.",
     "token": "Token de GitHub",
     "connect": "Conectar",
-    "connected": "Conectado como",
+    "updatesConnected": "Token de actualizaciones conectado como @{login}.",
+    "novelConnected": "Respaldo en GitHub conectado como @{login}.",
     "repoName": "Nombre del respaldo",
     "createRepo": "Crear respaldo privado",
     "privateDefault": "Los respaldos se crean privados.",
@@ -201,8 +206,8 @@
     "push": "Enviar a GitHub",
     "pull": "Traer de GitHub",
     "pushed": "Enviado {branch} a GitHub.",
-    "pulled": "Traídos los últimos cambios.",
-    "alreadyCurrent": "Ya está al día.",
+    "pulled": "Se trajeron de GitHub los últimos cambios.",
+    "alreadyCurrent": "Ya está al día con GitHub.",
     "storedWhere": "Se guarda en el almacén de credenciales de tu sistema, nunca en un archivo."
   },
   "errors": {
@@ -803,7 +808,7 @@
     "notFound": "no está en esta máquina",
     "choose": "Usar este",
     "chosenLabel": "Dejar de usar",
-    "chosen": "Los respaldos también irán aquí.",
+    "chosen": "{name}: los respaldos también irán ahí.",
     "pickFolder": "Elegir carpeta…",
     "turnOff": "Desactivar respaldos",
     "turnedOff": "Respaldos desactivados.",
@@ -892,7 +897,7 @@
       "trl": "Traductor"
     },
     "privacy": "Estos campos se escriben en los archivos que exportas y en ningún otro sitio. Nada de esto se envía a ninguna parte, y no se pide ninguna dirección ni cuenta, porque ningún formato de exportación tiene dónde ponerla.",
-    "saved": "Guardado."
+    "saved": "Perfil de autor guardado."
   },
   "project": {
     "title": "Proyecto",

@@ -8,6 +8,8 @@
   import { t } from "$lib/i18n";
   import { OpsLogger } from "$lib/git/ops";
   import { RollbackHistory, wordRange } from "$lib/git/rollback";
+  import { notices } from "$lib/notices/state.svelte";
+  import { clearOfNotices, liftCaret, roomForNotices } from "$lib/notices/editor";
   import type { Op } from "$lib/tauri";
 
   interface Props {
@@ -74,6 +76,7 @@
         editable.of(editing(untrack(() => disabled))),
         ...modes.initial(untrack(() => typewriter)),
         ...choices.initial(untrack(() => preferences), untrack(() => language)),
+        clearOfNotices(),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           const ops: Op[] = [];
@@ -145,6 +148,27 @@
 
   $effect(() => {
     view?.dispatch({ effects: choices.reconfigure(preferences, novelLanguage) });
+  });
+
+  // A notice appeared, grew or went. The page gets room below its last line
+  // to lift that line clear of the stack (styles.css reads --v-notes-room),
+  // and the caret's line, if the stack landed on it, is scrolled above it.
+  // The room only grows for this chapter: shrinking it when a notice went
+  // would drop the page under a writer scrolled to its end.
+  let noticeRoom = 0;
+  $effect(() => {
+    void notices.coverRevision;
+    const current = view;
+    const el = host;
+    if (!current || !el) return;
+    untrack(() => {
+      const room = roomForNotices(current);
+      if (room > noticeRoom) {
+        noticeRoom = room;
+        el.style.setProperty("--v-notes-room", `${Math.ceil(room)}px`);
+      }
+      liftCaret(current);
+    });
   });
 
   function rollback(from: number, to: number): boolean {

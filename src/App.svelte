@@ -31,6 +31,9 @@
   import { chrome } from "$lib/chrome/state.svelte";
   import { isEditorOnScreen, resolveChrome, type Command, type Surface } from "$lib/chrome/chrome";
   import { chordAria, chordLabel, matchChord, platformOf } from "$lib/chrome/keys";
+  import Notices from "$lib/notices/Notices.svelte";
+  import { notices } from "$lib/notices/state.svelte";
+  import { errorCode } from "$lib/i18n/errors";
 
   let showSettings = $state(false);
   let showNewProject = $state(false);
@@ -324,8 +327,11 @@
     getDoc: () => string;
   } | undefined = $state(undefined);
 
-  function onOps(path: string, chapter: string, body: string, ops: Op[]): Promise<unknown> {
-    return api.opsAppend(path, chapter, body, ops);
+  /** A batch that reached the change log means the log is being written again. */
+  async function onOps(path: string, chapter: string, body: string, ops: Op[]): Promise<unknown> {
+    const stamped = await api.opsAppend(path, chapter, body, ops);
+    notices.dismiss("editor.ops");
+    return stamped;
   }
 
   async function doCommit(): Promise<void> {
@@ -344,15 +350,21 @@
           }),
         }),
       );
+      notices.dismiss("git.commit");
       await refreshGit();
-    } catch (e) { store.error = store.codeMessagePublic(e); }
+    } catch (e) {
+      const message = store.codeMessagePublic(e);
+      // A snapshot with nothing new to keep is an answer, not a failure.
+      if (errorCode(e) === "nothing_to_commit") notices.inform(message, "git.commit");
+      else notices.fail(message, "git.commit");
+    }
   }
 
   function doRewrite(): void {
     if (!store.project || !store.currentChapter || store.loading) return;
     const sel = editorRef?.getSelection() ?? null;
     if (!sel) {
-      store.error = t("ai.selectFirst");
+      notices.inform(t("ai.selectFirst"));
       return;
     }
     rewriteSel = sel;
@@ -441,7 +453,7 @@
     if (!editorRef) return;
     const sel = editorRef.getSelection();
     const done = sel ? editorRef.rollbackSelection() : editorRef.rollbackWord();
-    if (!done) store.error = t("git.nothingToRollback");
+    if (!done) notices.inform(t("git.nothingToRollback"));
   }
 
 
@@ -489,11 +501,13 @@
     const checkpoint = setInterval(async () => {
       const path = store.project?.path;
       if (!path || !isTauri() || store.loading) return;
+      // One notice for every minute that fails, gone with the first that works.
       try {
         await store.flushAll();
         await api.gitAutoCheckpoint(path);
+        notices.dismiss("git.checkpoint");
         await refreshGit();
-      } catch (e) { store.error = store.codeMessagePublic(e); }
+      } catch (e) { notices.fail(store.codeMessagePublic(e), "git.checkpoint"); }
     }, 60_000);
     const poll = setInterval(() => void refreshGit(), 15_000);
     window.addEventListener("keydown", onKeydown);
@@ -506,10 +520,13 @@
     let disposed = false;
     if (isTauri()) void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
       const window = getCurrentWindow();
+      // Closing the one window is quitting, and its failure says so in the
+      // quit's words: "File system error." alone stayed on after the save
+      // itself recovered, with nothing to say it was about the close.
       const off = await window.onCloseRequested(async event => {
         event.preventDefault();
         try { await store.flushAll(); await window.destroy(); }
-        catch (e) { store.error = store.codeMessagePublic(e); }
+        catch (e) { notices.fail(t("app.quitUnsaved", { reason: store.codeMessagePublic(e) }), "app.quit"); }
       });
       if (disposed) off(); else unlisten = off;
     });
@@ -520,7 +537,7 @@
         answerQuit(
           () => store.flushAll(),
           (saved) => api.quitReady(saved),
-          (e) => { store.error = t("app.quitUnsaved", { reason: store.codeMessagePublic(e) }); },
+          (e) => notices.fail(t("app.quitUnsaved", { reason: store.codeMessagePublic(e) }), "app.quit"),
         ),
       );
       if (disposed) off(); else unlistenQuit = off;
@@ -620,7 +637,7 @@
           language={store.project.meta.language}
           onChange={(body) => store.updateBody(body)}
           onOps={onOps}
-          onOpsError={(e) => { store.error = store.codeMessagePublic(e); }}
+          onOpsError={(e) => notices.fail(store.codeMessagePublic(e), "editor.ops")}
         />
         {/key}
       {:else}
@@ -632,6 +649,11 @@
     </main>
   </div>
   {/if}
+
+  <!-- Here, between the page and what is under it, so the stack hangs above
+       History and the status bar, and Tab reaches a notice straight after
+       the page. -->
+  <Notices />
 
   {#if showGit}
     <GitPanel open={showGit} onClose={() => (showGit = false)} />
@@ -658,17 +680,6 @@
   <!-- Always in the DOM, so the first message is heard: a live region that
        appears with its text is often not announced at all. -->
   <div class="sr-only" role="status">{chrome.announcement}</div>
-
-  {#if store.error}
-    <div
-      role="alert"
-      class="v-row fixed bottom-10 left-1/2 z-40"
-      style="transform: translateX(-50%); background: var(--bg-elev); border: 1px solid var(--warn); border-radius: var(--radius-card); padding: 8px 16px; font-size: 13px; color: var(--warn);"
-    >
-      <span>{store.error}</span>
-      <button class="v-btn" style="padding: 0 6px;" onclick={() => (store.error = null)}>✕</button>
-    </div>
-  {/if}
 
   {#if onboarding.open}
     <Onboarding onClose={() => (onboarding.open = false)} />

@@ -13,11 +13,16 @@
   } = $props();
 
   let title = $state("");
+  /** This dialog's own failure: an older one from elsewhere is not about this chapter. */
+  let error = $state("");
 
   async function submit(): Promise<void> {
     if (!title.trim() || store.loading) return;
-    await store.createChapter(title);
-    if (store.error) return;
+    const failed = await store.createChapter(title);
+    if (failed) {
+      error = failed;
+      return;
+    }
     onClose();
     onCreated?.();
   }
@@ -38,7 +43,7 @@
       <input bind:value={title} placeholder={t("dialog.chapterTitlePlaceholder")} required />
     </label>
 
-    {#if store.error}<p role="alert" class="m-0">{store.error}</p>{/if}
+    {#if error}<p role="alert" class="m-0">{error}</p>{/if}
 
     <div class="v-row justify-end" style="gap: 8px;">
       <button type="button" class="v-btn" onclick={onClose}>{t("dialog.cancel")}</button>

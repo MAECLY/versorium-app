@@ -7,11 +7,14 @@
 
   let title = $state("");
   let language = $state(getLocale());
+  /** This dialog's own failure: an older one from elsewhere is not about this project. */
+  let error = $state("");
 
   async function submit(): Promise<void> {
     if (!title.trim() || store.loading) return;
-    await store.createProject(title, language);
-    if (!store.error) onClose();
+    const failed = await store.createProject(title, language);
+    if (failed) error = failed;
+    else onClose();
   }
 </script>
 
@@ -44,7 +47,7 @@
       </span>
     </label>
 
-    {#if store.error}<p role="alert" class="m-0">{store.error}</p>{/if}
+    {#if error}<p role="alert" class="m-0">{error}</p>{/if}
 
     <div class="v-row justify-end" style="gap: 8px;">
       <button type="button" class="v-btn" onclick={onClose}>{t("dialog.cancel")}</button>

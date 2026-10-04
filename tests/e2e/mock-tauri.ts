@@ -225,6 +225,13 @@ function applyLayoutPatch(patch: Record<string, unknown>): void {
 const projects = new Map<string, ProjectState>();
 const calls: { cmd: string; args: Args }[] = [];
 
+/**
+ * Commands that fail, and with which code, until a spec deletes the entry:
+ * `__VERSORIUM_MOCK__.failures.save_chapter = "io"` is a full disk for every
+ * save. The call is still recorded, as Rust would have received it.
+ */
+const failures: Record<string, string> = {};
+
 const GB = 1024 ** 3;
 
 /// What a Scrivener import would surface: chapters plus what could not cross.
@@ -1252,6 +1259,9 @@ const commands: Record<string, (args: Args) => unknown> = {
     listeners.delete(Number(eventId));
   },
   "plugin:window|destroy": () => undefined,
+  // Rust's half of "quitting waits for the last save" (src-tauri/src/quit.rs):
+  // the answer is in `calls`, as `{ saved }`.
+  quit_ready: () => undefined,
 };
 
 let nextCallback = 1;
@@ -1284,6 +1294,7 @@ const internals = {
   },
   async invoke(cmd: string, args: Args = {}): Promise<unknown> {
     calls.push({ cmd, args });
+    if (cmd in failures) throw failures[cmd];
     const handler = commands[cmd];
     if (!handler) {
       if (cmd.startsWith("plugin:")) return undefined;
@@ -1302,6 +1313,8 @@ declare global {
       projects: Map<string, ProjectState>;
       settings: typeof settings;
       calls: typeof calls;
+      /** Commands that reject, by name, with the code given. */
+      failures: typeof failures;
       agents: AgentInfo[];
       mcpClients: McpClient[];
       mcpLog: McpLogEntry[];
@@ -1352,7 +1365,7 @@ window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
 };
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
-    projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update, github, crashes,
+    projects, settings, calls, failures, agents, mcpClients, mcpLog, models, slots, update, github, crashes,
     backup, setBackupRunning, holdBackup, releaseBackup, emit, listening,
     get relaunched() {
       return relaunched;

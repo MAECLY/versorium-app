@@ -110,6 +110,10 @@ export function runChapterAction(chapter: ChapterMeta, id: string, origin: ItemS
 
 export async function doRename(title: string): Promise<void> {
   const target = pending.renaming;
+  // Closed before the rename runs, as Delete is: a failure is a notice, and
+  // while the dialog is modal the page under it, the notices' live regions
+  // with it, is inert, so the alert was written where nobody hears it.
+  pending.renaming = null;
   if (!target) return;
   if (target.kind === "project") await store.renameProject(target.id, title);
   else await store.updateChapter(target.id, title);

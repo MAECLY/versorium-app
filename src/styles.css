@@ -629,7 +629,10 @@ input[type="number"] {
    .cm-editor (src/lib/editor/preferences.ts). The fallbacks are the values this
    rule always had, and are what the middle steps map to. Nothing else declares
    these three properties for the content, so the setting never has to win a
-   cascade — the way typewriter's padding once lost one to this rule. */
+   cascade — the way typewriter's padding once lost one to this rule.
+   The foot is 120px, or more while a tall notice stack covers that much of
+   the page (--v-notes-room, from MarkdownEditor): the last line has to be
+   able to scroll clear of it. */
 .cm-editor .cm-content {
   font-family:
     "Source Serif 4",
@@ -641,7 +644,7 @@ input[type="number"] {
     serif;
   font-size: var(--editor-text-size, 21px);
   line-height: var(--editor-line-height, 1.7);
-  padding: 48px 24px 120px;
+  padding: 48px 24px max(120px, calc(var(--v-notes-room, 0px) + 16px));
   max-width: var(--editor-measure, 72ch);
   margin: 0 auto;
   caret-color: var(--accent);
@@ -1134,9 +1137,124 @@ input[type="number"] {
   border-color: var(--accent);
 }
 
+/* -------------------------------------------------------------- notices
+
+   src/lib/notices/Notices.svelte: confirmations and hints that go by
+   themselves, and errors that stay. The stack hangs from the line between
+   the page and what is under it (History, the status bar), at the end edge:
+   centred, it sat on the text column. Above the page; below menus and peeks
+   (30, 35) and dialogs (the top layer), so Focus options, which opens from
+   the status bar, covers a notice and not the other way round. */
+
+.v-notes-anchor {
+  position: relative;
+  flex: none;
+  height: 0;
+  z-index: 25;
+}
+
+.v-notes {
+  position: absolute;
+  bottom: 8px;
+  inset-inline-end: 16px;
+  width: min(380px, calc(100vw - 32px));
+  /* The gaps between notices are the page's: a click there reaches the text. */
+  pointer-events: none;
+}
+
+.v-notes-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* --text on --bg-elev, the pairing every menu reads in. */
+.v-note {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 6px 6px 12px;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-menu);
+  font-size: 13px;
+  line-height: 1.45;
+  pointer-events: auto;
+  animation: v-note-in 150ms ease-out;
+}
+
+/* An error to act on: a --warn bar where reading starts. Its words say it
+   failed, so the colour is never the only sign. A bar inside the card rather
+   than a thick border, which the card's corners bent into a bracket. */
+.v-note[data-tier="persistent"] {
+  padding-inline-start: 18px;
+}
+
+.v-note[data-tier="persistent"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 7px;
+  inset-inline-start: 7px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--warn);
+}
+
+.v-note-text {
+  margin: 0;
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.v-note-action {
+  flex: none;
+}
+
+/* 24px square, the AA target, beside words that need no more room. The ✕ is
+   --text-mute on --bg-elev, which holds 4.5:1 in every theme. */
+.v-note-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-mute);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.v-note-close:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+@keyframes v-note-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .v-corkcard {
     transition: none;
+  }
+
+  .v-note {
+    animation: none;
   }
 
   /* !important: the folding rules they cancel are more specific. */

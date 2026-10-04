@@ -3,6 +3,7 @@
   import { t } from "$lib/i18n";
   import { api, isTauri, AUTHOR_ROLES, type AuthorProfile, type AuthorProfiles } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
+  import { notices } from "$lib/notices/state.svelte";
   import Select from "$lib/components/forms/Select.svelte";
   import TextField from "$lib/components/forms/TextField.svelte";
   import Checkbox from "$lib/components/forms/Checkbox.svelte";
@@ -27,7 +28,6 @@
   let profiles = $state<AuthorProfiles>({ work: { ...EMPTY }, hobby: { ...EMPTY } });
   let active = $state<Which>("work");
   let editing = $state<Which>("work");
-  let saved = $state(false);
 
   let current = $derived(profiles[editing]);
 
@@ -43,14 +43,18 @@
       .catch(() => {});
   });
 
+  /**
+   * Said in passing, and gone: every field writes on leaving it, so a "Saved."
+   * that stayed would sit there from the first field to the last. One id for
+   * both outcomes, so a save that works replaces the error of one that did not.
+   */
   async function save(): Promise<void> {
     if (!isTauri()) return;
-    saved = false;
     try {
       await api.setSettings({ authorProfiles: profiles, authorProfile: active });
-      saved = true;
+      notices.inform(t("author.saved"), "settings.author");
     } catch (e) {
-      store.error = store.codeMessagePublic(e);
+      notices.fail(store.codeMessagePublic(e), "settings.author");
     }
   }
 
@@ -140,10 +144,5 @@
     </div>
 
     <p class="v-muted m-0 mt-3" style="font-size: 11.5px; line-height: 1.6;">{t("author.privacy")}</p>
-    {#if saved}
-      <p class="m-0 mt-2" style="font-size: 12px; color: var(--accent);" aria-live="polite">
-        {t("author.saved")}
-      </p>
-    {/if}
   {/if}
 </section>

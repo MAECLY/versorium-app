@@ -55,7 +55,10 @@ test("choosing a destination then backing up lists the archive under its name", 
   await expect(backup.getByRole("button", { name: "Back up now" })).toHaveCount(0);
 
   await backup.getByRole("button", { name: "Use this" }).first().click();
-  await expect(backup.getByText("Backups will go here too.")).toBeVisible();
+  // A confirmation, said in passing in the notices (tests/e2e/notices.spec.ts).
+  await expect(
+    page.getByRole("region", { name: "Notifications" }).getByText("iCloud Drive: backups will go there too."),
+  ).toBeVisible();
 
   await backup.getByRole("button", { name: "Back up now" }).click();
   // Every message names its destination, because there can be three.

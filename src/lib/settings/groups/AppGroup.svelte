@@ -3,6 +3,7 @@
   import { t } from "$lib/i18n";
   import { api, isTauri, type SecretsStatus } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
+  import { notices } from "$lib/notices/state.svelte";
   import { updates } from "$lib/update/state.svelte";
   import UpdatesSection from "$lib/settings/UpdatesSection.svelte";
   import { onboarding } from "$lib/onboarding/state.svelte";
@@ -20,7 +21,8 @@
   let secrets = $state<SecretsStatus | null>(null);
   let token = $state("");
   let login = $state("");
-  let notice = $state("");
+  /** Only failures stay here, beside the field; "Connected" is a notice. */
+  let error = $state("");
   let busy = $state(false);
 
   onMount(() => {
@@ -39,15 +41,15 @@
   async function connect(): Promise<void> {
     if (busy || !token.trim()) return;
     busy = true;
-    notice = "";
+    error = "";
     try {
       login = await api.secretsConnect("updates", token);
       token = "";
       await refresh();
-      notice = t("git.connected") + ` @${login}`;
+      notices.inform(t("git.updatesConnected", { login }), "settings.updatesToken");
       await updates.load();
     } catch (e) {
-      notice = store.codeMessagePublic(e);
+      error = store.codeMessagePublic(e);
     } finally {
       busy = false;
     }
@@ -56,14 +58,14 @@
   async function forget(): Promise<void> {
     if (busy) return;
     busy = true;
-    notice = "";
+    error = "";
     try {
       await api.secretsForget("updates");
       login = "";
       await refresh();
       await updates.load();
     } catch (e) {
-      notice = store.codeMessagePublic(e);
+      error = store.codeMessagePublic(e);
     } finally {
       busy = false;
     }
@@ -112,8 +114,11 @@
       </div>
       <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("git.storedWhere")}</p>
     {/if}
-    {#if notice}
-      <p class="m-0 mt-2" style="font-size: 12px; color: var(--accent);" aria-live="polite">{notice}</p>
+    <!-- An error was drawn in the accent, in a polite region, so it read as a
+         success; with the confirmation gone to the notices it is only ever
+         an error. -->
+    {#if error}
+      <p role="alert" class="m-0 mt-2" style="font-size: 12px; color: var(--warn);">{error}</p>
     {/if}
   </div>
 </section>

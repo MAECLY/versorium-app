@@ -96,6 +96,10 @@
     "topBarHidden": "Top bar hidden.",
     "topBarShown": "Top bar shown."
   },
+  "notices": {
+    "region": "Notifications",
+    "dismiss": "Close"
+  },
   "dialog": {
     "newProject": "New project",
     "title": "Title",
@@ -182,7 +186,8 @@
     "novelSlotHint": "Used only for your novel's own private backup. Never for updates.",
     "token": "GitHub token",
     "connect": "Connect",
-    "connected": "Connected as",
+    "updatesConnected": "Updates token connected as @{login}.",
+    "novelConnected": "GitHub backup connected as @{login}.",
     "repoName": "Backup name",
     "createRepo": "Create a private backup",
     "privateDefault": "Backups are created private.",
@@ -201,8 +206,8 @@
     "push": "Send to GitHub",
     "pull": "Bring from GitHub",
     "pushed": "Sent {branch} to GitHub.",
-    "pulled": "Brought the latest changes.",
-    "alreadyCurrent": "Already up to date.",
+    "pulled": "Brought the latest changes from GitHub.",
+    "alreadyCurrent": "Already up to date with GitHub.",
     "storedWhere": "Stored in your system's credential store, never in a file."
   },
   "errors": {
@@ -803,7 +808,7 @@
     "notFound": "not found on this machine",
     "choose": "Use this",
     "chosenLabel": "Stop using",
-    "chosen": "Backups will go here too.",
+    "chosen": "{name}: backups will go there too.",
     "pickFolder": "Choose a folder…",
     "turnOff": "Turn backups off",
     "turnedOff": "Backups are off.",
@@ -892,7 +897,7 @@
       "trl": "Translator"
     },
     "privacy": "These fields are written into files you export and nowhere else. Nothing here is sent anywhere, and no address or account is asked for, because no export format has a place to put one.",
-    "saved": "Saved."
+    "saved": "Author profile saved."
   },
   "project": {
     "title": "Project",

@@ -13,6 +13,7 @@
     type SecretsStatus,
   } from "$lib/tauri";
   import { store } from "$lib/binder/store.svelte";
+  import { notices } from "$lib/notices/state.svelte";
   import { UNKNOWN_STATE, newerState } from "$lib/backup/state";
   import { humanSize } from "$lib/models/state.svelte";
   import NumberField from "$lib/components/forms/NumberField.svelte";
@@ -49,7 +50,9 @@
   let foreign = false;
   /** Such a run has ended, and the list below was read again. */
   let finished = $state(false);
-  let notice = $state("");
+  /** Where a restore put the copy. Kept here, not in a notice that goes by:
+      it is the one place the folder's name is shown. */
+  let restored = $state("");
   let error = $state("");
 
   let secrets = $state<SecretsStatus | null>(null);
@@ -130,10 +133,11 @@
   async function toggle(path: string): Promise<void> {
     const next = chosen.includes(path) ? chosen.filter((p) => p !== path) : [...chosen, path];
     if (next.length > MAX_DESTINATIONS) {
-      notice = t("backup.full");
+      notices.inform(t("backup.full"));
       return;
     }
-    await save(next, chosen.includes(path) ? "" : t("backup.chosen"));
+    // Named: in the corner stack, "here" would point at nothing.
+    await save(next, chosen.includes(path) ? "" : t("backup.chosen", { name: name(path) }));
   }
 
   async function save(paths: string[], said: string): Promise<void> {
@@ -143,7 +147,8 @@
       results = [];
       checked = {};
       await refresh();
-      notice = paths.length === 0 ? t("backup.turnedOff") : said;
+      const done = paths.length === 0 ? t("backup.turnedOff") : said;
+      if (done) notices.inform(done, "backup.configure");
     });
   }
 
@@ -196,7 +201,7 @@
       // Extracted beside the original, never over it, so this cannot destroy
       // the work it exists to protect.
       const target = await api.backupRestore(archive.path, path, t("backup.restoredSuffix"));
-      notice = t("backup.restored", { path: target });
+      restored = t("backup.restored", { path: target });
     });
   }
 
@@ -205,7 +210,7 @@
       login = await api.secretsConnect("novel", token);
       token = "";
       secrets = await api.secretsStatus();
-      notice = t("git.connected") + ` @${login}`;
+      notices.inform(t("git.novelConnected", { login }), "backup.github");
     });
   }
 
@@ -223,10 +228,10 @@
     await run(async () => {
       if (direction === "push") {
         const branch = await api.gitPush(path);
-        notice = t("git.pushed", { branch });
+        notices.inform(t("git.pushed", { branch }), "backup.github");
       } else {
         const outcome = await api.gitPull(path);
-        notice = outcome.changed ? t("git.pulled") : t("git.alreadyCurrent");
+        notices.inform(outcome.changed ? t("git.pulled") : t("git.alreadyCurrent"), "backup.github");
       }
     });
   }
@@ -235,7 +240,7 @@
     if (busy) return;
     busy = true;
     error = "";
-    notice = "";
+    restored = "";
     try {
       await action();
     } catch (e) {
@@ -565,8 +570,8 @@
       </div>
     {/if}
 
-    {#if notice}
-      <p class="m-0 mt-3" style="font-size: 12px; color: var(--accent);" aria-live="polite">{notice}</p>
+    {#if restored}
+      <p class="m-0 mt-3" style="font-size: 12px; color: var(--accent);" aria-live="polite">{restored}</p>
     {/if}
     {#if error}
       <p role="alert" class="m-0 mt-2" style="font-size: 12px; color: var(--warn);">{error}</p>

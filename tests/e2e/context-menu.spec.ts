@@ -682,9 +682,9 @@ test("the page menu is cancelled on every non-text surface", async ({ page }) =>
   await page.getByRole("region", { name: "History" }).getByRole("button", { name: "✕" }).click();
 
   await page.getByRole("banner").getByRole("button", { name: "Rewrite" }).click();
-  const toast = page.getByRole("alert").filter({ hasText: "Select a passage first." });
+  const toast = page.getByRole("region", { name: "Notifications" }).getByRole("listitem").filter({ hasText: "Select a passage first." });
   await expect(toast).toBeVisible();
-  await cancelled(toast, "the error toast");
+  await cancelled(toast, "a notice");
 
   await page.getByRole("button", { name: "Settings" }).click();
   await cancelled(
@@ -1023,8 +1023,9 @@ test("Windows reload and print keys are cancelled, editing keys are not", async 
   // cancels it for the webview, Shift held or not, even in this dev build:
   // only the refresh keys get the dev escape hatch.
   expect((await pressed("Control+Shift+R"))?.prevented, "Ctrl+Shift+R in DEV").toBe(true);
-  await expect(page.getByRole("alert").filter({ hasText: "Select a passage first." })).toBeVisible();
-  await page.getByRole("alert").getByRole("button", { name: "✕" }).click();
+  const hint = page.getByRole("region", { name: "Notifications" }).getByRole("listitem").filter({ hasText: "Select a passage first." });
+  await expect(hint).toBeVisible();
+  await hint.getByRole("button", { name: "Close" }).click();
 
   // CodeMirror's cursorSyntaxLeft, which a guard on Alt+Arrow would kill.
   await typeInManuscript(page, "Hola mundo");

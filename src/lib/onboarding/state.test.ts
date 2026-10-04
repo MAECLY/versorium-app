@@ -16,21 +16,20 @@ vi.mock("$lib/tauri", () => ({
 }));
 vi.mock("$lib/ai/agents", () => ({ detectAgents: vi.fn() }));
 vi.mock("$lib/binder/store.svelte", () => ({
-  store: { createProject: vi.fn(), createChapter: vi.fn(), error: null },
+  store: { createProject: vi.fn(), createChapter: vi.fn(), loading: false },
 }));
-vi.mock("$lib/i18n/errors", () => ({ errorMessage: (e: unknown) => String(e) }));
 
 let onboarding: OnboardingStore;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  store.error = null;
+  store.loading = false;
   vi.mocked(api.modelsView).mockResolvedValue({
     hardware: { totalRamGb: 36, recommendedTier: "midPlus" },
   } as never);
   vi.mocked(api.setSettings).mockResolvedValue({} as never);
-  vi.mocked(store.createProject).mockResolvedValue(undefined);
-  vi.mocked(store.createChapter).mockResolvedValue(undefined);
+  vi.mocked(store.createProject).mockResolvedValue(null);
+  vi.mocked(store.createChapter).mockResolvedValue(null);
   vi.mocked(detectAgents).mockResolvedValue([]);
   onboarding = new OnboardingStore();
 });
@@ -81,6 +80,29 @@ it("creates nothing until the project step is confirmed", async () => {
   expect(onboarding.step).toBe("template");
 });
 
+it("does not move on while the binder is still opening something, having made nothing", async () => {
+  await onboarding.start();
+  onboarding.step = "project";
+  onboarding.title = "The Long Winter";
+  // The binder answers null both when it made the project and when it was
+  // busy and did nothing; only the second may not move the tour on.
+  store.loading = true;
+  await onboarding.createProject();
+  expect(store.createProject).not.toHaveBeenCalled();
+  expect(onboarding.created).toBe(false);
+  expect(onboarding.step).toBe("project");
+
+  store.loading = false;
+  await onboarding.createProject();
+  expect(onboarding.created).toBe(true);
+  expect(onboarding.step).toBe("template");
+
+  store.loading = true;
+  await onboarding.applyTemplate(["Act One", "Act Two"]);
+  expect(store.createChapter).not.toHaveBeenCalled();
+  expect(onboarding.step, "the structure is still to be made").toBe("template");
+});
+
 it("does not create the same project twice", async () => {
   await onboarding.start();
   onboarding.title = "Once";
@@ -89,18 +111,30 @@ it("does not create the same project twice", async () => {
   expect(store.createProject).toHaveBeenCalledTimes(1);
 });
 
-it("keeps the writer on the project step when creating fails", async () => {
+it("keeps the writer on the project step when creating fails, and says why in their words", async () => {
   await onboarding.start();
   onboarding.step = "project";
-  vi.mocked(store.createProject).mockImplementation(async () => {
-    store.error = "project_exists";
-  });
+  // What the binder hands back is a sentence already: read as an error code
+  // it became "Something went wrong.".
+  vi.mocked(store.createProject).mockResolvedValue("A project with that name already exists.");
 
   onboarding.title = "Taken";
   await onboarding.createProject();
   expect(onboarding.created).toBe(false);
   expect(onboarding.step).toBe("project");
-  expect(onboarding.error).toBe("project_exists");
+  expect(onboarding.error).toBe("A project with that name already exists.");
+});
+
+it("stops seeding at the first chapter that cannot be made, and says why", async () => {
+  await onboarding.start();
+  onboarding.title = "Structured";
+  await onboarding.createProject();
+  vi.mocked(store.createChapter).mockResolvedValueOnce(null).mockResolvedValueOnce("A title cannot be blank.");
+
+  await onboarding.applyTemplate(["Act One", "", "Act Three"]);
+  expect(store.createChapter).toHaveBeenCalledTimes(2);
+  expect(onboarding.error).toBe("A title cannot be blank.");
+  expect(onboarding.step, "still on the structure, to pick again").toBe("template");
 });
 
 it("seeds chapter titles for a structure and nothing for blank", async () => {

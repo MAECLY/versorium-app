@@ -4,6 +4,7 @@
   import { api, isTauri, type ContinuityReport } from "$lib/tauri";
   import { errorMessage, warningMessage } from "$lib/i18n/errors";
   import { store } from "$lib/binder/store.svelte";
+  import { notices } from "$lib/notices/state.svelte";
   import LocalAiSection from "$lib/settings/LocalAiSection.svelte";
 
   // Continuity (M7): it only runs when a local model is assigned to the
@@ -36,8 +37,9 @@
     if (!isTauri()) return;
     try {
       await api.setSettings({ censorship: on });
+      notices.dismiss("settings.censorship");
     } catch (e) {
-      store.error = store.codeMessagePublic(e);
+      notices.fail(store.codeMessagePublic(e), "settings.censorship");
     }
   }
 
