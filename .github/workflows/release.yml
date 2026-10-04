@@ -117,7 +117,8 @@ jobs:
       # has no Visual C++ redistributable, and v0.1.0 would not start there:
       # "MSVCP140.dll was not found" (llama.cpp's C++). Rust and every cc-built
       # dependency follow crt-static; llama-cpp-sys-2 ignores it and reads
-      # LLAMA_STATIC_CRT instead, and the two must agree or the link fails.
+      # LLAMA_STATIC_CRT instead (and CMAKE_MSVC_RUNTIME_LIBRARY, set in a
+      # Windows step below), and they must all agree or the link fails.
       RUSTFLAGS: ${{ startsWith(matrix.platform, 'windows') && '-C target-cpu=x86-64-v2 -C target-feature=+crt-static' || (!contains(matrix.args, 'aarch64') && '-C target-cpu=x86-64-v2' || '') }}
       LLAMA_STATIC_CRT: ${{ startsWith(matrix.platform, 'windows') && '1' || '0' }}
     steps:
@@ -191,6 +192,16 @@ jobs:
         if: startsWith(matrix.platform, 'windows')
         shell: pwsh
         run: echo "CARGO_TARGET_DIR=C:\t" >> $env:GITHUB_ENV
+
+      # LLAMA_STATIC_CRT only adds /MT to the compiler flags, and llama.cpp's
+      # CMake (policy CMP0091) picks the runtime from CMAKE_MSVC_RUNTIME_LIBRARY
+      # instead, defaulting to the DLL one. Its objects then came out /MD
+      # against /MT everywhere else and the link failed (LNK2038). The crate
+      # forwards every CMAKE_* environment variable to CMake as a definition.
+      - name: Static C runtime for CMake (Windows)
+        if: startsWith(matrix.platform, 'windows')
+        shell: pwsh
+        run: echo "CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded" >> $env:GITHUB_ENV
 
       # Pinned to the toolchain the app is developed and tested with, so a
       # release is built the way it was tested. (The SIGSEGV first blamed on
