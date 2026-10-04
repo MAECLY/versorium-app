@@ -1,6 +1,8 @@
-//! Tool-call log shown in Settings → MCP.
+//! Tool-call log shown in Settings → Activity.
 //!
-//! Records WHAT an agent did, never the manuscript. `detail` carries paths and
+//! Records WHAT an agent did, never the manuscript. The outcome is one of
+//! `ok`, `preview` (a write tool that returned its diff and changed nothing),
+//! `denied` (a write without a grant) or `error`. `detail` carries paths and
 //! counts only — the same rule crash logs follow (spec §12): prose never leaves
 //! the project folder, not even into a local log the user might attach to an
 //! issue.
@@ -12,6 +14,12 @@ use std::io::Write;
 /// Keeps the file bounded without needing a rotation job.
 const MAX_ENTRIES: usize = 500;
 
+/// The log's format, written on every line. 2: a write that only returned
+/// its diff is logged `preview`. Lines written before have no `format` (read
+/// as 0), and logged such a preview `ok`, so an `ok` write among them may have
+/// changed nothing: Activity says so rather than reading it as done.
+pub const FORMAT: u8 = 2;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LogEntry {
@@ -21,10 +29,13 @@ pub struct LogEntry {
     pub tool: String,
     /// `read` | `write`
     pub scope: String,
-    /// `ok` | `denied` | `error`
+    /// `ok` | `preview` (a write that only showed its diff) | `denied` | `error`
     pub outcome: String,
     /// Paths and counts only.
     pub detail: String,
+    /// `FORMAT` when this build wrote the line; 0 for a line from before it.
+    #[serde(default)]
+    pub format: u8,
 }
 
 fn now_ms() -> i64 {
@@ -42,6 +53,7 @@ pub fn entry(client: &str, tool: &str, scope: &str, outcome: &str, detail: Strin
         scope: scope.to_string(),
         outcome: outcome.to_string(),
         detail,
+        format: FORMAT,
     }
 }
 
@@ -115,6 +127,27 @@ mod tests {
         assert_eq!(entries[0].tool, "write_document", "newest first");
         assert_eq!(entries[1].tool, "search");
         assert!(read_from(&dir.path().join("absent.jsonl"), 10).is_empty());
+    }
+
+    #[test]
+    fn a_line_says_which_format_wrote_it_and_an_older_line_reads_as_format_zero() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mcp-log.jsonl");
+        // As a build from before previews were logged apart wrote it: a write
+        // previewed without `confirm` was `ok`, and no line had a format.
+        std::fs::write(
+            &path,
+            "{\"ts\":1,\"client\":\"claude-desktop\",\"tool\":\"replace_text\",\"scope\":\"write\",\"outcome\":\"ok\",\"detail\":\"manuscript/ch-01.md · 412 chars\"}\n",
+        )
+        .unwrap();
+        append(&path, &entry("claude-desktop", "replace_text", "write", "preview", "manuscript/ch-01.md".into()));
+
+        let entries = read_from(&path, 10);
+        assert_eq!(entries.len(), 2, "the older line still reads");
+        assert_eq!((entries[0].outcome.as_str(), entries[0].format), ("preview", FORMAT));
+        assert_eq!((entries[1].outcome.as_str(), entries[1].format), ("ok", 0));
+        // The frontend reads the key by name (src/lib/tauri.ts, McpLogEntry).
+        assert_eq!(serde_json::to_value(&entries[0]).unwrap()["format"], FORMAT);
     }
 
     #[test]

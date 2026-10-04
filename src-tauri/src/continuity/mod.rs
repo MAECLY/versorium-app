@@ -1,15 +1,19 @@
-//! Continuity check — the M7 stub.
+//! Continuity check: a model on this computer reads the novel's skeleton for
+//! contradictions.
 //!
-//! The DoD asks for "local MID or skip if no model", and the honest half of
-//! that is the skip. There is no built-in inference runtime yet (a documented
-//! M4 hole), so a slot pointing at a downloaded GGUF cannot run and says so
-//! rather than returning an empty report that reads like a clean bill of
-//! health. A slot pointing at Ollama does run, because that daemon exists.
+//! It runs on whatever the Continuity task names in Settings → Tasks: a model
+//! downloaded into Versorium (the in-process engine), one in Ollama, or one on
+//! the local server the writer saved. Never on an assistant: those send what
+//! they read to their own service. When it cannot run it says why, with a
+//! code, rather than returning an empty report that reads like a clean bill
+//! of health. The writer starts it from Manuscript › Continuity.
 //!
-//! What gets sent is deliberately small: chapter titles and codex entries, not
-//! the manuscript. A continuity pass wants the skeleton, and shipping a whole
-//! novel to a model — even a local one — is not something to do by default.
+//! What gets sent is deliberately small: chapter titles, scene headings and the
+//! opening of each codex entry, not the manuscript. A continuity pass wants the
+//! skeleton, and shipping a whole novel to a model, even a local one, is not
+//! something to do by default.
 
+use crate::agents::LocalServer;
 use crate::commands::settings::SlotAssignment;
 use serde::Serialize;
 use std::path::Path;
@@ -50,6 +54,8 @@ impl ContinuityReport {
 /// Why a check could not run. Codes, so the UI says it in the writer's language.
 pub const NO_MODEL: &str = "continuity_no_model";
 pub const DAEMON_OFFLINE: &str = "continuity_daemon_offline";
+/// The saved local server does not answer.
+pub const SERVER_OFFLINE: &str = "continuity_server_offline";
 pub const FAILED: &str = "continuity_failed";
 /// The engine is running a rewrite. A background pass yields to the writer.
 pub const BUSY: &str = "continuity_busy";
@@ -144,14 +150,21 @@ fn chapter_hint(detail: &str) -> Option<String> {
     (!digits.is_empty()).then(|| format!("ch-{digits}"))
 }
 
-/// Run a continuity pass, or explain why it did not.
-pub async fn check(root: &Path, slot: &SlotAssignment) -> Result<ContinuityReport, String> {
+/// Run a continuity pass, or explain why it did not. `server` is the saved
+/// local server, or None when the writer has not saved one.
+pub async fn check(
+    root: &Path,
+    slot: &SlotAssignment,
+    server: Option<&LocalServer>,
+) -> Result<ContinuityReport, String> {
     let id = slot.id.trim();
     match slot.kind.as_str() {
-        // A CLI harness could run this, but it is not wired; saying so beats an
-        // empty report that reads as "no problems found".
+        // An assistant sends what it reads to its own service, and Continuity
+        // runs only on one of the writer's models; saying so beats an empty
+        // report that reads as "no problems found".
         "none" | "cli" => return Ok(ContinuityReport::skipped(NO_MODEL)),
         "builtin" if !id.is_empty() => return builtin_check(root, id).await,
+        "server" if !id.is_empty() => return server_check(root, id, server).await,
         "ollama" => {}
         _ => return Ok(ContinuityReport::skipped(NO_MODEL)),
     }
@@ -207,6 +220,28 @@ async fn builtin_check(root: &Path, id: &str) -> Result<ContinuityReport, String
     }
 }
 
+/// A continuity pass through the saved local server.
+async fn server_check(root: &Path, model: &str, server: Option<&LocalServer>) -> Result<ContinuityReport, String> {
+    // Forgotten since the task was set: nothing to send it to.
+    let Some(server) = server else {
+        return Ok(ContinuityReport::skipped(NO_MODEL));
+    };
+    let (answering, served) = crate::agents::server_status(server).await;
+    if !answering {
+        return Ok(ContinuityReport::skipped(SERVER_OFFLINE));
+    }
+    if !served.iter().any(|m| m == model) {
+        return Ok(ContinuityReport::skipped(NO_MODEL));
+    }
+    let summary = summarize(root)?;
+    match crate::agents::server_generate(server, model, &prompt_for(&summary), CONTINUITY_TIMEOUT).await {
+        // An empty answer is a model that said nothing, not a clean novel.
+        Ok(answer) if answer.trim().is_empty() => Ok(ContinuityReport::skipped(FAILED)),
+        Ok(answer) => Ok(ContinuityReport { ran: true, reason: None, findings: parse_findings(&answer) }),
+        Err(_) => Ok(ContinuityReport::skipped(FAILED)),
+    }
+}
+
 async fn generate(model: &str, prompt: &str) -> Result<String, String> {
     crate::agents::ollama_generate(model, prompt, CONTINUITY_TIMEOUT)
         .await
@@ -233,8 +268,8 @@ mod tests {
         // as "your novel is consistent" when nothing actually ran.
         // `builtin` with an empty id still has nothing to run; a real id now
         // reaches the engine and is covered by the test below.
-        for assignment in [slot("none", ""), slot("builtin", ""), slot("cli", "claude")] {
-            let report = block_on(check(dir.path(), &assignment)).unwrap();
+        for assignment in [slot("none", ""), slot("builtin", ""), slot("cli", "claude"), slot("server", "")] {
+            let report = block_on(check(dir.path(), &assignment, None)).unwrap();
             assert!(!report.ran);
             assert_eq!(report.reason.as_deref(), Some(NO_MODEL));
             assert!(report.findings.is_empty());
@@ -244,13 +279,64 @@ mod tests {
     #[test]
     fn an_ollama_slot_with_no_model_named_is_a_skip() {
         let dir = tempfile::tempdir().unwrap();
-        let report = block_on(check(dir.path(), &slot("ollama", "   "))).unwrap();
+        let report = block_on(check(dir.path(), &slot("ollama", "   "), None)).unwrap();
+        assert_eq!(report.reason.as_deref(), Some(NO_MODEL));
+    }
+
+    fn project_in(dir: &Path) -> std::path::PathBuf {
+        let project = create_project(CreateProjectArgs {
+            path: dir.to_path_buf(),
+            title: "La aguja".into(),
+            language: "es".into(),
+        })
+        .unwrap();
+        std::path::PathBuf::from(&project.path)
+    }
+
+    #[test]
+    fn a_server_continuity_check_that_cannot_reach_it_says_so() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = project_in(dir.path());
+        let assigned = slot("server", "local-model");
+
+        let report = block_on(check(&root, &assigned, Some(&crate::agents::tests::dead_server()))).unwrap();
+        assert!(!report.ran);
+        assert_eq!(report.reason.as_deref(), Some(SERVER_OFFLINE));
+
+        // Forgotten since: there is no server to reach, which is a missing model.
+        let report = block_on(check(&root, &assigned, None)).unwrap();
         assert_eq!(report.reason.as_deref(), Some(NO_MODEL));
     }
 
     #[test]
+    fn a_server_continuity_check_reads_the_answer_of_the_chosen_model() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = project_in(dir.path());
+        let fake = crate::agents::tests::FakeServer::start(&["local-model"], "- Ana's eyes change colour in ch-02");
+
+        let report = block_on(check(&root, &slot("server", "local-model"), Some(&fake.server))).unwrap();
+        assert!(report.ran);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].chapter.as_deref(), Some("ch-02"));
+        let (_, body) = fake.seen().into_iter().find(|(r, _)| r == "POST /v1/chat/completions").unwrap();
+        let sent: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(sent["model"], "local-model");
+        assert!(sent["messages"][0]["content"].as_str().unwrap().contains("La aguja"), "the skeleton is sent");
+
+        // A model the server stopped serving is a missing model, not a run.
+        let report = block_on(check(&root, &slot("server", "gone-model"), Some(&fake.server))).unwrap();
+        assert_eq!(report.reason.as_deref(), Some(NO_MODEL));
+
+        // And an empty answer is not a clean bill of health.
+        let silent = crate::agents::tests::FakeServer::start(&["local-model"], "   ");
+        let report = block_on(check(&root, &slot("server", "local-model"), Some(&silent.server))).unwrap();
+        assert!(!report.ran);
+        assert_eq!(report.reason.as_deref(), Some(FAILED));
+    }
+
+    #[test]
     fn a_reason_is_always_a_code_never_prose() {
-        for code in [NO_MODEL, DAEMON_OFFLINE, FAILED] {
+        for code in [NO_MODEL, DAEMON_OFFLINE, SERVER_OFFLINE, FAILED, BUSY, TOO_LARGE] {
             assert!(code.starts_with("continuity_"));
             assert!(!code.contains(' '), "{code} must be a key the UI can translate");
         }
@@ -332,7 +418,7 @@ mod tests {
             return;
         }
         let report =
-            block_on(check(std::path::Path::new(&project.path), &slot("ollama", &models[0]))).unwrap();
+            block_on(check(std::path::Path::new(&project.path), &slot("ollama", &models[0]), None)).unwrap();
         eprintln!("ran={} reason={:?} findings={}", report.ran, report.reason, report.findings.len());
         assert!(report.ran || report.reason.is_some(), "either it ran or it said why");
     }

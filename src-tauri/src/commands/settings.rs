@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 
 /// Where one task's model comes from. `kind` is `none` | `builtin` | `ollama` |
-/// `cli`; `id` is the catalog id, the Ollama tag, or the harness name.
+/// `server` | `cli`; `id` is the catalog id, the Ollama tag, the id the saved
+/// local server reports for the model (its `GET /v1/models`), or the harness
+/// name.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SlotAssignment {
@@ -35,7 +37,7 @@ pub struct Slots {
 }
 
 pub const SLOT_NAMES: [&str; 5] = ["rewrite", "chat", "continuity", "embeddings", "dictation"];
-pub const SLOT_KINDS: [&str; 4] = ["none", "builtin", "ollama", "cli"];
+pub const SLOT_KINDS: [&str; 5] = ["none", "builtin", "ollama", "server", "cli"];
 
 impl Slots {
     /// Read one slot by name. Only the tests need this — the command layer
@@ -104,9 +106,13 @@ pub struct Settings {
     /// Which model serves each task. Empty on a fresh install: nothing local
     /// is selected until the user downloads something.
     pub slots: Slots,
-    /// LM Studio / llama-server, an OpenAI-compatible endpoint on this machine.
+    /// LM Studio / llama-server: an OpenAI-compatible server the writer points
+    /// Versorium at (Settings → Models → Local server).
     pub studio_host: String,
     pub studio_port: u16,
+    /// The writer saved that server. Versorium reaches it only then: to list
+    /// its models for Settings, and to run a task assigned to one of them.
+    /// Forgetting it releases those tasks (`commands::models::studio_save`).
     pub studio_enabled: bool,
     /// Where backups went when there could only be one destination.
     ///
@@ -958,4 +964,5 @@ mod tests {
         assert_eq!(s.author_profiles.hobby.name, "B");
         assert_eq!(s.author_profile, "hobby");
     }
+
 }

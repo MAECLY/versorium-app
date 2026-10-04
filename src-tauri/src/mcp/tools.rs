@@ -237,10 +237,24 @@ pub fn call(session: &mut Session, name: &str, args: &Value) -> Result<ToolOutpu
     };
 
     match &result {
-        Ok(out) => record(session, tool.name, tool.scope.as_str(), "ok", detail(args, out)),
+        Ok(out) => record(session, tool.name, tool.scope.as_str(), outcome_of(tool, out), detail(args, out)),
         Err(code) => record(session, tool.name, tool.scope.as_str(), "error", format!("{} {code}", subject(args))),
     }
     result
+}
+
+/// `preview` for a write that changed nothing, so Activity never reads a diff
+/// handed back for approval as "Done". Read from what the tool answered
+/// rather than from `confirm`: every write path marks its preview
+/// `applied: false`, `delete_document`'s included, and that answer is the
+/// truth about whether anything moved.
+fn outcome_of(tool: &ToolDef, out: &ToolOutput) -> &'static str {
+    let applied = out.structured.as_ref().and_then(|v| v.get("applied")).and_then(Value::as_bool);
+    if tool.scope == Scope::Write && applied == Some(false) {
+        "preview"
+    } else {
+        "ok"
+    }
 }
 
 /// Identifiers only — never the query, the body or the commit message, any of
@@ -483,6 +497,65 @@ pub(crate) mod tests {
 
         assert!(call(&mut session, "git_status", &json!({})).is_ok());
         assert!(call(&mut session, "history_list", &json!({ "document": fx.chapter.id })).is_ok());
+    }
+
+    /// The newest entry in this session's own log (a scratch file beside the
+    /// fixture's settings, never the app's).
+    fn last_logged(session: &Session) -> log::LogEntry {
+        log::read_from(&session.log_path(), 1).into_iter().next().expect("the call was logged")
+    }
+
+    #[test]
+    fn a_write_without_confirm_is_logged_as_a_preview() {
+        let (fx, mut session) = fixture("claude-desktop", true);
+        let before = commit_count(&fx.root);
+        let out = call(
+            &mut session,
+            "replace_text",
+            &json!({ "file": fx.chapter.file, "from": 0, "to": 2, "text": "El" }),
+        )
+        .unwrap();
+        assert_eq!(out.structured.unwrap()["applied"], false);
+
+        let entry = last_logged(&session);
+        assert_eq!(entry.tool, "replace_text");
+        assert_eq!(entry.scope, "write");
+        // A diff handed back for approval is not a change: Activity must never
+        // read it as "Done".
+        assert_eq!(entry.outcome, "preview");
+        assert_eq!(commit_count(&fx.root), before, "a preview commits nothing");
+        assert_eq!(body_of(&fx.root, &fx.chapter.file), SECRET);
+    }
+
+    #[test]
+    fn a_confirmed_write_is_logged_ok() {
+        let (fx, mut session) = fixture("claude-desktop", true);
+        call(
+            &mut session,
+            "replace_text",
+            &json!({ "file": fx.chapter.file, "from": 0, "to": 2, "text": "LA", "confirm": true }),
+        )
+        .unwrap();
+        assert_eq!(last_logged(&session).outcome, "ok");
+
+        // A read never carries `applied`, and stays ok.
+        call(&mut session, "read_document", &json!({ "file": fx.chapter.file })).unwrap();
+        let read = last_logged(&session);
+        assert_eq!((read.tool.as_str(), read.outcome.as_str()), ("read_document", "ok"));
+    }
+
+    #[test]
+    fn a_delete_preview_is_logged_as_a_preview() {
+        let (fx, mut session) = fixture("claude-desktop", true);
+        // `acknowledge_delete` without `confirm` is still only a preview.
+        call(
+            &mut session,
+            "delete_document",
+            &json!({ "file": fx.chapter.file, "acknowledge_delete": true }),
+        )
+        .unwrap();
+        assert_eq!(last_logged(&session).outcome, "preview");
+        assert!(fx.root.join(&fx.chapter.file).exists(), "the chapter is still there");
     }
 
     #[test]
