@@ -87,7 +87,13 @@ pub fn import_file(path: &Path) -> Result<Imported, String> {
         let synopsis = locate(path, &entry.id, Text::Synopsis)
             .and_then(|p| std::fs::read_to_string(p).ok())
             .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
+            .filter(|s| !s.is_empty())
+            // The card this app's export gives a chapter with no synopsis is
+            // its first sentence. Kept, it would come back as a summary the
+            // writer never wrote, and the next export would repeat it after
+            // the opening had changed. Left out, the next export works it out
+            // again from the opening as it is then, so nothing is lost.
+            .filter(|s| first_sentence(&super::scenes_of(&body)).as_deref().map(str::trim) != Some(s.as_str()));
 
         chapters.push(ImportedChapter {
             title: if entry.title.is_empty() { "Untitled".into() } else { entry.title.clone() },
@@ -112,7 +118,11 @@ pub fn import_file(path: &Path) -> Result<Imported, String> {
         warnings.push(WARN_FORMATTING.to_string());
     }
 
-    Ok(Imported { title, chapters, warnings })
+    // The binder file has no language in it, and this importer reads nothing
+    // else of the project's settings. No Scrivener project was at hand to see
+    // where one keeps a language, if anywhere, so none is guessed: the import
+    // dialog asks.
+    Ok(Imported { title, language: None, declared_language: None, chapters, warnings })
 }
 
 fn find_scrivx(bundle: &Path) -> Result<PathBuf, String> {
@@ -500,9 +510,10 @@ pub fn export_to(manuscript: &Manuscript, dest: &Path) -> Result<u64, String> {
         std::fs::write(&path, rtf.as_bytes()).map_err(|_| "io".to_string())?;
         written += rtf.len() as u64;
 
-        // Scrivener shows the synopsis on the corkboard card. The first sentence
-        // of the chapter is a better card than an empty one.
-        if let Some(synopsis) = synopsis_of(chapter) {
+        // Scrivener shows the synopsis on the corkboard card. The chapter's own
+        // synopsis when it has one (an import from Scrivener keeps it), and
+        // otherwise its first sentence, which is a better card than an empty one.
+        if let Some(synopsis) = chapter.synopsis.clone().or_else(|| synopsis_of(chapter)) {
             let path = folder.join("synopsis.txt");
             std::fs::write(&path, synopsis.as_bytes()).map_err(|_| "io".to_string())?;
             written += synopsis.len() as u64;
@@ -583,7 +594,13 @@ fn binder_xml(manuscript: &Manuscript, ids: &[String]) -> String {
 
 /// The first sentence of a chapter, for the corkboard card.
 fn synopsis_of(chapter: &Chapter) -> Option<String> {
-    let first = chapter.scenes.iter().flat_map(|s| s.paragraphs.iter()).next()?;
+    first_sentence(&chapter.scenes)
+}
+
+/// The first sentence of the first paragraph, at most 200 characters. Also
+/// what the import measures a card against, so the two cannot drift apart.
+fn first_sentence(scenes: &[super::Scene]) -> Option<String> {
+    let first = scenes.iter().flat_map(|s| s.paragraphs.iter()).next()?;
     let sentence = first.split_inclusive(['.', '?', '!']).next().unwrap_or(first).trim();
     (!sentence.is_empty()).then(|| sentence.chars().take(200).collect())
 }
@@ -707,6 +724,7 @@ mod tests {
                             paragraphs: vec!["Nadie vino.".into(), "Amaneció.".into()],
                         },
                     ],
+                    synopsis: None,
                 },
                 Chapter {
                     id: "ch-02".into(),
@@ -715,6 +733,7 @@ mod tests {
                         heading: None,
                         paragraphs: vec!["La luz giraba sobre el agua.".into()],
                     }],
+                    synopsis: None,
                 },
             ],
         }
@@ -874,6 +893,62 @@ mod tests {
         let imported = import_file(&root).unwrap();
         assert_eq!(imported.chapters[0].synopsis, None);
         assert_eq!(imported.chapters[1].synopsis.as_deref(), Some("She leaves."));
+    }
+
+    #[test]
+    fn a_scrivener_project_names_no_language() {
+        // A decision, not a mechanism: nothing in the bundle this importer reads
+        // says what language the novel is in, so the import dialog asks.
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("El largo invierno.scriv");
+        export_to(&sample(), &bundle).unwrap();
+        let imported = import_file(&bundle).unwrap();
+        assert_eq!((imported.language, imported.declared_language), (None, None));
+    }
+
+    #[test]
+    fn a_card_that_only_repeats_the_first_sentence_is_not_a_synopsis() {
+        // What this exporter writes on the card of a chapter that has no
+        // synopsis. Read back as one, it would reach the corkboard as a
+        // summary the writer never wrote, and stay there after the opening
+        // changed.
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("N.scriv");
+        let mut book = sample();
+        // Past the 200 characters a card holds, cut where a space falls: the
+        // card ends in that space, and the import trims it.
+        book.chapters[1].scenes[0].paragraphs[0] = "agua ".repeat(60);
+        export_to(&book, &bundle).unwrap();
+        let synopses = |bundle: &Path| -> Vec<Option<String>> {
+            import_file(bundle).unwrap().chapters.into_iter().map(|c| c.synopsis).collect()
+        };
+        assert_eq!(synopses(&bundle), [None, None]);
+
+        // A card that says anything else is the writer's, even one that
+        // starts the same way.
+        let card = bundle.join("Files").join("Data").join(document_uuid(0)).join("synopsis.txt");
+        fs::write(&card, "La niña esperó junto a la ventana. Nadie vino.").unwrap();
+        assert_eq!(synopses(&bundle)[0].as_deref(), Some("La niña esperó junto a la ventana. Nadie vino."));
+    }
+
+    #[test]
+    fn a_stored_synopsis_is_exported_instead_of_the_first_sentence() {
+        let mut book = sample();
+        book.chapters[0].synopsis = Some("Ana dice: \"vete\".\n---\nY se va — sola.".into());
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("N.scriv");
+        export_to(&book, &bundle).unwrap();
+
+        let card = |n: usize| {
+            std::fs::read_to_string(bundle.join("Files").join("Data").join(document_uuid(n)).join("synopsis.txt"))
+                .unwrap()
+        };
+        assert_eq!(card(0), "Ana dice: \"vete\".\n---\nY se va — sola.", "the writer's synopsis, whole");
+        // A chapter without one still gets its first sentence.
+        assert_eq!(card(1), "La luz giraba sobre el agua.");
+        // And Scrivener's corkboard reads it back as written.
+        let back = import_file(&bundle).unwrap();
+        assert_eq!(back.chapters[0].synopsis.as_deref(), Some("Ana dice: \"vete\".\n---\nY se va — sola."));
     }
 
     #[test]

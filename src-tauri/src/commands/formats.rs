@@ -103,19 +103,32 @@ pub fn import_preview(source: PathBuf) -> Result<Imported, String> {
     import(&source)
 }
 
+/// Make a project from a source the writer has previewed.
+///
+/// `language` is the one the import dialog settled on: what the source said,
+/// or what the writer chose when it said nothing or said something this app
+/// cannot use.
 #[tauri::command]
-pub fn import_apply(source: PathBuf, title: String) -> Result<Project, String> {
-    let import = importer_for(&source).ok_or_else(|| "unsupported_source".to_string())?;
-    let imported = import(&source)?;
+pub fn import_apply(source: PathBuf, title: String, language: String) -> Result<Project, String> {
+    import_into(&crate::commands::project::default_projects_dir()?, &source, title, &language)
+}
+
+/// The command body, with the folder the project goes into as an argument
+/// rather than the writer's real Documents, so a test can run the whole apply.
+fn import_into(dir: &Path, source: &Path, title: String, language: &str) -> Result<Project, String> {
+    // Before the source is even read: a language the novel cannot take leaves
+    // no folder behind and says so, rather than failing on something else.
+    let language = crate::commands::project::language_code(language).ok_or_else(|| "bad_language".to_string())?;
+    let import = importer_for(source).ok_or_else(|| "unsupported_source".to_string())?;
+    let imported = import(source)?;
     if imported.chapters.is_empty() {
         return Err("empty_document".into());
     }
     let title = if title.trim().is_empty() { imported.title.clone() } else { title };
-    let root = crate::commands::project::default_projects_dir()?;
     let project = crate::commands::project::create_project(crate::commands::project::CreateProjectArgs {
-        path: root,
+        path: dir.to_path_buf(),
         title: title.clone(),
-        language: "en".into(),
+        language: language.into(),
     })?;
     let project_root = PathBuf::from(&project.path);
 
@@ -128,10 +141,15 @@ pub fn import_apply(source: PathBuf, title: String) -> Result<Project, String> {
         let created = crate::commands::project::create_chapter(project_root.clone(), chapter.title.clone())?;
         crate::commands::chapters::save_chapter(
             project_root.clone(),
-            created.file,
+            created.file.clone(),
             chapter.body.clone(),
             None,
         )?;
+        // Scrivener's card text. Kept on the chapter, where the corkboard reads
+        // it and a Scrivener export writes it back.
+        if let Some(synopsis) = chapter.synopsis.as_deref() {
+            crate::commands::chapters::set_synopsis(&project_root, &created.file, synopsis)?;
+        }
     }
     crate::commands::project::open_project(project_root)
 }
@@ -232,11 +250,153 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("book.md");
         std::fs::write(&source, "# One\n\nFirst.\n\n# Two\n\nSecond.\n").unwrap();
-        let imported = import_preview(source).unwrap();
+        let imported = import_preview(source.clone()).unwrap();
         assert_eq!(imported.chapters.len(), 2);
-        // import_apply writes into the real projects dir, so it is covered by
-        // the e2e mock rather than here; this pins the preview contract it uses.
         assert_eq!(imported.chapters[0].title, "One");
+
+        let novels = dir.path().join("novels");
+        let project = import_into(&novels, &source, "Book".into(), "en").unwrap();
+        let titles: Vec<&str> = project.chapters.iter().map(|c| c.title.as_str()).collect();
+        assert_eq!(titles, ["One", "Two"], "the placeholder chapter is gone");
+    }
+
+    /// A Markdown source whose frontmatter says Spanish.
+    fn spanish_source(dir: &Path) -> PathBuf {
+        let source = dir.join("libro.md");
+        std::fs::write(&source, "---\ntitle: \"El libro\"\nlanguage: es\n---\n# Uno\n\nPrimero.\n").unwrap();
+        source
+    }
+
+    #[test]
+    fn an_import_takes_the_language_it_was_given() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = spanish_source(dir.path());
+
+        let novels = dir.path().join("novels");
+        let project = import_into(&novels, &source, "Uno".into(), "es").unwrap();
+        assert_eq!(project.meta.language, "es");
+        assert_eq!(load_meta(Path::new(&project.path)).unwrap().language, "es", "versorium.json says otherwise");
+
+        // What the writer chose wins over what the file says.
+        let project = import_into(&novels, &source, "Dos".into(), "en-GB").unwrap();
+        assert_eq!(load_meta(Path::new(&project.path)).unwrap().language, "en");
+
+        // And a language no novel can take is refused before anything exists,
+        // and before the source is read: a missing file is not what is said.
+        let empty = dir.path().join("empty");
+        assert_eq!(import_into(&empty, &source, "Tres".into(), "xx").unwrap_err(), "bad_language");
+        assert_eq!(import_into(&empty, &dir.path().join("gone.md"), "Cuatro".into(), "xx").unwrap_err(), "bad_language");
+        assert!(!empty.exists() || std::fs::read_dir(&empty).unwrap().next().is_none(), "a folder was made");
+    }
+
+    /// A Scrivener bundle written by this app's own exporter, whose first
+    /// chapter carries `synopsis` and whose second carries none.
+    fn scrivener_source(dir: &Path, synopsis: &str) -> PathBuf {
+        use crate::formats::{Chapter, Manuscript, Scene};
+        let chapter = |id: &str, title: &str, text: &str, synopsis: Option<&str>| Chapter {
+            id: id.into(),
+            title: title.into(),
+            scenes: vec![Scene { heading: None, paragraphs: vec![text.into()] }],
+            synopsis: synopsis.map(str::to_string),
+        };
+        let book = Manuscript {
+            title: "La sal".into(),
+            language: "es".into(),
+            chapters: vec![
+                chapter("ch-01", "La salida", "Llovió tres días.", Some(synopsis)),
+                chapter("ch-02", "El norte", "El camino torcía al norte. Y siguió.", None),
+            ],
+            ..Default::default()
+        };
+        let bundle = dir.join("La sal.scriv");
+        crate::formats::scrivener::export_to(&book, &bundle).unwrap();
+        bundle
+    }
+
+    const SYNOPSIS: &str = "Ana dice: \"vete\".\n---\nY se va — sola.";
+
+    #[test]
+    fn a_scrivener_synopsis_lands_in_its_chapter_frontmatter() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = scrivener_source(dir.path(), SYNOPSIS);
+        let project = import_into(&dir.path().join("novels"), &bundle, String::new(), "es").unwrap();
+        let root = PathBuf::from(&project.path);
+
+        let raw = std::fs::read_to_string(root.join(&project.chapters[0].file)).unwrap();
+        let (frontmatter, body) = crate::commands::project::split_frontmatter(&raw);
+        assert_eq!(frontmatter.get("synopsis").map(String::as_str), Some(SYNOPSIS), "{raw}");
+        assert_eq!(frontmatter.get("title").map(String::as_str), Some("La salida"));
+        assert_eq!(body, "Llovió tres días.", "the synopsis leaked into the prose: {raw}");
+    }
+
+    #[test]
+    fn a_chapter_without_a_synopsis_gets_no_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = scrivener_source(dir.path(), SYNOPSIS);
+        // The exporter wrote the second chapter a first-sentence card; take it
+        // away, as a Scrivener card left empty would be.
+        let data = bundle.join("Files").join("Data");
+        for folder in std::fs::read_dir(&data).unwrap().flatten() {
+            let card = folder.path().join("synopsis.txt");
+            if std::fs::read_to_string(&card).is_ok_and(|text| text.starts_with("El camino")) {
+                std::fs::remove_file(card).unwrap();
+            }
+        }
+        let project = import_into(&dir.path().join("novels"), &bundle, String::new(), "es").unwrap();
+        let raw = std::fs::read_to_string(PathBuf::from(&project.path).join(&project.chapters[1].file)).unwrap();
+        assert!(!raw.contains("synopsis"), "{raw}");
+    }
+
+    #[test]
+    fn a_synopsis_round_trips_scrivener_to_versorium_to_scrivener() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = scrivener_source(dir.path(), SYNOPSIS);
+        let project = import_into(&dir.path().join("novels"), &bundle, String::new(), "es").unwrap();
+
+        let back = scrivener_export(&PathBuf::from(&project.path), &dir.path().join("again"));
+        assert_eq!(cards(&back), cards(&bundle), "the cards changed on the way through");
+        assert_eq!(cards(&back)[0], SYNOPSIS);
+    }
+
+    /// Export a project as `<into>/La sal.scriv`, and return the bundle.
+    fn scrivener_export(root: &Path, into: &Path) -> PathBuf {
+        std::fs::create_dir_all(into).unwrap();
+        let bundle = into.join("La sal.scriv");
+        export_with(&Default::default(), root.to_path_buf(), "scriv".into(), bundle.clone(), None).unwrap();
+        bundle
+    }
+
+    /// Each document's corkboard card, in binder order.
+    fn cards(bundle: &Path) -> Vec<String> {
+        let mut folders: Vec<PathBuf> =
+            std::fs::read_dir(bundle.join("Files").join("Data")).unwrap().flatten().map(|e| e.path()).collect();
+        folders.sort();
+        folders.iter().map(|f| std::fs::read_to_string(f.join("synopsis.txt")).unwrap()).collect()
+    }
+
+    #[test]
+    fn a_chapter_without_a_synopsis_comes_back_from_scrivener_without_one() {
+        // Versorium → Scrivener → Versorium. The export gives Scrivener's card
+        // the chapter's first sentence; read back as a synopsis, it would be a
+        // summary nobody wrote, and every later export would repeat it.
+        let dir = tempfile::tempdir().unwrap();
+        let root = project(dir.path(), "La sal");
+        let file = crate::commands::chapters::list_chapters_inner(&root).unwrap()[0].file.clone();
+        crate::commands::chapters::save_chapter(root.clone(), file, "Llovió tres días. Luego escampó.".into(), None)
+            .unwrap();
+        let bundle = scrivener_export(&root, &dir.path().join("out"));
+        assert_eq!(cards(&bundle), ["Llovió tres días."], "Scrivener's card is still the first sentence");
+
+        let back = import_into(&dir.path().join("novels"), &bundle, String::new(), "es").unwrap();
+        let back_root = PathBuf::from(&back.path);
+        let back_file = back.chapters[0].file.clone();
+        let raw = std::fs::read_to_string(back_root.join(&back_file)).unwrap();
+        assert!(!raw.contains("synopsis"), "{raw}");
+
+        // So the next card follows the opening the writer has now.
+        crate::commands::chapters::save_chapter(back_root.clone(), back_file, "Escampó al fin. Salieron.".into(), None)
+            .unwrap();
+        assert_eq!(cards(&scrivener_export(&back_root, &dir.path().join("again"))), ["Escampó al fin."]);
     }
 
     #[test]

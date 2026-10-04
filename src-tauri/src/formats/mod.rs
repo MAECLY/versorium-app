@@ -30,6 +30,11 @@ pub struct Chapter {
     pub id: String,
     pub title: String,
     pub scenes: Vec<Scene>,
+    /// The chapter's `synopsis:`, when it has one that can be read.
+    ///
+    /// Only Scrivener has a place for it (the corkboard card); every other
+    /// format is a run of prose with no per-chapter slot.
+    pub synopsis: Option<String>,
 }
 
 
@@ -237,8 +242,13 @@ pub fn read_manuscript(root: &Path) -> Result<Manuscript, String> {
     for chapter in chapters {
         let full = crate::storage::project_file(root, &chapter.file)?;
         let raw = std::fs::read_to_string(&full).map_err(|_| "io".to_string())?;
-        let (_, body) = split_frontmatter(&raw);
-        out.push(Chapter { id: chapter.id, title: chapter.title, scenes: scenes_of(&body) });
+        let (frontmatter, body) = split_frontmatter(&raw);
+        out.push(Chapter {
+            id: chapter.id,
+            title: chapter.title,
+            scenes: scenes_of(&body),
+            synopsis: frontmatter.get("synopsis").map(String::as_str).and_then(readable_synopsis),
+        });
     }
     Ok(Manuscript {
         title: meta.title,
@@ -269,10 +279,69 @@ pub struct ImportedChapter {
 #[serde(rename_all = "camelCase")]
 pub struct Imported {
     pub title: String,
+    /// The novel's language as the source declares it, when it is one a novel
+    /// can be written in here (`commands::project::LANGUAGES`).
+    pub language: Option<String>,
+    /// The tag exactly as the source wrote it, whether or not it could be
+    /// used, so the import dialog can say what the file claimed rather than
+    /// pretend it said nothing.
+    pub declared_language: Option<String>,
     pub chapters: Vec<ImportedChapter>,
     /// Everything the source held that this import dropped, in the user's face
     /// rather than buried — a silent lossy import is worse than a loud one.
     pub warnings: Vec<String>,
+}
+
+/// The longest declared tag the dialog repeats. A real one is a few
+/// characters; a field that holds a paragraph is shown cut short.
+const DECLARED_CHARS: usize = 40;
+
+/// What a source says its language is: the code a novel can take, and the
+/// tag as written, in that order. Nothing said gives two `None`s, and so does
+/// a tag that says there is no language to give.
+fn declared(raw: Option<&str>) -> (Option<String>, Option<String>) {
+    let tag = raw.map(|r| r.split_whitespace().collect::<Vec<_>>().join(" ")).unwrap_or_default();
+    if says_no_language(&tag) {
+        return (None, None);
+    }
+    let shown = if tag.chars().count() > DECLARED_CHARS {
+        format!("{}…", tag.chars().take(DECLARED_CHARS).collect::<String>())
+    } else {
+        tag.clone()
+    };
+    (crate::commands::project::language_code(&tag).map(str::to_string), Some(shown))
+}
+
+/// Whether a tag gives no language at all: nothing, one of the codes BCP 47
+/// keeps for saying so (`und` undetermined, `mul` several, `zxx` no
+/// linguistic content, `mis` uncoded), or private use (`x-…`), which is where
+/// Word's `x-none` comes from. Such a value is no answer: it is not a language
+/// Versorium cannot use, and a source with another place to look looks there.
+pub(crate) fn says_no_language(tag: &str) -> bool {
+    let tag = tag.trim().to_ascii_lowercase();
+    let primary = tag.split(['-', '_']).next().unwrap_or_default();
+    matches!(primary, "" | "und" | "mul" | "zxx" | "mis" | "x")
+}
+
+/// A `synopsis:` value worth showing, or `None`.
+///
+/// The frontmatter reader takes one line per key, so a synopsis written by
+/// hand as a YAML block (`synopsis: |` and the lines under it) arrives as its
+/// indicator alone: `|` or `>`, a chomping sign or an indent digit, perhaps a
+/// comment. Treated as no synopsis, so an export falls back to the chapter's
+/// own words instead of a lone `|`; the corkboard draws the same line
+/// (`src/lib/binder/cardText.ts`). What this app writes is one double-quoted
+/// line and never looks like that.
+fn readable_synopsis(raw: &str) -> Option<String> {
+    let text = raw.trim();
+    let mut words = text.splitn(2, char::is_whitespace);
+    let indicator = words.next().unwrap_or_default();
+    let rest = words.next().unwrap_or_default().trim_start();
+    let block = matches!(indicator.chars().next(), Some('|' | '>'))
+        && indicator.len() <= 3
+        && indicator.chars().skip(1).all(|c| matches!(c, '+' | '-' | '1'..='9'))
+        && (rest.is_empty() || rest.starts_with('#'));
+    (!text.is_empty() && !block).then(|| text.to_string())
 }
 
 #[cfg(test)]
@@ -345,7 +414,7 @@ mod tests {
             title: "T".into(),
             language: "es".into(),
             matter: Matter { cover: false, colophon: false, labels: Labels::default() },
-            chapters: vec![Chapter { id: "ch-01".into(), title: "Uno".into(), scenes }],
+            chapters: vec![Chapter { id: "ch-01".into(), title: "Uno".into(), scenes, synopsis: None }],
             ..Default::default()
         };
 
@@ -388,6 +457,65 @@ mod tests {
         assert!(rtf.contains("\nSegundo, una vez.\\par\n"), "{rtf}");
         assert!(rtf.contains("\\par\\qc #\\par\\ql\n*Cursiva* sangrada.\\par\n"), "{rtf}");
         assert!(rtf.lines().all(|line| !line.starts_with(' ')), "{rtf}");
+    }
+
+    #[test]
+    fn read_manuscript_carries_the_synopsis() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = crate::commands::project::create_project(crate::commands::project::CreateProjectArgs {
+            path: dir.path().to_path_buf(),
+            title: "La sal".into(),
+            language: "es".into(),
+        })
+        .unwrap();
+        let root = std::path::PathBuf::from(&project.path);
+        let second = crate::commands::project::create_chapter(root.clone(), "Dos".into()).unwrap();
+        let first = &project.chapters[0].file;
+        crate::commands::chapters::set_synopsis(&root, first, "Se va.\nSola.").unwrap();
+        // A block written by hand reaches the reader as its indicator alone.
+        let raw = std::fs::read_to_string(root.join(&second.file)).unwrap();
+        std::fs::write(root.join(&second.file), raw.replacen("---\n", "---\nsynopsis: |\n  A mano.\n", 1)).unwrap();
+
+        let manuscript = read_manuscript(&root).unwrap();
+        assert_eq!(manuscript.chapters[0].synopsis.as_deref(), Some("Se va.\nSola."));
+        assert_eq!(manuscript.chapters[1].synopsis, None, "a lone `|` is not a synopsis");
+    }
+
+    #[test]
+    fn a_synopsis_that_is_only_a_block_indicator_is_none() {
+        for raw in ["|", ">", "|-", ">+", "|2", "|2-", ">-1", "| # a comment", "|-\t# tab", "", "   "] {
+            assert_eq!(readable_synopsis(raw), None, "{raw:?}");
+        }
+        for raw in ["She leaves.", "> She leaves.", "|| or not", "|- then", "#1 fan", "Ana # Luis", "|#x"] {
+            assert_eq!(readable_synopsis(raw).as_deref(), Some(raw), "{raw:?}");
+        }
+        assert_eq!(readable_synopsis("  Trimmed.  ").as_deref(), Some("Trimmed."));
+    }
+
+    #[test]
+    fn a_declared_tag_is_kept_as_written_and_named_when_it_can_be_used() {
+        assert_eq!(declared(None), (None, None));
+        assert_eq!(declared(Some("  \n ")), (None, None));
+        assert_eq!(declared(Some(" es-MX ")), (Some("es".into()), Some("es-MX".into())));
+        assert_eq!(declared(Some("fr")), (None, Some("fr".into())));
+        // A field that holds a paragraph is not repeated whole.
+        let long = "y".repeat(200);
+        let (code, shown) = declared(Some(&long));
+        assert_eq!(code, None);
+        assert_eq!(shown.unwrap().chars().count(), DECLARED_CHARS + 1);
+    }
+
+    #[test]
+    fn a_tag_that_names_no_language_is_no_answer() {
+        // BCP 47's codes for "no language" and private use, where Word's
+        // `x-none` comes from: not a language Versorium cannot use, nothing.
+        for raw in ["x-none", "X-NONE", "und", "zxx", "mul", "mis", "x-klingon", "und-Latn"] {
+            assert_eq!(declared(Some(raw)), (None, None), "{raw:?}");
+        }
+        // A real language is still reported, offered here or not, and a
+        // private-use part after one does not hide it.
+        assert_eq!(declared(Some("fr-FR")), (None, Some("fr-FR".into())));
+        assert_eq!(declared(Some("es-x-none")), (Some("es".into()), Some("es-x-none".into())));
     }
 
     #[test]

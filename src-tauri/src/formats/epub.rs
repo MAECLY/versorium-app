@@ -483,6 +483,10 @@ pub fn import_bytes(bytes: &[u8]) -> Result<Imported, String> {
     let title = opf_text(&opf, "dc:title")
         .or_else(|| opf_text(&opf, "title"))
         .unwrap_or_default();
+    // Required by EPUB, so the one format whose language is nearly always there.
+    // The first one when a book lists several.
+    let (language, declared_language) =
+        super::declared(opf_text(&opf, "dc:language").or_else(|| opf_text(&opf, "language")).as_deref());
     let manifest = manifest_of(&opf);
     let spine = spine_of(&opf);
 
@@ -534,7 +538,7 @@ pub fn import_bytes(bytes: &[u8]) -> Result<Imported, String> {
     if chapters.is_empty() {
         return Err("empty_manuscript".into());
     }
-    Ok(Imported { title, chapters, warnings })
+    Ok(Imported { title, language, declared_language, chapters, warnings })
 }
 
 fn is_image(href: &str) -> bool {
@@ -744,6 +748,7 @@ mod import_tests {
                             "Nadie vino.".into(),
                         ],
                     }],
+                    synopsis: None,
                 },
                 Chapter {
                     id: "ch-02".into(),
@@ -752,6 +757,7 @@ mod import_tests {
                         heading: None,
                         paragraphs: vec!["La luz giraba sobre el agua.".into()],
                     }],
+                    synopsis: None,
                 },
             ],
         }
@@ -773,6 +779,61 @@ mod import_tests {
         // Accents and an escaped ampersand both survive.
         assert!(imported.chapters[0].body.contains("La niña esperó"), "{}", imported.chapters[0].body);
         assert!(imported.chapters[1].body.contains("La luz giraba"));
+    }
+
+    #[test]
+    fn a_book_comes_back_in_the_language_its_package_declares() {
+        let imported = import_bytes(&written(&sample())).unwrap();
+        assert_eq!(imported.language.as_deref(), Some("es"));
+        assert_eq!(imported.declared_language.as_deref(), Some("es"));
+
+        let mut english = sample();
+        english.language = "en-GB".into();
+        let imported = import_bytes(&written(&english)).unwrap();
+        assert_eq!(imported.language.as_deref(), Some("en"), "a region is dropped, not refused");
+        assert_eq!(imported.declared_language.as_deref(), Some("en-GB"));
+    }
+
+    /// A real export, with its `<dc:language>` element replaced by `with`.
+    fn language_element_as(with: &str) -> Vec<u8> {
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(written(&sample()))).unwrap();
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        {
+            let mut out = zip::ZipWriter::new(&mut buffer);
+            for i in 0..zip.len() {
+                use std::io::{Read, Write};
+                let mut member = zip.by_index(i).unwrap();
+                let name = member.name().to_string();
+                let mut text = Vec::new();
+                member.read_to_end(&mut text).unwrap();
+                if name.ends_with(".opf") {
+                    let opf = String::from_utf8(text).unwrap();
+                    let start = opf.find("<dc:language>").unwrap();
+                    let end = opf.find("</dc:language>").unwrap() + "</dc:language>".len();
+                    text = format!("{}{with}{}", &opf[..start], &opf[end..]).into_bytes();
+                }
+                out.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
+                out.write_all(&text).unwrap();
+            }
+            out.finish().unwrap();
+        }
+        buffer.into_inner()
+    }
+
+    #[test]
+    fn a_package_without_a_language_says_nothing_rather_than_guessing() {
+        let imported = import_bytes(&language_element_as("")).unwrap();
+        assert_eq!((imported.language, imported.declared_language), (None, None));
+    }
+
+    #[test]
+    fn a_language_in_dublin_cores_namespace_without_the_prefix_is_read_too() {
+        // The same element as `dc:language`, written with the namespace as
+        // the default rather than bound to `dc:`, which a package may do.
+        let unprefixed = r#"<language xmlns="http://purl.org/dc/elements/1.1/">en-US</language>"#;
+        let imported = import_bytes(&language_element_as(unprefixed)).unwrap();
+        assert_eq!(imported.language.as_deref(), Some("en"));
+        assert_eq!(imported.declared_language.as_deref(), Some("en-US"));
     }
 
     #[test]
@@ -897,11 +958,13 @@ mod tests {
                         scene(None, &["¿Quién anda ahí? «Vení», dijo la voz…"]),
                         scene(Some("Más tarde"), &["El frío del zaguán."]),
                     ],
+                    synopsis: None,
                 },
                 Chapter {
                     id: "ch-02".into(),
                     title: "La señal".into(),
                     scenes: vec![scene(None, &["Y el final."])],
+                    synopsis: None,
                 },
             ],
         }
@@ -1028,6 +1091,7 @@ mod tests {
             id: "ch-03".into(),
             title: "Nothing here".into(),
             scenes: vec![],
+            synopsis: None,
         });
         let (_dir, path) = write(&manuscript);
         let names: Vec<String> = entries(&path).into_iter().map(|(n, _)| n).collect();
@@ -1045,7 +1109,7 @@ mod tests {
             byline: Default::default(),
             matter: Default::default(),
             language: "en".into(),
-            chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![] }],
+            chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![], synopsis: None }],
         };
         let dest = dir.path().join("empty.epub");
         assert_eq!(export_to(&manuscript, &dest).unwrap_err(), "empty_manuscript");

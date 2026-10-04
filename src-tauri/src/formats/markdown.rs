@@ -202,8 +202,15 @@ pub fn import(text: &str) -> Result<Imported, String> {
         }
     };
 
+    // The key this module's own export writes. A single-quoted YAML value keeps
+    // its quotes through the frontmatter reader, so they come off here.
+    let (language, declared_language) =
+        super::declared(front.get("language").map(|v| v.trim().trim_matches('\'')));
+
     Ok(Imported {
         title,
+        language,
+        declared_language,
         chapters: chapters
             .into_iter()
             .map(|chapter| ImportedChapter {
@@ -263,11 +270,13 @@ mod tests {
                             paragraphs: vec!["Después del alba, ¿quién llamó?".into()],
                         },
                     ],
+                    synopsis: None,
                 },
                 Chapter {
                     id: "ch-02".into(),
                     title: "Segundo".into(),
                     scenes: vec![Scene { heading: None, paragraphs: vec!["Un párrafo.".into()] }],
+                    synopsis: None,
                 },
             ],
         }
@@ -287,6 +296,36 @@ mod tests {
             // Compare the shape, not the bytes: the body is Markdown again.
             assert_eq!(scenes_of(&imported.body), source.scenes);
         }
+    }
+
+    #[test]
+    fn the_language_in_the_frontmatter_is_the_novels() {
+        let back = import("---\ntitle: \"Libro\"\nlanguage: es-ES\n---\n# Uno\n\nTexto.\n").unwrap();
+        assert_eq!(back.language.as_deref(), Some("es"), "a region is dropped, not refused");
+        assert_eq!(back.declared_language.as_deref(), Some("es-ES"), "the tag as the file wrote it");
+
+        // Quoted either way YAML allows.
+        for line in ["language: \"en\"", "language: 'en'", "language:   EN  "] {
+            let back = import(&format!("---\n{line}\n---\n# One\n\nText.\n")).unwrap();
+            assert_eq!(back.language.as_deref(), Some("en"), "{line}");
+        }
+    }
+
+    #[test]
+    fn a_language_the_file_does_not_give_or_that_cannot_be_used_is_none() {
+        let silent = import("# One\n\nText.\n").unwrap();
+        assert_eq!((silent.language, silent.declared_language), (None, None));
+
+        // What it said is kept, so the dialog can repeat it.
+        let french = import("---\nlanguage: fr\n---\n# Un\n\nTexte.\n").unwrap();
+        assert_eq!(french.language, None);
+        assert_eq!(french.declared_language.as_deref(), Some("fr"));
+    }
+
+    #[test]
+    fn an_exported_novel_comes_back_in_its_own_language() {
+        let back = import(&export(&sample())).unwrap();
+        assert_eq!(back.language.as_deref(), Some("es"));
     }
 
     #[test]
@@ -312,6 +351,7 @@ mod tests {
                     id: String::new(),
                     title: c.title.clone(),
                     scenes: scenes_of(&c.body),
+                    synopsis: None,
                 })
                 .collect(),
         };

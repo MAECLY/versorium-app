@@ -459,11 +459,13 @@ mod tests {
                         scene(None, &[prose, prose]),
                         scene(None, &[prose]),
                     ],
+                    synopsis: None,
                 },
                 Chapter {
                     id: "ch-02".into(),
                     title: "Capítulo 2. La señal".into(),
                     scenes: vec![scene(None, &["Y el final."])],
+                    synopsis: None,
                 },
             ],
         }
@@ -573,7 +575,7 @@ mod tests {
         // one-page PDF of its own title.
         let empty = Manuscript {
             title: "La Casa de Niebla".into(),
-            chapters: vec![Chapter { id: "ch-01".into(), title: "Uno".into(), scenes: vec![] }],
+            chapters: vec![Chapter { id: "ch-01".into(), title: "Uno".into(), scenes: vec![], synopsis: None }],
             ..book()
         };
         assert!(empty.matter.cover, "the setting that made this possible");
@@ -682,7 +684,7 @@ mod tests {
             byline: Default::default(),
             matter: Default::default(),
             language: "en".into(),
-            chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![] }],
+            chapters: vec![Chapter { id: "ch-01".into(), title: "One".into(), scenes: vec![], synopsis: None }],
         };
         assert_eq!(render(&manuscript).unwrap_err(), "empty_manuscript");
     }
@@ -807,6 +809,7 @@ mod warning_tests {
                 id: "ch-01".into(),
                 title: "Uno".into(),
                 scenes: vec![Scene { heading: None, paragraphs: vec![text.into()] }],
+                synopsis: None,
             }],
         }
     }

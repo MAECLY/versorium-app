@@ -546,18 +546,7 @@ fn paragraphs_of(xml: &str) -> Result<(Vec<Para>, Found), String> {
             // this one silently deletes the character it stood for.
             Ok(Event::GeneralRef(e)) => {
                 if in_text && depth_del == 0 && !in_instr {
-                    let resolved = match e.resolve_char_ref() {
-                        Ok(Some(c)) => Some(c),
-                        _ => match e.into_inner().as_ref() {
-                            "amp" => Some('&'),
-                            "lt" => Some('<'),
-                            "gt" => Some('>'),
-                            "quot" => Some('"'),
-                            "apos" => Some('\''),
-                            _ => None,
-                        },
-                    };
-                    if let (Some(c), Some(p)) = (resolved, current.as_mut()) {
+                    if let (Some(c), Some(p)) = (resolve_entity(e), current.as_mut()) {
                         p.text.push(c);
                     }
                 }
@@ -608,6 +597,105 @@ fn read_member(zip: &mut zip::ZipArchive<Cursor<Vec<u8>>>, name: &str) -> Option
     let mut text = String::new();
     file.read_to_string(&mut text).ok()?;
     Some(text)
+}
+
+/// The language a DOCX gives for itself, as the tag it wrote.
+///
+/// Three places, the most deliberate first. `dc:language` in the core
+/// properties is metadata somebody set on purpose, and what this app's own
+/// writer fills in; Word itself rarely writes it. What Word does write is the
+/// language it was editing in: the theme's font language in `settings.xml`,
+/// then the default run's proofing language in `styles.xml`. Both come from the
+/// template, so an English Word can carry `en-US` into a Spanish novel, which is
+/// why the import dialog says where its choice came from and lets the writer
+/// change it rather than taking it silently.
+///
+/// A place that gives no language (Word writes `x-none` for that) is passed
+/// over for the next. One that names a language is the file's answer even
+/// when Versorium cannot use it: a template's guess further down is weaker
+/// than what the file declared, and the dialog says what that was.
+fn declared_language(zip: &mut zip::ZipArchive<Cursor<Vec<u8>>>) -> Option<String> {
+    let answer = |tag: Option<String>| tag.filter(|t| !super::says_no_language(t));
+    answer(read_member(zip, "docProps/core.xml").and_then(|core| element_text(&core, "language")))
+        .or_else(|| answer(read_member(zip, "word/settings.xml").and_then(|xml| theme_language(&xml))))
+        .or_else(|| answer(read_member(zip, "word/styles.xml").and_then(|xml| default_run_language(&xml))))
+}
+
+/// The text of the first element with this local name, entities resolved.
+fn element_text(xml: &str, name: &str) -> Option<String> {
+    let mut reader = Reader::from_str(xml);
+    let mut text: Option<String> = None;
+    loop {
+        match reader.read_event() {
+            Err(_) | Ok(Event::Eof) => return None,
+            Ok(Event::Start(e)) if text.is_none() && e.local_name().as_ref() == name => text = Some(String::new()),
+            Ok(Event::Text(e)) => {
+                if let Some(t) = text.as_mut() {
+                    t.push_str(&e.xml10_content());
+                }
+            }
+            Ok(Event::GeneralRef(e)) => {
+                if let (Some(t), Some(c)) = (text.as_mut(), resolve_entity(e)) {
+                    t.push(c);
+                }
+            }
+            Ok(Event::End(e)) if text.is_some() && e.local_name().as_ref() == name => {
+                return text.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+            }
+            Ok(_) => {}
+        }
+    }
+}
+
+/// `w:themeFontLang`'s `w:val` in `settings.xml`: the language Word was set to
+/// edit in when the document was made.
+fn theme_language(xml: &str) -> Option<String> {
+    let mut reader = Reader::from_str(xml);
+    loop {
+        match reader.read_event() {
+            Err(_) | Ok(Event::Eof) => return None,
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.local_name().as_ref() == "themeFontLang" => {
+                return attr(&e, "w:val");
+            }
+            Ok(_) => {}
+        }
+    }
+}
+
+/// `w:lang`'s `w:val` under `w:docDefaults` in `styles.xml`: the language
+/// every run is proofed in unless it says otherwise. A `w:lang` on a named
+/// style is about that style, so only the defaults count.
+fn default_run_language(xml: &str) -> Option<String> {
+    let mut reader = Reader::from_str(xml);
+    let mut in_defaults = false;
+    loop {
+        match reader.read_event() {
+            Err(_) | Ok(Event::Eof) => return None,
+            Ok(Event::Start(e)) if e.local_name().as_ref() == "docDefaults" => in_defaults = true,
+            Ok(Event::End(e)) if e.local_name().as_ref() == "docDefaults" => return None,
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if in_defaults && e.local_name().as_ref() == "lang" => {
+                return attr(&e, "w:val");
+            }
+            Ok(_) => {}
+        }
+    }
+}
+
+/// The character an entity reference stands for: a numeric one, or one of the
+/// five XML predefines. quick-xml reports `&amp;` as an event of its own
+/// rather than folding it into the surrounding text.
+fn resolve_entity(e: quick_xml::events::BytesRef<'_>) -> Option<char> {
+    match e.resolve_char_ref() {
+        Ok(Some(c)) => Some(c),
+        _ => match e.into_inner().as_ref() {
+            "amp" => Some('&'),
+            "lt" => Some('<'),
+            "gt" => Some('>'),
+            "quot" => Some('"'),
+            "apos" => Some('\''),
+            _ => None,
+        },
+    }
 }
 
 pub fn import_file(path: &Path) -> Result<Imported, String> {
@@ -703,8 +791,9 @@ pub fn import_bytes(bytes: &[u8]) -> Result<Imported, String> {
             (!title.is_empty()).then(|| title.to_string())
         })
         .unwrap_or_else(|| chapters[0].title.clone());
+    let (language, declared_language) = super::declared(declared_language(&mut zip).as_deref());
 
-    Ok(Imported { title: book, chapters, warnings })
+    Ok(Imported { title: book, language, declared_language, chapters, warnings })
 }
 
 #[cfg(test)]
@@ -728,11 +817,13 @@ mod tests {
                          El frío del zaguán le subió por los tobillos.\n\n\
                          ## Después\n\nVolvió a llover. 🌙",
                     ),
+                    synopsis: None,
                 },
                 Chapter {
                     id: "ch-02".into(),
                     title: r#"Cap. 2 & "El <norte>""#.into(),
                     scenes: scenes_of("Nadie vino."),
+                    synopsis: None,
                 },
             ],
         }
@@ -962,15 +1053,134 @@ mod tests {
 
     /// Wrap a document.xml in the minimum package the importer needs.
     fn package(document: &str, styles_xml: Option<&str>) -> Vec<u8> {
+        let styles: Vec<(&str, &str)> = styles_xml.map(|s| ("word/styles.xml", s)).into_iter().collect();
+        package_with(document, &styles)
+    }
+
+    /// The same, with whatever other members a test needs beside it.
+    fn package_with(document: &str, members: &[(&str, &str)]) -> Vec<u8> {
         let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
         let options = SimpleFileOptions::default();
         writer.start_file("word/document.xml", options).unwrap();
         writer.write_all(document.as_bytes()).unwrap();
-        if let Some(styles) = styles_xml {
-            writer.start_file("word/styles.xml", options).unwrap();
-            writer.write_all(styles.as_bytes()).unwrap();
+        for (name, body) in members {
+            writer.start_file(*name, options).unwrap();
+            writer.write_all(body.as_bytes()).unwrap();
         }
         writer.finish().unwrap().into_inner()
+    }
+
+    /// One chapter, so every language test imports something.
+    fn one_chapter() -> String {
+        format!(
+            "{XML_DECL}<w:document {W}><w:body>\
+             <w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Uno</w:t></w:r></w:p>\
+             <w:p><w:r><w:t>Texto.</w:t></w:r></w:p></w:body></w:document>"
+        )
+    }
+
+    fn core_saying(language: &str) -> String {
+        format!(
+            "{XML_DECL}<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" \
+             xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:title>T</dc:title><dc:language>{language}</dc:language>\
+             </cp:coreProperties>"
+        )
+    }
+
+    fn settings_saying(language: &str) -> String {
+        format!("{XML_DECL}<w:settings {W}><w:themeFontLang w:val=\"{language}\" w:eastAsia=\"zh-CN\"/></w:settings>")
+    }
+
+    fn styles_saying(language: &str) -> String {
+        format!(
+            "{XML_DECL}<w:styles {W}><w:docDefaults><w:rPrDefault><w:rPr>\
+             <w:lang w:val=\"{language}\" w:eastAsia=\"en-US\" w:bidi=\"ar-SA\"/>\
+             </w:rPr></w:rPrDefault></w:docDefaults></w:styles>"
+        )
+    }
+
+    fn language_of(members: &[(&str, &str)]) -> (Option<String>, Option<String>) {
+        let back = import_bytes(&package_with(&one_chapter(), members)).unwrap();
+        (back.language, back.declared_language)
+    }
+
+    #[test]
+    fn a_novel_exported_here_comes_back_in_its_own_language() {
+        let back = import_bytes(&build(&manuscript()).unwrap()).unwrap();
+        assert_eq!(back.language.as_deref(), Some("es"));
+        assert_eq!(back.declared_language.as_deref(), Some("es-ES"));
+    }
+
+    #[test]
+    fn the_core_properties_name_the_language_first() {
+        let core = core_saying("es-MX");
+        assert_eq!(language_of(&[("docProps/core.xml", &core)]), (Some("es".into()), Some("es-MX".into())));
+        // Over Word's own guesses, which come from the template.
+        let settings = settings_saying("en-US");
+        let styles = styles_saying("en-US");
+        let all = [("docProps/core.xml", core.as_str()), ("word/settings.xml", &settings), ("word/styles.xml", &styles)];
+        assert_eq!(language_of(&all).0.as_deref(), Some("es"));
+        // An entity in the value is the character it stands for.
+        let escaped = core_saying("es&#45;AR");
+        assert_eq!(language_of(&[("docProps/core.xml", &escaped)]).1.as_deref(), Some("es-AR"));
+    }
+
+    #[test]
+    fn without_core_properties_the_editing_language_word_kept_is_read() {
+        let settings = settings_saying("es-ES");
+        assert_eq!(language_of(&[("word/settings.xml", &settings)]), (Some("es".into()), Some("es-ES".into())));
+        // And it wins over the default run's proofing language.
+        let styles = styles_saying("en-US");
+        assert_eq!(language_of(&[("word/settings.xml", &settings), ("word/styles.xml", &styles)]).0.as_deref(), Some("es"));
+    }
+
+    #[test]
+    fn last_the_default_runs_proofing_language_is_read() {
+        let styles = styles_saying("en-GB");
+        assert_eq!(language_of(&[("word/styles.xml", &styles)]), (Some("en".into()), Some("en-GB".into())));
+        // A language on one named style says nothing about the document.
+        let named = format!(
+            "{XML_DECL}<w:styles {W}><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val=\"24\"/></w:rPr>\
+             </w:rPrDefault></w:docDefaults><w:style w:styleId=\"Quote\"><w:rPr><w:lang w:val=\"es-ES\"/></w:rPr>\
+             </w:style></w:styles>"
+        );
+        assert_eq!(language_of(&[("word/styles.xml", &named)]), (None, None));
+        // Nor with no defaults at all.
+        let undefaulted = format!(
+            "{XML_DECL}<w:styles {W}><w:style w:styleId=\"Quote\"><w:rPr><w:lang w:val=\"es-ES\"/></w:rPr>\
+             </w:style></w:styles>"
+        );
+        assert_eq!(language_of(&[("word/styles.xml", &undefaulted)]), (None, None));
+    }
+
+    #[test]
+    fn a_place_that_names_no_language_is_passed_over() {
+        // Word writes `x-none` where it has no language to give; the next
+        // place may have one.
+        let styles = styles_saying("es-ES");
+        let none = settings_saying("x-none");
+        let both = [("word/settings.xml", none.as_str()), ("word/styles.xml", &styles)];
+        assert_eq!(language_of(&both), (Some("es".into()), Some("es-ES".into())));
+        let undetermined = core_saying("und");
+        let settings = settings_saying("en-GB");
+        let both = [("docProps/core.xml", undetermined.as_str()), ("word/settings.xml", &settings)];
+        assert_eq!(language_of(&both), (Some("en".into()), Some("en-GB".into())));
+        // An empty value says nothing either.
+        let empty = settings_saying("");
+        assert_eq!(language_of(&[("word/settings.xml", &empty), ("word/styles.xml", &styles)]).0.as_deref(), Some("es"));
+
+        // A language the file names is its answer, offered here or not: the
+        // template Word was set to does not overrule it.
+        let french = core_saying("fr-FR");
+        let both = [("docProps/core.xml", french.as_str()), ("word/styles.xml", &styles)];
+        assert_eq!(language_of(&both), (None, Some("fr-FR".into())));
+    }
+
+    #[test]
+    fn a_document_that_names_no_language_or_one_not_offered_says_so() {
+        assert_eq!(language_of(&[]), (None, None));
+        let core = core_saying("fr-FR");
+        assert_eq!(language_of(&[("docProps/core.xml", &core)]), (None, Some("fr-FR".into())));
     }
 
     #[test]
@@ -1099,6 +1309,7 @@ mod warning_tests {
                     heading: heading.map(str::to_string),
                     paragraphs: vec!["Texto.".into()],
                 }],
+                synopsis: None,
             }],
         }
     }

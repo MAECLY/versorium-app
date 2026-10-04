@@ -433,6 +433,31 @@ mod tests {
     }
 
     #[test]
+    fn an_agent_edit_keeps_the_chapter_synopsis() {
+        // An agent edits prose. The synopsis an import kept on the chapter is
+        // not prose, and no edit of the body may cost it.
+        let (fx, mut session) = fixture("claude-code", true);
+        let synopsis = "Ana dice: \"vete\".\n---\nY se va.";
+        crate::commands::chapters::set_synopsis(&fx.root, &fx.chapter.file, synopsis).unwrap();
+        let kept = |root: &Path| {
+            let raw = fs::read_to_string(root.join(&fx.chapter.file)).unwrap();
+            split_frontmatter(&raw).0.get("synopsis").cloned()
+        };
+
+        for (tool, args) in [
+            ("write_document", json!({ "file": fx.chapter.file, "content": "Otra cosa.", "confirm": true })),
+            ("insert_text", json!({ "file": fx.chapter.file, "at": 0, "text": "Ya. ", "confirm": true })),
+            ("replace_text", json!({ "file": fx.chapter.file, "from": 0, "to": 3, "text": "Hoy", "confirm": true })),
+            ("delete_text", json!({ "file": fx.chapter.file, "from": 0, "to": 4, "confirm": true })),
+        ] {
+            let out = tool_call(&mut session, tool, &args).unwrap();
+            assert_eq!(out.structured.unwrap()["applied"], true, "{tool}");
+            assert_eq!(kept(&fx.root).as_deref(), Some(synopsis), "{tool} lost the synopsis");
+        }
+        assert_eq!(body_of(&fx.root, &fx.chapter.file), "Otra cosa.");
+    }
+
+    #[test]
     fn a_write_waits_out_a_backup_reading_the_history_instead_of_failing() {
         // This process has no window to freeze, so it waits for a backup's
         // capture to end rather than refusing the agent.

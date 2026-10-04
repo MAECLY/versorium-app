@@ -210,6 +210,22 @@ mod tests {
     }
 
     #[test]
+    fn an_applied_rewrite_keeps_the_synopsis() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = make_project(dir.path(), "Synopsis");
+        let ch = create_chapter(p.clone(), "One".into()).unwrap();
+        write_body(&p, &ch, "Old sentence one.\nOld sentence two.");
+        crate::commands::chapters::set_synopsis(&p, &ch.file, "She leaves.\nAlone.").unwrap();
+
+        apply(&p, &ch.file, 0, 17, "New sentence one.", "Old sentence one.").unwrap();
+
+        let raw = fs::read_to_string(p.join(&ch.file)).unwrap();
+        let (frontmatter, body) = split_frontmatter(&raw);
+        assert_eq!(frontmatter.get("synopsis").map(String::as_str), Some("She leaves.\nAlone."), "{raw}");
+        assert_eq!(body, "New sentence one.\nOld sentence two.");
+    }
+
+    #[test]
     fn apply_rewrite_uses_utf16_offsets_for_multibyte_text() {
         let dir = tempfile::tempdir().unwrap();
         let p = make_project(dir.path(), "Multibyte");
