@@ -130,6 +130,25 @@ word gets underlined is the webview's decision:
 
 ## Queued, designed or under review
 
+### The landing compares Versorium with the alternatives, and says why it exists
+
+Requested on 2026-10-04, once the landing was live. Research the industry
+(Scrivener, Ulysses, iA Writer, Obsidian, Notion, Novelcrafter, Sudowrite,
+Dabble, Atticus, Plottr, Reedsy Studio, Google Docs, Word and others): price,
+what each does and does not do, where the writer's text lives, backups, AI.
+Add to the landing a comparison in its own style and motion that shows the
+advantages honestly, dated and sourced, including where the others are ahead,
+and that says Versorium keeps improving.
+
+The why, in the owner's words: writing as calmly as possible; AI at several
+levels of involvement, from none to a model on this computer to the tools the
+writer already pays for; the backup of a manuscript as the thing that matters
+most; and apps like Notion lacking what a novelist needs, or charging too much
+for it, which is why Versorium is free and open source. The research that led
+to the product is not in the repository: the oldest document is the original
+product prompt, `PROMPT-APP-NOVELA-DESKTOP.md` (2026-09-11), which still sits
+outside it.
+
 ### Settings: redesign Local AI and Assistants, and group the sidebar
 
 Requested on 2026-10-04. Local AI and Assistants are hard to understand: too
