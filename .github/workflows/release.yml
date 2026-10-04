@@ -157,8 +157,13 @@ jobs:
           install_runtime: true
           cache: true
 
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned, not stable: rustc 1.99.0 (2026-09-28) crashes in LLVM's AArch64
+      # cost model (SIGSEGV) compiling icu_locale_core for Apple silicon, on
+      # two runs out of two. 1.97.1 is the toolchain the app is developed and
+      # tested with. Move the pin deliberately, after a release build passes.
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.97.1"
           targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - uses: swatinem/rust-cache@v2
