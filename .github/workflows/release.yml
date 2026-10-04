@@ -105,7 +105,14 @@ jobs:
       # empty string is falsy in Actions expressions, so the second form gave
       # the Apple silicon build the x86 flag too, and ring's NEON checks (and,
       # on 1.99, LLVM itself) failed on it.
-      RUSTFLAGS: ${{ !contains(matrix.args, 'aarch64') && '-C target-cpu=x86-64-v2' || '' }}
+      #
+      # Windows also links the C and C++ runtimes statically. A clean Windows
+      # has no Visual C++ redistributable, and v0.1.0 would not start there:
+      # "MSVCP140.dll was not found" (llama.cpp's C++). Rust and every cc-built
+      # dependency follow crt-static; llama-cpp-sys-2 ignores it and reads
+      # LLAMA_STATIC_CRT instead, and the two must agree or the link fails.
+      RUSTFLAGS: ${{ startsWith(matrix.platform, 'windows') && '-C target-cpu=x86-64-v2 -C target-feature=+crt-static' || (!contains(matrix.args, 'aarch64') && '-C target-cpu=x86-64-v2' || '') }}
+      LLAMA_STATIC_CRT: ${{ startsWith(matrix.platform, 'windows') && '1' || '0' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -289,6 +296,19 @@ jobs:
           args: ${{ matrix.args }}
           uploadWorkflowArtifacts: true
           workflowArtifactNamePattern: versorium-${{ matrix.platform }}${{ matrix.args }}
+
+      # The installer cannot bring the Visual C++ redistributable, so the app
+      # must not need it. Runs after the upload, but the release is a draft:
+      # a red job here stops it being published.
+      - name: No Visual C++ runtime DLLs (Windows)
+        if: startsWith(matrix.platform, 'windows')
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
+          $deps = & $dumpbin.FullName /dependents "$env:CARGO_TARGET_DIR\release\versorium.exe"
+          $deps
+          if ($deps -match '(?i)(msvcp|vcruntime)\d+') { Write-Error "versorium.exe needs the Visual C++ runtime"; exit 1 }
 
   # Everything the spec asks for that tauri-action does not do: a SHA256SUMS
   # asset, and a latest.json whose URLs a private repository can actually serve.
