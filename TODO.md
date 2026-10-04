@@ -181,14 +181,7 @@ Neither is a real webview or a real release:
 
 ### Found while building About and the release names, not part of them
 
-- **The Linux `.rpm` is named `…_linux_ubuntu_amd64.rpm`**, the owner's
-  pattern, though rpm is the Fedora and openSUSE format; and the `.AppImage`,
-  which runs on any distribution, is `…_linux_ubuntu_amd64.AppImage`. A
-  writer on Fedora may read both as "not for me". Keep the names, take
-  `[name]_[version]_linux_amd64[ext]` for the Linux build, or stop building
-  the rpm (`--bundles deb,appimage`): the owner's call. tauri-action's
-  pattern is one per build, so a different word per Linux file would need
-  separate builds or a rename in `finalise`.
+- ~~The Linux files said `ubuntu`~~: the owner chose `…_linux_amd64[ext]` (2026-10-04), which fits the `.rpm` and the AppImage too.
 - **`finalise` does not check that every platform is in `latest.json`.**
   Older than this change: each build merges its entries into the release's
   `latest.json` and uploads it again (tauri-action's

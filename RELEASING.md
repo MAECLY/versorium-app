@@ -267,7 +267,7 @@ Check these five things, then publish.
    | macOS (Apple silicon) | `Versorium_X.Y.Z_apple_silicon.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
    | macOS (Intel) | `Versorium_X.Y.Z_apple_intel.dmg`, `.app.tar.gz`, `.app.tar.gz.sig` |
    | Windows | `Versorium_X.Y.Z_windows_x64.exe` (the setup program), `.exe.sig`, `.msi`, `.msi.sig` |
-   | Linux | `Versorium_X.Y.Z_linux_ubuntu_amd64.deb`, `.deb.sig`, `.rpm`, `.rpm.sig`, `.AppImage`, `.AppImage.sig` |
+   | Linux | `Versorium_X.Y.Z_linux_amd64.deb`, `.deb.sig`, `.rpm`, `.rpm.sig`, `.AppImage`, `.AppImage.sig` |
 
    Each build's matrix entry in `release.yml` gives the pattern
    (`assetPattern`, passed to tauri-action as `releaseAssetNamePattern`), and
@@ -279,9 +279,9 @@ Check these five things, then publish.
    | `darwin-x86_64`, `darwin-x86_64-app` | `Versorium_X.Y.Z_apple_intel.app.tar.gz` |
    | `windows-x86_64`, `windows-x86_64-msi` | `Versorium_X.Y.Z_windows_x64.msi` |
    | `windows-x86_64-nsis` | `Versorium_X.Y.Z_windows_x64.exe` |
-   | `linux-x86_64`, `linux-x86_64-appimage` | `Versorium_X.Y.Z_linux_ubuntu_amd64.AppImage` |
-   | `linux-x86_64-deb` | `Versorium_X.Y.Z_linux_ubuntu_amd64.deb` |
-   | `linux-x86_64-rpm` | `Versorium_X.Y.Z_linux_ubuntu_amd64.rpm` |
+   | `linux-x86_64`, `linux-x86_64-appimage` | `Versorium_X.Y.Z_linux_amd64.AppImage` |
+   | `linux-x86_64-deb` | `Versorium_X.Y.Z_linux_amd64.deb` |
+   | `linux-x86_64-rpm` | `Versorium_X.Y.Z_linux_amd64.rpm` |
 
    `v0.1.0` was published before the patterns, with tauri's own names
    (`Versorium_0.1.0_aarch64.dmg`, `Versorium_0.1.0_x64-setup.exe`,

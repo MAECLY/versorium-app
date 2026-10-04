@@ -21,7 +21,7 @@ const VERSION = CONF.version;
 const OWNER_PATTERNS: Record<string, string> = {
   "macOS (Apple silicon)": "[name]_[version]_apple_silicon[ext]",
   "macOS (Intel)": "[name]_[version]_apple_intel[ext]",
-  Linux: "[name]_[version]_linux_ubuntu_amd64[ext]",
+  Linux: "[name]_[version]_linux_amd64[ext]",
   Windows: "[name]_[version]_windows_x64[ext]",
 };
 
@@ -385,9 +385,9 @@ describe("the names each build gives its files", () => {
         `Versorium_${v}_apple_intel.dmg`, `Versorium_${v}_apple_intel.app.tar.gz`, `Versorium_${v}_apple_intel.app.tar.gz.sig`,
         `Versorium_${v}_windows_x64.msi`, `Versorium_${v}_windows_x64.msi.sig`,
         `Versorium_${v}_windows_x64.exe`, `Versorium_${v}_windows_x64.exe.sig`,
-        `Versorium_${v}_linux_ubuntu_amd64.deb`, `Versorium_${v}_linux_ubuntu_amd64.deb.sig`,
-        `Versorium_${v}_linux_ubuntu_amd64.rpm`, `Versorium_${v}_linux_ubuntu_amd64.rpm.sig`,
-        `Versorium_${v}_linux_ubuntu_amd64.AppImage`, `Versorium_${v}_linux_ubuntu_amd64.AppImage.sig`,
+        `Versorium_${v}_linux_amd64.deb`, `Versorium_${v}_linux_amd64.deb.sig`,
+        `Versorium_${v}_linux_amd64.rpm`, `Versorium_${v}_linux_amd64.rpm.sig`,
+        `Versorium_${v}_linux_amd64.AppImage`, `Versorium_${v}_linux_amd64.AppImage.sig`,
       ].sort(),
     );
     // A clash between builds is silent loss: upload-release-assets.ts:54-65
@@ -416,10 +416,10 @@ describe("the names each build gives its files", () => {
         "darwin-aarch64-app": `Versorium_${v}_apple_silicon.app.tar.gz`,
         "darwin-x86_64": `Versorium_${v}_apple_intel.app.tar.gz`,
         "darwin-x86_64-app": `Versorium_${v}_apple_intel.app.tar.gz`,
-        "linux-x86_64": `Versorium_${v}_linux_ubuntu_amd64.AppImage`,
-        "linux-x86_64-appimage": `Versorium_${v}_linux_ubuntu_amd64.AppImage`,
-        "linux-x86_64-deb": `Versorium_${v}_linux_ubuntu_amd64.deb`,
-        "linux-x86_64-rpm": `Versorium_${v}_linux_ubuntu_amd64.rpm`,
+        "linux-x86_64": `Versorium_${v}_linux_amd64.AppImage`,
+        "linux-x86_64-appimage": `Versorium_${v}_linux_amd64.AppImage`,
+        "linux-x86_64-deb": `Versorium_${v}_linux_amd64.deb`,
+        "linux-x86_64-rpm": `Versorium_${v}_linux_amd64.rpm`,
         "windows-x86_64": `Versorium_${v}_windows_x64.msi`,
         "windows-x86_64-msi": `Versorium_${v}_windows_x64.msi`,
         "windows-x86_64-nsis": `Versorium_${v}_windows_x64.exe`,

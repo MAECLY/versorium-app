@@ -83,7 +83,7 @@ jobs:
           - platform: ubuntu-22.04
             args: '--features vulkan'
             name: Linux
-            assetPattern: '[name]_[version]_linux_ubuntu_amd64[ext]'
+            assetPattern: '[name]_[version]_linux_amd64[ext]'
           - platform: windows-latest
             args: '--features vulkan'
             name: Windows
