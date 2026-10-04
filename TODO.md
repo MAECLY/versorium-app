@@ -544,10 +544,10 @@ depend on the secrets, and the DNS record can be added before Pages exists.
    signature made with the private key verifies against the public key
    compiled into `src-tauri/tauri.conf.json` (it needs Python's
    `cryptography` package).
-2. **Make the repository public.** MAECLY is on GitHub's free plan, where Pages
+2. **Make the repository public.** **Done** on 2026-10-04, after the commit history was rewritten so every commit carries migueltuxd@gmail.com (the nine earlier pull requests on GitHub still show the old work address; GitHub keeps them read-only). MAECLY is on GitHub's free plan, where Pages
    does not serve private repositories, and a private repository's release
    assets cannot be downloaded by the people the landing page sends there.
-3. **Enable Pages** with "GitHub Actions" as the source, and set
+3. **Done** on 2026-10-04: Pages source GitHub Actions, custom domain versorium.maecly.com, HTTPS certificate approved and enforced; PR #10 merged to `main` and the first deploy succeeded. Originally: **Enable Pages** with "GitHub Actions" as the source, and set
    `versorium.maecly.com` as the custom domain in Settings → Pages. With an
    Actions source the custom domain is set there; a `CNAME` file in the
    published folder is not used for it. `.github/workflows/pages.yml`
@@ -556,7 +556,7 @@ depend on the secrets, and the DNS record can be added before Pages exists.
    can deploy them: by default the `github-pages` environment only accepts
    deployments from the default branch, so enabling Pages while they exist
    only on this branch publishes nothing.
-4. **DNS.** In Cloudflare, `versorium` CNAME → `maecly.github.io`, DNS only
+4. **Done** on 2026-10-04 (CNAME `versorium` → `maecly.github.io`, DNS only; `maecly.com` was already a verified domain of the organisation). Originally: **DNS.** In Cloudflare, `versorium` CNAME → `maecly.github.io`, DNS only
    (not proxied), the same as `gaming-toggles.maecly.com`: on 2026-10-03
    `dig gaming-toggles.maecly.com` returned the CNAME `maecly.github.io` and
    GitHub's addresses, not Cloudflare's, and `dig versorium.maecly.com`
