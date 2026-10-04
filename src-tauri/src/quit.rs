@@ -20,24 +20,31 @@
 //! write.
 
 use std::sync::Mutex;
+#[cfg(target_os = "macos")]
 use std::time::Duration;
 
 /// Asked of the frontend; App.svelte listens for it.
+#[cfg(target_os = "macos")]
 pub const EVENT: &str = "versorium://quit-requested";
 
 /// How long a quit waits for the frontend before going ahead. A save is a
 /// local file write; five seconds is only ever reached by a page that stopped
 /// answering.
+#[cfg(target_os = "macos")]
 pub const GRACE: Duration = Duration::from_secs(5);
 
 /// One quit in flight at most. Each request gets a number, so a late answer
 /// (or the grace timer) for an earlier request cannot settle a later one.
+// Only macOS asks (`platform`); elsewhere only `quit_ready` and the tests
+// touch the gate.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Debug, Default)]
 pub struct Gate {
     waiting: Option<u64>,
     next: u64,
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Debug, PartialEq, Eq)]
 pub enum Request {
     /// Ask the frontend to save; settle request `n` later.
@@ -47,6 +54,7 @@ pub enum Request {
 }
 
 impl Gate {
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn request(&mut self) -> Request {
         if self.waiting.is_some() {
             return Request::AlreadyWaiting;
