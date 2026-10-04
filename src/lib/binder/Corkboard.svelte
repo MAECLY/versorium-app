@@ -5,29 +5,22 @@
   import Menu from "$lib/components/Menu.svelte";
   import { contextMenuZone } from "$lib/contextmenu/policy";
   import { chapterActions, chapterKey, runChapterAction } from "$lib/binder/itemActions.svelte";
+  import { cardText, type CardText } from "$lib/binder/cardText";
 
-  const PREVIEW_CHARS = 200;
-
-  // Bodies are not in the chapter metadata, so the board reads them itself.
-  // Cached per file: flipping between views should not re-read the manuscript,
-  // and the editor must never wait on this.
-  let previews = $state<Record<string, string>>({});
+  // Neither a synopsis nor a body is in the chapter metadata, so the board
+  // reads each chapter itself. Cached per file: flipping between views should
+  // not re-read the manuscript, and the editor must never wait on this.
+  let cards = $state<Record<string, CardText>>({});
+  /** A card not read yet, or one that could not be read. */
+  const NOTHING: CardText = { kind: "empty", text: "" };
+  /** What a screen reader hears before the card's words. */
+  const CARD_LABEL = { synopsis: "binder.corkboardSynopsis", opening: "binder.corkboardOpening" } as const;
   let loading = $state(false);
   // Deliberately not reactive: the effect below must not depend on what it
-  // writes, or storing a preview re-triggers the read that stored it.
+  // writes, or storing a card re-triggers the read that stored it.
   const requested = new Set<string>();
 
-  /** Strip the markers so a card reads as prose rather than as source. */
-  function synopsis(body: string): string {
-    const text = body
-      .split("\n")
-      .map((line) => line.replace(/^#{1,6}\s+/, "").trim())
-      .filter(Boolean)
-      .join(" ");
-    return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS).trimEnd()}…` : text;
-  }
-
-  async function loadPreviews(path: string, chapters: ChapterMeta[]): Promise<void> {
+  async function loadCards(path: string, chapters: ChapterMeta[]): Promise<void> {
     if (!isTauri()) return;
     const missing = chapters.filter((c) => !requested.has(c.file));
     if (missing.length === 0) return;
@@ -37,10 +30,10 @@
       for (const chapter of missing) {
         try {
           const doc = await api.readChapter(path, chapter.file);
-          previews = { ...previews, [chapter.file]: synopsis(doc.body) };
+          cards = { ...cards, [chapter.file]: cardText(doc) };
         } catch {
           // One unreadable chapter must not blank the whole board.
-          previews = { ...previews, [chapter.file]: "" };
+          cards = { ...cards, [chapter.file]: NOTHING };
         }
       }
     } finally {
@@ -52,7 +45,7 @@
     const path = store.project?.path;
     const chapters = store.project?.chapters;
     if (!path || !chapters) return;
-    void loadPreviews(path, chapters);
+    void loadCards(path, chapters);
   });
 
   // The card's menu is the chapter's binder menu, opened where the writer's
@@ -91,6 +84,7 @@
       {#each store.project.chapters as chapter (chapter.id)}
         {@const active = store.currentChapter?.id === chapter.id}
         {@const key = chapterKey(chapter.file)}
+        {@const card = cards[chapter.file] ?? NOTHING}
         <li {@attach zone(key)}>
           <button
             class="v-card v-corkcard {active ? 'v-corkcard-active' : ''} {menuFor === key ? 'v-menu-target' : ''}"
@@ -108,8 +102,14 @@
               </span>
             </span>
             <span style="font-size: 14px; font-weight: 600; margin-top: 6px;">{chapter.title}</span>
-            <span class="v-muted" style="font-size: 12px; line-height: 1.5; margin-top: 6px; flex: 1;">
-              {previews[chapter.file] || t("binder.corkboardEmpty")}
+            <!-- The writer's synopsis reads as their own words; an excerpt is
+                 set apart as a quotation, and a screen reader hears which. -->
+            <span class="v-corkcard-text" data-card-text={card.kind}>
+              {#if card.kind === "empty"}
+                {t("binder.corkboardEmpty")}
+              {:else}
+                <span class="sr-only">{t(CARD_LABEL[card.kind])}</span> {card.text}
+              {/if}
             </span>
             <span class="v-muted" style="font-size: 11px; margin-top: 10px;">
               {t("binder.wordCount", { words: chapter.words })}
