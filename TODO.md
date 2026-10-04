@@ -295,6 +295,18 @@ between any two commits (or a commit and the working tree) is a git2
 the last snapshot, any snapshot from the history list, or two of them — is
 part of the design.
 
+### Go back to an earlier version from the app
+
+Belongs with the diff view above: seeing a change and saying "I want that
+version" are one task. Today nothing in the UI restores a snapshot or a
+deleted chapter. `git_checkout_file` exists (`src-tauri/src/commands/git.rs:53`,
+`api.gitCheckoutFile` in `src/lib/tauri.ts:554`) but no component calls it,
+and three strings promise what the app cannot do: `binder.confirm.chapterBody`
+("can be brought back"), `git.commitHint` ("You can come back to it") and
+`ai.checkpointNote` ("You can roll back"). Restoring must itself snapshot
+first, so going back is never a way to lose today's text; a deleted chapter
+also has to come back into `versorium.json`'s order, not just onto disk.
+
 ### The local server cannot be given to a task
 
 Settings → Local AI → Local server lets you test and save an
