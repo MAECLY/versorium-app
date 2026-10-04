@@ -363,6 +363,8 @@ font chosen under Typography still does not reach the editor (`TODO.md`, and
 `DESIGN-VERSORIUM.md`, implementation notes). A novel's language is fixed at
 creation and every import is created as English, so the manuscript's `lang` is
 only as right as that (`TODO.md`).
+(The first two were fixed on 2026-10-04: "Settings over the editor, and the
+typeface on the page", below.)
 
 ## Quitting waits for the last save (2026-10-04, on `feat/landing-and-docs`)
 
@@ -964,6 +966,333 @@ Measured with `make verify` (exit 0, 73 s): svelte-check 400 files, 0 errors,
 plus 4 integration, 16 ignored (no Rust changed); clippy `--all-targets` 0
 findings; Playwright 193 → 199.
 
+## Settings over the editor, and the typeface on the page (2026-10-04, on `feat/landing-and-docs`)
+
+Two items from `TODO.md`, built together because both run through the
+editor's compartments: "A visit to Settings rebuilds the editor" and "The
+typeface chosen in Settings never reaches the editor".
+
+**Settings covers the page instead of replacing it.**
+
+- `App.svelte` no longer swaps the panel and the page for `SettingsPage`
+  (`{#if showSettings}…{:else}`). Both now sit in `.v-under`, and Settings
+  opens in a layer over them (`.v-settings-layer`: absolute over `.v-middle`,
+  `--bg-app`, no z-index, so the notices, menus, peeks and dialogs stay above
+  it). The CodeMirror view lives through the visit, and with it the undo
+  history, the selection, the scroll, the session Restore works from
+  (`RollbackHistory`), and the change log's `OpsLogger`, whose pending batch
+  now goes on its own 500 ms or with the quit (`store.beforeLeave`), not at
+  the moment Settings opened.
+- While covered, `.v-under` is `inert` and `visibility: hidden` (styles.css,
+  "Settings over the page"). `visibility`, not `display: none`: the page
+  keeps its layout while it is covered, so a face or a size chosen in
+  Settings is measured there and then, not on the way back. The plan
+  expected `display: none` to lose the scroll as well; measured, it kept it
+  in both engines (`tests/scratch/settings-visit/display-probe.mjs`), so
+  that is not a reason. Also measured (`focus-probe*.mjs`,
+  `scroll-probe.mjs`): in Chrome `inert` or `visibility` alone keeps focus
+  and keys out of a focused editor; in Playwright's WebKit `visibility`
+  alone did not. With it alone, keys typed after the caret was left in the
+  page went into the hidden editor, and PageDown, the arrows, End and Space
+  pressed with focus nowhere scrolled it; `inert` stopped both.
+- **The covered page is read-only too.** Found by the keyboard test: the
+  browser keeps one undo stack for the whole document, and Cmd/Ctrl+Z
+  pressed anywhere in Settings (on a button, with focus nowhere, in Author's
+  Name field once its own typing was undone) walked it into the editor's
+  typing and took that back as a fresh edit, outside CodeMirror's history,
+  which the autosave and the change log would have kept. Chrome and
+  Playwright's WebKit both (`undo-probe.mjs`). `MarkdownEditor` now locks
+  the editor while `covered`, through the compartment `disabled` already
+  used (`readOnly`, `contenteditable="false"`): the browser's undo skips text
+  that is not editable, and CodeMirror ignores DOM changes in a read-only
+  editor. On the way back it is editable again before the caret returns.
+  The same undo still reaches the page from any button while the page is on
+  screen; that is older than this build (`TODO.md`).
+- **Focus.** Settings opened with focus left on the page (a click on a
+  button moves none in WebKit) or nowhere takes it to the group Settings
+  opens on; focus on the top bar's Settings, where a click in Chrome leaves
+  it, stays there. Back to the manuscript returns the caret through
+  CodeMirror's own focus, which redraws the selection and does not scroll.
+  With no chapter to return to (none open, or the corkboard) focus goes to
+  the top bar's Settings (`data-opens="settings"`), or to its lip when the
+  bar is folded. The Focus chord from Settings still closes it and enters
+  Focus, and the caret now comes back with its history.
+- **Rewrite and Restore close Settings first.** Rewrite (Cmd/Ctrl+Shift+R
+  and the top bar's button) and Restore (Cmd/Ctrl+Alt+R and the status
+  bar's) stay in reach while Settings is open; pressed there, Settings
+  closes, the caret comes back, and they act on the page, so what they act
+  on is on screen when they do. (As first built they did nothing there, not
+  even the "Select a passage first." they said before; changed with the
+  verifier fixes below.)
+- **Notices.** The editor's notices effect (`--v-notes-room` and
+  `liftCaret`) does nothing while the page is covered: the stack is over
+  Settings, and the hidden page has real geometry, so a confirmation raised
+  in Settings would have scrolled the page under it. Coming back runs it
+  once (`covered` is tracked): a stack still showing then gets its room
+  below the last line, and is lifted off the caret's line, as one raised on
+  the page is. (As first built, `covered` was read untracked and coming back
+  ran nothing; changed with the verifier fixes below.)
+- Unchanged: Focus and Settings never share the page (`isEditorOnScreen`),
+  and the binder's chord stays off in Settings.
+
+**The typeface reaches the page.**
+
+- **An id and its stack at the boundary.** `editor_font` and
+  `set_editor_font` answered a CSS stack, which Typography compared with
+  catalogue ids, so its mark never matched anything; the mock answered ids,
+  so no spec saw it. Both now answer `fonts::EditorFont { id, stack }`.
+  `fonts::resolve`, which replaces `stack_for`, gives the stored id's entry,
+  or the default's under its own id when settings name a face this catalogue
+  lacks, so the mark and the page agree. Settings files have only ever held
+  ids (one writer, `49d972c`); a missing key still defaults to
+  `system-serif`, and a dropped face or a stack where an id belongs resolves
+  to it. The command bodies are `current_font` and `choose_font`, which the
+  tests call; the old tests exercised a copy of them.
+- **On the page the way size and spacing are.** `pageStyle` adds
+  `--editor-font` in the `page` compartment, so a choice reconfigures the
+  running editor (under Settings too) and CodeMirror measures again; the
+  content's rule reads `var(--editor-font, …)`. `fontFamilyValue` keeps out a
+  stack that could end the declaration (`;`, braces, angle brackets, a
+  backslash, a line break), and a unit test runs every face in the shipped
+  catalogue through it.
+- **The default face changed for some writers.** The stylesheet named
+  "Source Serif 4" first, which no setting chose. Its fallback is now the
+  catalogue default's own stack (`system-serif`), kept equal by a unit test,
+  so a writer who has Source Serif 4 installed and never chose it now sees
+  Iowan Old Style, Palatino or the next of that stack, which is what
+  Typography marks; choosing Source Serif 4 brings it back.
+- **State.** `editorPreferences.font` holds what Rust answered, read at
+  launch and on each visit to Typography (which retries a launch read that
+  failed); the mark is `markedFont(body faces, font)`, and the sample
+  paragraph is set in the face the page is in, marked or not; a refused
+  choice leaves the page and the mark where they were and says why under the
+  list.
+- **Typography's mark and notes.** The chosen row carries
+  `.v-list-item-active`, which now draws a bar of `--accent` down its leading
+  edge (styles.css): its fill and border alone were 1.05–1.13:1 and
+  1.33–1.47:1 against the page, under WCAG 1.4.11's 3:1, and hover drew the
+  same fill. The class is shared, so the panel's open project and chapter
+  and the tour's chosen template wear the bar too. A face the catalogue
+  marks `available: false` (Source Serif 4) says "shows only where it is
+  installed" / "solo se ve donde esté instalada" instead of "already on this
+  machine".
+- **The gutter.** Line height is unitless and the gutter's rule uses only
+  size and spacing, so a face cannot change a line's height; what it changes
+  is the wrapping, and with it each paragraph's block. With numbers on and a
+  test-only monospace face, every number's top and height match its line's
+  within 1px before and after the switch, and the paragraphs take more lines
+  in it.
+- **The mock** imports `fonts/catalog.json` instead of a drifted copy of its
+  own (no `available`, `note`, `defaultBody` or `system-mono`, another
+  `system-serif` stack), answers `{ id, stack }` with Rust's fallback, and
+  exposes `fonts` so a spec can add a face.
+
+Tests. Rust, 5 new and 2 rewritten against what the commands now run: a
+stored id resolves to its entry, and anything else to the default under
+the default's id; an `EditorFont` carries its entry's id and stack; the
+answer is the id settings hold plus its stack, never the stack twice; a
+settings file naming a dropped face, holding a stack, or written before
+fonts shows and renders the default; the wire shape is exactly
+`{ id, stack }`; a choice answers what was kept and survives a reload of
+the file; only a catalogue id can be chosen. Vitest, 10 in
+`tests/unit/editor-font.test.ts`: the page style with and without a face,
+the guard on the value, every shipped face accepted, the stylesheet's
+fallback equal to the catalogue's default, the mark (an id, a stack, an id
+not offered, nothing), a face changed in place on a live editor (same DOM,
+caret and undo depth), and the store (what Rust answered, a refusal keeping
+the face); `tauri.test.ts` checks `set_editor_font` is sent an id.
+Playwright, 15 new. `tests/e2e/settings-visit.spec.ts` (11): undo and
+Restore after a visit; the caret, the selection and the scroll, with and
+without Typewriter; under Settings nothing on the page answers Tab, typing,
+undo or the scrolling keys (Rewrite and Restore were in this test as first
+built), nothing of it is offered to assistive technology, and it is inert;
+the undo key in Settings stays in Settings; Settings opened with the caret
+still on the page takes the keyboard; the layer covers exactly the panel
+and the page; a notice raised in Settings leaves the covered page where it
+was; a quit from Settings writes the change log first; the Focus chord from
+Settings; and focus with no chapter to go back to.
+`tests/e2e/editor-settings.spec.ts` (4): the chosen face on the page live,
+under Settings, in the same editor and after a reload; a refusal; settings
+naming a dropped face; the gutter.
+
+Each mechanism was removed once and the test meant for it watched fail
+(`tests/scratch/settings-visit/mutate.py`, logs in
+`tests/scratch/out/settings-visit/`), in a copy of the tree served by a Vite
+of its own on :1441 and a Rust target dir cloned from this one, never in
+the live `src/` under the shared :1420. First, all 31 checks passed
+unmutated; then 33 removals (28 in the frontend and the mock, 5 in Rust),
+53 checks (34 Playwright in Chrome, 3 in Playwright's WebKit, 8 vitest, 8
+cargo), 53 failed, each in the test meant for it. Settings swapped for the
+page again (`{#if}`) fails undo and Restore, the caret, the selection and
+the scroll with and without Typewriter, the Focus chord and the face's
+same-editor check; the old wire's stack in the id fails three Rust tests;
+the mark compared with the stack fails the face test and the dropped-face
+test. Four more checks ran for the record and passed, as expected: with
+`inert` gone, Settings opened with the caret on the page, in both engines
+(departure 3); and with the face set on the editor's host, outside
+CodeMirror, the gutter and the face tests, because CodeMirror measures again
+by itself when its content changes size. So the gutter test guards the
+alignment, not the route the face takes to the page. Missed on the way,
+each fixed before that count: removing `inert` failed nothing in either
+engine, so the keyboard test now reads the attribute; the dropped-face test
+was listed against the face read at launch, which it cannot see (the page
+shows the default either way); and the first run stopped at the mock's
+removal on a 403 from the sandbox's Vite (`/tmp` is `/private/tmp` there),
+fixed and run again. The first baseline also ran pnpm in the sandbox,
+whose check before running installed into this checkout's `node_modules`
+through the link (it recorded esbuild's build as ignored); the next pnpm
+command here put that back (`allowBuilds`, esbuild's binary in place), and
+the harness now calls the binaries.
+
+Measured with `make verify` (exit 0, 76 s): svelte-check 401 files, 0
+errors, 0 warnings; locale keys 753 in each language (no new strings);
+vitest 230 → 240 in 29 files; `cargo test` 574 → 579 unit plus 4
+integration, 16 ignored; clippy `--all-targets` 0 findings; Playwright
+199 → 214.
+
+Playwright's WebKit, the macOS app's engine, passes both specs
+(`tests/scratch/settings-visit/pw-webkit.config.ts`, 22 of 22; not in the
+gate, which runs Chrome). Looked at in Chrome on the mock
+(`tests/scratch/settings-visit/look.mjs`) at 1280×800 and 900×600, in
+English and Spanish, in Folio, Quarry and Needle, light and dark: the
+page, Settings over it, a face chosen, the way back with the selection
+where it was, keyboard focus, and a notice raised in Settings. Settings
+looks as it did; nothing about the layer animates, with or without reduced
+motion; the page logs no errors.
+
+Where this departs from the plan, none confirmed by the owner yet:
+
+1. The covered page is read-only as well as inert and hidden (above). The
+   plan had the guards in App only; the browser's own undo goes round them.
+2. The keyboard test also presses the undo key, types and presses the
+   scrolling keys with focus nowhere, and has a twin for the undo key in a
+   Settings field.
+3. `inert`, `visibility: hidden` and the read-only lock back each other up.
+   Removing both of the first two fails the keyboard test's Tab; removing
+   `visibility` fails what the page offers to assistive technology and
+   whether it reads as hidden; removing `inert` alone fails no key in Chrome
+   or in Playwright's WebKit once the page is read-only (before the lock,
+   WebKit showed what it adds, above). The keyboard test reads the attribute
+   itself, as `chrome.spec.ts` does for the folded bars.
+4. Typewriter's variant switches Typewriter on after selecting: on, it
+   pulls the page back to the caret at every change of geometry, so a scroll
+   made after it does not hold.
+5. Back from Settings with no page to go back to, focus falls to the top
+   bar's lip when the bar is folded and its Settings button is inert; the
+   top bar's Settings carries `data-opens="settings"` for App to find it.
+6. The old "Known limits" under "Settings → Editor" stays as written, with a
+   line saying the first two were fixed here.
+7. `DESIGN-VERSORIUM.md`'s implementation notes still say the chosen face
+   never reaches the editor and that the stylesheet names Source Serif 4
+   first ("Fuente por defecto del editor", "La fuente elegida no llega al
+   editor"); the plan left updating them to the owner.
+
+Not done, or not reachable from here: the real webviews (`TODO.md`); a
+machine with Source Serif 4 installed, where choosing it changes the page
+(here the page stays in the stack's next family and looks the same, and the
+row now says so beforehand). Found on the way and recorded in `TODO.md`, not
+built: the undo key reaching the page from any button, the corkboard still
+rebuilding the editor, Settings' missing Escape, `set_editor_font` taking
+`ui` and `mono` faces, the editing host named "Chapters", a dev-console
+warning in `SettingsPage.svelte`, a non-string `editorFont` costing the
+whole settings file, Typography's English face names in Spanish, "Manuscript"
+naming two things while Settings is open, and Restore taking back a typed
+word one letter at a time.
+
+**Verifier fixes (2026-10-04).** Seventeen findings came back; each was
+confirmed before acting.
+
+- **A notice stack still showing on the way back** (minor, and its twin from
+  the regressions pass). Notices raised in Settings never got their room
+  (`--v-notes-room`) or their caret lift, because the effect read `covered`
+  untracked and so did not run on the way back. Reproduced in Chrome with
+  the build's code put back (mutation M01, below), at 900×600: a caret at
+  the foot of the page came back with its line's bottom 47px below the top
+  of a one-notice stack; and with four errors raised in Settings (a 170px
+  stack over the scroller's last 178px, past the 120px foot), the chapter's
+  last line, typed at after Cmd+End, ended 54px below the stack's top. The
+  effect now tracks `covered`: nothing while it is covered, once on the way
+  back.
+- **Rewrite and Restore did nothing under Settings** (minor and nit).
+  Before this build Rewrite there said "Select a passage first."; the build
+  made it silent. Both now close Settings and act (above).
+- **The Typography mark was under 3:1** (major). Fixed with the bar above.
+  Measured in Chrome in the six theme variants
+  (`tests/scratch/settings-visit-fix/measure.mjs`), the bar is 5.85:1 to
+  6.97:1 against its own row and 5.04:1 to 7.99:1 against what is around it,
+  for Typography's chosen face and the panel's open chapter; a hovered row
+  draws none.
+- **Source Serif 4 said "already on this machine"** (minor): the note now
+  follows `available`, in a new string in both languages (754 keys each).
+- **Typography's sample previewed a face the page was not in** (nit): with
+  settings naming a face the panel does not offer (`system-mono`, by a hand
+  edit), the sample showed the first row's face. It follows the page now.
+- **A notice gone from under focus while Settings is open** (minor): the
+  notices module's last fallback was the caret, which is inert there, so
+  focus fell to `<body>`. It now tries the caret, then the group Settings
+  shows (`HOMES` in `Notices.svelte`). Reachable in WebKit: focus on a
+  notice, Settings opened by a click (which moves no focus there), Escape.
+- **Tests the gate lacked** (minor and nits): `openSettings`'s
+  `holdsFocus` branch failed only WebKit when removed; a twin test from a
+  chapter row now fails in Chrome without it (a row keeps focus after it
+  goes inert in Chrome, while the caret leaves for `<body>` the moment the
+  editor locks). The lip fallback in `closeSettings` and Typography's
+  re-read on each visit had no test; both do now.
+
+Rejected or left, with the reason: the Rust and the mock disagreeing on a
+non-string `editorFont` (no spec depends on it; recorded in `TODO.md` with
+the Rust behaviour it waits on); the face names and license shown in English
+in Spanish, and "Manuscript" naming two things (both older than this build;
+recorded in `TODO.md`); the dev-console warning in `SettingsPage.svelte`
+(already recorded, outside this item); `DESIGN-VERSORIUM.md`'s stale lines
+(the plan left them to the owner; listed in `TODO.md` now so they are not
+lost). Two removals the verifiers ran that fail no test are defence in
+depth, confirmed here for the record: the editor built without the face
+(the reconfigure effect applies it before the first paint) and `rollback()`
+checking `disabled` instead of `locked` (App's `doRestore` already closes
+Settings before it calls it).
+
+Tests, 10 new Playwright and 1 rewritten. `settings-visit.spec.ts`: focus
+on a chapter row when Settings opens goes into Settings; Rewrite (the key,
+with a selection; the top bar's button, without one) and Restore (the
+status bar's) pressed over Settings close it and act; a notice raised in
+Settings leaves the covered page alone and, on the way back, the caret's
+line clears the stack by the smallest scroll that does it (rewritten from
+"does not move the page under it", which also asserted the page did not
+move on the way back); a four-notice stack raised in Settings gets its room,
+so the last line typed at clears it; with no chapter and the top bar folded,
+focus comes back to the lip; a notice closed from the keyboard over Settings
+hands focus to Settings. `editor-settings.spec.ts`: a launch read of the
+face that failed is retried in Typography; with no read at all the page and
+the sample are in the stylesheet's face and the panel says why; settings
+naming an unoffered face mark no row and the sample is in the page's face;
+each row's note follows `available`; the chosen row's bar is 3:1 or more
+against its row and the panel in all six themes, a hovered row draws none,
+and the panel's open chapter wears it too.
+
+Each fix was removed once and its test watched fail
+(`tests/scratch/settings-visit-fix/mutate.py`, logs in
+`tests/scratch/out/settings-visit-fix/`), in a copy of the tree served by a
+Vite of its own on :1442, never the shared :1420. All 18 checks passed
+unmutated first; then 20 removals, 23 required checks (20 in Chrome, 3 in
+Playwright's WebKit), 23 failed, each in the test meant for it, among them
+the build's own untracked `covered` and its silent Rewrite and Restore put
+back. For the record, as expected: without `holdsFocus` the caret's twin
+still passes in Chrome, and without `focusLost` the row's does; the two
+defence-in-depth removals pass. Both specs pass in Playwright's WebKit
+(`tests/scratch/settings-visit-fix/pw-webkit.config.ts`, 32 of 32). Looked
+at in Chrome on the mock (`tests/scratch/settings-visit-fix/look.mjs`):
+Typography in the six themes with a row hovered, and the panel's open
+project and chapter.
+
+Measured with `make verify` (exit 0, 74 s;
+`tests/scratch/out/settings-visit-fix/verify.log`): svelte-check 401 files,
+0 errors, 0 warnings; locale keys 753 → 754 in each language; vitest 240 in
+29 files (unchanged); `cargo test` 579 unit plus 4 integration, 16 ignored
+(no Rust changed); clippy `--all-targets` 0 findings; Playwright 214 → 224.
+The two specs also ran four times over in the gate's eight workers, 128 of
+128.
+
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 
 ### Backup
@@ -1170,7 +1499,9 @@ The full list, with file names, is `TODO.md`; the epubcheck result is in
 - **A novel's language cannot be changed, and imports are created as
   English**, which the manuscript's `lang` and every export's language field
   inherit.
-- **A visit to Settings rebuilds the editor**, losing its undo history.
+- **The undo key with focus off the page undoes the page's typing**,
+  outside CodeMirror's history; and the corkboard still rebuilds the editor,
+  losing its undo history as Settings used to.
 - **One unexplained test failure.** One `cargo test` run, on an earlier and
   smaller suite, reported 1 failure without naming it; the runs after it were
   reported clean, and no logs of them are kept. Not diagnosed, so not claimed

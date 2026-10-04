@@ -143,29 +143,6 @@ make that value wrong more often than it should be:
 The importer should take the language (the Markdown frontmatter carries one;
 the import dialog could ask), and Project settings needs a language picker.
 
-### A visit to Settings rebuilds the editor
-
-`App.svelte` swaps the editor for `SettingsPage` (`{#if showSettings}`), so
-opening Settings destroys the CodeMirror view: the undo history, the selection
-and the session that Restore works from are gone on the way back. The editor's
-preferences themselves reconfigure a running editor in place
-(`createPreferenceCompartments` in `src/lib/editor/preferences.ts`), but no
-preference can change while the editor is on screen, so the visit is what
-costs the history. Settings as an overlay, or the editor kept mounted beneath
-it, would keep it.
-
-### The typeface chosen in Settings never reaches the editor
-
-Settings → Editor → Typography stores a face (`set_editor_font`), and the
-group's purpose line names the typeface because that choice lives there. But
-nothing applies it: `.cm-editor .cm-content` in `src/styles.css` names its own
-fixed stack, and `api.editorFont()` is called only by
-`TypographySection.svelte`. That section also compares the CSS stack
-`editor_font` returns with a catalogue id, so going by the code its "selected"
-mark never matches (DESIGN-VERSORIUM.md, implementation notes). The face could
-reach the page the way size and spacing do, as a custom property on
-`.cm-editor`, without rebuilding the editor.
-
 ## Queued, designed or under review
 
 ### Settings: redesign Local AI and Assistants, and group the sidebar
@@ -293,6 +270,80 @@ do:
   write and never sets it back, so the box says it took while the notice says
   it did not. The shared `Checkbox` is strictly controlled for exactly this;
   this one is a raw `<input>`.
+
+### Settings over the editor: the checks no automation reaches, and what it left
+
+Built on 2026-10-04 (see "Settings over the editor, and the typeface on the
+page" in `STATUS.md`). Playwright drives it on the mocked IPC in Chrome (the
+gate) and in Playwright's WebKit; the real webviews are still to be checked:
+
+- **macOS, WKWebView:** Edit → Undo from the menu bar while Settings is open
+  leaves the page alone (the tests press the key, which the menu item
+  shares, in Playwright's WebKit, not in the app); VoiceOver finds nothing of
+  the covered page; with keyboard navigation off, Option+Tab never lands in
+  it; Back to the manuscript puts the caret where it was.
+- **The typeface on a machine that has Source Serif 4 installed.** Choosing it
+  changes the page there; here, without the face, the page stays in its
+  stack's next family, Iowan Old Style, and looks the same (its row now says
+  it shows only where it is installed).
+- **`DESIGN-VERSORIUM.md`, implementation notes**, still say the chosen face
+  never reaches the editor, that Typography's mark never matches, and that
+  the stylesheet names Source Serif 4 first ("Fuente por defecto del editor",
+  "La fuente elegida no llega al editor"). None of it holds now; the plan
+  left those lines to the owner.
+
+### Found while building Settings over the editor, not part of it
+
+- **The undo key outside the page undoes the page.** With the manuscript on
+  screen and keyboard focus on a button (the probe used the status bar's
+  Typewriter), Cmd/Ctrl+Z reaches the browser's own undo, which walks the
+  document-wide stack into the typing done in the editor and takes it back
+  as a fresh edit, outside CodeMirror's history, which the change log would
+  record as the writer's deletion. Playwright's Chrome
+  (`tests/scratch/settings-visit/undo-elsewhere-probe.mjs`). Under Settings
+  the page is read-only now, so this build closed it there only.
+- **The corkboard still rebuilds the editor**: the status bar's Corkboard
+  swaps it out (`{#if corkboard}` in `App.svelte`), with the same loss of the
+  undo history, the selection and Restore's session that Settings had.
+- **Settings has no Escape**, and opened with a click on its top-bar button
+  keeps focus on that button (WebKit drops it, and App now moves it to the
+  group Settings opens on).
+- **`set_editor_font` takes any catalogue id**, the `ui` and `mono` faces
+  included, which Typography never offers: settings naming one render the
+  page in it with no row marked (the sample paragraph follows the page, so
+  the panel at least shows the face in use). And `fonts/catalog.json` says
+  `system-ui` is "offered for writers who prefer a sans page", while its
+  `ui` role keeps it out of Typography.
+- **Typography in Spanish reads "System serif · system"**: the row shows the
+  catalogue's `family` and `license` as they are written, in English. The
+  system faces want names of their own in both languages (keyed by catalogue
+  id, falling back to `family`), and "system" a translated license label;
+  "Source Serif 4" and "OFL-1.1" are names and stay.
+- **"Manuscript" names two things while Settings is open**: "← Back to the
+  manuscript" / "← Volver al manuscrito" (`settings.backToWriting`) returns
+  to the page, and the top bar's "Manuscript" / "Manuscrito", in view beside
+  it, opens the separate Manuscript dialog. One of them wants another word,
+  such as "← Back to the page", or "Back to writing" as the key itself says.
+- **Restore on a word typed key by key takes back its last letter only.**
+  `RollbackHistory.take` undoes the latest change inside the word, and the
+  editor records one change per key, so a typed word needs a press per
+  letter; a word that arrived in one insertion (a paste) goes at once. The
+  status bar's hint promises the word. `tests/e2e/bars.spec.ts` accepts
+  either outcome, and the Settings specs insert their words whole. Seen in
+  Playwright's Chrome while writing the Settings test for Restore.
+- **The manuscript's editing host is named "Chapters"**
+  (`role="textbox"` and `aria-label={t("binder.chapters")}` in
+  `MarkdownEditor.svelte`).
+- **`SettingsPage.svelte` binds `bind:this={buttons[i]}` to a plain array**,
+  and Svelte warns about it in the dev console on every visit
+  (`binding_property_non_reactive`).
+- **A hand-edited `editorFont` that is not a string** (a number, `null`)
+  costs the whole settings.json, going by the code: serde rejects the file
+  and `SettingsStore::load` falls back to every default, not only the face's.
+  The same holds for any mistyped key outside the `editor` and `layout`
+  blocks, the two read leniently. Not run. The mock does not mirror it
+  (`?persist=1` merges what it reads with `Object.assign`, keeping the other
+  keys, and answers the default face); no spec depends on either.
 
 ### Collapsible binder and top bar: the checks no automation reaches
 
