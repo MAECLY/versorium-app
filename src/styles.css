@@ -898,11 +898,11 @@ input[type="number"] {
   padding-top: 36px;
 }
 
-/* In Focus the edges sleep while the writer types: invisible AND unclickable,
-   so nothing invisible can swallow a click, with their space kept so the text
-   never moves when they wake. They wake on 8px of pointer travel (a listener
-   on window, App.svelte), while a peek or Focus options is open, and while
-   one has keyboard focus. Where a surface is folded the page runs to the
+/* In Focus the edges stay faded, with their space kept so the text never
+   moves. Moving the mouse does not bring them back (the owner's call,
+   2026-10-04: that undid the feeling of the bars being gone); the pointer ON
+   an edge does, and so does keyboard focus, a peek or Focus options. Hover
+   comes before any click, so a click never lands on something unseen. Where a surface is folded the page runs to the
    window's edge, and CodeMirror's dotted focus frame, the last line drawn
    around the text, goes too: the caret already says where focus is. */
 .v-shell[data-focus] .v-binder-slot:not([data-view="open"]),
@@ -926,9 +926,8 @@ input[type="number"] {
   outline: none;
 }
 
-.v-shell[data-focus]:not([data-awake]) .v-edge:not(:focus-visible) {
+.v-shell[data-focus]:not([data-awake]) .v-edge:not(:focus-visible):not(:hover) {
   opacity: 0;
-  pointer-events: none;
   transition: opacity 180ms ease-out;
 }
 

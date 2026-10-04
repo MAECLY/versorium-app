@@ -7,9 +7,9 @@
    * The rail stands where the projects-and-chapters panel was, 28px wide,
    * its words written bottom to top. The lip runs along the top of the window,
    * 24px tall (WCAG 2.5.8), where the top bar was. Outside Focus they are
-   * always visible. In Focus they sleep while the writer types and wake when
-   * the pointer moves (styles.css, "edges"), and while asleep they take no
-   * click, so nothing invisible can be hit.
+   * always visible. In Focus they stay faded however the mouse moves, and show
+   * with the pointer on them or keyboard focus (styles.css, "edges"); hover
+   * comes before a click, so a click never lands on something unseen.
    *
    * The accessible name contains the visible words (WCAG 2.5.3): "Projects
    * and chapters" reads as "Show projects and chapters". A press leaves focus

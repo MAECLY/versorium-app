@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  ASLEEP,
   SURFACES,
-  WAKE_TRAVEL_PX,
   chromeFromSettings,
   isEditorOnScreen,
-  noteKeystroke,
-  notePointer,
   reduce,
   resolveChrome,
   type ChromeModel,
@@ -182,33 +178,5 @@ describe("reading the saved layout", () => {
     expect(m.layout).toEqual({ binder: false, topBar: true });
     expect(m.recipe).toEqual({ binder: true, topBar: false });
     expect(m.focus).toBe(false);
-  });
-});
-
-describe("the edges wake when the pointer travels", () => {
-  it(`stays asleep under ${WAKE_TRAVEL_PX}px and wakes at it`, () => {
-    let w = notePointer(ASLEEP, 100, 100);
-    expect(w).toEqual({ awake: false, travel: 0, last: { x: 100, y: 100 } });
-    w = notePointer(w, 103, 100);
-    w = notePointer(w, 103, 104);
-    expect(w.travel).toBe(7);
-    expect(w.awake).toBe(false);
-    w = notePointer(w, 105, 104);
-    expect(w.awake).toBe(true);
-  });
-
-  it("starts over after a keystroke, where the first move only sets the baseline", () => {
-    let w = notePointer(notePointer(ASLEEP, 0, 0), 50, 0);
-    expect(w.awake).toBe(true);
-    w = noteKeystroke();
-    expect(w).toEqual(ASLEEP);
-    // A pointer far from where it was before the keystroke is not a movement:
-    // the travel counts from here.
-    w = notePointer(w, 400, 300);
-    expect(w.awake).toBe(false);
-    expect(w.travel).toBe(0);
-    w = notePointer(w, 404, 303);
-    expect(w.travel).toBe(5);
-    expect(w.awake).toBe(false);
   });
 });

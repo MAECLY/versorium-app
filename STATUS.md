@@ -420,10 +420,11 @@ binder and top bar" in `TODO.md` until now).
   Show on a surface Focus hid opens a floating peek that moves no text and
   closes once used; anywhere else Hide and Show change the layout).
 - **Nothing is a trap.** The status bar never folds and holds the pressed
-  Focus pill. In Focus the rail and lip stay in place but sleep while you type
-  (invisible and taking no click, their room kept) and wake on 8px of pointer
-  travel, measured on `window`; a press where one sleeps wakes them without
-  taking the caret. While you type the bar's buttons drop their borders and
+  Focus pill. In Focus the rail and lip stay in place but faded, their room
+  kept, however the mouse moves; the pointer on one, or keyboard focus,
+  shows it. (Built first to wake on 8px of pointer travel anywhere; the owner
+  rejected that on 2026-10-04 because moving the mouse brought the bars'
+  traces back and undid the feeling of the bars being gone.) While you type the bar's buttons drop their borders and
   keep their fills, which hold their labels at AA. A peek closes once used
   (a chapter chosen or made with its +, a top-bar action), on Escape, on a
   press outside it, and when Tab takes focus out of it. Escape peels one

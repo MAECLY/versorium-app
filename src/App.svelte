@@ -80,7 +80,7 @@
   const topBarView = $derived(resolved.view.topBar);
   /** A chapter is open, or one is on its way: something for Focus to clear the page for. */
   const canFocus = $derived(store.project !== null && (store.currentChapter !== null || store.loading));
-  const awake = $derived(chrome.wake.awake || chrome.peek !== null || chrome.menuOpen);
+  const awake = $derived(chrome.peek !== null || chrome.menuOpen);
   const quiet = $derived(focusActive && !awake);
 
   const SURFACE_ID: Record<Surface, string> = { binder: "binder", topBar: "topbar" };
@@ -277,21 +277,19 @@
     if (chrome.focus && !canFocus) void setFocus(false);
   });
 
-  // Only while Focus is active: the edges wake on pointer travel, measured on
-  // window so it never depends on the sleeping edge being hit-testable, and a
-  // press outside a peek, or keyboard focus leaving it, closes it without
-  // moving focus.
+  // Only while Focus is active: a press outside a peek, or keyboard focus
+  // leaving it, closes it without moving focus. The edges stay faded however
+  // the pointer moves — the owner's call (2026-10-04): moving the mouse must
+  // not bring the bars' traces back; only the pointer on an edge, or keyboard
+  // focus on it, shows it (styles.css).
   $effect(() => {
     if (!focusActive) return;
-    const onMove = (event: PointerEvent): void => chrome.notePointer(event.clientX, event.clientY);
     const onDown = (event: PointerEvent): void => {
       const target = event.target instanceof Element ? event.target : null;
-      if (!target?.closest(".cm-content")) chrome.wakeNow();
       if (chrome.peek && !keepsPeek(target, chrome.peek)) void closePeek(false);
     };
-    // A press where a sleeping edge waits lands on its bare slot (asleep,
-    // the edge takes no click). It wakes the edges, above; it must not also
-    // take the caret out of the manuscript.
+    // A press on a folded surface's bare slot, beside its edge, must not take
+    // the caret out of the manuscript.
     const onMouseDown = (event: MouseEvent): void => {
       if (event.target instanceof Element && event.target.matches(".v-binder-slot, .v-topbar-slot")) {
         event.preventDefault();
@@ -307,12 +305,10 @@
       const from = event.target instanceof Element ? event.target : null;
       if (keepsPeek(from, peek) && !keepsPeek(event.relatedTarget, peek)) void closePeek(false);
     };
-    window.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("mousedown", onMouseDown, true);
     document.addEventListener("focusout", onFocusOut);
     return () => {
-      window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("mousedown", onMouseDown, true);
       document.removeEventListener("focusout", onFocusOut);
@@ -385,24 +381,7 @@
     await refreshGit();
   }
 
-  const MODIFIERS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock", "Fn", "OS"]);
-
   function onKeydown(event: KeyboardEvent): void {
-    // A key typed into the manuscript puts the edges to sleep. First, because
-    // CodeMirror prevents the default of Enter and Backspace, and those are
-    // typing too.
-    if (
-      focusActive &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      event.key !== "Escape" &&
-      !MODIFIERS.has(event.key) &&
-      event.target instanceof Element &&
-      event.target.closest(".cm-content")
-    ) {
-      chrome.noteKeystroke();
-    }
-
     // Rewrite and Restore ignore defaultPrevented: on Windows the reload guard
     // has already prevented Ctrl+Shift+R and Ctrl+Alt+R for the webview.
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "r") {
@@ -561,7 +540,7 @@
 </script>
 
 <!-- data-focus: Focus is clearing the page. data-awake: its edges are showing
-     (pointer travel, a peek or Focus options keep them so). data-quiet: the
+     (a peek or Focus options keep them so). data-quiet: the
      status bar drops its borders while the writer types. data-ready: the
      saved layout is drawn, and transitions may run. -->
 <div

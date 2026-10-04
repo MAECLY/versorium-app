@@ -1,18 +1,13 @@
 import { tick } from "svelte";
 import { api, isTauri } from "$lib/tauri";
 import {
-  ASLEEP,
-  AWAKE,
   chromeFromSettings,
-  noteKeystroke,
-  notePointer,
   reduce,
   type ChromeContext,
   type ChromeModel,
   type Command,
   type LayoutPatch,
   type Surface,
-  type WakeState,
 } from "./chrome";
 
 /** How long the "Press Esc to leave Focus" hint stays, the first time. */
@@ -32,8 +27,7 @@ export class ChromeStore {
   /** Session only: every launch starts with Focus off. */
   focus = $state(false);
   peek = $state<Surface | null>(null);
-  wake = $state<WakeState>(ASLEEP);
-  /** The Focus options menu is open, which keeps the edges awake. */
+  /** The Focus options menu is open, which keeps the edges showing. */
   menuOpen = $state(false);
   /** The saved layout is on screen; transitions stay off until then. */
   ready = $state(false);
@@ -56,7 +50,6 @@ export class ChromeStore {
     this.recipe = m.recipe;
     this.focus = false;
     this.peek = null;
-    this.wake = ASLEEP;
     this.settle();
   }
 
@@ -82,26 +75,11 @@ export class ChromeStore {
     this.recipe = model.recipe;
     this.focus = model.focus;
     this.peek = model.peek;
-    if (cmd.type === "setFocus") this.wake = ASLEEP;
     if (Object.keys(persist).length > 0 && isTauri()) {
       // A layout not remembered is a click to repeat next launch; not an error.
       void api.setSettings({ layout: persist }).catch(() => undefined);
     }
     return persist;
-  }
-
-  notePointer(x: number, y: number): void {
-    const next = notePointer(this.wake, x, y);
-    if (next !== this.wake) this.wake = next;
-  }
-
-  noteKeystroke(): void {
-    if (this.wake.awake || this.wake.last) this.wake = noteKeystroke();
-  }
-
-  /** A press outside the text: touch and pen have no pointer travel to count. */
-  wakeNow(): void {
-    if (!this.wake.awake) this.wake = AWAKE;
   }
 
   /**

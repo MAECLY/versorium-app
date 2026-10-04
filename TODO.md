@@ -224,8 +224,8 @@ hand:
   panel or bar is in the tree. Not yet pressed or keyed: that ⌃⌘S, ⌥⌘T and
   ⇧⌘F reach the page (no menu item takes them); that a click on the ⋯ still
   puts focus on the first item, so Escape stays in the menu; that the rail's
-  words render bottom to top; that the sleeping rail and lip wake on pointer
-  travel and take no click while asleep; and, in full screen, that the lip
+  words render bottom to top; that in Focus the faded rail and lip stay faded
+  while the mouse moves and show only with the pointer on them; and, in full screen, that the lip
   just under the system menu bar can be clicked once that bar retracts.
   Keyboard navigation off (the macOS default): Tab skips every button in
   WebKit, so check that Option+Tab reaches the rail, the lip, both Hides and

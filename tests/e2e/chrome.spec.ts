@@ -380,7 +380,9 @@ test("REGRESSION: in Focus the way out is under the mouse", async ({ page }) => 
   expect(await inert(header(page))).toBe(false);
 });
 
-test("in Focus the edges sleep while you type and wake when the pointer travels", async ({ page }) => {
+test("in Focus the edges stay faded however the mouse moves, and show only under the pointer", async ({
+  page,
+}) => {
   await openSeeded(page);
   await focusAndType(page);
 
@@ -388,24 +390,25 @@ test("in Focus the edges sleep while you type and wake when the pointer travels"
   await expect(shell).toHaveAttribute("data-focus", /.+/);
   await expect(shell).not.toHaveAttribute("data-awake", /.*/);
   await expect.poll(() => opacity(rail(page))).toBe(0);
-  const onRail = await centre(rail(page));
-  expect(await hitAt(page, onRail), "an invisible edge takes no click").not.toBe("Show projects and chapters");
 
-  // Control: 5px of travel is a hand resting on the trackpad.
-  await travel(page, { x: 500, y: 300 }, [[3, 0], [2, 0]]);
+  // The owner's call (2026-10-04): moving the mouse around the page must not
+  // bring the bars' traces back. Long travel, all over the page.
+  await travel(page, { x: 500, y: 300 }, [[200, 0], [0, 200], [-300, -100], [150, 50]]);
   await expect(shell).not.toHaveAttribute("data-awake", /.*/);
-  expect(await opacity(rail(page))).toBe(0);
+  expect(await opacity(rail(page)), "the mouse moving leaves the rail faded").toBe(0);
+  expect(await opacity(page.locator(".v-edge-lip")), "and the lip").toBe(0);
 
-  await travel(page, { x: 500, y: 320 }, [[10, 0], [10, 0]]);
-  await expect(shell).toHaveAttribute("data-awake", /.+/);
+  // The pointer on the rail itself shows it, and it is the rail a click hits.
+  const onRail = await centre(rail(page));
+  await page.mouse.move(onRail.x, onRail.y);
   await expect.poll(() => opacity(rail(page))).toBe(1);
   expect(await hitAt(page, onRail)).toBe("Show projects and chapters");
 
-  // Typing puts them back to sleep.
-  await page.keyboard.type("x");
-  await expect(shell).not.toHaveAttribute("data-awake", /.*/);
+  // Off it again, it fades: nothing else woke.
+  await page.mouse.move(600, 300);
+  await expect.poll(() => opacity(rail(page))).toBe(0);
 
-  await travel(page, { x: 500, y: 340 }, [[12, 0]]);
+  await page.mouse.move(onRail.x, onRail.y);
   await rail(page).click();
   await expect(binder(page)).toBeVisible();
   expect(await inert(binder(page))).toBe(false);
@@ -482,7 +485,7 @@ test("a chapter made with the peek's + opens, and the peek closes on it", async 
   await expect(page.locator(".cm-content")).toContainText("Empieza aquí.");
 });
 
-test("focus that leaves a peek closes it, and a press on a sleeping edge keeps the caret", async ({
+test("focus that leaves a peek closes it, and a peek from the faded rail hands the caret back", async ({
   page,
   browserName,
 }) => {
@@ -527,16 +530,19 @@ test("focus that leaves a peek closes it, and a press on a sleeping edge keeps t
   await page.keyboard.press(tab);
   await expect(panelSlot).toHaveAttribute("data-view", "collapsed");
 
-  // Asleep, the rail takes no click; a press where it waits wakes the
-  // edges, and the caret stays where the writer left it.
+  // A press on the faded rail opens the panel as a peek, which takes focus
+  // on the open chapter's row; Escape closes it and the caret is back where
+  // the writer left it.
   await typeInManuscript(page, "Sigo. ");
   const shell = page.locator(".v-shell");
   await expect(shell).not.toHaveAttribute("data-awake", /.*/);
   const onRail = await centre(rail(page));
   await page.mouse.click(onRail.x, onRail.y);
-  await expect(shell).toHaveAttribute("data-awake", /.+/);
-  await expect(panelSlot, "control: the press woke it, and opened nothing").toHaveAttribute("data-view", "collapsed");
-  expect(await caretInManuscript(page), "the press took nothing from the text").toBe(true);
+  await expect(panelSlot).toHaveAttribute("data-view", "peek");
+  await expect(page.locator('[data-item-key^="chapter:"][aria-current="true"]')).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(panelSlot).toHaveAttribute("data-view", "collapsed");
+  await expect.poll(() => caretInManuscript(page)).toBe(true);
   await page.keyboard.type("Y sigo.");
   await expect(page.locator(".cm-content")).toContainText("Sigo. Y sigo.");
 });
@@ -874,8 +880,7 @@ test("a menu left open in a panel that folds away closes with it", async ({ page
 test("quiet while you type in Focus, the status bar's buttons keep AA contrast", async ({ page }) => {
   await openSeeded(page);
   await focusAndType(page);
-  // Off the bar, whose hover brings the borders back; then a keystroke, so
-  // the pointer's travel does not leave the edges awake.
+  // Off the bar, whose hover brings the borders back.
   await page.mouse.move(600, 300);
   await page.keyboard.type("x");
   await expect(page.locator(".v-shell")).toHaveAttribute("data-quiet", /.+/);
