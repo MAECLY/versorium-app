@@ -19,6 +19,13 @@ export interface Cover {
   right: number;
 }
 
+/**
+ * Air between the line being written and the stack's top edge. Without it the
+ * line ends exactly where the stack starts, and a font that rounds a pixel
+ * differently (Linux CI measured it) leaves the line's last pixel under it.
+ */
+export const CLEARANCE = 8;
+
 /** The stack is over the text column, not beside it in a wide window's margin. */
 export function overText(content: Pick<Box, "left" | "right">, cover: Cover): boolean {
   return cover.left < content.right && cover.right > content.left;
@@ -35,7 +42,8 @@ export function scrollMarginBottom(
   cover: Cover | null,
 ): number {
   if (!cover || !overText(content, cover)) return 0;
-  return Math.max(0, scroller.bottom - Math.max(cover.top, scroller.top));
+  const covered = scroller.bottom - Math.max(cover.top, scroller.top);
+  return covered > 0 ? Math.min(scroller.bottom - scroller.top, covered + CLEARANCE) : 0;
 }
 
 /**
@@ -51,5 +59,5 @@ export function caretOverlap(
 ): number {
   if (!caret || !cover || !overText(content, cover)) return 0;
   if (caret.bottom <= scroller.top || caret.top >= scroller.bottom) return 0;
-  return Math.max(0, caret.bottom - cover.top);
+  return Math.max(0, caret.bottom - (cover.top - CLEARANCE));
 }

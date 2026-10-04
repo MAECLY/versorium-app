@@ -638,7 +638,9 @@ test("a notice never sits on the line being written", async ({ page }) => {
       const across = stack.left < line.right && stack.right > line.left;
       return { across, gap: Math.round(stack.top - line.bottom) };
     });
-  await expect.poll(async () => (await clear()).gap, "the caret's line ends above the stack").toBeGreaterThanOrEqual(0);
+  // With air to spare (CLEARANCE in cover.ts), not flush: flush failed on
+  // Linux CI, whose fonts rounded the line a pixel taller.
+  await expect.poll(async () => (await clear()).gap, "the caret's line ends above the stack").toBeGreaterThanOrEqual(4);
   expect((await clear()).across, "control: the stack is over the text column").toBe(true);
   expect(await scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(before);
 

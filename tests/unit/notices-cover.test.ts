@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { caretOverlap, scrollMarginBottom } from "$lib/notices/cover";
+import { CLEARANCE, caretOverlap, scrollMarginBottom } from "$lib/notices/cover";
 
 // The arithmetic that keeps a notice off the line being written
 // (src/lib/notices/cover.ts). The editor feeds it real boxes; these are the
@@ -10,8 +10,8 @@ const column = { left: 356, right: 1164 };
 const stack = { top: 680, left: 884, right: 1264 };
 
 describe("the scroll margin", () => {
-  it("is the height of the scroller the stack covers, when it covers the text column", () => {
-    expect(scrollMarginBottom(scroller, column, stack)).toBe(88);
+  it("is the height of the scroller the stack covers, and a little air, when it covers the text column", () => {
+    expect(scrollMarginBottom(scroller, column, stack)).toBe(88 + CLEARANCE);
   });
 
   it("is nothing when the stack sits beside the column, in a wide window's margin", () => {
@@ -28,12 +28,16 @@ describe("the scroll margin", () => {
 
 describe("the caret's line under the stack", () => {
   it("measures how far the line runs under it", () => {
-    expect(caretOverlap({ top: 700, bottom: 736 }, scroller, column, stack)).toBe(56);
+    expect(caretOverlap({ top: 700, bottom: 736 }, scroller, column, stack)).toBe(56 + CLEARANCE);
   });
 
   it("is nothing when the line is clear of it", () => {
     expect(caretOverlap({ top: 600, bottom: 636 }, scroller, column, stack)).toBe(0);
-    expect(caretOverlap({ top: 644, bottom: 680 }, scroller, column, stack)).toBe(0);
+    expect(caretOverlap({ top: 636, bottom: 672 }, scroller, column, stack), "with its air above the stack").toBe(0);
+  });
+
+  it("counts a line that touches the stack as under it: it needs its air", () => {
+    expect(caretOverlap({ top: 644, bottom: 680 }, scroller, column, stack)).toBe(CLEARANCE);
   });
 
   it("is nothing when the stack is beside the column", () => {
