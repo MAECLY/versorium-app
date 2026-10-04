@@ -511,7 +511,7 @@ async function checkHead(page, where, lang, { landing }) {
   }
   for (const t of ["WebSite", "Person", "SoftwareApplication", "FAQPage"]) if (!types.includes(t)) fail(where, `JSON-LD missing ${t}`);
   const app = graph.find((n) => n["@type"] === "SoftwareApplication");
-  if (app.license !== "https://www.apache.org/licenses/LICENSE-2.0") fail(where, "licence URL");
+  if (app.license !== "https://www.gnu.org/licenses/agpl-3.0.html") fail(where, "licence URL");
   // No release exists, so there is nothing to download yet: downloadUrl comes
   // back with v0.1.0 (site spec §5.6.2), pointing at a real file.
   if ("downloadUrl" in app) fail(where, `downloadUrl ${app.downloadUrl} before any release exists`);

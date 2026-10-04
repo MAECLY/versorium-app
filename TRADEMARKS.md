@@ -17,9 +17,11 @@ hairline and a deeper teal (`#1A4A46`) for the heavy stroke and the nib. Inside 
 app the mark takes the current theme's accent colour, so in Folio, the default
 theme, it is Folio's green and not Needle Teal.
 
-- The code is licensed under Apache-2.0 (see `LICENSE`). Section 6 of that license
-  grants no right to use these marks beyond reasonable and customary use in
-  describing where the work came from — for example, "a fork of Versorium".
+- The code is licensed under the GNU Affero General Public License v3.0 (see
+  `LICENSE`). As an additional term under its section 7(e), the licence grants
+  no rights under trademark law to these names and marks beyond reasonable and
+  customary use in describing where the work came from — for example, "a fork of
+  Versorium".
 - Forks and derivatives **must** change the product name, wordmark and mark before
   distributing. The name "Versorium" may not be used to market a fork as if it were
   the original product.

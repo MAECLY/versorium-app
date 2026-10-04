@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Versorium — local-first novel studio"
 authors = ["maecly"]
 edition = "2021"
-license = "Apache-2.0"
+license = "AGPL-3.0-only"
 
 [lib]
 name = "versorium_lib"
