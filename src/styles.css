@@ -254,7 +254,8 @@ textarea:disabled {
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-button:focus-visible {
+button:focus-visible,
+a[href]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -1068,6 +1069,28 @@ input[type="number"] {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 10px 6px;
+}
+
+/* Eleven pages since About. In the shortest window (640px high, less the top
+   bar and the status bar) the rail ran 24px past its 560px and cut "← Back to
+   the manuscript" in half; this rhythm, a little tighter, keeps it whole.
+   Taller windows keep the redesign's spacing. */
+@media (max-height: 680px) {
+  .v-rail-label {
+    margin-top: 10px;
+  }
+
+  .v-rail-list {
+    gap: 1px;
+  }
+
+  .v-rail-sep {
+    margin: 8px 6px;
+  }
+
+  .v-rail > .v-btn {
+    margin-top: 10px;
+  }
 }
 
 /* The page's H2 takes focus when a page opens, so a screen reader says

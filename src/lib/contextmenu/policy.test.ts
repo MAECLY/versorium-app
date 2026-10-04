@@ -93,6 +93,17 @@ describe("the verdict", () => {
     menu.append(item);
     expect(decideContextMenu(item, 50, 10, selectionOver(item)), "inside an item menu").toBe("suppress");
   });
+
+  it("treats a link as a control, so the engine never offers to open it in the app's window", () => {
+    const link = el("a", { href: "https://www.maecly.com" });
+    const words = document.createElement("span");
+    link.append(words);
+    expect(decideContextMenu(words, 50, 10, selectionOver(words)), "selected words inside a link").toBe("suppress");
+    expect(decideContextMenu(link, 50, 10, selectionOver(link)), "a selected link").toBe("suppress");
+    // An anchor with no address goes nowhere: it is only text.
+    const plain = el("a");
+    expect(decideContextMenu(plain, 50, 10, selectionOver(plain))).toBe("native");
+  });
 });
 
 describe("the keys and presses that ask for a menu", () => {

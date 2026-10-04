@@ -7,6 +7,7 @@
   import { restoreFocus } from "$lib/components/restoreFocus";
   import { CATEGORIES, FOOTER, focusKey, type PageId, type SettingsTarget } from "$lib/settings/pages";
   import { provideSettingsNav } from "$lib/settings/nav";
+  import AboutGroup from "$lib/settings/groups/AboutGroup.svelte";
   import AppearanceGroup from "$lib/settings/groups/AppearanceGroup.svelte";
   import AppGroup from "$lib/settings/groups/AppGroup.svelte";
   import AssistantsGroup from "$lib/settings/groups/AssistantsGroup.svelte";
@@ -215,6 +216,8 @@
         <AccessGroup client={target.client} />
       {:else if target.page === "activity"}
         <ActivityGroup client={target.client} />
+      {:else if active === "about"}
+        <AboutGroup />
       {:else}
         <AppGroup />
       {/if}

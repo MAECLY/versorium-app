@@ -42,9 +42,12 @@ const TEXT_INPUT = new Set(["text", "search", "password", "email", "url", "tel",
  * selected-text menu and the page menu, and over a control it can answer
  * "page menu" where a bare rectangle test says "on the selection". Erring
  * toward suppression costs a right-click Copy on a selection that runs across
- * a control; erring the other way shows Reload.
+ * a control; erring the other way shows Reload. A link counts as a control:
+ * the engine's menu over one offers Open Link, which would load the page in
+ * Versorium's own window (ExternalLink opens it in the browser instead).
  */
-const NOT_TEXT = 'button, select, label, [role="button"], [role="menu"], [role="menuitem"], [role="menuitemcheckbox"]';
+const NOT_TEXT =
+  'button, select, label, a[href], [role="button"], [role="menu"], [role="menuitem"], [role="menuitemcheckbox"]';
 
 function onMac(): boolean {
   return /Mac/.test(navigator.platform);

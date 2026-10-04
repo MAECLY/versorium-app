@@ -139,7 +139,8 @@
       "tasks": "Tareas",
       "models": "Modelos",
       "access": "Acceso a tu novela",
-      "activity": "Actividad"
+      "activity": "Actividad",
+      "about": "Acerca de"
     },
     "purpose": {
       "editor": "Cómo se ve y se comporta la página mientras escribes.",
@@ -151,7 +152,8 @@
       "tasks": "Lo que la IA puede hacer por ti en Versorium, y qué modelo lo hace.",
       "models": "Modelos que funcionan en este equipo: los que descarga Versorium y los de apps como Ollama. Nada se descarga solo.",
       "access": "Apps como Claude Desktop que pueden abrir tu novela a través de Versorium. Solo pueden leerla hasta que dejes escribir a alguna.",
-      "activity": "Lo que las apps externas pidieron a Versorium, lo más reciente primero. Muestra las últimas 500 peticiones y nunca registra tu texto."
+      "activity": "Lo que las apps externas pidieron a Versorium, lo más reciente primero. Muestra las últimas 500 peticiones y nunca registra tu texto.",
+      "about": "La versión que tienes, quién hace Versorium, en qué términos se comparte y de dónde vienen sus actualizaciones."
     },
     "themes": {
       "folio": "Folio",
@@ -525,7 +527,26 @@
         "cancel": "Mantener solo lectura",
         "confirm": "Dejar que {client} escriba"
       }
+    },
+    "about": {
+      "madeBy": "Hecha por",
+      "website": "Sitio web",
+      "source": "Código fuente",
+      "licenseTitle": "Licencia",
+      "license": "Versorium es de código abierto, bajo la Licencia Pública General Affero de GNU, versión 3 (AGPL-3.0).",
+      "readLicense": "Lee la licencia en GitHub",
+      "cla": "Las contribuciones se aceptan bajo el acuerdo de licencia para colaboradores (CLA).",
+      "readCla": "Lee el CLA en GitHub",
+      "updatesTitle": "De dónde vienen las actualizaciones",
+      "updatesFrom": "Solo de las versiones publicadas en el repositorio de Versorium en GitHub. Antes de instalar una, la descarga se comprueba con la clave de firma propia de Versorium y con las sumas de verificación publicadas con ella.",
+      "seeReleases": "Mira las versiones en GitHub",
+      "checkUpdates": "Busca actualizaciones en Aplicación ›"
     }
+  },
+  "links": {
+    "opensInBrowser": "(se abre en tu navegador)",
+    "opensPlaceInBrowser": "(abre {place} en tu navegador)",
+    "openFailed": "No se pudo abrir el navegador. La dirección es:"
   },
   "statusbar": {
     "words": "{words} palabras",

@@ -139,7 +139,8 @@
       "tasks": "Tasks",
       "models": "Models",
       "access": "Access to your novel",
-      "activity": "Activity"
+      "activity": "Activity",
+      "about": "About"
     },
     "purpose": {
       "editor": "How the page looks and behaves while you write.",
@@ -151,7 +152,8 @@
       "tasks": "What AI can do for you in Versorium, and which model does it.",
       "models": "Models that run on this computer: the ones Versorium downloads, and those in apps like Ollama. Nothing downloads on its own.",
       "access": "Apps such as Claude Desktop that can open your novel through Versorium. They can only read it until you let one write.",
-      "activity": "What outside apps asked Versorium to do, newest first. It shows the last 500 requests and never records your text."
+      "activity": "What outside apps asked Versorium to do, newest first. It shows the last 500 requests and never records your text.",
+      "about": "The version you have, who makes Versorium, the terms it is shared under, and where its updates come from."
     },
     "themes": {
       "folio": "Folio",
@@ -525,7 +527,26 @@
         "cancel": "Keep read only",
         "confirm": "Let {client} write"
       }
+    },
+    "about": {
+      "madeBy": "Made by",
+      "website": "Website",
+      "source": "Source code",
+      "licenseTitle": "License",
+      "license": "Versorium is open source, under the GNU Affero General Public License, version 3 (AGPL-3.0).",
+      "readLicense": "Read the license on GitHub",
+      "cla": "Contributions are accepted under the Contributor License Agreement (CLA).",
+      "readCla": "Read the CLA on GitHub",
+      "updatesTitle": "Where updates come from",
+      "updatesFrom": "Only from the releases published in Versorium's repository on GitHub. Before one is installed, the download is checked against Versorium's own signing key and against the checksums published with it.",
+      "seeReleases": "See the releases on GitHub",
+      "checkUpdates": "Check for updates in Application ›"
     }
+  },
+  "links": {
+    "opensInBrowser": "(opens in your browser)",
+    "opensPlaceInBrowser": "(opens {place} in your browser)",
+    "openFailed": "Your browser could not be opened. The address is:"
   },
   "statusbar": {
     "words": "{words} words",

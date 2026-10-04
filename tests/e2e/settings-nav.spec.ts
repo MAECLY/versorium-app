@@ -14,7 +14,7 @@ const TREE: [string, string[]][] = [
   ["AI", ["Tasks", "Models", "Assistants"]],
   ["Other apps", ["Access to your novel", "Activity"]],
 ];
-const FOOTER = ["Application"];
+const FOOTER = ["Application", "About"];
 const PAGES = [...TREE.flatMap(([, pages]) => pages), ...FOOTER];
 
 async function openSettings(page: Page, title = "Settings") {
@@ -31,15 +31,15 @@ const navOf = (settings: Locator, name = "Settings sections") => settings.getByR
 /** The page-level heading, which takes focus when a page opens. */
 const pageTitle = (page: Page) => page.locator("#settings-page-title");
 
-test("the rail groups ten pages under four labels, with Application after the separator", async ({ page }) => {
+test("the rail groups eleven pages under four labels, with Application and About after the separator", async ({ page }) => {
   const nav = navOf(await openSettings(page));
-  expect(PAGES).toHaveLength(10);
+  expect(PAGES).toHaveLength(11);
   await expect(nav.getByRole("heading", { level: 3 })).toHaveText(TREE.map(([label]) => label));
   for (const [label, pages] of TREE) {
     const list = nav.getByRole("list", { name: label });
     await expect(list.getByRole("button")).toHaveText(pages);
   }
-  // Application stands apart, after the rule, in a list of its own.
+  // Application and About stand apart, after the rule, in a list of their own.
   const lists = nav.getByRole("list");
   await expect(lists).toHaveCount(TREE.length + 1);
   await expect(lists.last().getByRole("button")).toHaveText(FOOTER);
@@ -64,8 +64,10 @@ test("every page is reachable with Tab, and arrows only move focus", async ({ pa
 
   // Home and End reach the ends; neither wraps past them.
   await page.keyboard.press("End");
-  await expect(nav.getByRole("button", { name: "Application", exact: true })).toBeFocused();
+  await expect(nav.getByRole("button", { name: "About", exact: true })).toBeFocused();
   await page.keyboard.press("ArrowDown");
+  await expect(nav.getByRole("button", { name: "About", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowUp");
   await expect(nav.getByRole("button", { name: "Application", exact: true })).toBeFocused();
   await page.keyboard.press("Home");
   await expect(editor).toBeFocused();
@@ -88,6 +90,19 @@ test("every page is reachable with Tab, and arrows only move focus", async ({ pa
   }
   expect(stops).toEqual(PAGES);
   await expect(page.getByRole("button", { name: "← Back to the manuscript" })).toBeFocused();
+});
+
+test("in the shortest window the whole rail fits, the way back included", async ({ page }) => {
+  // tauri.conf.json's minimum window. Eleven pages ran 24px past the room
+  // here and cut "← Back to the manuscript" in half.
+  await page.setViewportSize({ width: 1024, height: 640 });
+  const nav = navOf(await openSettings(page));
+  const fit = await nav.evaluate((el) => {
+    const back = [...el.querySelectorAll("button")].at(-1)!.getBoundingClientRect();
+    return { content: el.scrollHeight, room: el.clientHeight, back: back.bottom, rail: el.getBoundingClientRect().bottom };
+  });
+  expect(fit.content, "the rail does not scroll").toBeLessThanOrEqual(fit.room);
+  expect(fit.back).toBeLessThanOrEqual(fit.rail);
 });
 
 test("the page you are on is marked with the selection colour and a bar, not the accent fill", async ({ page }) => {
@@ -218,6 +233,22 @@ test("the words on the new pages hold AA contrast in every theme", async ({ page
     settings.getByText("Refused: Codex can only read"),
     settings.getByText("read_document · manuscript/ch-01-the-long-winter.md"),
   ]);
+
+  // About: the muted words and the links, inside the card and on the page,
+  // and the line that says the browser could not be opened.
+  await nav.getByRole("button", { name: "About", exact: true }).click();
+  await page.evaluate(() => (window.__VERSORIUM_MOCK__.failures["plugin:opener|open_url"] = "denied"));
+  await settings.getByRole("link", { name: /^Read the CLA on GitHub/ }).click();
+  await page.mouse.move(1200, 700);
+  await measure([
+    settings.getByText("The local novel studio"),
+    settings.getByText("Installed version"),
+    settings.locator('[data-about="version"]'),
+    settings.getByRole("link", { name: /^Miguel Angel Esparza Calero/ }),
+    settings.getByRole("link", { name: /^Read the license on GitHub/ }),
+    settings.getByRole("button", { name: "Check for updates in Application ›" }),
+    settings.getByRole("alert"),
+  ]);
 });
 
 test("the rail is translated", async ({ page }) => {
@@ -238,6 +269,7 @@ test("the rail is translated", async ({ page }) => {
     "Acceso a tu novela",
     "Actividad",
     "Aplicación",
+    "Acerca de",
   ]);
   await expect(nav.getByRole("heading", { level: 2 })).toHaveText("Ajustes");
   await expect(nav.getByRole("button", { name: "← Volver al manuscrito" })).toBeVisible();

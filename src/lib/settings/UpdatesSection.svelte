@@ -34,11 +34,13 @@
           </b>
         </span>
         <!-- Not gated on a token (spec §11, amended 2026-10-03): without one
-             the check is anonymous, which is enough for a public repository. -->
+             the check is anonymous, which is enough for a public repository.
+             About's "Check for updates in Application ›" lands here. -->
         <button
           class="v-btn"
           style="padding: 2px 10px; font-size: 12px;"
           disabled={updates.busy}
+          data-settings-focus="app:updates"
           onclick={() => void updates.check()}
         >
           {updates.busy ? t("updates.checking") : t("updates.checkNow")}
