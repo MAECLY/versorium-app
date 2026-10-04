@@ -117,7 +117,8 @@ pub struct Settings {
     pub backup_dir: Option<String>,
     /// Which entry of `fonts/catalog.json` the editor renders in.
     pub editor_font: String,
-    /// Chrome fades and the page centres (DESIGN-VERSORIUM.md).
+    /// Legacy: never read since Focus became session-only. Kept, and still
+    /// patchable, so a file written by an older build round-trips unchanged.
     pub focus_mode: bool,
     /// The active line sits at the lower third.
     pub typewriter: bool,
@@ -147,6 +148,10 @@ pub struct Settings {
     pub author_profile: String,
     /// How the page behaves under the caret: Settings → Editor.
     pub editor: EditorSettings,
+    /// Which bars the writer folded away, and what Focus folds. Changed on
+    /// the surfaces themselves (their Hide buttons, the rail and the lip, and
+    /// Focus's own ⋯ menu), never in Settings.
+    pub layout: LayoutSettings,
 }
 
 pub const TEXT_SIZES: [&str; 3] = ["small", "medium", "large"];
@@ -253,6 +258,60 @@ impl EditorSettings {
     }
 }
 
+/// The window's layout: whether the projects-and-chapters panel and the top
+/// bar are open, and which of the two Focus folds away.
+///
+/// Focus itself is not here. It lasts one session, so a launch never opens
+/// into hidden chrome; it borrows this layout and never writes to it.
+///
+/// Read leniently, for the reason `EditorSettings` is: a derived impl would
+/// refuse the whole file over one hand-edited `null`, and `SettingsStore::load`
+/// would then fall back to defaults for the theme, the backups and the grants.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutSettings {
+    pub binder_open: bool,
+    pub top_bar_open: bool,
+    pub focus_hides_binder: bool,
+    pub focus_hides_top_bar: bool,
+}
+
+impl Default for LayoutSettings {
+    /// Everything shown, and Focus hides both: what an install from before
+    /// this block looks like, so upgrading changes nothing on screen.
+    fn default() -> Self {
+        Self { binder_open: true, top_bar_open: true, focus_hides_binder: true, focus_hides_top_bar: true }
+    }
+}
+
+impl<'de> Deserialize<'de> for LayoutSettings {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = serde_json::Value::deserialize(deserializer)?;
+        let mut layout = Self::default();
+        layout.apply(&raw);
+        Ok(layout)
+    }
+}
+
+impl LayoutSettings {
+    /// Apply a partial patch: only the keys present, and only JSON booleans.
+    pub fn apply(&mut self, patch: &serde_json::Value) {
+        let flag = |key: &str| patch.get(key).and_then(|v| v.as_bool());
+        if let Some(v) = flag("binderOpen") {
+            self.binder_open = v;
+        }
+        if let Some(v) = flag("topBarOpen") {
+            self.top_bar_open = v;
+        }
+        if let Some(v) = flag("focusHidesBinder") {
+            self.focus_hides_binder = v;
+        }
+        if let Some(v) = flag("focusHidesTopBar") {
+            self.focus_hides_top_bar = v;
+        }
+    }
+}
+
 /// One author identity, as it will appear in an exported file.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -329,6 +388,7 @@ impl Default for Settings {
             author_profiles: AuthorProfiles::default(),
             author_profile: "work".into(),
             editor: EditorSettings::default(),
+            layout: LayoutSettings::default(),
         }
     }
 }
@@ -385,54 +445,65 @@ pub fn set_settings(
     state: tauri::State<SettingsStore>,
     patch: serde_json::Value,
 ) -> Result<Settings, String> {
-    state.update(|s| {
-        if let Some(v) = patch.get("uiLocale").and_then(|v| v.as_str()) {
-            if v == "en" || v == "es" {
-                s.ui_locale = v.into();
-            }
-        }
-        if let Some(v) = patch.get("theme").and_then(|v| v.as_str()) {
-            if matches!(v, "folio" | "quarry" | "needle") {
-                s.theme = v.into();
-            }
-        }
-        if let Some(v) = patch.get("themeMode").and_then(|v| v.as_str()) {
-            if matches!(v, "light" | "dark" | "follow") {
-                s.theme_mode = v.into();
-            }
-        }
-        if let Some(v) = patch.get("censorship").and_then(|v| v.as_bool()) {
-            s.censorship = v;
-        }
-        if let Some(v) = patch.get("githubUpdatesToken").and_then(|v| v.as_str()) {
-            s.github_updates_token = if v.is_empty() { None } else { Some(v.into()) };
-        }
-        if let Some(v) = patch.get("githubNovelToken").and_then(|v| v.as_str()) {
-            s.github_novel_token = if v.is_empty() { None } else { Some(v.into()) };
-        }
-        // Writing-surface preferences are patchable: unlike a write grant or a
-        // model slot, flipping one by accident costs a keystroke to undo.
-        if let Some(v) = patch.get("focusMode").and_then(|v| v.as_bool()) {
-            s.focus_mode = v;
-        }
-        if let Some(v) = patch.get("typewriter").and_then(|v| v.as_bool()) {
-            s.typewriter = v;
-        }
-        if let Some(v) = patch.get("onboarded").and_then(|v| v.as_bool()) {
-            s.onboarded = v;
-        }
-        // The editor's preferences are patchable for the same reason: each one
-        // is a look or a key, and a wrong click costs one click to undo.
-        if let Some(editor) = patch.get("editor") {
-            s.editor.apply(editor);
-        }
-        // mcpWriteClients / mcpActiveProject / slots / studio* / editorFont are
-        // deliberately NOT patchable from here: granting write, pointing a task
-        // at a model, aiming at a local endpoint and choosing a font that must
-        // exist in the catalogue each get their own command, so the UI cannot
-        // flip one by accident while saving an unrelated preference.
-    });
+    state.update(|s| apply_patch(s, &patch));
     Ok(state.get())
+}
+
+/// Everything `set_settings` does to the settings, apart from the store, so a
+/// test can send exactly what the frontend sends. The browser mock cannot stand
+/// in for that: it accepts whatever shape it is handed, so a key this function
+/// never reads would pass every E2E test and still be lost on disk.
+pub(crate) fn apply_patch(s: &mut Settings, patch: &serde_json::Value) {
+    if let Some(v) = patch.get("uiLocale").and_then(|v| v.as_str()) {
+        if v == "en" || v == "es" {
+            s.ui_locale = v.into();
+        }
+    }
+    if let Some(v) = patch.get("theme").and_then(|v| v.as_str()) {
+        if matches!(v, "folio" | "quarry" | "needle") {
+            s.theme = v.into();
+        }
+    }
+    if let Some(v) = patch.get("themeMode").and_then(|v| v.as_str()) {
+        if matches!(v, "light" | "dark" | "follow") {
+            s.theme_mode = v.into();
+        }
+    }
+    if let Some(v) = patch.get("censorship").and_then(|v| v.as_bool()) {
+        s.censorship = v;
+    }
+    if let Some(v) = patch.get("githubUpdatesToken").and_then(|v| v.as_str()) {
+        s.github_updates_token = if v.is_empty() { None } else { Some(v.into()) };
+    }
+    if let Some(v) = patch.get("githubNovelToken").and_then(|v| v.as_str()) {
+        s.github_novel_token = if v.is_empty() { None } else { Some(v.into()) };
+    }
+    // Writing-surface preferences are patchable: unlike a write grant or a
+    // model slot, flipping one by accident costs a keystroke to undo.
+    // focusMode is legacy (see the field) and kept so older writes still land.
+    if let Some(v) = patch.get("focusMode").and_then(|v| v.as_bool()) {
+        s.focus_mode = v;
+    }
+    if let Some(v) = patch.get("typewriter").and_then(|v| v.as_bool()) {
+        s.typewriter = v;
+    }
+    if let Some(v) = patch.get("onboarded").and_then(|v| v.as_bool()) {
+        s.onboarded = v;
+    }
+    // The editor's preferences are patchable for the same reason: each one
+    // is a look or a key, and a wrong click costs one click to undo.
+    if let Some(editor) = patch.get("editor") {
+        s.editor.apply(editor);
+    }
+    // The layout too: hiding a bar costs one click to undo, on the bar itself.
+    if let Some(layout) = patch.get("layout") {
+        s.layout.apply(layout);
+    }
+    // mcpWriteClients / mcpActiveProject / slots / studio* / editorFont are
+    // deliberately NOT patchable from here: granting write, pointing a task
+    // at a model, aiming at a local endpoint and choosing a font that must
+    // exist in the catalogue each get their own command, so the UI cannot
+    // flip one by accident while saving an unrelated preference.
 }
 
 #[cfg(test)]
@@ -758,5 +829,91 @@ mod tests {
         let written = fs::read_to_string(&path).unwrap();
         assert!(!written.contains("backupDir\""), "migrated once, then gone: {written}");
         assert!(written.contains("backupDirs"));
+    }
+
+    #[test]
+    fn a_fresh_install_shows_both_bars_and_focus_hides_both() {
+        let layout = SettingsStore::load(PathBuf::from("/nonexistent/versorium/settings.json")).get().layout;
+        assert!(layout.binder_open, "the projects-and-chapters panel starts open");
+        assert!(layout.top_bar_open, "the top bar starts open");
+        assert!(layout.focus_hides_binder, "Focus hides the panel unless told otherwise");
+        assert!(layout.focus_hides_top_bar, "Focus hides the top bar unless told otherwise");
+    }
+
+    #[test]
+    fn a_file_from_before_layout_loads_everything_shown() {
+        // An install that predates the layout block, with Focus left on by the
+        // build that still restored it. Upgrading must open into a full window.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(&path, r#"{"focusMode":true,"theme":"quarry"}"#).unwrap();
+
+        let s = SettingsStore::load(path).get();
+        assert_eq!(s.theme, "quarry", "the rest of the file still parsed");
+        assert!(s.layout.binder_open && s.layout.top_bar_open, "both bars shown");
+        assert!(s.layout.focus_hides_binder && s.layout.focus_hides_top_bar, "both recipe items ticked");
+    }
+
+    #[test]
+    fn a_wrongly_typed_layout_value_costs_that_value_and_never_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let load = |json: &str| {
+            fs::write(&path, json).unwrap();
+            SettingsStore::load(path.clone()).get()
+        };
+
+        let s = load(r#"{"theme":"needle","layout":null}"#);
+        assert_eq!(s.theme, "needle", "a null block still lets the file parse");
+        assert_eq!(s.layout, LayoutSettings::default());
+
+        let s = load(r#"{"theme":"needle","layout":"x"}"#);
+        assert_eq!(s.theme, "needle", "so does a block that is not an object");
+        assert_eq!(s.layout, LayoutSettings::default());
+
+        let s = load(r#"{"theme":"needle","layout":{"binderOpen":"no","topBarOpen":false}}"#);
+        assert_eq!(s.theme, "needle", "the rest of the file still parsed");
+        assert!(!s.layout.top_bar_open, "a good value beside a bad one is kept");
+        assert!(s.layout.binder_open, "not a boolean: the default");
+    }
+
+    #[test]
+    fn the_layout_patch_takes_booleans_only() {
+        let mut s = Settings::default();
+        apply_patch(&mut s, &serde_json::json!({ "layout": { "binderOpen": false } }));
+        assert!(!s.layout.binder_open, "the shape the frontend sends");
+        assert!(s.layout.top_bar_open, "a patch naming one key leaves the others");
+
+        apply_patch(&mut s, &serde_json::json!({ "layout": { "topBarOpen": "false" } }));
+        assert!(s.layout.top_bar_open, "a string is not a boolean: ignored");
+
+        apply_patch(&mut s, &serde_json::json!({ "layout": { "focusHidesTopBar": false } }));
+        assert!(!s.layout.focus_hides_top_bar);
+        assert!(s.layout.focus_hides_binder);
+
+        // Flat keys are not the layout. A frontend that sent this shape would
+        // look fine against the mock and lose every change on disk.
+        let mut flat = Settings::default();
+        apply_patch(&mut flat, &serde_json::json!({ "binderOpen": false, "focusHidesBinder": false }));
+        assert_eq!(flat.layout, LayoutSettings::default());
+    }
+
+    #[test]
+    fn layout_serializes_camel_case() {
+        let mut s = Settings::default();
+        s.layout.binder_open = false;
+        let json = serde_json::to_value(&s).unwrap();
+        assert_eq!(
+            json["layout"],
+            serde_json::json!({
+                "binderOpen": false,
+                "topBarOpen": true,
+                "focusHidesBinder": true,
+                "focusHidesTopBar": true,
+            })
+        );
+        // And back, as the next launch reads it.
+        let again: Settings = serde_json::from_value(json).unwrap();
+        assert_eq!(again.layout, s.layout);
     }
 }

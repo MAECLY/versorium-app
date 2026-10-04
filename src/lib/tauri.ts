@@ -63,6 +63,7 @@ export interface AppSettings {
   githubNovelToken: string | null;
   /** Id of the catalogue entry the editor renders in. */
   editorFont: string;
+  /** @deprecated Legacy, never read: Focus lasts one session and is not restored. */
   focusMode: boolean;
   typewriter: boolean;
   /** False until the first run is done or skipped. */
@@ -76,6 +77,20 @@ export interface AppSettings {
   authorProfile: string;
   /** Settings → Editor. */
   editor: EditorSettings;
+  /** Which bars are folded away, and what Focus folds. Never shown in Settings. */
+  layout: LayoutSettings;
+}
+
+/**
+ * Mirrors `LayoutSettings` in src-tauri/src/commands/settings.rs. Changed on
+ * the surfaces themselves: the Hide buttons, the rail and the lip, and the
+ * Focus options menu. Focus itself is not here; it lasts one session.
+ */
+export interface LayoutSettings {
+  binderOpen: boolean;
+  topBarOpen: boolean;
+  focusHidesBinder: boolean;
+  focusHidesTopBar: boolean;
 }
 
 /**
@@ -95,10 +110,13 @@ export interface EditorSettings {
 }
 
 /**
- * What `set_settings` accepts. The editor block is patched key by key in Rust,
- * so a change to one preference sends that preference alone.
+ * What `set_settings` accepts. The editor and layout blocks are patched key by
+ * key in Rust, so a change to one value sends that value alone.
  */
-export type SettingsPatch = Partial<Omit<AppSettings, "editor">> & { editor?: Partial<EditorSettings> };
+export type SettingsPatch = Partial<Omit<AppSettings, "editor" | "layout">> & {
+  editor?: Partial<EditorSettings>;
+  layout?: Partial<LayoutSettings>;
+};
 
 /**
  * One author identity, as it will appear inside an exported file.

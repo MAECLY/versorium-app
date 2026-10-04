@@ -144,6 +144,8 @@ const EDITOR_STEPS: Record<string, readonly string[]> = {
   tabKey: ["next", "indent"],
 };
 const EDITOR_FLAGS = ["spellcheck", "lineNumbers", "activeLine"];
+/** Mirrors `LayoutSettings` in Rust: four booleans, all true on a fresh install. */
+const LAYOUT_FLAGS = ["binderOpen", "topBarOpen", "focusHidesBinder", "focusHidesTopBar"];
 
 const settings = {
   uiLocale: "en",
@@ -153,7 +155,9 @@ const settings = {
   githubUpdatesToken: null as string | null,
   githubNovelToken: null as string | null,
   editorFont: "system-serif",
-  focusMode: false,
+  // Legacy, never read by the app. `?mock=tauri&legacyFocus=1` is a file
+  // written by the build that still restored Focus at launch.
+  focusMode: new URLSearchParams(location.search).has("legacyFocus"),
   typewriter: false,
   // Already onboarded, so the tour does not sit on top of every other spec.
   // `?mock=tauri&fresh=1` simulates a first run instead.
@@ -172,6 +176,12 @@ const settings = {
     activeLine: true,
     tabKey: "next",
   } as Record<string, string | boolean>,
+  layout: {
+    binderOpen: true,
+    topBarOpen: true,
+    focusHidesBinder: true,
+    focusHidesTopBar: true,
+  } as Record<string, boolean>,
 };
 
 /**
@@ -200,6 +210,13 @@ function applyEditorPatch(patch: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(patch)) {
     if (EDITOR_FLAGS.includes(key) && typeof value === "boolean") settings.editor[key] = value;
     if (EDITOR_STEPS[key]?.includes(value as string)) settings.editor[key] = value as string;
+  }
+}
+
+/** Key by key, JSON booleans only, as `LayoutSettings::apply` does. */
+function applyLayoutPatch(patch: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(patch)) {
+    if (LAYOUT_FLAGS.includes(key) && typeof value === "boolean") settings.layout[key] = value;
   }
 }
 
@@ -528,15 +545,25 @@ const commands: Record<string, (args: Args) => unknown> = {
     return publicChapter(c);
   },
 
-  get_settings: () => ({ ...settings, editor: { ...settings.editor }, backupDirs: [...backupDirs], backupKeep }),
+  get_settings: () => ({
+    ...settings,
+    editor: { ...settings.editor },
+    layout: { ...settings.layout },
+    backupDirs: [...backupDirs],
+    backupKeep,
+  }),
   set_settings: ({ patch }) => {
-    const { editor, ...rest } = (patch ?? {}) as Partial<typeof settings> & { editor?: Record<string, unknown> };
+    const { editor, layout, ...rest } = (patch ?? {}) as Partial<typeof settings> & {
+      editor?: Record<string, unknown>;
+      layout?: Record<string, unknown>;
+    };
     Object.assign(settings, rest);
     if (editor && typeof editor === "object") applyEditorPatch(editor);
+    if (layout && typeof layout === "object") applyLayoutPatch(layout);
     persistSettings();
     // The legacy settings field still counts as a saved token, as in Rust.
     update.tokenSet = Boolean(settings.githubUpdatesToken) || storedSecrets.has("updates");
-    return { ...settings, editor: { ...settings.editor } };
+    return { ...settings, editor: { ...settings.editor }, layout: { ...settings.layout } };
   },
 
   update_project: ({ path, title, author, exportCover, exportColophon }) => {
