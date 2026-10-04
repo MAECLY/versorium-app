@@ -86,17 +86,40 @@ pub fn find(id: &str) -> Option<&'static FontEntry> {
     catalog().ok()?.fonts.iter().find(|f| f.id == id)
 }
 
-/// The stack to apply for a stored id, falling back to the catalogue default
-/// when settings name a font that no longer exists.
-pub fn stack_for(id: &str) -> Result<String, String> {
+/// The entry a stored id names, or the catalogue's default when settings name
+/// something this catalogue does not hold: a font a later catalogue dropped, or
+/// a value that was never an id. The answer is the entry, id included, so a
+/// caller never pairs the id it was asked about with another face's stack.
+pub fn resolve(id: &str) -> Result<&'static FontEntry, String> {
     let catalog = catalog()?;
-    let entry = catalog
+    catalog
         .fonts
         .iter()
         .find(|f| f.id == id)
         .or_else(|| catalog.fonts.iter().find(|f| f.id == catalog.default_body))
-        .ok_or_else(|| "bad_font_catalog".to_string())?;
-    Ok(entry.stack.clone())
+        .ok_or_else(|| "bad_font_catalog".to_string())
+}
+
+/// What the editor renders in, as the frontend receives it: the catalogue id
+/// Settings marks as chosen, and the stack the page applies.
+///
+/// Both, because one string could not serve both readers: the command used to
+/// answer the stack alone, which the Typography panel compared with ids, so
+/// its "selected" mark never matched anything.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorFont {
+    pub id: String,
+    pub stack: String,
+}
+
+impl From<&FontEntry> for EditorFont {
+    fn from(entry: &FontEntry) -> Self {
+        Self {
+            id: entry.id.clone(),
+            stack: entry.stack.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -184,10 +207,23 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_stored_font_falls_back_rather_than_failing() {
-        // Settings could name a font a later catalogue dropped.
-        let fallback = stack_for("a-font-that-was-removed").unwrap();
-        assert_eq!(fallback, find("system-serif").unwrap().stack);
-        assert_eq!(stack_for("system-mono").unwrap(), find("system-mono").unwrap().stack);
+    fn a_stored_id_resolves_to_itself_and_an_unknown_one_to_the_default() {
+        assert_eq!(resolve("system-mono").unwrap(), find("system-mono").unwrap());
+        // Settings could name a font a later catalogue dropped, or hold a
+        // value that was never an id. Either falls back rather than failing,
+        // and the answer names the face it fell back to.
+        for stored in ["a-font-that-was-removed", "\"Iowan Old Style\", serif", ""] {
+            let fallback = resolve(stored).unwrap();
+            assert_eq!(fallback.id, "system-serif", "{stored:?}");
+            assert_eq!(fallback.stack, find("system-serif").unwrap().stack, "{stored:?}");
+        }
+    }
+
+    #[test]
+    fn an_editor_font_carries_its_entry_s_id_and_stack() {
+        let entry = find("source-serif-4").unwrap();
+        let font = EditorFont::from(entry);
+        assert_eq!(font.id, "source-serif-4");
+        assert_eq!(font.stack, entry.stack);
     }
 }

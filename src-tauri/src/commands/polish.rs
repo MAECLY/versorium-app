@@ -42,21 +42,30 @@ pub fn fonts_catalog() -> Result<&'static fonts::FontCatalog, String> {
     fonts::catalog()
 }
 
-/// The CSS stack the editor should apply, resolved from the stored id.
-#[tauri::command]
-pub fn editor_font(state: tauri::State<SettingsStore>) -> String {
-    fonts::stack_for(&state.get().editor_font).unwrap_or_default()
+/// The face settings hold, resolved: the id the Typography panel marks and the
+/// stack the editor applies. A stored id the catalogue no longer has (or a
+/// value that was never an id) answers the default face, under its own id, so
+/// the mark and the page agree on it.
+fn current_font(store: &SettingsStore) -> Result<fonts::EditorFont, String> {
+    fonts::resolve(&store.get().editor_font).map(fonts::EditorFont::from)
 }
 
-/// Choose a font. Only ids the catalogue knows are accepted, so settings can
-/// never name something the editor cannot render.
+/// Choose a face. Only ids the catalogue knows are kept, so settings can never
+/// name something the editor cannot render; the answer is what was kept.
+fn choose_font(store: &SettingsStore, id: &str) -> Result<fonts::EditorFont, String> {
+    let entry = fonts::find(id).ok_or_else(|| "bad_args".to_string())?;
+    store.update(|s| s.editor_font = entry.id.clone());
+    Ok(entry.into())
+}
+
 #[tauri::command]
-pub fn set_editor_font(state: tauri::State<SettingsStore>, id: String) -> Result<String, String> {
-    if fonts::find(&id).is_none() {
-        return Err("bad_args".into());
-    }
-    state.update(|s| s.editor_font = id.clone());
-    fonts::stack_for(&id)
+pub fn editor_font(state: tauri::State<SettingsStore>) -> Result<fonts::EditorFont, String> {
+    current_font(&state)
+}
+
+#[tauri::command]
+pub fn set_editor_font(state: tauri::State<SettingsStore>, id: String) -> Result<fonts::EditorFont, String> {
+    choose_font(&state, &id)
 }
 
 #[cfg(test)]
@@ -65,18 +74,10 @@ mod tests {
     use crate::commands::settings::Settings;
 
     /// The command layer takes `tauri::State`, which a unit test cannot build.
-    /// These exercise the same rules against the store directly — the commands
-    /// above are three-line wrappers over exactly this.
+    /// The two font commands are one-line wrappers over `current_font` and
+    /// `choose_font`, which these call with a store of their own.
     fn store(dir: &std::path::Path) -> SettingsStore {
         SettingsStore::load(dir.join("settings.json"))
-    }
-
-    fn set_font(store: &SettingsStore, id: &str) -> Result<String, String> {
-        if fonts::find(id).is_none() {
-            return Err("bad_args".into());
-        }
-        store.update(|s| s.editor_font = id.to_string());
-        fonts::stack_for(id)
     }
 
     #[test]
@@ -93,14 +94,72 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = store(dir.path());
 
-        let stack = set_font(&store, "system-mono").unwrap();
-        assert!(stack.contains("monospace"));
+        let chosen = choose_font(&store, "system-mono").unwrap();
+        assert!(chosen.stack.contains("monospace"));
         assert_eq!(store.get().editor_font, "system-mono");
 
         // A font we do not ship must not reach settings, or the editor would
         // fall back silently and the panel would lie about what is applied.
-        assert_eq!(set_font(&store, "comic-sans").unwrap_err(), "bad_args");
+        assert_eq!(choose_font(&store, "comic-sans").unwrap_err(), "bad_args");
         assert_eq!(store.get().editor_font, "system-mono", "the rejected id changed nothing");
+    }
+
+    #[test]
+    fn choosing_a_font_answers_what_was_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(dir.path());
+        let chosen = choose_font(&store, "source-serif-4").unwrap();
+        // The answer is the face now in settings, read back the way the next
+        // launch reads it: the panel marks it and the page renders it.
+        assert_eq!(chosen, current_font(&store).unwrap());
+        let reloaded = SettingsStore::load(dir.path().join("settings.json"));
+        assert_eq!(current_font(&reloaded).unwrap(), chosen);
+        assert_eq!(chosen.id, "source-serif-4");
+    }
+
+    #[test]
+    fn the_editor_font_answers_the_id_settings_hold_and_its_stack() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(dir.path());
+        store.update(|s| s.editor_font = "source-serif-4".into());
+        let font = current_font(&store).unwrap();
+        // The id is what Typography compares with its rows; the stack is what
+        // the page applies. The command used to answer the stack in both
+        // places, so the panel's mark never matched a row.
+        assert_eq!(font.id, store.get().editor_font);
+        assert_ne!(font.id, font.stack);
+        assert_eq!(font.stack, fonts::find("source-serif-4").unwrap().stack);
+    }
+
+    #[test]
+    fn a_settings_file_naming_a_dropped_or_garbled_font_shows_and_renders_the_default() {
+        let default = fonts::find("system-serif").unwrap();
+        // A face a later catalogue dropped; a stack where an id belongs, which
+        // no build wrote but a hand edit could; and a file from before fonts.
+        for file in [
+            r#"{"editorFont":"comic-sans","theme":"needle"}"#,
+            r#"{"editorFont":"\"Iowan Old Style\", Palatino, serif","theme":"needle"}"#,
+            r#"{"theme":"needle"}"#,
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("settings.json");
+            std::fs::write(&path, file).unwrap();
+            let store = SettingsStore::load(path);
+            assert_eq!(store.get().theme, "needle", "the rest of the file still loads: {file}");
+            let font = current_font(&store).unwrap();
+            assert_eq!(font.id, default.id, "{file}");
+            assert_eq!(font.stack, default.stack, "{file}");
+        }
+    }
+
+    #[test]
+    fn the_editor_font_wire_shape_is_id_and_stack() {
+        let font = current_font(&store(tempfile::tempdir().unwrap().path())).unwrap();
+        let wire = serde_json::to_value(&font).unwrap();
+        let keys: Vec<&str> = wire.as_object().unwrap().keys().map(String::as_str).collect();
+        // src/lib/tauri.ts reads exactly these: `EditorFont { id, stack }`.
+        assert_eq!(keys, ["id", "stack"]);
+        assert_eq!(wire["id"], "system-serif");
     }
 
     #[test]
