@@ -35,8 +35,15 @@ export function t(key: string, params?: Record<string, string | number>): string
  * it is read by whoever opens the book.
  */
 export function tIn(language: string, key: string): string {
-  const which: Locale = language.toLowerCase().startsWith("es") ? "es" : "en";
-  return lookup(dicts[which], key) ?? lookup(dicts.en, key) ?? key;
+  return lookup(dicts[localeOf(language)], key) ?? lookup(dicts.en, key) ?? key;
+}
+
+/**
+ * The dictionary `tIn` answers from for a language: Spanish for any `es`
+ * tag, English for everything else. Also the `lang` of what it answers.
+ */
+export function localeOf(language: string): Locale {
+  return language.toLowerCase().startsWith("es") ? "es" : "en";
 }
 
 export function getLocale(): Locale {

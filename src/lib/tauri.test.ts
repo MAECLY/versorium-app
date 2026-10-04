@@ -19,4 +19,10 @@ it("wraps structured Rust command arguments", async () => {
   // A face is chosen by its catalogue id, never by its stack.
   await api.setEditorFont("source-serif-4");
   expect(invoke).toHaveBeenLastCalledWith("set_editor_font", { id: "source-serif-4" });
+  // A project patch travels as Rust's named arguments, and only what it holds.
+  await api.updateProject("/novels/test", { language: "es" });
+  expect(invoke).toHaveBeenLastCalledWith("update_project", { path: "/novels/test", language: "es" });
+  // An import carries the language the dialog settled on.
+  await api.importApply("/in/book.md", "Book", "es");
+  expect(invoke).toHaveBeenLastCalledWith("import_apply", { source: "/in/book.md", title: "Book", language: "es" });
 });

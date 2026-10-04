@@ -1,5 +1,5 @@
 import { api, isTauri, type ChapterMeta,
-  type ChapterStatus, type Project } from "$lib/tauri";
+  type ChapterStatus, type Project, type ProjectPatch } from "$lib/tauri";
 import { t } from "$lib/i18n";
 import { notices } from "$lib/notices/state.svelte";
 
@@ -41,7 +41,7 @@ export class BinderStore {
   /** Rename a novel, or set its author. The folder does not move. */
   async renameProject(path: string, title: string): Promise<void> {
     await this.run("binder.renameProject", async () => {
-      const meta = await api.updateProject(path, title);
+      const meta = await api.updateProject(path, { title });
       if (this.project?.path === path) this.project = { ...this.project, meta };
       await this.refreshProjects();
     });
@@ -117,8 +117,24 @@ export class BinderStore {
    * asked is modal, and a notice would sit behind its backdrop, unread.
    */
   async setExportMatter(path: string, cover: boolean, colophon: boolean): Promise<string | null> {
+    return this.patchProject(path, { exportCover: cover, exportColophon: colophon });
+  }
+
+  /**
+   * The language a novel is written in, which every export declares.
+   *
+   * Same contract as setExportMatter: a failure comes back to the dialog that
+   * asked. The open editor follows on its own: MarkdownEditor reconfigures its
+   * `lang` when `project.meta.language` changes, without being rebuilt.
+   */
+  async setProjectLanguage(path: string, language: string): Promise<string | null> {
+    return this.patchProject(path, { language });
+  }
+
+  /** Write to versorium.json, then hand the answer to the list and the open project. */
+  private async patchProject(path: string, patch: ProjectPatch): Promise<string | null> {
     try {
-      const meta = await api.updateProject(path, undefined, undefined, cover, colophon);
+      const meta = await api.updateProject(path, patch);
       this.projects = this.projects.map((p) => (p.path === path ? { ...p, meta } : p));
       if (this.project?.path === path) this.project = { ...this.project, meta };
       return null;

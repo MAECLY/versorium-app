@@ -26,6 +26,8 @@ interface Chapter {
   file: string;
   mtime: number;
   body: string;
+  /** `synopsis:` in the chapter's frontmatter, as a Scrivener import keeps it. */
+  synopsis?: string;
 }
 
 interface Commit {
@@ -99,7 +101,15 @@ interface MockGitHub {
 }
 
 interface ImportedChapter { title: string; body: string; synopsis: string | null }
-interface Imported { title: string; chapters: ImportedChapter[]; warnings: string[] }
+interface Imported {
+  title: string;
+  /** The source's language when a novel can take it; null when it gives none. */
+  language: string | null;
+  /** The tag as the source wrote it, usable or not. */
+  declaredLanguage: string | null;
+  chapters: ImportedChapter[];
+  warnings: string[];
+}
 
 interface ModelCard {
   id: string; family: string; label: string; task: string; tier: string;
@@ -235,9 +245,18 @@ const failures: Record<string, string> = {};
 
 const GB = 1024 ** 3;
 
+/// What `importer_for` in src-tauri/src/commands/formats.rs reads, for the
+/// preview and the apply alike: `.txt` is Markdown there, though the picker
+/// does not offer it.
+const IMPORTABLE = /\.(md|markdown|txt|docx|scriv|epub)$/i;
+
 /// What a Scrivener import would surface: chapters plus what could not cross.
+/// A spec may change it (`__VERSORIUM_MOCK__.importPreview`) before choosing a
+/// file: a Scrivener project names no language, so neither does this.
 const importPreview: Imported = {
   title: "The Salt Road",
+  language: null,
+  declaredLanguage: null,
   chapters: [
     { title: "A door in the rain", body: "It rained for three days.", synopsis: "She leaves." },
     { title: "North", body: "## Morning\n\nThe road bent north.", synopsis: null },
@@ -536,8 +555,22 @@ function sha(): string {
 }
 
 function publicChapter(c: Chapter) {
-  const { body: _body, ...meta } = c;
+  const { body: _body, synopsis: _synopsis, ...meta } = c;
   return meta;
+}
+
+/** Mirrors `LANGUAGES` in src-tauri/src/commands/project.rs. */
+const LANGUAGES = ["en", "es"];
+
+/**
+ * Mirrors `language_code` in Rust: the code a tag names when a novel can take
+ * it (`es-MX` and `ES_mx` are `es`), or null.
+ */
+function languageCode(raw: unknown): string | null {
+  const tag = String(raw ?? "").trim().toLowerCase().replace(/_/g, "-");
+  if (!/^[a-z]{2,3}(-[a-z0-9]{1,8})*$/.test(tag)) return null;
+  const primary = tag.split("-")[0];
+  return LANGUAGES.includes(primary) ? primary : null;
 }
 
 function publicProject(p: ProjectState) {
@@ -603,9 +636,11 @@ const commands: Record<string, (args: Args) => unknown> = {
       }),
 
   create_project: ({ args }) => {
-    const { path, title, language } = args as { path: string; title: string; language: string };
+    const { path, title, language: raw } = args as { path: string; title: string; language: string };
     const clean = title.trim();
     if (!clean) throw "empty_title";
+    const language = languageCode(raw);
+    if (!language) throw "bad_language";
     const root = `${path}/${slugify(clean)}`;
     if (projects.has(root)) throw "project_exists";
     const p: ProjectState = {
@@ -654,7 +689,9 @@ const commands: Record<string, (args: Args) => unknown> = {
   read_chapter: ({ args }) => {
     const { path, file } = args as { path: string; file: string };
     const c = chapter(project(path), file);
-    return { frontmatter: { id: c.id, title: c.title, status: c.status, words: String(c.words) }, body: c.body };
+    const frontmatter: Record<string, string> = { id: c.id, title: c.title, status: c.status, words: String(c.words) };
+    if (c.synopsis) frontmatter.synopsis = c.synopsis;
+    return { frontmatter, body: c.body };
   },
 
   save_chapter: ({ path, file, body, status }) => {
@@ -691,19 +728,23 @@ const commands: Record<string, (args: Args) => unknown> = {
     return { ...settings, editor: { ...settings.editor }, layout: { ...settings.layout } };
   },
 
-  update_project: ({ path, title, author, exportCover, exportColophon }) => {
+  update_project: ({ path, title, author, exportCover, exportColophon, language }) => {
     const p = project(String(path));
+    // Every check before any write, as in Rust: a refused call changes nothing.
+    if (title != null && !String(title).trim()) throw "empty_title";
+    const code = language == null ? null : languageCode(language);
+    if (language != null && !code) throw "bad_language";
+    if (title == null && author == null && exportCover == null && exportColophon == null && language == null) {
+      throw "bad_args";
+    }
     if (title !== undefined && title !== null) {
-      if (!String(title).trim()) throw "empty_title";
       p.meta.title = String(title).trim();
     }
+    if (code) p.meta.language = code;
     if (author !== undefined && author !== null) p.meta.author = String(author).trim();
     if (exportCover !== undefined && exportCover !== null) p.meta.exportCover = Boolean(exportCover);
     if (exportColophon !== undefined && exportColophon !== null) {
       p.meta.exportColophon = Boolean(exportColophon);
-    }
-    if (title == null && author == null && exportCover == null && exportColophon == null) {
-      throw "bad_args";
     }
     return { ...p.meta };
   },
@@ -712,7 +753,7 @@ const commands: Record<string, (args: Args) => unknown> = {
   delete_project: ({ path }) => {
     if (!projects.has(String(path))) throw "not_found";
     projects.delete(String(path));
-    return [...projects.values()].map((p) => ({ path: p.path, meta: { ...p.meta }, chapters: p.chapters.map((c) => ({ ...c })) }));
+    return [...projects.values()].map((p) => ({ ...publicProject(p), meta: { ...p.meta } }));
   },
   update_chapter: ({ path, file, title, status }) => {
     const p = project(String(path));
@@ -726,7 +767,7 @@ const commands: Record<string, (args: Args) => unknown> = {
       if (!["draft", "revised", "final"].includes(String(status))) throw "bad_args";
       c.status = String(status);
     }
-    return { ...c };
+    return publicChapter(c);
   },
   reorder_chapters: ({ path, ids }) => {
     const p = project(String(path));
@@ -739,7 +780,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     const named = p.chapters.filter((c) => wanted.includes(c.id));
     named.sort((a, b) => wanted.indexOf(a.id) - wanted.indexOf(b.id));
     p.chapters = [...named, ...p.chapters.filter((c) => !wanted.includes(c.id))];
-    return p.chapters.map((c) => ({ ...c }));
+    return p.chapters.map(publicChapter);
   },
 
   delete_chapter: ({ path, file }) => {
@@ -756,7 +797,7 @@ const commands: Record<string, (args: Args) => unknown> = {
       if (error !== "nothing_to_commit") throw error;
     }
     p.chapters.splice(index, 1);
-    return p.chapters.map((c) => ({ ...c }));
+    return p.chapters.map(publicChapter);
   },
 
   git_status: ({ path }) => {
@@ -942,12 +983,35 @@ const commands: Record<string, (args: Args) => unknown> = {
     return { ...lastExport };
   },
   import_preview: ({ source }) => {
-    const name = String(source);
-    if (!/\.(md|markdown|docx|scriv|epub)$/i.test(name)) throw "unsupported_source";
+    if (!IMPORTABLE.test(String(source))) throw "unsupported_source";
     return JSON.parse(JSON.stringify(importPreview));
   },
-  import_apply: ({ source: _source, title }) =>
-    commands.create_project({ args: { path: PROJECTS_DIR, title, language: "en" } }),
+  // Mirrors `import_into`: the language checked before anything is read, the
+  // previewed chapters in place of the placeholder, and each synopsis kept on
+  // its chapter.
+  import_apply: ({ source, title, language }) => {
+    const code = languageCode(language);
+    if (!code) throw "bad_language";
+    if (!IMPORTABLE.test(String(source))) throw "unsupported_source";
+    const imported = JSON.parse(JSON.stringify(importPreview)) as Imported;
+    if (imported.chapters.length === 0) throw "empty_document";
+    const chosen = String(title ?? "").trim() || imported.title;
+    const created = commands.create_project({ args: { path: PROJECTS_DIR, title: chosen, language: code } }) as {
+      path: string;
+    };
+    const p = project(created.path);
+    p.chapters = imported.chapters.map((c, i) => {
+      const synopsis = (c.synopsis ?? "").replace(/\r\n?/g, "\n").trim();
+      return {
+        ...newChapter(i + 1, c.title),
+        body: c.body,
+        words: countWords(c.body),
+        ...(synopsis ? { synopsis } : {}),
+      };
+    });
+    for (const c of p.chapters) p.dirty.add(c.file);
+    return publicProject(p);
+  },
   set_author: ({ path, author }) => {
     const project = projects.get(String(path));
     if (!project) throw "not_found";
@@ -1282,6 +1346,24 @@ const commands: Record<string, (args: Args) => unknown> = {
 
 let nextCallback = 1;
 
+/**
+ * Commands whose next call waits until a spec releases it, by name: how a
+ * spec acts while an answer from Rust is still on its way. The call is in
+ * `calls` as soon as it is made.
+ */
+const holds = new Map<string, { taken: boolean; open: Promise<void>; release: () => void }>();
+
+function hold(cmd: string): void {
+  let release = () => {};
+  const open = new Promise<void>((resolve) => (release = resolve));
+  holds.set(cmd, { taken: false, open, release });
+}
+
+function release(cmd: string): void {
+  holds.get(cmd)?.release();
+  holds.delete(cmd);
+}
+
 const internals = {
   metadata: {
     currentWindow: { label: "main" },
@@ -1310,6 +1392,11 @@ const internals = {
   },
   async invoke(cmd: string, args: Args = {}): Promise<unknown> {
     calls.push({ cmd, args });
+    const held = holds.get(cmd);
+    if (held && !held.taken) {
+      held.taken = true;
+      await held.open;
+    }
     if (cmd in failures) throw failures[cmd];
     const handler = commands[cmd];
     if (!handler) {
@@ -1356,6 +1443,11 @@ declare global {
       listening: typeof listening;
       /** The font catalogue `fonts_catalog` answers; a spec may add a face to it. */
       fonts: typeof fonts;
+      /** What the next import preview reads; a spec may give it a language. */
+      importPreview: Imported;
+      /** Make the next call of a command wait, and let it go. */
+      hold: typeof hold;
+      release: typeof release;
     };
   }
 }
@@ -1363,8 +1455,13 @@ declare global {
 // `?mock=tauri&seed=2` starts with novels already on disk and none open — the
 // state a returning writer actually sees, which no test could reach before
 // because creating a project also opens it.
+//
+// `&seedLanguage=fr` gives them that language as a hand-edited
+// versorium.json would hold it, which create_project itself refuses.
 {
-  const seed = Number(new URLSearchParams(location.search).get("seed") ?? 0);
+  const params = new URLSearchParams(location.search);
+  const seed = Number(params.get("seed") ?? 0);
+  const seedLanguage = params.get("seedLanguage");
   for (let i = 0; i < seed; i += 1) {
     const created = commands.create_project({
       args: { path: PROJECTS_DIR, title: `Novela ${i + 1}`, language: "es" },
@@ -1372,6 +1469,7 @@ declare global {
     // Staggered so "most recently written" has an unambiguous answer.
     const p = projects.get(created.path);
     if (p) for (const c of p.chapters) c.mtime = 1_790_000_000 + i * 3600;
+    if (p && seedLanguage) p.meta.language = seedLanguage;
   }
 }
 
@@ -1384,7 +1482,7 @@ window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
     projects, settings, calls, failures, agents, mcpClients, mcpLog, models, slots, update, github, crashes,
-    backup, setBackupRunning, holdBackup, releaseBackup, emit, listening, fonts,
+    backup, setBackupRunning, holdBackup, releaseBackup, emit, listening, fonts, importPreview, hold, release,
     get relaunched() {
       return relaunched;
     },

@@ -49,6 +49,16 @@ export interface Project {
   chapters: ChapterMeta[];
 }
 
+/** What `update_project` may change; a key left out is left alone. */
+export interface ProjectPatch {
+  title?: string;
+  author?: string;
+  exportCover?: boolean;
+  exportColophon?: boolean;
+  /** One of the codes a novel can take (`src/lib/i18n/languages.ts`); Rust refuses any other. */
+  language?: string;
+}
+
 export interface AppInfo {
   version: string;
   os: string;
@@ -496,6 +506,10 @@ export interface ImportedChapter {
 
 export interface Imported {
   title: string;
+  /** The novel's language as the source declares it, when a novel can take it. */
+  language: string | null;
+  /** The tag the source wrote, whether or not it could be used. */
+  declaredLanguage: string | null;
   chapters: ImportedChapter[];
   /** What the source held that Versorium could not carry across. */
   warnings: string[];
@@ -669,14 +683,8 @@ export const api = {
   updateRelaunch: () => invoke<void>("update_relaunch"),
 
   // --- editing a novel and its chapters ---
-  updateProject: (
-    path: string,
-    title?: string,
-    author?: string,
-    exportCover?: boolean,
-    exportColophon?: boolean,
-  ) =>
-    invoke<ProjectMeta>("update_project", { path, title, author, exportCover, exportColophon }),
+  updateProject: (path: string, patch: ProjectPatch) =>
+    invoke<ProjectMeta>("update_project", { path, ...patch }),
   /** Moves the folder to the system trash; returns what is left. */
   deleteProject: (path: string, parent: string) =>
     invoke<Project[]>("delete_project", { path, parent }),
@@ -730,8 +738,9 @@ export const api = {
   exportManuscript: (path: string, format: ExportFormat, dest: string, labels?: ExportLabels) =>
     invoke<ExportResult>("export_manuscript", { path, format, dest, labels }),
   importPreview: (source: string) => invoke<Imported>("import_preview", { source }),
-  importApply: (source: string, title: string) =>
-    invoke<Project>("import_apply", { source, title }),
+  /** `language` is the one the dialog settled on; the source's own is only a preset. */
+  importApply: (source: string, title: string, language: string) =>
+    invoke<Project>("import_apply", { source, title, language }),
   setAuthor: (path: string, author: string) =>
     invoke<ProjectMeta>("set_author", { path, author }),
 

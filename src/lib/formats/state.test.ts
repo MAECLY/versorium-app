@@ -24,6 +24,8 @@ const written: ExportResult = {
 };
 const preview: Imported = {
   title: "The Long Winter",
+  language: null,
+  declaredLanguage: null,
   chapters: [{ title: "One", body: "## Scene\n\nUna frase corta.", synopsis: null }],
   warnings: ["import_docx_formatting_dropped"],
 };
@@ -97,15 +99,15 @@ it("a Scrivener import picks a bundle directory rather than a file", async () =>
   expect(formats.source).toBe("/in/Novel.scriv");
 });
 
-it("applying an import uses the previewed source and the title the writer confirmed", async () => {
+it("applying an import uses the previewed source, and the title and language the writer confirmed", async () => {
   vi.mocked(api.pickImportFile).mockResolvedValue("/in/novel.md");
   vi.mocked(api.importPreview).mockResolvedValue(preview);
   vi.mocked(api.importApply).mockResolvedValue({ path: "/novels/renamed" } as Project);
 
   await formats.pickAndPreview("file");
-  const path = await formats.applyImport("Renamed");
+  const path = await formats.applyImport("Renamed", "es");
 
-  expect(api.importApply).toHaveBeenCalledWith("/in/novel.md", "Renamed");
+  expect(api.importApply).toHaveBeenCalledWith("/in/novel.md", "Renamed", "es");
   expect(path).toBe("/novels/renamed");
   // The preview is spent once it has become a project.
   expect(formats.preview).toBeNull();
@@ -113,7 +115,7 @@ it("applying an import uses the previewed source and the title the writer confir
 });
 
 it("applying without a preview does nothing", async () => {
-  expect(await formats.applyImport("Whatever")).toBeNull();
+  expect(await formats.applyImport("Whatever", "en")).toBeNull();
   expect(api.importApply).not.toHaveBeenCalled();
 });
 
@@ -123,7 +125,7 @@ it("a failed import keeps the preview so the writer can retry", async () => {
   vi.mocked(api.importApply).mockRejectedValue("project_exists");
 
   await formats.pickAndPreview("file");
-  const path = await formats.applyImport("The Long Winter");
+  const path = await formats.applyImport("The Long Winter", "en");
 
   expect(path).toBeNull();
   expect(formats.error).toBe("A project with that name already exists.");

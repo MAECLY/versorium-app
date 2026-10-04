@@ -1076,6 +1076,29 @@ input[type="number"] {
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev));
 }
 
+/* A card's words (Corkboard.svelte, src/lib/binder/cardText.ts). The writer's
+   synopsis is set as their own text, line breaks and all; an excerpt of the
+   chapter, standing in for a synopsis nobody wrote, is muted and in italics,
+   the way a quotation is set apart. Muted a little less than --text-mute:
+   on the open chapter's tinted card that fell to 3.9:1 (Folio dark), and
+   this is small text, which AA holds to 4.5:1. */
+.v-corkcard-text {
+  flex: 1;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text-mute) 75%, var(--text));
+}
+
+.v-corkcard-text[data-card-text="synopsis"] {
+  color: var(--text);
+  white-space: pre-line;
+}
+
+.v-corkcard-text[data-card-text="opening"] {
+  font-style: italic;
+}
+
 /* ---------------------------------------------------------------- menus
 
    Menu.svelte: the binder's ⋯, a card's right-click, Focus options. Placed

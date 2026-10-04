@@ -69,13 +69,16 @@ export class FormatsStore {
     });
   }
 
-  /** Create the project the preview described. Returns its path on success. */
-  async applyImport(title: string): Promise<string | null> {
+  /**
+   * Create the project the preview described, in the language the writer
+   * settled on. Returns its path on success.
+   */
+  async applyImport(title: string, language: string): Promise<string | null> {
     const source = this.source;
     if (!source) return null;
     let path: string | null = null;
     await this.run(async () => {
-      const project = await api.importApply(source, title);
+      const project = await api.importApply(source, title, language);
       path = project.path;
       this.discardPreview();
     });
