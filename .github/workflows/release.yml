@@ -95,7 +95,12 @@ jobs:
       # Do NOT reach for GGML_CPU_ALL_VARIANTS here: ggml FATAL_ERRORs with
       # "requires GGML_BACKEND_DL", which only the crate's dynamic-backends
       # feature sets, and that feature also forces a shared-library build.
-      RUSTFLAGS: ${{ contains(matrix.args, 'aarch64') && '' || '-C target-cpu=x86-64-v2' }}
+      #
+      # Written as `!aarch64 && flag || ''`, not `aarch64 && '' || flag`: an
+      # empty string is falsy in Actions expressions, so the second form gave
+      # the Apple silicon build the x86 flag too, and ring's NEON checks (and,
+      # on 1.99, LLVM itself) failed on it.
+      RUSTFLAGS: ${{ !contains(matrix.args, 'aarch64') && '-C target-cpu=x86-64-v2' || '' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -157,10 +162,10 @@ jobs:
           install_runtime: true
           cache: true
 
-      # Pinned, not stable: rustc 1.99.0 (2026-09-28) crashes in LLVM's AArch64
-      # cost model (SIGSEGV) compiling icu_locale_core for Apple silicon, on
-      # two runs out of two. 1.97.1 is the toolchain the app is developed and
-      # tested with. Move the pin deliberately, after a release build passes.
+      # Pinned to the toolchain the app is developed and tested with, so a
+      # release is built the way it was tested. (The SIGSEGV first blamed on
+      # 1.99.0 came from the x86 RUSTFLAGS reaching the aarch64 build; see
+      # above.) Move the pin deliberately, after a release build passes.
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.97.1"
