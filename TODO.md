@@ -26,8 +26,9 @@ spec items that already have a slot or a surface in the app.
 The shared primitives exist in `src/lib/components/forms/` — `Field`,
 `TextField`, `NumberField`, `Select`, `Checkbox`. So far they are used in
 `AuthorSection.svelte`, `ProjectSettingsDialog.svelte`, the backup retention
-count in `BackupGroup.svelte`, the per-slot model picker in
-`LocalAiSection.svelte` and the import's language picker in
+count in `BackupGroup.svelte`, every control on Settings → Tasks, Models,
+Access to your novel and Activity (`src/lib/settings/groups/`,
+`src/lib/settings/models/`) and the import's language picker in
 `ManuscriptDialog.svelte`.
 
 The stylesheet (`src/styles.css`) already fixes how every native control
@@ -36,24 +37,20 @@ text-field padding on checkboxes, `color-scheme` per theme. The chevron needs
 the `.v-select` wrapper, and every hand-written `<select>` already has one.
 What the remaining call sites still lack is the wiring: the hint as
 `aria-describedby` instead of inside the `<label>` or in an unconnected `<p>`,
-and a status readout outside the accessible name. Two checkboxes carry their
-status inside the `<label>`, so it becomes part of the name: the censorship
-checkbox in `LocalAiGroup.svelte` reads "Censorship — On" / "Censorship —
-Off", and the MCP write checkbox in `AssistantsGroup.svelte` reads "Allow
-write — write" / "Allow write — Read-only".
+and a status readout outside the accessible name. (The two checkboxes that
+carried their status inside the `<label>`, "Censorship — On" and "Allow
+write — Read-only", went with the Settings redesign: one is "Show uncensored
+models", the other a button and a dialog.)
 
-Still hand-written, 25 control tags in 14 files:
+Still hand-written, 17 control tags in 11 files:
 
 | File | Controls |
 |---|---|
-| `src/lib/settings/LocalAiSection.svelte` | 5 |
 | `src/lib/components/ManuscriptDialog.svelte` | 3 |
-| `src/lib/settings/groups/AssistantsGroup.svelte` | 2 |
 | `src/lib/settings/UpdatesSection.svelte` | 2 |
 | `src/lib/onboarding/Onboarding.svelte` | 2 |
 | `src/lib/components/GitPanel.svelte` | 2 |
 | `src/lib/binder/NewProjectDialog.svelte` | 2 |
-| `src/lib/settings/groups/LocalAiGroup.svelte` | 1 |
 | `src/lib/settings/groups/BackupGroup.svelte` | 1 |
 | `src/lib/settings/groups/AppearanceGroup.svelte` | 1 |
 | `src/lib/settings/groups/AppGroup.svelte` | 1 |
@@ -70,9 +67,9 @@ grep -ro '<select\|<input\|<textarea' src/lib src/App.svelte | grep -v component
 
 The local-server port was one of them, and had a live bug: a bare
 `<input type="number" bind:value>`, which Svelte binds as `null` when emptied,
-feeding `studio_test` / `studio_save` that take `port: u16`. It now uses
-`NumberField`, pinned by `tests/e2e/forms.spec.ts`. The table above counts
-25 tags after that change, not 26.
+feeding `studio_test` / `studio_save` that take `port: u16`. It uses
+`NumberField`, pinned by `tests/e2e/forms.spec.ts` (now on Settings → Models
+→ Local server).
 
 Two things to keep while migrating, both caught in review:
 
@@ -149,17 +146,117 @@ to the product is not in the repository: the oldest document is the original
 product prompt, `PROMPT-APP-NOVELA-DESKTOP.md` (2026-09-11), which still sits
 outside it.
 
-### Settings: redesign Local AI and Assistants, and group the sidebar
+### Settings, regrouped: the checks no automation reaches, and what it left
 
-Requested on 2026-10-04. Local AI and Assistants are hard to understand: too
-much on one page, different kinds of thing mixed together. Study both as they
-are, research how comparable apps present model management and connected
-tools, and redesign them — possibly split into more pages, or a second or
-third level in the Settings sidebar. The sidebar itself should be grouped into
-categories so each page's purpose is clear; today all seven groups sit at one
-level. Research and design first. The collapsible binder/top bar work it
-waited on is in (2026-10-04); it touched `SettingsPage.svelte` only to drop
-the old Focus fade from the rail.
+Built on 2026-10-04 (see "Settings, regrouped" in `STATUS.md`; the spec is
+`~/Documents/Github/.versorium-design/versorium-settings-redesign/SPEC.md`,
+outside the repo). Playwright drives it in Chrome on the mocked IPC; the real
+webviews and a real server are still to be checked by hand:
+
+- **macOS, VoiceOver:** the rail reads as a navigation with four labelled
+  lists, the current page as "current page"; a page title is announced when a
+  page opens; the Allow writing… dialog is announced as an alert, with its
+  first paragraph; a task's select is read with the line under it.
+- **Windows, WebView2:** a closed select changes on every arrow key there. The
+  status line is announced once, 400 ms after the last change, and every
+  change is saved in order with the last one standing (`ModelsStore.setSlot`
+  chains them); neither has been heard or seen on WebView2.
+- **A real LM Studio or llama-server:** saved, its models listed, a rewrite
+  through `POST /v1/chat/completions` and a continuity check, and a server that
+  stops answering mid-session. Proven against a loopback fake in Rust
+  (`agents::tests::FakeServer`) and the mock, not against either app.
+- **The local server's address is free text**, so it can name another machine.
+  Settings and the Rewrite dialog say so ("The passage goes to the server at
+  {address}", "On the server at {address}" in Your models, the Network badge),
+  and the one-click offer never picks it. Saving the server at another
+  computer's address releases the tasks that ran on it, with a notice that
+  says so (`studio_save_in`; a new port, or another name for this computer,
+  keeps them), so a task chosen for this computer never follows the server to
+  another one. The alternative, refusing anything but a loopback address in
+  Rust, is the owner's call.
+- **macOS, the Tab order:** WebKit reaches a button with Tab only when Full
+  Keyboard Access is on (Safari: "Press Tab to highlight each item"), so on a
+  Mac without it Tab skips the rail's pages, as it skips every button in the
+  app; Option-Tab reaches them. Playwright's WebKit shows it: "every page is
+  reachable with Tab" in `settings-nav.spec.ts` fails there, and passes in
+  Chrome, the gate's engine. Not checked in the app. The Manuscript ›
+  Continuity link in Tasks takes focus before it opens the dialog, so Escape
+  hands it back in WebKit too (WebKit does not focus a clicked button).
+- **"Run it from Manuscript › Continuity" with no model chosen** opens a tab
+  whose button is disabled and whose link ("Choose one in Settings ›") leads
+  back. The spec's wireframe shows the link in that state, and the tab says
+  where the check will run, so it stays; hiding it until a model is chosen is
+  a spec question.
+- **Activity's technical line is in English in Spanish too** ("412 chars",
+  a refusal's reason): it is the log as Rust writes it, which the spec asks
+  for. Saying the count in the writer's language would mean reading Rust's
+  free-form `detail` apart in the page.
+- **The ES strings were written by the build**, from the spec's drafts; the
+  Spanish of the Allow writing… dialog's first paragraph is a faithful
+  translation of the product spec's English sentence (D6), which exists only
+  in English (revised after review: "Permitir la escritura…" and "Puedes
+  volver atrás", where "Puedes revertirla" read as reverting the snapshot).
+
+### Found while building the Settings redesign, not part of it
+
+- **Author profiles are never saved in the desktop app.** Settings → Author
+  saves with `set_settings({ authorProfiles, authorProfile })`, but
+  `apply_patch` (`src-tauri/src/commands/settings.rs`) has no arm for either
+  key and no other command writes `author_profiles`, so every edit is dropped
+  while the page says "Saved.", and exports keep the empty default profile.
+  Older than the redesign (`aabe369`); the E2E tests miss it because the
+  mock's `set_settings` takes any shape. The fix: validated
+  `authorProfiles` (trimmed, field by field) and `authorProfile`
+  (`work` | `hobby`) arms, and a Rust test that sends AuthorSection's exact
+  patch through `apply_patch` and reads it back.
+- **`errors.keyring_unavailable` is in neither locale**, so Settings →
+  Application's updates token and History & backup's GitHub card show the raw
+  key when the OS credential store cannot be used (`AppGroup.svelte`,
+  `BackupGroup.svelte`). `tests/unit/settings-keys.test.ts` lists it as known
+  missing, and fails once it is written, to be taken off that list.
+- **ES `ai.checkpointNote` still says "punto de control"**, and it, together
+  with `git.commitHint` and `binder.confirm.chapterBody`, still promises a
+  roll-back the app cannot do yet. Left as they are by the owner's decision
+  (D7): they are fixed when in-app restore lands.
+- **Hand-written controls outside Settings' AI pages:** `RewriteDialog.svelte`
+  (its model picker) and `ManuscriptDialog.svelte` (three), in the table above.
+- **`docs/llms.txt` and `docs/en/details/index.html` still name "Local AI" and
+  "Assistants"**; they need the new page names once the landing work releases
+  `docs/`.
+- **`.v-section-title` (`--text-mute`, small capitals) is still used outside
+  Settings** (the binder's PROJECTS and CHAPTERS, the corkboard, dialogs). Its
+  contrast on `--bg-app` is 4.21:1 in Folio light and 4.40:1 in Quarry light
+  by the token math, under AA; measured in the rail only.
+- **Ollama's answer is not cleaned of a reasoning block**: the built-in
+  engine and the new local-server path take a `<think>…</think>` out of a
+  model's reply before it can reach a chapter
+  (`llama::runtime::strip_reasoning`); `agents::ollama_generate` does not.
+  Whether Ollama sends one depends on the model and on Ollama's version; not
+  checked.
+- **Test connection and Save ask the server differently.** `studio_test`
+  allows 5 seconds and builds its URL without brackets, so an IPv6 address
+  such as `::1` cannot be tested; Save and the tasks go through
+  `agents::server_status` (2 seconds, brackets added). A server that answers
+  in 3 seconds would test as "Answered." and save as "Saved · not answering".
+  One probe for both would settle it.
+- **A finding's kind was shown raw** ("contradiction", "note") by the old
+  continuity runner, in both languages. Manuscript → Continuity translates it
+  now (`continuity.kinds.*`); recorded because the old surface shipped that
+  way.
+- **Contrast outside Settings, measured by the verifiers:** the "· in use"
+  inside the pressed Author profile button (`AuthorSection.svelte`, a
+  `.v-muted` span in the button) is about 1.05 to 1.45:1 in all six themes;
+  the status bar's chapter and word count ("ch-01 · Novela 1", "0 words") are
+  4.21:1 in Folio light and 4.40:1 in Quarry light, the same figures as
+  `--text-mute` on `--bg-app` by the token math.
+- **Onboarding still says "this machine" and "agent tools"**
+  (`onboarding.step.machine`, `machineUnknown`, `agentsNone`,
+  `firstSceneBody`, `replayHint`), where Settings now says "this computer" and
+  "assistants".
+- **`chrome.spec.ts`, "Focus is not restored at launch"**, reads
+  `window.__VERSORIUM_MOCK__` straight after `page.goto`, the race the
+  Settings specs had: the mock is imported inside `boot()`, which can end
+  after the load event. `gotoMock` (`tests/e2e/mock-page.ts`) waits for it.
 
 ### Choose when the backup runs
 
@@ -269,11 +366,6 @@ do:
   line sits at y 850–886 in a scroller that ends at 608. HEAD without the
   notices does the same (`tests/scratch/notices-fix/typewriter-probe-base.mjs`,
   run against both). Probe: `tests/scratch/notices/typewriter-probe.mjs`.
-- **The censorship checkbox stays ticked after a save that failed**
-  (`LocalAiGroup.svelte`, `setCensorship`): it sets the state before the
-  write and never sets it back, so the box says it took while the notice says
-  it did not. The shared `Checkbox` is strictly controlled for exactly this;
-  this one is a raw `<input>`.
 
 ### Settings over the editor: the checks no automation reaches, and what it left
 
@@ -338,9 +430,6 @@ gate) and in Playwright's WebKit; the real webviews are still to be checked:
 - **The manuscript's editing host is named "Chapters"**
   (`role="textbox"` and `aria-label={t("binder.chapters")}` in
   `MarkdownEditor.svelte`).
-- **`SettingsPage.svelte` binds `bind:this={buttons[i]}` to a plain array**,
-  and Svelte warns about it in the dev console on every visit
-  (`binding_property_non_reactive`).
 - **A hand-edited `editorFont` that is not a string** (a number, `null`)
   costs the whole settings.json, going by the code: serde rejects the file
   and `SettingsStore::load` falls back to every default, not only the face's.
@@ -480,13 +569,6 @@ warning and checkpoint), in search, and in the corkboard; and how notes look
 in the editor (margin markers, highlight, a side panel) without disturbing the
 writing. i18n EN+ES; no note text in crash logs.
 
-### The local server cannot be given to a task
-
-Settings → Local AI → Local server lets you test and save an
-OpenAI-compatible endpoint, but `SLOT_KINDS` in
-`src-tauri/src/commands/settings.rs` is `none | builtin | ollama | cli`, so no
-task can use it and nothing dispatches to it. The interface now says so.
-
 ### Synopses are kept and shown, but nothing writes one
 
 A Scrivener import keeps each document's synopsis as `synopsis:` in its
@@ -531,19 +613,21 @@ writes it back (`STATUS.md`, 2026-10-04). What is left:
 
 ## Specified, not started
 
-Five slots exist in Settings → Local AI — Rewrite, Project chat, Continuity,
-Search, Dictation (`SLOT_NAMES` in `src-tauri/src/commands/settings.rs`). Two
-have a working surface: Rewrite (read by `RewriteDialog.svelte`) and Continuity
-(read by `src-tauri/src/commands/polish.rs`). These three do not:
+Five slots exist in settings — Rewrite, Project chat, Continuity, Search,
+Dictation (`SLOT_NAMES` in `src-tauri/src/commands/settings.rs`). Two are
+tasks with a working surface, chosen on Settings → Tasks: Rewrite (read by
+`RewriteDialog.svelte`) and Continuity (read by
+`src-tauri/src/commands/polish.rs`, run from Manuscript → Continuity). The
+other three are text under Tasks → "Not built yet", with no control: a value
+an older build stored is kept and nothing reads it.
 
-- **Project chat.** The `chat` slot can be assigned a model; nothing in the app
-  opens a conversation with it.
+- **Project chat.** Nothing in the app opens a conversation with a model.
 - **Search by meaning.** The `embeddings` slot and the Nomic embedding model
   (`nomic-embed-text-v15-q4km`) are in the catalogue; there is no index and no
   search box that uses them. New projects get an empty `.versorium/embeddings/`
   folder and nothing writes to it.
 - **Dictation.** There is no Whisper pack in `models/catalog.json` (no model
-  with `"task": "dictation"`). The Dictation tab says so rather than pretending.
+  with `"task": "dictation"`).
 
 ## Going public
 
