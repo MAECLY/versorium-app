@@ -27,11 +27,11 @@ help: ## Show this list
 
 # --- running ---
 
-dev: ## Run the desktop app (Tauri + Vite, hot reload)
-	$(PNPM) tauri dev
+dev: ## Run the desktop app (Tauri + Vite, hot reload; reuses this checkout's Vite on :1420)
+	@tools/dev.sh $(PNPM)
 
 devtools: ## Run the desktop app with the Web Inspector already open
-	VERSORIUM_DEVTOOLS=1 $(PNPM) tauri dev
+	@VERSORIUM_DEVTOOLS=1 tools/dev.sh $(PNPM)
 
 web: ## Serve the frontend alone in a browser (no Rust, no Tauri APIs)
 	$(PNPM) dev
