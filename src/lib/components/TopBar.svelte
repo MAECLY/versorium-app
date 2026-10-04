@@ -97,7 +97,9 @@
       </button>
     {/if}
     <button class="v-btn" onclick={act(openProject)}>{t("app.openProject")}</button>
-    <button class="v-btn" onclick={act(onOpenSettings)}>{t("settings.title")}</button>
+    <!-- data-opens: where App returns focus from Settings when there is no
+         page to return it to. -->
+    <button class="v-btn" data-opens="settings" onclick={act(onOpenSettings)}>{t("settings.title")}</button>
 
     <span class="v-bar-sep" aria-hidden="true"></span>
 

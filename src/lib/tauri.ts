@@ -558,6 +558,7 @@ export interface ContinuityReport {
   findings: ContinuityFinding[];
 }
 
+/** Mirrors `fonts::FontEntry` in src-tauri/src/fonts/mod.rs. */
 export interface FontEntry {
   id: string;
   family: string;
@@ -566,11 +567,26 @@ export interface FontEntry {
   stack: string;
   license: string;
   bundled: boolean;
+  /** Whether choosing it changes what the writer sees: false for a face neither bundled nor sure to be installed. */
+  available: boolean;
+  note: string;
 }
 
 export interface FontCatalog {
   version: number;
+  /** The face settings fall back to when they name none, or one this catalogue lacks. */
+  defaultBody: string;
   fonts: FontEntry[];
+}
+
+/**
+ * The face the editor renders in, as `fonts::EditorFont` sends it: the
+ * catalogue id Settings → Editor → Typography marks as chosen, and the stack
+ * the page applies (`--editor-font`, src/lib/editor/preferences.ts).
+ */
+export interface EditorFont {
+  id: string;
+  stack: string;
 }
 
 export const api = {
@@ -735,8 +751,9 @@ export const api = {
   crashClear: () => invoke<void>("crash_clear"),
   continuityCheck: (path: string) => invoke<ContinuityReport>("continuity_check", { path }),
   fontsCatalog: () => invoke<FontCatalog>("fonts_catalog"),
-  editorFont: () => invoke<string>("editor_font"),
-  setEditorFont: (id: string) => invoke<string>("set_editor_font", { id }),
+  editorFont: () => invoke<EditorFont>("editor_font"),
+  /** Answers the face Rust kept, which is what the page and the panel show. */
+  setEditorFont: (id: string) => invoke<EditorFont>("set_editor_font", { id }),
 
   /** Where to write an export. Returns null when the user backs out. */
   pickExportTarget: (defaultPath: string, name: string, extension: string) =>

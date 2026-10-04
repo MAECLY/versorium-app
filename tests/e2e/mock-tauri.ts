@@ -4,6 +4,7 @@
 // src-tauri/src/commands with in-memory state exposed at window.__VERSORIUM_MOCK__.
 
 import { BACKUP_STATE_EVENT } from "$lib/backup/events";
+import shippedFonts from "../../fonts/catalog.json";
 
 type Args = Record<string, unknown>;
 
@@ -253,18 +254,33 @@ const crashes: CrashEntry[] = [
     kind: "panic", message: "<redacted> 3 but the index is 5", stack: ["src/ops/mod.rs:142"] },
 ];
 
-const fonts = {
-  version: 1,
-  fonts: [
-    { id: "system-serif", family: "System serif", role: "body",
-      stack: '"Iowan Old Style", Palatino, "Times New Roman", serif',
-      license: "system", bundled: false },
-    { id: "system-ui", family: "System UI", role: "ui", stack: "system-ui, sans-serif",
-      license: "system", bundled: false },
-    { id: "source-serif-4", family: "Source Serif 4", role: "body",
-      stack: '"Source Serif 4", serif', license: "OFL-1.1", bundled: false },
-  ],
+interface FontEntry {
+  id: string; family: string; role: string; stack: string;
+  license: string; bundled: boolean; available: boolean; note: string;
+}
+
+/**
+ * The catalogue Rust embeds (`fonts/catalog.json`), as `fonts_catalog` sends
+ * it: the file's own `note` is not part of the wire shape. A spec may add a
+ * face through `__VERSORIUM_MOCK__.fonts`, before Settings reads the list.
+ */
+const fonts: { version: number; defaultBody: string; fonts: FontEntry[] } = {
+  version: shippedFonts.version,
+  defaultBody: shippedFonts.defaultBody,
+  fonts: shippedFonts.fonts.map((font) => ({ ...font })),
 };
+
+/**
+ * Mirrors `fonts::resolve` and `fonts::EditorFont`: the stored id's face, or
+ * the default's, under its own id, when settings name a face this catalogue
+ * lacks.
+ */
+function editorFont(id: unknown): { id: string; stack: string } {
+  const entry =
+    fonts.fonts.find((font) => font.id === id) ?? fonts.fonts.find((font) => font.id === fonts.defaultBody);
+  if (!entry) throw "bad_font_catalog";
+  return { id: entry.id, stack: entry.stack };
+}
 
 const update: UpdateStatus = {
   currentVersion: "0.1.0",
@@ -827,12 +843,12 @@ const commands: Record<string, (args: Args) => unknown> = {
              findings: [{ kind: "contradiction", detail: "Ana's eyes change colour.", chapter: "ch-02" }] };
   },
   fonts_catalog: () => JSON.parse(JSON.stringify(fonts)),
-  editor_font: () => settings.editorFont ?? "system-serif",
+  editor_font: () => editorFont(settings.editorFont),
   set_editor_font: ({ id }) => {
     if (!fonts.fonts.some((f) => f.id === id)) throw "bad_args";
     settings.editorFont = String(id);
     persistSettings();
-    return settings.editorFont;
+    return editorFont(settings.editorFont);
   },
 
   // --- M6: updates ---
@@ -1338,6 +1354,8 @@ declare global {
       emit: typeof emit;
       /** How many listeners the page has for an event. */
       listening: typeof listening;
+      /** The font catalogue `fonts_catalog` answers; a spec may add a face to it. */
+      fonts: typeof fonts;
     };
   }
 }
@@ -1366,7 +1384,7 @@ window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
     projects, settings, calls, failures, agents, mcpClients, mcpLog, models, slots, update, github, crashes,
-    backup, setBackupRunning, holdBackup, releaseBackup, emit, listening,
+    backup, setBackupRunning, holdBackup, releaseBackup, emit, listening, fonts,
     get relaunched() {
       return relaunched;
     },

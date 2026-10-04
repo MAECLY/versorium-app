@@ -2,7 +2,7 @@ import { Compartment, type Extension, type StateEffect } from "@codemirror/state
 import { EditorView, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
 import { foldGutter } from "@codemirror/language";
-import type { EditorSettings } from "$lib/tauri";
+import type { EditorFont, EditorSettings, FontEntry } from "$lib/tauri";
 
 export type EditorPreferences = EditorSettings;
 export type TextSize = EditorSettings["textSize"];
@@ -136,21 +136,55 @@ export function contentAttributes(spellcheck: boolean, language: string | undefi
 }
 
 /**
- * The page's size, spacing and width as custom properties on `.cm-editor`.
+ * A face's stack as the value of `--editor-font`, or undefined when it is not
+ * one to write into a style attribute.
+ *
+ * The stack comes from the catalogue Rust embeds, and goes into the editor's
+ * `style` as a declaration: a `;` would end it and start another, and braces,
+ * angle brackets, a backslash or a line break have no place in a list of
+ * family names. A stack refused here, or none at all, leaves the property
+ * unset, and the page in the stylesheet's own face rather than in nothing.
+ */
+export function fontFamilyValue(stack: string | null | undefined): string | undefined {
+  const value = (stack ?? "").trim();
+  return value && !/[;{}<>\\\r\n]/.test(value) ? value : undefined;
+}
+
+/**
+ * Which row of Typography is marked as chosen: the face settings hold, by its
+ * catalogue id, when it is one of the faces offered. Null otherwise — a face
+ * the panel does not list, or none read yet — rather than a row the page is
+ * not in.
+ */
+export function markedFont(
+  offered: readonly Pick<FontEntry, "id">[],
+  choice: Pick<EditorFont, "id"> | null | undefined,
+): string | null {
+  const id = choice?.id;
+  return id !== undefined && offered.some((face) => face.id === id) ? id : null;
+}
+
+/**
+ * The page's face, size, spacing and width as custom properties on
+ * `.cm-editor`.
  *
  * styles.css reads them in its `.cm-editor .cm-content` rule, with today's
- * values as the fallbacks. Nothing else declares those three properties, so
- * there is no cascade to win: no specificity contest with the stylesheet and
- * no dependence on which <style> landed last — the trap the typewriter
- * padding fell into. Typewriter's own rule sets padding only, at 0,3,0, and
- * is untouched by these.
+ * values as the fallbacks. Nothing else declares those properties, so there
+ * is no cascade to win: no specificity contest with the stylesheet and no
+ * dependence on which <style> landed last — the trap the typewriter padding
+ * fell into. Typewriter's own rule sets padding only, at 0,3,0, and is
+ * untouched by these. The face is left out until one is known, so the page
+ * renders in the stylesheet's default, the catalogue's own, meanwhile.
  */
-export function pageStyle(preferences: EditorPreferences): string {
-  return [
+export function pageStyle(preferences: EditorPreferences, fontStack?: string | null): string {
+  const declarations = [
     `--editor-text-size: ${TEXT_SIZE[preferences.textSize]}`,
     `--editor-line-height: ${LINE_HEIGHT[preferences.lineSpacing]}`,
     `--editor-measure: ${MEASURE[preferences.textWidth]}`,
-  ].join("; ");
+  ];
+  const family = fontFamilyValue(fontStack);
+  if (family) declarations.push(`--editor-font: ${family}`);
+  return declarations.join("; ");
 }
 
 // Built once and shared, so reconfiguring a compartment with an unchanged
@@ -198,27 +232,38 @@ const TAB_INDENTS = keymap.of([indentWithTab]);
  *
  * Reconfiguring a compartment changes a running editor in place; rebuilding
  * the view would throw away the caret, the selection and the undo history in
- * the middle of a sentence.
+ * the middle of a sentence. The face rides in the page's compartment with the
+ * size it is drawn at: a changed attribute makes CodeMirror measure again, so
+ * the line numbers follow the lines the new face wraps into.
  */
 export function createPreferenceCompartments(): {
-  initial: (preferences: EditorPreferences, language: string | undefined) => Extension[];
-  reconfigure: (preferences: EditorPreferences, language: string | undefined) => StateEffect<unknown>[];
+  initial: (preferences: EditorPreferences, language: string | undefined, fontStack?: string) => Extension[];
+  reconfigure: (
+    preferences: EditorPreferences,
+    language: string | undefined,
+    fontStack?: string,
+  ) => StateEffect<unknown>[];
 } {
   const spelling = new Compartment();
   const page = new Compartment();
   const gutter = new Compartment();
   const currentLine = new Compartment();
   const tab = new Compartment();
-  const parts = (preferences: EditorPreferences, language: string | undefined): [Compartment, Extension][] => [
+  const parts = (
+    preferences: EditorPreferences,
+    language: string | undefined,
+    fontStack: string | undefined,
+  ): [Compartment, Extension][] => [
     [spelling, EditorView.contentAttributes.of(contentAttributes(preferences.spellcheck, contentLanguage(language)))],
-    [page, EditorView.editorAttributes.of({ style: pageStyle(preferences) })],
+    [page, EditorView.editorAttributes.of({ style: pageStyle(preferences, fontStack) })],
     [gutter, preferences.lineNumbers ? WITH_NUMBERS : FOLD_GUTTER],
     [currentLine, preferences.activeLine ? ACTIVE_LINE : []],
     [tab, preferences.tabKey === "indent" ? TAB_INDENTS : []],
   ];
   return {
-    initial: (preferences, language) => parts(preferences, language).map(([c, extension]) => c.of(extension)),
-    reconfigure: (preferences, language) =>
-      parts(preferences, language).map(([c, extension]) => c.reconfigure(extension)),
+    initial: (preferences, language, fontStack) =>
+      parts(preferences, language, fontStack).map(([c, extension]) => c.of(extension)),
+    reconfigure: (preferences, language, fontStack) =>
+      parts(preferences, language, fontStack).map(([c, extension]) => c.reconfigure(extension)),
   };
 }

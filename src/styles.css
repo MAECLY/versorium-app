@@ -604,9 +604,18 @@ input[type="number"] {
   background: var(--bg-elev);
 }
 
+/* The chosen row: the open project and chapter in the panel, the face in use
+   under Typography, the tour's template. A bar of --accent down its leading
+   edge says so, and hover never paints it. The fill and the border alone
+   were 1.05–1.13:1 and 1.33–1.47:1 against the page in the six themes, under
+   the 3:1 a state needs (WCAG 1.4.11), and hover drew the same fill; --accent
+   is 4.7:1 or more against --bg-elev, --bg-editor, --bg-panel and --bg-app
+   in all six. A shadow inside the row rather than a border, so nothing in it
+   moves, and so it stays apart from .v-menu-target's whole accent border. */
 .v-list-item-active {
   background: var(--bg-elev);
   border-color: var(--border);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 /* ---------------------------------------------------------------- editor */
@@ -625,23 +634,29 @@ input[type="number"] {
   overflow: auto;
 }
 
-/* Size, spacing and measure come from Settings → Editor as custom properties on
-   .cm-editor (src/lib/editor/preferences.ts). The fallbacks are the values this
-   rule always had, and are what the middle steps map to. Nothing else declares
-   these three properties for the content, so the setting never has to win a
-   cascade — the way typewriter's padding once lost one to this rule.
+/* Face, size, spacing and measure come from Settings → Editor as custom
+   properties on .cm-editor (src/lib/editor/preferences.ts). The size, spacing
+   and measure fallbacks are the values this rule always had, and are what the
+   middle steps map to. The face's is the catalogue's default, the
+   `system-serif` stack in fonts/catalog.json, so the page shows the face
+   Typography marks before the choice has been read (a unit test keeps the
+   two the same). It used to name "Source Serif 4" first, which no setting
+   chose. Nothing else declares these properties for the content, so the
+   setting never has to win a cascade — the way typewriter's padding once
+   lost one to this rule.
    The foot is 120px, or more while a tall notice stack covers that much of
    the page (--v-notes-room, from MarkdownEditor): the last line has to be
    able to scroll clear of it. */
 .cm-editor .cm-content {
-  font-family:
-    "Source Serif 4",
+  font-family: var(
+    --editor-font,
     "Iowan Old Style",
     "Palatino Linotype",
     Palatino,
     "Liberation Serif",
     "Times New Roman",
-    serif;
+    serif
+  );
   font-size: var(--editor-text-size, 21px);
   line-height: var(--editor-line-height, 1.7);
   padding: 48px 24px max(120px, calc(var(--v-notes-room, 0px) + 16px));
@@ -932,6 +947,32 @@ input[type="number"] {
 .v-shell[data-focus]:not([data-awake]) .v-edge:not(:focus-visible):not(:hover) {
   opacity: 0;
   transition: opacity 180ms ease-out;
+}
+
+/* ------------------------------------------------------ Settings over the page
+
+   Settings covers the panel and the page instead of replacing them
+   (App.svelte), so the editor under it keeps its undo history, its
+   selection, its scroll and the session Restore works from. What is under
+   is inert (the attribute, from App: no focus, no clicks, nothing announced)
+   and unseen. visibility, not display: the page keeps its layout while it is
+   covered, so a face or a size chosen in Settings is measured there and then,
+   not on the way back. No z-index: the layer paints over the page by coming
+   after it, and under the notices, the menus, the peeks and the dialogs,
+   which come later still or stand higher. */
+.v-middle {
+  position: relative;
+}
+
+.v-under[data-covered] {
+  visibility: hidden;
+}
+
+.v-settings-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  background: var(--bg-app);
 }
 
 /* ---------------------------------------------------------- status bar */

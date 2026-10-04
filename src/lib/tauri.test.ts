@@ -16,4 +16,7 @@ it("wraps structured Rust command arguments", async () => {
   // key, so the other six are left as they were.
   await api.setSettings({ editor: { textSize: "large" } });
   expect(invoke).toHaveBeenLastCalledWith("set_settings", { patch: { editor: { textSize: "large" } } });
+  // A face is chosen by its catalogue id, never by its stack.
+  await api.setEditorFont("source-serif-4");
+  expect(invoke).toHaveBeenLastCalledWith("set_editor_font", { id: "source-serif-4" });
 });

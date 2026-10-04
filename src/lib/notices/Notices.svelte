@@ -45,6 +45,13 @@
     return [...list.children].findIndex((item) => item.contains(active));
   }
 
+  /**
+   * Where focus goes when nothing nearer is left: the caret, or, while
+   * Settings covers the page (inert, so neither the caret nor anything else
+   * under it can take focus), the group Settings shows.
+   */
+  const HOMES = ["main .cm-content", '.v-settings-layer nav [aria-current="page"]'];
+
   function landFocus(): void {
     const at = focusedAt;
     focusedAt = -1;
@@ -54,7 +61,7 @@
     const closers = list ? [...list.querySelectorAll<HTMLElement>(".v-note-close")] : [];
     if (restoreFocus(closers[Math.min(at, closers.length - 1)])) return;
     if (restoreFocus(cameFrom)) return;
-    restoreFocus(document.querySelector("main .cm-content"));
+    for (const home of HOMES) if (restoreFocus(document.querySelector(home))) return;
   }
 
   // A notice can go while focus is on it: closed from the keyboard, or

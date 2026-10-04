@@ -23,6 +23,10 @@
     preferences?: EditorPreferences;
     /** The novel's language (`versorium.json`), not the interface's. */
     language?: string;
+    /** The stack of the face chosen under Settings → Editor → Typography; the stylesheet's own until one is read. */
+    font?: string;
+    /** Settings is over the page: nothing here may move it while the writer cannot see it. */
+    covered?: boolean;
     onChange: (body: string) => void;
     onOps?: (path: string, chapter: string, body: string, ops: Op[]) => Promise<unknown>;
     onOpsError?: (error: unknown) => void;
@@ -36,6 +40,8 @@
     typewriter = false,
     preferences = EDITOR_DEFAULTS,
     language = "",
+    font,
+    covered = false,
     onChange,
     onOps,
     onOpsError,
@@ -47,6 +53,13 @@
   const source = Annotation.define<"external" | "rollback">();
   const editable = new Compartment();
   const editing = (locked: boolean) => [EditorState.readOnly.of(locked), EditorView.editable.of(!locked)];
+  // Covered by Settings, the page is read-only as well as inert. The browser
+  // keeps one undo stack for the whole document, and its own undo (the undo
+  // key pressed anywhere in Settings, Edit → Undo in the menu) walks it into
+  // the typing done here, out of CodeMirror's history and out of sight. Text
+  // that is not editable is skipped by that undo, and CodeMirror ignores any
+  // change to the DOM of a read-only editor.
+  const locked = $derived(disabled || covered);
   // Typewriter lives in a compartment for the same reason `editable` does:
   // toggling it must reconfigure the running editor, never rebuild it. So do
   // the writer's preferences, and the novel's language with them.
@@ -73,9 +86,9 @@
     const created = new EditorView({
       parent,
       state: createMarkdownState(initialDoc, [
-        editable.of(editing(untrack(() => disabled))),
+        editable.of(editing(untrack(() => locked))),
         ...modes.initial(untrack(() => typewriter)),
-        ...choices.initial(untrack(() => preferences), untrack(() => language)),
+        ...choices.initial(untrack(() => preferences), untrack(() => language), untrack(() => font)),
         clearOfNotices(),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
@@ -134,7 +147,7 @@
   });
 
   $effect(() => {
-    view?.dispatch({ effects: editable.reconfigure(editing(disabled)) });
+    view?.dispatch({ effects: editable.reconfigure(editing(locked)) });
   });
 
   $effect(() => {
@@ -143,11 +156,14 @@
 
   // Derived for the reason docKey is: the parent reads the language off
   // `store.project`, which is replaced on every save, and an effect on the raw
-  // prop would reconfigure the editor after every autosave.
+  // prop would reconfigure the editor after every autosave. The face is a
+  // string for the same reason: a fresh answer naming the same face changes
+  // nothing.
   const novelLanguage = $derived(language);
+  const fontStack = $derived(font);
 
   $effect(() => {
-    view?.dispatch({ effects: choices.reconfigure(preferences, novelLanguage) });
+    view?.dispatch({ effects: choices.reconfigure(preferences, novelLanguage, fontStack) });
   });
 
   // A notice appeared, grew or went. The page gets room below its last line
@@ -155,24 +171,40 @@
   // and the caret's line, if the stack landed on it, is scrolled above it.
   // The room only grows for this chapter: shrinking it when a notice went
   // would drop the page under a writer scrolled to its end.
+  //
+  // Not while Settings covers the page: the stack is over Settings then, and
+  // the page keeps its layout under it, so a notice raised there would scroll
+  // a page nobody can see. Coming back runs this again (`covered` is
+  // tracked): to the writer, a stack still showing lands on the page then,
+  // so it gets its room and is lifted off the caret's line like any other.
+  // When coming back did not run it, a tall stack raised during the visit
+  // kept the chapter's last lines under it, and a caret at the foot of the
+  // page came back hidden.
+  //
+  // The lift itself only follows a change in the stack: a return from
+  // Settings with the same notices up leaves the scroll where the writer
+  // left it, even if they had scrolled the caret's line under a notice.
   let noticeRoom = 0;
+  let liftedFor = -1;
   $effect(() => {
-    void notices.coverRevision;
+    const revision = notices.coverRevision;
     const current = view;
     const el = host;
-    if (!current || !el) return;
+    if (!current || !el || covered) return;
     untrack(() => {
       const room = roomForNotices(current);
       if (room > noticeRoom) {
         noticeRoom = room;
         el.style.setProperty("--v-notes-room", `${Math.ceil(room)}px`);
       }
+      if (revision === liftedFor) return;
+      liftedFor = revision;
       liftCaret(current);
     });
   });
 
   function rollback(from: number, to: number): boolean {
-    if (!view || disabled) return false;
+    if (!view || locked) return false;
     const change = history.take(view.state.doc.toString(), from, to);
     if (!change) return false;
     view.dispatch({

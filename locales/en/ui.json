@@ -714,6 +714,7 @@
     "intro": "What the editor renders your prose in.",
     "sample": "El invierno fue largo, y la niña esperaba junto a la ventana.",
     "systemFace": "already on this machine",
+    "ifInstalled": "shows only where it is installed",
     "downloadLater": "Downloadable families arrive with the font downloader in a later release. Nothing here needs fetching.",
     "none": "Typography is handled by the desktop app."
   },

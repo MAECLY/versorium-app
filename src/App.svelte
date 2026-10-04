@@ -264,9 +264,43 @@
     runChrome({ type: "setRecipe", surface: s, value: hides });
   }
 
-  function openSettings(): void {
+  // Settings covers the page; the editor stays mounted under it, inert and
+  // unseen, so a visit costs none of its history (styles.css, "Settings over
+  // the page").
+
+  function settingsTab(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('.v-settings-layer nav [aria-current="page"]');
+  }
+
+  /** The top bar's Settings: what focus goes back to when there is no page to go back to. */
+  function settingsButton(): HTMLElement | null {
+    return document.querySelector<HTMLElement>('#topbar [data-opens="settings"]');
+  }
+
+  /**
+   * Focus left on the page, which is inert now, or nowhere (WebKit leaves it
+   * on <body> after a press on a button, and an element going inert drops
+   * it there too) moves to the group Settings opens on, so the keyboard
+   * starts in Settings. Focus on the button that opened it stays there.
+   */
+  async function openSettings(): Promise<void> {
     void setFocus(false);
     showSettings = true;
+    await tick();
+    if (focusLost() || holdsFocus(document.querySelector(".v-under"))) restoreFocus(settingsTab());
+  }
+
+  /**
+   * Back where the writer was: the caret, its selection and the scroll, which
+   * nothing moved (restoreFocus goes through CodeMirror's own focus, which
+   * does not scroll). With no page to go back to (no chapter open, the
+   * corkboard), focus goes to the button that opened Settings, or with the
+   * top bar folded, to its lip.
+   */
+  async function closeSettings(): Promise<void> {
+    showSettings = false;
+    await tick();
+    if (!caretBack() && !restoreFocus(settingsButton())) restoreFocus(edgeEl("topBar"));
   }
 
   function toggleCorkboard(): void {
@@ -360,8 +394,15 @@
     }
   }
 
-  function doRewrite(): void {
+  /**
+   * Rewrite and Restore act on the page. Pressed while Settings covers it
+   * (the top bar's Rewrite, the status bar's Restore and both keys stay in
+   * reach), Settings closes first, so what they act on is on screen when
+   * they do. Doing nothing there read as a broken button.
+   */
+  async function doRewrite(): Promise<void> {
     if (!store.project || !store.currentChapter || store.loading) return;
+    if (showSettings) await closeSettings();
     const sel = editorRef?.getSelection() ?? null;
     if (!sel) {
       notices.inform(t("ai.selectFirst"));
@@ -398,13 +439,13 @@
     // has already prevented Ctrl+Shift+R and Ctrl+Alt+R for the webview.
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "r") {
       event.preventDefault();
-      doRewrite();
+      void doRewrite();
     }
     // Restore has no bar button of its own beyond the status bar, so it needs a
     // key: same modifier family as Rewrite, since both act on the selection.
     if ((event.metaKey || event.ctrlKey) && event.altKey && event.key.toLowerCase() === "r") {
       event.preventDefault();
-      doRestore();
+      void doRestore();
     }
 
     // A modal dialog owns the keyboard.
@@ -449,10 +490,14 @@
     }
   }
 
-  function doRestore(): void {
+  /** See doRewrite: from under Settings, Settings goes first. */
+  async function doRestore(): Promise<void> {
     if (!editorRef) return;
-    const sel = editorRef.getSelection();
-    const done = sel ? editorRef.rollbackSelection() : editorRef.rollbackWord();
+    if (showSettings) await closeSettings();
+    const editor = editorRef;
+    if (!editor) return;
+    const sel = editor.getSelection();
+    const done = sel ? editor.rollbackSelection() : editor.rollbackWord();
     if (!done) notices.inform(t("git.nothingToRollback"));
   }
 
@@ -481,6 +526,7 @@
           chrome.load(saved);
           typewriter = saved.typewriter ?? false;
           editorPreferences.adopt(saved.editor);
+          void editorPreferences.loadFont();
           // Spec §14: the tour is the first run, and there is no signup.
           firstRun = saved.onboarded === false;
         } catch {
@@ -584,8 +630,8 @@
       />
     {/if}
     <TopBar
-      onOpenSettings={openSettings}
-      onRewrite={doRewrite}
+      onOpenSettings={() => void openSettings()}
+      onRewrite={() => void doRewrite()}
       onOpenManuscript={() => (showManuscript = true)}
       onHide={() => void hideSurface("topBar", false)}
       inert={topBarView === "collapsed"}
@@ -593,62 +639,72 @@
     />
   </div>
 
-  {#if showSettings}
-    <SettingsPage onClose={() => (showSettings = false)} />
-  {:else}
   <div class="v-middle flex min-h-0 flex-1">
-    <div class="v-binder-slot" data-view={binderView}>
-      {#if binderView !== "open"}
-        <!-- The panel's one name, as its menu item and announcements say it:
-             "Chapters" alone named half of what Hide on the PROJECTS row
-             had just folded away. -->
-        <CollapsedEdge
-          kind="rail"
-          text={t("chrome.binderItem")}
-          name={t("chrome.showBinder")}
-          expanded={binderView === "peek"}
-          controls="binder"
-          keys={chordAria("toggleBinder", platform)}
-          title={t("chrome.withKeys", { label: t("chrome.showBinder"), keys: chordLabel("toggleBinder", platform) })}
-          onclick={() => toggleSurface("binder", false)}
+    <!-- What Settings covers, rather than replaces: the editor under it lives
+         through the visit with its undo history, selection, scroll and the
+         session Restore works from. Inert while covered: nothing in it takes
+         focus or a click, and nothing in it is announced. -->
+    <div class="v-under flex min-h-0 min-w-0 flex-1" inert={showSettings} data-covered={showSettings || undefined}>
+      <div class="v-binder-slot" data-view={binderView}>
+        {#if binderView !== "open"}
+          <!-- The panel's one name, as its menu item and announcements say it:
+               "Chapters" alone named half of what Hide on the PROJECTS row
+               had just folded away. -->
+          <CollapsedEdge
+            kind="rail"
+            text={t("chrome.binderItem")}
+            name={t("chrome.showBinder")}
+            expanded={binderView === "peek"}
+            controls="binder"
+            keys={chordAria("toggleBinder", platform)}
+            title={t("chrome.withKeys", { label: t("chrome.showBinder"), keys: chordLabel("toggleBinder", platform) })}
+            onclick={() => toggleSurface("binder", false)}
+          />
+        {/if}
+        <ChapterList
+          onRequestNewChapter={() => (showNewChapter = true)}
+          onHide={() => void hideSurface("binder", false)}
+          inert={binderView === "collapsed"}
+          onNavigate={() => void afterNavigate()}
         />
-      {/if}
-      <ChapterList
-        onRequestNewChapter={() => (showNewChapter = true)}
-        onHide={() => void hideSurface("binder", false)}
-        inert={binderView === "collapsed"}
-        onNavigate={() => void afterNavigate()}
-      />
+      </div>
+
+      <main class="min-w-0 flex-1" style="background: var(--bg-editor);">
+        {#if store.project && corkboard}
+          <Corkboard />
+        {:else if store.project && store.currentChapter}
+          {#key store.project.path + "/" + store.currentChapter.file}
+          <MarkdownEditor
+            bind:this={editorRef}
+            doc={store.chapterBody}
+            chapterId={store.currentChapter.id}
+            projectPath={store.project.path}
+            disabled={store.loading}
+            typewriter={typewriter}
+            preferences={editorPreferences.current}
+            language={store.project.meta.language}
+            font={editorPreferences.font?.stack}
+            covered={showSettings}
+            onChange={(body) => store.updateBody(body)}
+            onOps={onOps}
+            onOpsError={(e) => notices.fail(store.codeMessagePublic(e), "editor.ops")}
+          />
+          {/key}
+        {:else}
+          <EmptyState
+            onRequestNew={() => (showNewProject = true)}
+            onRequestTour={() => void onboarding.start()}
+          />
+        {/if}
+      </main>
     </div>
 
-    <main class="min-w-0 flex-1" style="background: var(--bg-editor);">
-      {#if store.project && corkboard}
-        <Corkboard />
-      {:else if store.project && store.currentChapter}
-        {#key store.project.path + "/" + store.currentChapter.file}
-        <MarkdownEditor
-          bind:this={editorRef}
-          doc={store.chapterBody}
-          chapterId={store.currentChapter.id}
-          projectPath={store.project.path}
-          disabled={store.loading}
-          typewriter={typewriter}
-          preferences={editorPreferences.current}
-          language={store.project.meta.language}
-          onChange={(body) => store.updateBody(body)}
-          onOps={onOps}
-          onOpsError={(e) => notices.fail(store.codeMessagePublic(e), "editor.ops")}
-        />
-        {/key}
-      {:else}
-        <EmptyState
-          onRequestNew={() => (showNewProject = true)}
-          onRequestTour={() => void onboarding.start()}
-        />
-      {/if}
-    </main>
+    {#if showSettings}
+      <div class="v-settings-layer">
+        <SettingsPage onClose={() => void closeSettings()} />
+      </div>
+    {/if}
   </div>
-  {/if}
 
   <!-- Here, between the page and what is under it, so the stack hangs above
        History and the status bar, and Tab reaches a notice straight after
@@ -662,7 +718,7 @@
   <StatusBar
     onCommit={doCommit}
     onToggleGit={() => (showGit = !showGit)}
-    onRestore={doRestore}
+    onRestore={() => void doRestore()}
     onToggleFocus={toggleFocus}
     onToggleTypewriter={toggleTypewriter}
     onToggleView={toggleCorkboard}
