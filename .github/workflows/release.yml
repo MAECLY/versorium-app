@@ -336,13 +336,22 @@ jobs:
           with open("assets/latest.json") as f:
               manifest = json.load(f)
 
+          # tauri-action 1.x already writes the API form for a draft
+          # (.../releases/assets/<id>); older versions wrote the browser form
+          # (.../download/<tag>/<name>). Accept either, and check the asset
+          # really belongs to this release.
+          api_prefix = f"https://api.github.com/repos/{repo}/releases/assets/"
+          by_id = set(ids.values())
           missing = []
           for target, entry in manifest.get("platforms", {}).items():
-              name = urllib.parse.unquote(entry["url"].rsplit("/", 1)[-1])
-              if name in ids:
-                  entry["url"] = f"https://api.github.com/repos/{repo}/releases/assets/{ids[name]}"
+              url = entry["url"]
+              last = urllib.parse.unquote(url.rsplit("/", 1)[-1])
+              if url.startswith(api_prefix) and last.isdigit() and int(last) in by_id:
+                  continue
+              if last in ids:
+                  entry["url"] = f"{api_prefix}{ids[last]}"
               else:
-                  missing.append((target, name))
+                  missing.append((target, last))
 
           if missing:
               for target, name in missing:
