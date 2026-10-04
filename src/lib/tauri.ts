@@ -253,16 +253,26 @@ export interface McpLogEntry {
   client: string;
   tool: string;
   scope: "read" | "write";
-  outcome: "ok" | "denied" | "error";
+  /** `preview`: a write tool that returned its diff and changed nothing. */
+  outcome: "ok" | "preview" | "denied" | "error";
   /** Paths and counts only — never manuscript prose. */
   detail: string;
+  /**
+   * The log format that wrote the line (`mcp::log::FORMAT`): 2 since a
+   * preview is logged `preview`; 0 for a line from before, when it was `ok`.
+   */
+  format: number;
 }
 
 // --- M4: local models ---
 
 export type SlotName = "rewrite" | "chat" | "continuity" | "embeddings" | "dictation";
-/** Where a slot's model comes from. `cli` reuses a detected harness (M2). */
-export type SlotKind = "none" | "builtin" | "ollama" | "cli";
+/**
+ * Where a slot's model comes from. `server` is a model the saved local server
+ * serves (its id as `GET /v1/models` lists it); `cli` reuses a detected
+ * harness (M2).
+ */
+export type SlotKind = "none" | "builtin" | "ollama" | "server" | "cli";
 
 export interface SlotAssignment {
   kind: SlotKind;
@@ -336,7 +346,12 @@ export interface OllamaView {
 export interface StudioView {
   host: string;
   port: number;
+  /** The writer saved it. Versorium contacts the server only then. */
   enabled: boolean;
+  /** It answered when the view was read. False while not saved: not asked. */
+  running: boolean;
+  /** Model ids it serves, which a task may name. Empty unless running. */
+  models: string[];
 }
 
 /** MCP over HTTP as well as stdio. The token is absent on purpose: it lives in

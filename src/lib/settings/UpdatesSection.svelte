@@ -19,7 +19,7 @@
 </script>
 
 <section class="mb-6" aria-label={t("updates.title")}>
-  <h3 class="v-section-title mb-2">{t("updates.title")}</h3>
+  <h3 class="v-h3 mb-2">{t("updates.title")}</h3>
   <p class="v-muted m-0 mb-3" style="font-size: 12px;">{t("updates.intro")}</p>
 
   {#if !isTauri()}

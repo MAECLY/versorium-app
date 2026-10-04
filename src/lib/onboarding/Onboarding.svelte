@@ -2,6 +2,7 @@
   import { t } from "$lib/i18n";
   import { isTauri } from "$lib/tauri";
   import Modal from "$lib/components/Modal.svelte";
+  import { sizeWordKey } from "$lib/settings/ai/picks";
   import {
     onboarding,
     STEPS,
@@ -65,7 +66,7 @@
           {t("onboarding.machineSummary", {
             ram: `${Math.round(onboarding.hardware.totalRamGb)} GB`,
             cores: onboarding.hardware.cpuCores,
-            tier: t(`localAi.tiers.${onboarding.hardware.recommendedTier}`),
+            size: t(sizeWordKey(onboarding.hardware.recommendedTier)),
           })}
         </p>
       {:else}

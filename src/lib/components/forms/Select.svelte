@@ -44,6 +44,7 @@
     placeholder,
     minWidth,
     onChange,
+    element = $bindable(undefined),
   }: {
     label: string;
     /** Opaque to this component: never parsed, never validated, never reset. */
@@ -64,6 +65,8 @@
     /** A call-site layout decision, so it arrives as a CSS length, not a token. */
     minWidth?: string;
     onChange?: (next: T) => void;
+    /** The <select>, for a caller that hands focus to it. */
+    element?: HTMLSelectElement | undefined;
   } = $props();
 
   const id = $props.id();
@@ -75,6 +78,7 @@
   {#snippet control({ describedBy: described, invalid })}
     <span class="v-select" style:min-width={minWidth}>
       <select
+        bind:this={element}
         {id}
         bind:value
         disabled={locked}

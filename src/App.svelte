@@ -34,6 +34,9 @@
   import Notices from "$lib/notices/Notices.svelte";
   import { notices } from "$lib/notices/state.svelte";
   import { errorCode } from "$lib/i18n/errors";
+  import type { SettingsTarget } from "$lib/settings/pages";
+
+  type ManuscriptTab = "export" | "import" | "continuity";
 
   let showSettings = $state(false);
   let showNewProject = $state(false);
@@ -42,6 +45,11 @@
   let gitDirty = $state(false);
   let showRewrite = $state(false);
   let showManuscript = $state(false);
+  /** Where Settings opens, when a link elsewhere sends the writer to a place in it. */
+  let settingsTarget = $state<SettingsTarget | null>(null);
+  /** Bumped per request, so a second link to the same place still takes Settings there. */
+  let settingsRequest = $state(0);
+  let manuscriptTab = $state<ManuscriptTab>("export");
   let dismissedUpdate = $state(false);
   let rewriteSel = $state<{ from: number; to: number; text: string } | null>(null);
   let typewriter = $state(false);
@@ -282,12 +290,25 @@
    * on <body> after a press on a button, and an element going inert drops
    * it there too) moves to the group Settings opens on, so the keyboard
    * starts in Settings. Focus on the button that opened it stays there.
+   *
+   * `target` is a place in Settings a link asked for (Manuscript ›
+   * Continuity's "Change in Settings ›", the Rewrite dialog's "Open Settings ›
+   * Models"). Settings may already be open under the dialog the link was in:
+   * it stays mounted and goes there (SettingsPage, `request`).
    */
-  async function openSettings(): Promise<void> {
+  async function openSettings(target?: SettingsTarget): Promise<void> {
     void setFocus(false);
+    settingsTarget = target ?? null;
+    settingsRequest += 1;
     showSettings = true;
     await tick();
     if (focusLost() || holdsFocus(document.querySelector(".v-under"))) restoreFocus(settingsTab());
+  }
+
+  /** The Manuscript dialog, on a tab: Settings' Continuity link opens it on that one. */
+  function openManuscript(tab: ManuscriptTab = "export"): void {
+    manuscriptTab = tab;
+    showManuscript = true;
   }
 
   /**
@@ -632,7 +653,7 @@
     <TopBar
       onOpenSettings={() => void openSettings()}
       onRewrite={() => void doRewrite()}
-      onOpenManuscript={() => (showManuscript = true)}
+      onOpenManuscript={() => openManuscript()}
       onHide={() => void hideSurface("topBar", false)}
       inert={topBarView === "collapsed"}
       onAction={beforeTopBarAction}
@@ -701,7 +722,14 @@
 
     {#if showSettings}
       <div class="v-settings-layer">
-        <SettingsPage onClose={() => void closeSettings()} />
+        <!-- Settings stays open under the Manuscript dialog a link opens: the
+             dialog is modal, and closing it brings the writer back here. -->
+        <SettingsPage
+          onClose={() => void closeSettings()}
+          initial={settingsTarget}
+          request={settingsRequest}
+          onOpenManuscript={(tab) => openManuscript(tab)}
+        />
       </div>
     {/if}
   </div>
@@ -751,7 +779,14 @@
     <NewChapterDialog onClose={() => (showNewChapter = false)} onCreated={() => void afterNavigate()} />
   {/if}
   {#if showManuscript}
-    <ManuscriptDialog onClose={() => (showManuscript = false)} />
+    <ManuscriptDialog
+      initialTab={manuscriptTab}
+      onClose={() => (showManuscript = false)}
+      onOpenSettings={(target) => {
+        showManuscript = false;
+        void openSettings(target);
+      }}
+    />
   {/if}
   {#if updates.available && !dismissedUpdate}
     <UpdateDialog onClose={() => (dismissedUpdate = true)} />
@@ -761,6 +796,11 @@
       text={rewriteSel.text}
       onClose={() => { showRewrite = false; rewriteSel = null; }}
       onApply={applyRewrite}
+      onOpenSettings={(target) => {
+        showRewrite = false;
+        rewriteSel = null;
+        void openSettings(target);
+      }}
     />
   {/if}
 </div>

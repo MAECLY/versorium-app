@@ -310,6 +310,7 @@ test("the Manuscript dialog is translated", async ({ page }) => {
   const es = page.getByRole("dialog", { name: "Manuscrito" });
   await expect(es.getByRole("tab", { name: "Exportar" })).toBeVisible();
   await expect(es.getByRole("tab", { name: "Importar" })).toBeVisible();
+  await expect(es.getByRole("tab", { name: "Continuidad" })).toBeVisible();
 
   // The language question too, preset to the interface's language.
   await es.getByRole("tab", { name: "Importar" }).click();

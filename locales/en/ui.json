@@ -116,21 +116,13 @@
   },
   "settings": {
     "title": "Settings",
-    "appearance": "Appearance",
     "theme": "Theme",
     "themeMode": "Mode",
     "modeLight": "Light",
     "modeDark": "Dark",
     "modeFollow": "Follow system",
     "language": "Interface language",
-    "comingSoon": "Arrives in a later milestone.",
     "sections": {
-      "agents": "Agents",
-      "localAi": "Local AI",
-      "git": "Git",
-      "mcp": "MCP",
-      "safety": "Safety",
-      "updates": "Updates",
       "typography": "Typography"
     },
     "nav": "Settings sections",
@@ -141,24 +133,398 @@
       "editor": "Editor",
       "author": "Author",
       "appearance": "Appearance",
-      "localAi": "Local AI",
       "backup": "History & backup",
       "assistants": "Assistants",
-      "app": "Application"
+      "app": "Application",
+      "tasks": "Tasks",
+      "models": "Models",
+      "access": "Access to your novel",
+      "activity": "Activity"
     },
     "purpose": {
-      "editor": "How the page looks and behaves while you write: typeface, spelling, the size and spacing of the text, line numbers, the current-paragraph highlight, and what the Tab key does.",
+      "editor": "How the page looks and behaves while you write.",
       "author": "Who the manuscript is by, as the exported file will say it.",
       "appearance": "How Versorium looks, and what language its own buttons speak.",
-      "localAi": "Which model does each job, and where those models come from. Nothing here sends your prose anywhere.",
-      "backup": "Your novel's history on this disk, and an optional private copy on GitHub. Versorium never mixes it with its own repository.",
-      "assistants": "Assistants that reach into your novel from outside, and exactly how much each one is allowed to do.",
-      "app": "Versorium itself: the version you are running, how it updates, and what it records when it crashes."
+      "backup": "Your novel's history on this computer, and copies of it kept elsewhere: another disk, a cloud folder or a private GitHub repository.",
+      "assistants": "Apps such as Claude Code that Versorium can hand a rewrite to. The passage goes to the service each one uses, under your own account.",
+      "app": "Versorium itself: its version and updates, the welcome guide, and the crash reports it keeps on this computer.",
+      "tasks": "What AI can do for you in Versorium, and which model does it.",
+      "models": "Models that run on this computer: the ones Versorium downloads, and those in apps like Ollama. Nothing downloads on its own.",
+      "access": "Apps such as Claude Desktop that can open your novel through Versorium. They can only read it until you let one write.",
+      "activity": "What outside apps asked Versorium to do, newest first. It shows the last 500 requests and never records your text."
     },
     "themes": {
       "folio": "Folio",
       "quarry": "Quarry",
       "needle": "Needle"
+    },
+    "activity": {
+      "outcome": {
+        "preview": "Preview only, nothing changed",
+        "done": "Done",
+        "refused": "Refused: {client} can only read",
+        "failed": "Failed",
+        "unsure": "Done, or only a preview: logged before Versorium told them apart"
+      },
+      "filter": {
+        "app": "App",
+        "allApps": "All apps",
+        "kind": "Kind",
+        "result": "Result"
+      },
+      "kind": {
+        "all": "All",
+        "reading": "Reading",
+        "changes": "Changes"
+      },
+      "result": {
+        "all": "All",
+        "done": "Done",
+        "preview": "Previews",
+        "refused": "Refused",
+        "failed": "Failed"
+      },
+      "showing": "Showing {shown} of {total}",
+      "empty": "No app has asked Versorium for anything yet.",
+      "noMatch": "Nothing matches these filters.",
+      "unknownClient": "An app connected by address",
+      "changeAccess": "Change access ›",
+      "showMore": "Show more",
+      "actions": {
+        "get_app_state": "Check Versorium's state",
+        "list_projects": "List your novels",
+        "open_project": "Open a novel",
+        "list_documents": "List the chapters",
+        "read_document": "Read a chapter",
+        "search": "Search the novel",
+        "assemble_context": "Gather a chapter and its notes",
+        "history_list": "Read a chapter's edits",
+        "history_blame": "See who wrote what",
+        "diff": "See changes since the last snapshot",
+        "git_status": "Check the history",
+        "git_log": "List the snapshots",
+        "get_style": "Read the voice guide",
+        "codex_search": "Search the Codex",
+        "codex_get": "Read a Codex entry",
+        "write_document": "Replace a chapter's text",
+        "insert_text": "Add text to a chapter",
+        "delete_text": "Delete text from a chapter",
+        "replace_text": "Change text in a chapter",
+        "create_document": "Add a chapter",
+        "codex_upsert": "Write a Codex entry",
+        "git_commit": "Save a snapshot",
+        "delete_document": "Delete a chapter",
+        "unknown": "Use {tool}"
+      }
+    },
+    "categories": {
+      "writing": "Writing",
+      "novel": "Your novel",
+      "ai": "AI",
+      "otherApps": "Other apps"
+    },
+    "common": {
+      "checkAgain": "Check again",
+      "checking": "Checking…",
+      "desktopOnly": "This part of Settings works inside the desktop app.",
+      "engineDown": "Models in Versorium can't run on this computer right now: the model engine didn't start.",
+      "toModels": "Models ›"
+    },
+    "tasks": {
+      "summary": {
+        "noModel": "No model is ready yet, so Rewrite and Continuity can't run.",
+        "noLocalModel": "No model on this computer is ready yet. Rewrite can use an assistant meanwhile; Continuity can't.",
+        "getModel": "Get a model",
+        "rewriteAsks": "Rewrite asks each time, starting with models on this computer.",
+        "rewriteLocal": "Rewrite runs on this computer, with {model}.",
+        "rewriteOllama": "Rewrite runs on this computer, with {model} in Ollama.",
+        "rewriteServer": "Rewrite runs on this computer, with {model} on the local server.",
+        "rewriteRemote": "Rewrite sends the passage to {model}, on the server at {address}.",
+        "rewriteCli": "Rewrite hands the passage to {assistant}, which sends it to its own service under your account.",
+        "continuityNone": "Continuity has no model yet.",
+        "continuityLocal": "Continuity runs on this computer, with {model}.",
+        "continuityOllama": "Continuity runs on this computer, with {model} in Ollama.",
+        "continuityServer": "Continuity runs on this computer, with {model} on the local server.",
+        "continuityRemote": "Continuity runs on {model}, on the server at {address}.",
+        "ollamaDown": "{task} uses {model} in Ollama, but Ollama isn't running.",
+        "serverDown": "{task} uses {model} on the local server, but it isn't answering.",
+        "gone": "{task} was set to {model}, which isn't on this computer any more.",
+        "cannotWrite": "{task} was set to {model}, which doesn't write. Choose another model.",
+        "tooLarge": "{model} needs more memory than this computer has, so {task} will refuse it.",
+        "useForBoth": "Use {model} for both",
+        "useForContinuity": "Use {model} for Continuity",
+        "metaBuiltin": "{size} · {bytes} · fits this computer",
+        "metaOllama": "In Ollama",
+        "metaServer": "On the local server"
+      },
+      "announce": {
+        "both": "Rewrite and Continuity now use {model}.",
+        "continuity": "Continuity now uses {model}."
+      },
+      "rewrite": {
+        "title": "Rewrite",
+        "hint": "Rewrites a passage you select. You see the change before it is applied.",
+        "label": "Model for Rewrite",
+        "none": "Choose each time"
+      },
+      "continuity": {
+        "title": "Continuity",
+        "hint": "Looks for contradictions in your story. It reads chapter titles, scene headings and the first lines of your Codex entries, not your chapters.",
+        "label": "Model for Continuity",
+        "none": "No model: the check stays off",
+        "noAssistants": "Assistants can't run it: Continuity runs only on one of your models.",
+        "run": "Run it from Manuscript › Continuity"
+      },
+      "group": {
+        "local": "On this computer",
+        "network": "On the server at {address}",
+        "assistants": "Assistants, with your own account",
+        "assistantsOff": "Assistants: Continuity runs only on one of your models",
+        "gone": "No longer available"
+      },
+      "option": {
+        "builtin": "{model} — in Versorium",
+        "ollama": "{model} — in Ollama",
+        "server": "{model} — on the local server",
+        "serverRemote": "{model} — on the server at {address}",
+        "serverOff": "Local server — not answering",
+        "serverDown": "{model} — the local server isn't answering",
+        "gone": "{model} — not on this computer any more",
+        "ollamaDown": "{model} — Ollama isn't running",
+        "cannotWrite": "{model} — doesn't write"
+      },
+      "status": {
+        "asks": "Asks each time, starting with models on this computer.",
+        "local": "Runs on this computer. The passage stays here.",
+        "ollama": "Runs on this computer, in Ollama. The passage stays here.",
+        "server": "Runs on the local server on this computer. The passage stays here.",
+        "serverRemote": "The passage goes to the server at {address}.",
+        "continuityRemote": "Runs on the server at {address}: the chapter titles, scene headings and Codex lines go there.",
+        "cli": "The passage goes to {assistant}'s service, under your account.",
+        "off": "Off until it has a model.",
+        "continuityLocal": "Runs on this computer."
+      },
+      "notBuilt": {
+        "title": "Not built yet",
+        "chat": "Project chat. Talking with a model about your novel.",
+        "search": "Search by meaning. Finding passages by what they say, not by their exact words.",
+        "dictation": "Dictation. You speak, and Versorium types it into the chapter."
+      },
+      "seeAssistants": "The assistants in the Rewrite list are in Assistants ›"
+    },
+    "models": {
+      "thisComputer": "This computer has {ram} of memory: models up to {size} fit comfortably.",
+      "thisComputerUnknown": "Versorium couldn't read this computer's memory.",
+      "about": {
+        "title": "About this computer",
+        "memory": "Memory",
+        "cores": "Cores",
+        "system": "System",
+        "graphics": "Graphics",
+        "engine": "Model engine",
+        "disk": "Downloaded models use {size}.",
+        "folder": "Stored in"
+      },
+      "engine": {
+        "warming": "starting… (preparing the graphics chip, once per computer)",
+        "ready": "Ready",
+        "failed": "Didn't start",
+        "cpuOnly": "This build runs models on the processor, without graphics acceleration, so they are slower."
+      },
+      "start": {
+        "text": "To start, download {model}: {size} · {bytes}, fits this computer. It can do Rewrite and Continuity.",
+        "download": "Download {model}",
+        "resume": "Resume {model}"
+      },
+      "yours": {
+        "title": "Your models",
+        "inVersorium": "In Versorium",
+        "inOllama": "In Ollama",
+        "onServer": "On the local server",
+        "usedBy": "Used by {tasks}",
+        "unused": "Not used by a task",
+        "paused": "Paused at {done} of {total}",
+        "damaged": "The download is damaged.",
+        "downloadAgain": "Download again",
+        "useForBoth": "Use for Rewrite and Continuity",
+        "notWriting": "Not used: search by meaning isn't built yet.",
+        "tooLarge": "Needs more memory than this computer has, so tasks will refuse it.",
+        "updated": "updated {when}",
+        "delete": "Delete",
+        "confirmDelete": "Delete for good?",
+        "keep": "Keep",
+        "resume": "Resume",
+        "remove": "Remove",
+        "confirmRemove": "Remove it?",
+        "onServerAt": "On the server at {address}"
+      },
+      "apps": {
+        "title": "Other apps that run models"
+      },
+      "ollama": {
+        "name": "Ollama",
+        "running": {
+          "one": "Running · 1 model",
+          "other": "Running · {count} models"
+        },
+        "stopped": "Installed, not running",
+        "missing": "Not found on this computer",
+        "about": "A separate app that runs models on this computer. Its models are listed under Your models and can do Rewrite and Continuity.",
+        "startIt": "Start Ollama, then check again.",
+        "install": "If you install Ollama (ollama.com) and start it, its models appear here.",
+        "getLabel": "Get a model by name",
+        "placeholder": "e.g. qwen3:4b",
+        "get": "Get",
+        "getting": "Getting {name} in Ollama… this can take minutes."
+      },
+      "server": {
+        "name": "Local server",
+        "notSet": "Not set up",
+        "answering": {
+          "one": "Answering · 1 model",
+          "other": "Answering · {count} models"
+        },
+        "notAnswering": "Saved · not answering",
+        "about": "LM Studio, llama-server or another app that serves models at an address. Once saved, its models can do Rewrite and Continuity.",
+        "elsewhere": "That address is not this computer: a passage given to its models leaves this computer for it.",
+        "host": "Address",
+        "port": "Port",
+        "test": "Test connection",
+        "reachable": "Answered.",
+        "unreachable": "No answer on that address.",
+        "save": "Save",
+        "forget": "Forget",
+        "released": {
+          "one": "{task} no longer uses the server: {address} is another computer. Choose it again in Tasks to use it there.",
+          "other": "{tasks} no longer use the server: {address} is another computer. Choose it again in Tasks to use it there."
+        }
+      },
+      "available": {
+        "title": "Available to download",
+        "intro": "They all do the same two jobs, Rewrite and Continuity. Larger models write better and need more memory.",
+        "recommended": "Recommended",
+        "uncensored": "Uncensored",
+        "uncensoredWhy": "Its safety filter is removed, for fiction a filtered model refuses to help with.",
+        "showUncensored": "Show uncensored models",
+        "showUncensoredHint": "Uncensored models have their safety filter removed. Hiding them changes nothing else.",
+        "fitsOnly": "Only models that fit",
+        "oneAtATime": "One download at a time: {model} is downloading.",
+        "allHere": "Every model in the catalogue is already on this computer.",
+        "download": "Download",
+        "cancel": "Cancel",
+        "progress": "{done} of {total} · {percent}%",
+        "progressValue": "{done} of {total}",
+        "downloading": "Downloading {model}",
+        "done": "{model} is ready."
+      },
+      "filter": {
+        "search": "Search models",
+        "family": "Family",
+        "allFamilies": "All families",
+        "sort": "Sort",
+        "sorts": {
+          "recommended": "Recommended order",
+          "smallest": "Smallest first",
+          "largest": "Largest first",
+          "name": "By name"
+        },
+        "showing": "Showing {shown} of {total}",
+        "noMatch": "No model matches that. Clear the search or the filters."
+      },
+      "fit": {
+        "yes": "Fits this computer",
+        "no": "Too large for this computer: you can still download it"
+      },
+      "size": {
+        "low": "Small",
+        "mid": "Medium",
+        "midPlus": "Large",
+        "high": "Extra large"
+      },
+      "details": {
+        "button": "Details",
+        "speedQuality": "Speed: {speed} · Quality: {quality}",
+        "memory": "Needs about {ram} of memory.",
+        "quant": "Compressed as {quant}: a smaller, faster copy, slightly less precise.",
+        "context": "Context: {ctx} tokens, how much text it can consider at once.",
+        "source": "License: {license} · Source: {repo}"
+      },
+      "speed": {
+        "fast": "fast",
+        "balanced": "medium",
+        "slow": "slow"
+      },
+      "quality": {
+        "basic": "basic",
+        "good": "good",
+        "high": "high"
+      },
+      "tierNote": {
+        "low": "The lightest. A fast draft on a modest machine.",
+        "mid": "The sweet spot on an ordinary laptop.",
+        "midPlus": "Noticeably better prose, and it is heavy.",
+        "high": "The best here, and it asks for a lot of memory."
+      }
+    },
+    "assistants": {
+      "list": "On this computer",
+      "found": "Found · version {version}",
+      "foundNoVersion": "Found",
+      "notFound": "Not found on this computer",
+      "usedForRewrite": "Used for Rewrite",
+      "scope": "They're used for Rewrite only: Continuity needs one of your models. Each assistant keeps its own login, and Versorium never stores it.",
+      "where": "Where they were found",
+      "chooseInTasks": "Choose one for Rewrite in Tasks ›",
+      "seeAccess": "To let an app read your novel instead, Claude Desktop included, see Access to your novel ›"
+    },
+    "access": {
+      "summary": {
+        "none": "No app can change your manuscript.",
+        "one": "1 app can change your manuscript: {names}.",
+        "other": "{count} apps can change your manuscript: {names}."
+      },
+      "makeAllReadOnly": "Make all read only",
+      "allReadOnlyDone": "Every app is read only now.",
+      "list": "Apps on this computer",
+      "noneFound": "Versorium didn't find any of the apps it can connect.",
+      "status": {
+        "notSetUp": "Not set up",
+        "readOnly": "Connected · read only",
+        "canWrite": "Connected · can change your manuscript",
+        "staleWrite": "Not set up · writing still allowed",
+        "notFound": "Not found on this computer"
+      },
+      "connectAnyway": "Connect anyway",
+      "notFoundTitle": "Not found on this computer ({count})",
+      "notFoundHint": "Versorium didn't find these apps. If one is installed somewhere unusual, you can still connect it.",
+      "readOnlyText": "Read only. It can read chapters, Codex entries and the novel's history, and search them. It never changes anything.",
+      "canWriteText": "{client} can change your manuscript: it can edit and add chapters, update your Codex entries and save snapshots, and it can delete a chapter. Versorium saves a snapshot before each change.",
+      "allowWriting": "Allow writing…",
+      "connectFirst": "Connect {client} first.",
+      "makeReadOnly": "Make read only",
+      "recent": "Recent activity",
+      "recentEmpty": "Nothing yet.",
+      "allActivity": "All activity ›",
+      "byHandCommand": "To set it up by hand, {client} needs to start this command:",
+      "byHandFile": "Its settings file:",
+      "disconnectHint": "Removes Versorium from {client}'s settings. Writing is taken back too.",
+      "grantedAnnounce": "{client} can now change your manuscript.",
+      "revokedAnnounce": "{client} is read only now.",
+      "advanced": "Advanced",
+      "httpReadOnly": "Apps that connect by address can only read: writing can't be allowed for them.",
+      "httpOff": "Off. Apps reach Versorium by starting it, which needs no network at all.",
+      "command": "The command apps start:",
+      "network": "Nothing listens on the network unless HTTP is on.",
+      "seeActivity": "See what apps have done in Activity ›",
+      "seeAssistants": "To have an app like Claude Code rewrite a passage instead, see Assistants ›",
+      "dialog": {
+        "title": "Let {client} change your manuscript?",
+        "what": "{client} will be able to edit and add chapters, update your Codex entries and save snapshots. It will also be able to delete a chapter.",
+        "snapshot": "Before each change, Versorium saves a snapshot of the novel; if it can't save one, the change is refused. The earlier text stays in the novel's history. For now, bringing it back is done with Git, outside Versorium.",
+        "review": "A snapshot only protects what was there when it was taken. Look at what changed after each session, in History.",
+        "cancel": "Keep read only",
+        "confirm": "Let {client} write"
+      }
     }
   },
   "statusbar": {
@@ -239,6 +605,7 @@
     "stale_selection": "The passage changed since you selected it. Select it again.",
     "mcp_config_failed": "Versorium could not write that client's config file.",
     "mcp_client_unknown": "Unknown MCP client.",
+    "mcp_client_not_connected": "Connect that app before allowing it to write.",
     "no_home": "Could not locate your home folder.",
     "download_busy": "Another model is already downloading. Wait for it to finish.",
     "sha_mismatch": "The download did not match its checksum, so it was deleted. Try again.",
@@ -271,13 +638,15 @@
     "no_checksums": "The release has no checksum for this download, so nothing was installed.",
     "unsupported_platform": "Versorium cannot update itself on this operating system or processor.",
     "bad_update_host": "The update pointed somewhere unexpected and was refused.",
-    "continuity_no_model": "No model is selected for Continuity. Pick one under Local AI.",
-    "continuity_daemon_offline": "The Ollama daemon is not running, so the check could not start.",
+    "continuity_no_model": "No model is chosen for Continuity. Choose one in Settings → Tasks.",
+    "continuity_daemon_offline": "Ollama isn't running, so the check couldn't start.",
+    "continuity_server_offline": "The local server isn't answering, so the check couldn't start.",
     "continuity_failed": "The continuity check could not finish.",
     "no_runtime": "Versorium has no engine for that task yet. Dictation needs a speech model, which llama.cpp cannot run.",
     "cancelled": "Cancelled.",
     "ollama_offline": "Ollama is not answering. Start it and try again.",
     "ollama_failed": "Ollama could not finish that.",
+    "server_offline": "The local server isn't answering. Start it, or check its address in Settings → Models.",
     "llama_busy": "Versorium is already running one model. Wait for it to finish.",
     "llama_load_failed": "That model file could not be loaded. It may be for a different purpose than writing.",
     "llama_cancelled": "Stopped.",
@@ -314,7 +683,7 @@
     "rewrite": "Rewrite",
     "provider": "Agent",
     "busy": "Rewriting…",
-    "noProviders": "No assistant found. Install Claude Code, Codex, OpenCode or Ollama, then check again in Settings → Assistants.",
+    "noProviders": "Nothing can rewrite yet. Get a model in Settings → Models, or install Claude Code, Codex or OpenCode.",
     "preview": "Preview",
     "original": "Original",
     "rewritten": "Rewritten",
@@ -327,55 +696,23 @@
     "checkpointNote": "Versorium snapshots Git before applying. You can roll back.",
     "creative": "Continue chapter",
     "creativeSoon": "Creative mode is coming. It is not available yet.",
-    "configuredSuffix": "(configured)"
+    "configuredSuffix": "(configured)",
+    "openModels": "Open Settings › Models",
+    "kindNetwork": "Network",
+    "serverChoice": "Local server · {model}",
+    "remoteChoice": "Server at {address} · {model}"
   },
   "agents": {
-    "title": "Assistants on this machine",
-    "hint": "Found, not configured: each one keeps its own login and Versorium never stores their keys. Versorium can hand a task to one of these when no local model is assigned to it.",
-    "recheck": "Re-check",
     "checking": "Checking…",
-    "connected": "Connected",
-    "detected": "Detected",
-    "missing": "Missing",
-    "models": "Models",
-    "version": "Version",
-    "path": "Path",
-    "ollamaOffline": "Binary found, daemon offline. Start Ollama to connect.",
-    "none": "Agent detection runs inside the desktop app."
-  },
-  "safety": {
-    "title": "Safety",
-    "censorship": "Censorship",
-    "censorshipHint": "On, models marked uncensored are hidden from the list above. That is all it does today: it does not change what any assistant is asked, and nothing routes requests by it.",
-    "on": "On",
-    "off": "Off"
+    "connected": "Found",
+    "detected": "Found, not running",
+    "missing": "Not found"
   },
   "mcp": {
-    "title": "What they are allowed to do",
-    "intro": "The arrow points the other way here: an assistant connects to Versorium and reads your manuscript through it. A local server on this machine — over stdio, and over HTTP only if you turn it on below — read-only until you allow writing, per client.",
-    "command": "Command",
-    "commandHint": "Connected clients spawn this. Nothing listens on the network.",
     "connect": "Connect",
     "disconnect": "Disconnect",
-    "connected": "Connected",
-    "notConnected": "Not connected",
-    "detected": "Installed on this machine",
-    "notDetected": "Not found on this machine",
-    "configPath": "Config",
-    "allowWrite": "Allow write",
     "writeWarning": "Write lets the AI change your manuscript. Versorium will snapshot Git first. You can roll back. The model can still delete text if you allow the edit.",
-    "readOnly": "Read-only",
-    "log": "Tool log",
-    "logEmpty": "No tool calls yet.",
-    "logHint": "Records tool names, clients and paths. Never your manuscript text.",
-    "refresh": "Refresh",
-    "scopeRead": "read",
-    "scopeWrite": "write",
-    "outcomeOk": "ok",
-    "outcomeDenied": "denied",
-    "outcomeError": "error",
     "restartHint": "Restart {client} for the change to take effect.",
-    "none": "The MCP server runs inside the desktop app.",
     "clients": {
       "claude-code": "Claude Code",
       "claude-desktop": "Claude Desktop",
@@ -384,165 +721,9 @@
     },
     "httpTitle": "Serve over HTTP too",
     "httpHint": "Some assistants cannot start a program and need a URL instead. Versorium listens on this machine only, on a port it picks, and a client must present a token it reads from a file only you can open.",
-    "httpOff": "Off. Assistants reach Versorium by starting it, which needs no network at all.",
     "httpUrl": "Address",
     "httpFile": "The URL and token are here",
     "httpRestart": "Turning this off takes effect next time Versorium starts."
-  },
-  "localAi": {
-    "title": "Local AI",
-    "intro": "Models that run on this machine. Nothing leaves it.",
-    "none": "Local models run inside the desktop app.",
-    "refresh": "Refresh",
-    "diskUsed": "Downloaded models use {size}.",
-    "modelsDir": "Stored in",
-    "tabs": {
-      "writing": "Built in",
-      "ollama": "Ollama",
-      "studio": "Local server",
-      "dictation": "Dictation"
-    },
-    "wizard": {
-      "title": "This machine",
-      "ram": "Memory",
-      "cores": "Cores",
-      "platform": "Platform",
-      "gpu": "Graphics",
-      "recommended": "With {ram} of memory, the {tier} pack is the largest that fits comfortably.",
-      "recommendedBadge": "Recommended",
-      "hint": "Nothing downloads on its own. Pick a model when you want it."
-    },
-    "tiers": {
-      "low": "light",
-      "mid": "balanced",
-      "midPlus": "large",
-      "high": "largest"
-    },
-    "card": {
-      "download": "Download",
-      "cancel": "Cancel",
-      "ready": "Ready",
-      "selected": "Selected",
-      "delete": "Delete",
-      "confirmDelete": "Delete for good?",
-      "keep": "Keep",
-      "resume": "Resume",
-      "partial": "{done} of {total} downloaded",
-      "oneLiner": "{speed} • {quality}",
-      "meta": "{size} • {quality} • {quant} • {ctx} context • needs {ram} RAM",
-      "uncensored": "uncensored",
-      "tooBig": "Larger than this machine can hold comfortably. You can still download it.",
-      "corrupt": "The file on disk does not match its checksum. Delete it and download again.",
-      "license": "License",
-      "empty": "The catalog has no models for this tab yet.",
-      "ladderIntro": "These all do the same work: rewriting, chat and continuity. They differ in quality, speed and memory. Pick the largest one your machine can hold.",
-      "uncensoredWhy": "Safety filter removed, for fiction a filtered model refuses to help with.",
-      "purpose": {
-        "writing": "Rewrites a passage, talks about the manuscript, checks continuity.",
-        "embeddings": "Does not write. Turns your chapters into vectors so search finds meaning, not just matching words.",
-        "dictation": "Turns speech into text."
-      },
-      "tierNote": {
-        "low": "The lightest. A fast draft on a modest machine.",
-        "mid": "The sweet spot on an ordinary laptop.",
-        "midPlus": "Noticeably better prose, and it is heavy.",
-        "high": "The best here, and it asks for a lot of memory."
-      },
-      "details": "Details",
-      "progress": "{done} of {total} · {percent}%",
-      "downloading": "Downloading {label}"
-    },
-    "speeds": {
-      "fast": "Fast",
-      "balanced": "Balanced",
-      "slow": "Slow"
-    },
-    "qualities": {
-      "basic": "basic quality",
-      "good": "good quality",
-      "high": "high quality"
-    },
-    "ollama": {
-      "running": "Running",
-      "offline": "Offline",
-      "notInstalled": "The ollama binary was not found on this machine.",
-      "installHint": "Install Ollama and start it, then refresh.",
-      "offlineHint": "Ollama is installed but its daemon is not answering. Start it, then refresh.",
-      "pulled": "Pulled models",
-      "empty": "No models pulled yet.",
-      "pullPlaceholder": "Model name, e.g. qwen3:4b",
-      "pull": "Pull",
-      "remove": "Remove",
-      "confirmRemove": "Remove it?",
-      "modified": "Updated {when}"
-    },
-    "studio": {
-      "intro": "LM Studio or llama-server, anything speaking the OpenAI API on this machine. You can test and save the connection now; assigning it to a task is not built yet.",
-      "host": "Host",
-      "port": "Port",
-      "test": "Test connection",
-      "reachable": "Answered.",
-      "unreachable": "No answer on that address.",
-      "enable": "Use this server",
-      "save": "Save"
-    },
-    "dictation": {
-      "intro": "Dictate into the open chapter with a local Whisper model.",
-      "soon": "The Whisper packs arrive in a later milestone. The downloader they will use is already here."
-    },
-    "slots": {
-      "title": "What each model is used for",
-      "intro": "Pick a model per task. A task with no model falls back to a connected agent.",
-      "none": "None",
-      "builtin": "Built-in",
-      "ollamaGroup": "Ollama",
-      "rewrite": "Rewrite",
-      "rewriteHint": "Rewriting a selected passage.",
-      "chat": "Project chat",
-      "chatHint": "Talking about the manuscript.",
-      "continuity": "Continuity",
-      "continuityHint": "Checking the story against itself.",
-      "embeddings": "Search",
-      "embeddingsHint": "Indexing the manuscript so search understands meaning.",
-      "dictation": "Dictation",
-      "dictationHint": "Turning speech into text."
-    },
-    "engine": {
-      "title": "Engine",
-      "warming": "starting… (compiling GPU shaders, once per machine)",
-      "failed": "llama.cpp could not start on this machine.",
-      "cpuOnly": "CPU",
-      "noGpuBuild": "· this build has no GPU backend, so speeds are CPU speeds"
-    },
-    "filter": {
-      "search": "Search models",
-      "sort": "Sort",
-      "sorts": {
-        "recommended": "Recommended order",
-        "smallest": "Smallest first",
-        "largest": "Largest first",
-        "name": "By name"
-      },
-      "family": "Family",
-      "allFamilies": "All families",
-      "fits": "Runs on this machine",
-      "showing": "Showing {shown} of {total}",
-      "noMatch": "No model matches that. Clear the search or the filters."
-    },
-    "tasks": {
-      "title": "What each task uses",
-      "intro": "Five jobs, and the model each one runs on. A task with no model falls back to a connected assistant — and if there is none, it says so rather than doing nothing."
-    },
-    "sources": {
-      "title": "Where models come from",
-      "intro": "Where a model can come from. Built-in and Ollama models can be given to the tasks above; a local server can be configured here but no task can use it yet."
-    },
-    "runsOn": {
-      "none": "no model yet",
-      "builtin": "runs in Versorium",
-      "ollama": "runs in Ollama",
-      "cli": "runs in an assistant"
-    }
   },
   "manuscript": {
     "title": "Manuscript",
@@ -550,7 +731,8 @@
     "close": "Close",
     "tabs": {
       "export": "Export",
-      "import": "Import"
+      "import": "Import",
+      "continuity": "Continuity"
     },
     "export": {
       "title": "Export",
@@ -657,7 +839,7 @@
       "template": "A shape to start from",
       "firstScene": "The first scene"
     },
-    "machineSummary": "{ram} of memory and {cores} cores. The {tier} pack is the largest that fits comfortably.",
+    "machineSummary": "{ram} of memory and {cores} cores: models up to {size} fit comfortably.",
     "machineUnknown": "Versorium could not read this machine's memory. You can still pick a model later.",
     "machineHint": "Nothing is downloaded here. Models are chosen in Settings, when you want them.",
     "agentsHint": "Versorium uses the AI tools you already have. Each keeps its own login — no keys are stored here.",
@@ -783,13 +965,22 @@
     "clear": "Clear"
   },
   "continuity": {
-    "title": "Continuity check",
-    "hint": "Reads the manuscript against itself for contradictions. A stub: it needs a local model selected for the Continuity task.",
-    "run": "Run check",
+    "hint": "Looks for contradictions in your story. It reads chapter titles, scene headings and the first lines of your Codex entries, not your chapters.",
+    "run": "Check the manuscript",
     "running": "Reading…",
     "clean": "Nothing contradictory found.",
     "noProject": "Open a novel first.",
-    "none": "The continuity check runs inside the desktop app."
+    "none": "The continuity check runs inside the desktop app.",
+    "runsOn": "Runs on {model}, on this computer.",
+    "runsOnRemote": "Runs on {model}, on the server at {address}.",
+    "onServer": "{model} on the local server",
+    "change": "Change in Settings ›",
+    "noModel": "Continuity has no model yet.",
+    "choose": "Choose one in Settings ›",
+    "kinds": {
+      "contradiction": "Contradiction",
+      "note": "Note"
+    }
   },
   "backup": {
     "title": "Backup",

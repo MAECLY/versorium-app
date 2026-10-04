@@ -63,7 +63,7 @@ const view = (over: Partial<LocalAiView> = {}): LocalAiView => ({
   slots: slots(),
   progress: null,
   ollama: { running: true, models: [{ name: "qwen3:4b", sizeBytes: 1, modified: "now" }], installed: true },
-  studio: { host: "127.0.0.1", port: 1234, enabled: false },
+  studio: { host: "127.0.0.1", port: 1234, enabled: false, running: false, models: [] },
   censorship: false,
   diskUsedBytes: 0,
   modelsDir: "/data/models",
@@ -150,21 +150,26 @@ it("a download that finishes mid-poll stops the interval itself", async () => {
   await running;
 });
 
-it("cancelling works while the download holds the store busy", async () => {
+it("a download never holds the store busy, and Cancel works while it runs", async () => {
   await store.load();
   let finish: () => void = () => {};
   vi.mocked(api.modelsDownload).mockReturnValue(new Promise<void>((r) => (finish = r)));
   vi.mocked(api.modelsProgress).mockResolvedValue({ id: "qwen3-4b", received: 10, total: 100, done: false });
 
   const running = store.download("qwen3-4b");
-  // Cancel used to be routed through the same guard that is held for the whole
-  // download, so it was dead for exactly as long as it was the only button on
-  // screen.
+  // A download used to hold `loading` for its whole length, which dropped
+  // every other change made meanwhile (tests/unit/models-store.test.ts). It
+  // has its own state now.
+  expect(store.loading).toBe(false);
+  expect(store.downloadingId).toBe("qwen3-4b");
+  // Cancel used to be routed through that same guard, so it was dead for
+  // exactly as long as it was the only button on screen.
   await store.cancel("qwen3-4b");
   expect(api.modelsCancel).toHaveBeenCalledWith("qwen3-4b");
 
   finish();
   await running;
+  expect(store.downloadingId).toBeNull();
 });
 
 it("a failed download localizes the error and keeps the previous view", async () => {

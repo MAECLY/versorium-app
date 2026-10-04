@@ -109,16 +109,17 @@ test("clearing the local server port cannot send a non-number to the backend", a
   await page.goto("/?mock=tauri");
   await page.getByRole("button", { name: "Settings" }).click();
   const settings = page.getByRole("region", { name: "Settings" });
-  await settings.getByRole("button", { name: "Local AI" }).click();
-  await settings.getByRole("tab", { name: "Local server" }).click();
+  await settings.getByRole("navigation").getByRole("button", { name: "Models", exact: true }).click();
+  await settings.getByRole("button", { name: /^Local server, / }).click();
+  const server = settings.locator("#models-server-panel");
 
-  const port = settings.getByRole("spinbutton", { name: "Port" });
+  const port = server.getByRole("spinbutton", { name: "Port" });
   await expect(port).toHaveValue("1234");
   await port.fill("");
   await port.blur();
   await expect(port).toHaveValue("1234");
 
-  await settings.getByRole("button", { name: "Save" }).click();
+  await server.getByRole("button", { name: "Save" }).click();
   const saved = await page.evaluate(() =>
     window.__VERSORIUM_MOCK__.calls.filter((c) => c.cmd === "studio_save").map((c) => c.args.port),
   );
