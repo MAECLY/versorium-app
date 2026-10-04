@@ -110,17 +110,22 @@ not reproduced here yet.
 HTTPS in libgit2 uses Secure Transport on macOS, WinHTTP on Windows and OpenSSL
 on Linux. The `https` feature also pulls in `openssl-sys` on every `cfg(unix)`
 target, macOS included (`libgit2-sys` declares it that way), so the binary
-links OpenSSL's `libssl` and `libcrypto` dynamically on macOS as well as on
-Linux. OpenSSL is not bundled on either:
+links OpenSSL on macOS as well as on Linux:
 
 - Linux: the system's OpenSSL 3. The `.deb` declares `libssl3` as a
   dependency.
-- macOS: macOS ships no OpenSSL library, so the binary links whichever one the
-  build machine has. A local debug build links Homebrew's
-  `/opt/homebrew/opt/openssl@4/lib/libssl.4.dylib` and `libcrypto.4.dylib`
-  (`otool -L`). The release workflow sets neither `OPENSSL_STATIC` nor a
-  vendored OpenSSL, and what the CI build links was not checked. See
-  [Open items](#open-items).
+- macOS: OpenSSL **3.6.3 is built into the app** (`git2`'s `vendored-openssl`,
+  through `openssl-src` 300.6.1+3.6.3), because macOS ships no OpenSSL. Before
+  2026-10-04 the binary linked whatever the build machine had — Homebrew's
+  `/opt/homebrew/opt/openssl@4` — and would not start on a Mac without it;
+  `otool -L` on the Apple silicon and Intel release binaries now lists only
+  system libraries.
+
+  OpenSSL — Apache License 2.0. Copyright (c) 1998-2025 The OpenSSL Project
+  Authors; Copyright (c) 1995-1998 Eric A. Young, Tim J. Hudson. All rights
+  reserved. The full licence text is the Apache License 2.0 in `LICENSE` at
+  the root of this repository (the same text Versorium is published under);
+  OpenSSL's own copy is at https://www.openssl.org/source/license.html.
 
 ### Zstandard
 
@@ -329,8 +334,7 @@ the AppImage (see [Open items](#open-items)), none of them carries these
 libraries:
 
 - **macOS:** WebKit and the other system frameworks, `libc++`, `libz`,
-  `libiconv`. Also OpenSSL, which is not a macOS system library; see
-  [libgit2](#libgit2).
+  `libiconv`. (OpenSSL is built in; see [libgit2](#libgit2).)
 - **Linux:** GTK, WebKitGTK, libsoup, OpenSSL 3, the Vulkan loader. The `.deb`
   declares `libvulkan1` and `libssl3` in `tauri.conf.json`; no dependency list
   is configured there for the `.rpm`.
@@ -351,11 +355,8 @@ libraries:
    from the build machine into the image (GTK, WebKitGTK and their
    dependencies, mostly LGPL). Which libraries end up in Versorium's AppImage
    has not been inspected, and their licences are not listed here.
-3. **OpenSSL on macOS.** The macOS binary links an OpenSSL `libssl` and
-   `libcrypto` that the `.dmg` does not contain (see [libgit2](#libgit2)). What
-   the CI build links was not checked. If it records a Homebrew path, a Mac
-   without that library cannot load the app; if OpenSSL is ever bundled or
-   linked statically to fix that, its Apache-2.0 licence must be added here.
+3. **OpenSSL on macOS — resolved 2026-10-04.** Built into the app and credited
+   under [libgit2](#libgit2).
 4. **Notices for the Rust crates and the native components.** MIT, Apache-2.0,
    BSD, ISC, Zlib, Unicode-3.0 and bzip2-1.0.6 all ask for a copyright line,
    a licence text, or both to travel with a binary. This file gives copyright

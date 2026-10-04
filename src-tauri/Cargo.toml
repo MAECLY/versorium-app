@@ -67,6 +67,12 @@ trash = "5"
 # the macOS tree through tauri and wry at these versions, so declaring them adds
 # nothing to the build and nothing to THIRD-PARTY-NOTICES.md.
 [target.'cfg(target_os = "macos")'.dependencies]
+# OpenSSL built into the app on macOS. Without it libgit2 links whatever
+# OpenSSL the build machine has (Homebrew's /opt/homebrew/opt/openssl@N), and
+# the app does not start on a Mac without that library; the Intel build on an
+# Apple silicon runner had no x86_64 OpenSSL to find at all. Linux links the
+# system's libssl3, which the .deb declares; Windows uses its own TLS.
+git2 = { version = "0.19", default-features = false, features = ["vendored-openssl"] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = [
   "std",
