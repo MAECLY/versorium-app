@@ -295,6 +295,14 @@ between any two commits (or a commit and the working tree) is a git2
 the last snapshot, any snapshot from the history list, or two of them — is
 part of the design.
 
+The owner's layouts (2026-10-04), all three wanted:
+
+- **The code-editor view:** `[earlier] [action] [current]`.
+- **Two points in time against today:** `[earlier, date/time] [later, date/time] [action] [current]` —
+  any two snapshots, plus the text as it is now.
+- **Comparison with notes:** `[earlier] [current] [notes]`, the third column
+  showing the notes (next item) anchored to the passages being compared.
+
 ### Go back to an earlier version from the app
 
 Belongs with the diff view above: seeing a change and saying "I want that
@@ -306,6 +314,28 @@ and three strings promise what the app cannot do: `binder.confirm.chapterBody`
 `ai.checkpointNote` ("You can roll back"). Restoring must itself snapshot
 first, so going back is never a way to lose today's text; a deleted chapter
 also has to come back into `versorium.json`'s order, not just onto disk.
+
+### Notes on the novel, anchored anywhere (like comments in Google Docs)
+
+Requested on 2026-10-04. The writer leaves notes — an idea, an observation, a
+brainstorm, a reference — on the project, on a chapter, or on a paragraph,
+sentence, line, word or single character, the way Google Docs comments work.
+Notes are saved with the novel (inside its folder, so they go into its git
+snapshots and its zip backups), never into the manuscript text or the exports
+unless asked. They also appear as the third column of the comparison view
+above.
+
+Questions the design has to answer, from a review of the whole app first:
+where notes live on disk (a file per chapter beside the manuscript, or
+`.versorium/`), how an anchor survives edits — inside the app (CodeMirror
+change mapping, the ops log) and outside it (a chapter edited in another
+editor: re-anchor by quoted text and its context, as the W3C Web Annotation
+TextQuoteSelector does); what happens on rename, reorder, delete and restore of
+a chapter, on import and export, in git snapshots and restores, in backups, in
+the MCP tools (read-only by default, writes behind the existing setting,
+warning and checkpoint), in search, and in the corkboard; and how notes look
+in the editor (margin markers, highlight, a side panel) without disturbing the
+writing. i18n EN+ES; no note text in crash logs.
 
 ### The local server cannot be given to a task
 
