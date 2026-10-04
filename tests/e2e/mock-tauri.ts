@@ -5,6 +5,16 @@
 
 import { BACKUP_STATE_EVENT } from "$lib/backup/events";
 import shippedFonts from "../../fonts/catalog.json";
+import tauriConf from "../../src-tauri/tauri.conf.json";
+import {
+  enabledCapabilities,
+  refusal,
+  resolveOpenUrl,
+  urlAllowed,
+  type Capability,
+  type CapabilityEntry,
+  type Manifest,
+} from "./opener-acl";
 
 type Args = Record<string, unknown>;
 
@@ -244,6 +254,27 @@ const calls: { cmd: string; args: Args }[] = [];
  * save. The call is still recorded, as Rust would have received it.
  */
 const failures: Record<string, string> = {};
+
+/**
+ * What `plugin:opener|open_url` may open, worked out from the files the app
+ * is built from (opener-acl.ts): the capabilities, tauri.conf.json's list of
+ * them if it has one, and the plugins' ACL manifests tauri-build writes to
+ * src-tauri/gen/schemas (tracked). Globbed rather than imported, so the
+ * manifests' 70 KB are not a type TypeScript has to infer.
+ */
+const OPEN_URL = (() => {
+  const unread = Object.keys(import.meta.glob("../../src-tauri/capabilities/*.{toml,json5}"));
+  if (unread.length) throw new Error(`mock-tauri reads JSON capabilities only, not ${unread.join(", ")}`);
+  const files = import.meta.glob<Capability>("../../src-tauri/capabilities/*.json", { eager: true, import: "default" });
+  const [acl] = Object.values(
+    import.meta.glob<Record<string, Manifest>>("../../src-tauri/gen/schemas/acl-manifests.json", { eager: true, import: "default" }),
+  );
+  const listed = (tauriConf.app.security as { capabilities?: CapabilityEntry[] }).capabilities;
+  return resolveOpenUrl(enabledCapabilities(Object.values(files), listed), acl);
+})();
+
+/** Every address the system browser was handed, oldest first: what the opener accepted. */
+const browser: string[] = [];
 
 const GB = 1024 ** 3;
 
@@ -1499,6 +1530,16 @@ const commands: Record<string, (args: Args) => unknown> = {
     listeners.delete(Number(eventId));
   },
   "plugin:window|destroy": () => undefined,
+  // The opener answers as the plugin would under the app's capabilities: an
+  // address its scope does not allow is refused in the plugin's words and
+  // never reaches the browser.
+  "plugin:opener|open_url": ({ url, with: program }) => {
+    const address = String(url);
+    const named = program == null ? undefined : String(program);
+    if (!OPEN_URL.granted) throw "opener.open_url not allowed by the capabilities in src-tauri/capabilities";
+    if (!urlAllowed(OPEN_URL, address, named)) throw refusal(address, named);
+    browser.push(address);
+  },
   // Rust's half of "quitting waits for the last save" (src-tauri/src/quit.rs):
   // the answer is in `calls`, as `{ saved }`.
   quit_ready: () => undefined,
@@ -1594,6 +1635,8 @@ declare global {
       /** What GitHub answers the next check; specs set it, then press Check now. */
       github: MockGitHub;
       crashes: CrashEntry[];
+      /** Every address the system browser was handed, oldest first: what the opener accepted. */
+      browser: string[];
       /** True once the app was asked to restart into the new version. */
       relaunched: boolean;
       /** A backup in progress, and the outcomes the next Back up now returns. */
@@ -1647,7 +1690,7 @@ window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
 };
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
-    projects, settings, calls, failures, agents, ollama, studio, llama, mcpClients, mcpLog, models, slots, update, github, crashes,
+    projects, settings, calls, failures, agents, ollama, studio, llama, mcpClients, mcpLog, models, slots, update, github, crashes, browser,
     backup, setBackupRunning, holdBackup, releaseBackup, emit, listening, fonts, importPreview, hold, release,
     get relaunched() {
       return relaunched;
