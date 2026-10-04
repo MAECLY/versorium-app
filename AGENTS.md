@@ -181,6 +181,15 @@ move; re-run rather than quote them.
   what changed for the person using the app, e.g.
   `fix(backup): a press that changes nothing no longer costs you a backup`.
   No `Co-Authored-By` trailer; none of the commits on `main` has one.
+- **A message that goes by goes through the notices** (`src/lib/notices/`):
+  `notices.inform(text)` for a confirmation or a hint, which hides itself;
+  `notices.fail(text, id)` for an error the writer has to read, which stays,
+  with one id per condition and `notices.dismiss(id)` once it clears. A
+  notice is read in a corner, away from the control that raised it, so it
+  names its subject ("Author profile saved.", not "Saved."). A message tied
+  to a place (a field, a destination, a dialog) stays inline, where it is
+  read; so does a modal dialog's own failure, since the dialog makes the
+  notices behind it inert. There is no global error string any more.
 - **Form controls use the shared primitives** in `src/lib/components/forms/`:
   `Field`, `TextField`, `NumberField`, `Select`, `Checkbox`. The hint goes in
   `aria-describedby`, and a live status readout stays outside the label so it

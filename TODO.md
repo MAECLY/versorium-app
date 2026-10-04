@@ -227,25 +227,72 @@ backups to iCloud use upload bandwidth. Under close-or-quit, a checkbox
 "Always back up before quitting, even right after a backup" replaces the
 spec's small-change shortcut.
 
-### Notifications have no module and never hide
+### Notifications: the checks no automation reaches, and what is left
 
-There is no notification module. 21 files render their own notice or error
-paragraph; `store.error` is written in 11 places; 17 elements carry
-`role="alert"` and 15 `aria-live="polite"`; not one of them hides itself — there
-is no timer anywhere. A hint is pushed through the error channel:
-`App.svelte` sets `store.error = t("ai.selectFirst")` ("Select a passage
-first."), which then renders as a warning box with a manual ✕.
+Built on 2026-10-04 (see "Notifications" in `STATUS.md`): `src/lib/notices/`,
+one stack for hints and confirmations that go by themselves and errors that
+stay until closed or cleared. A message tied to a place stays in it. Still to
+do:
 
-Centralise the transient ones and leave the rest where they are:
+- **macOS, WKWebView:** VoiceOver reads a hint once, politely, and an error
+  once, as an alert, and not again when the error's words change in place;
+  with keyboard navigation off, Option+Tab from the text reaches the
+  notice's Close; Escape on a notice closes it and leaves Focus on; a click
+  on Close while writing leaves the caret in the text. On the mock,
+  Playwright's Chrome and WebKit pass the last three and check the live
+  regions' words for the first (`tests/e2e/notices.spec.ts`;
+  `tests/scratch/notices/pw-webkit.config.ts`); no screen reader was run.
+- **A notice raised while a modal dialog is open** (an autosave failing
+  behind the Rewrite dialog) sits behind the backdrop and is not announced:
+  `showModal()` makes the rest of the page inert, its live regions included.
+  It is read only if the writer finds it after the dialog closes. A dialog's
+  own action no longer does this: New project, New chapter, the tour and
+  Project settings say their failure inside, and Rename and Delete close
+  before they run.
+- **An error raised on the Settings page covers the foot of the form** until
+  it is closed: at 1100×640 the stack sits over the third backup card's path
+  and part of Author's "Publisher or company". The manuscript keeps room for
+  the stack (`--v-notes-room`); the Settings page could do the same.
+- **The words of a background failure** say why and not what: a save, the
+  change log and the minute's snapshot that fail on a full disk all say "File
+  system error.". The owner's call: a line per source ("The chapter was not
+  saved. …"), which would also stop them sharing one box.
+- **A notice keeps the language it was raised in** until it goes. The
+  contract carries text, not a key (backup schedule SPEC §6.3).
+- **Save snapshot says nothing when it works.** A transient "Snapshot
+  saved." would be the first confirmation the status bar's own button gives.
+- **Copy:** "Nothing to roll back here." answers a button labelled "↩
+  Restore"; the Spanish says "restaurar" for both. "Nothing to restore here."
+  in the next copy pass.
+- **Scheduled backups (Phase 1)** report through `notices.show`, `dismiss`
+  and `close`, with ids `backup:<kind>:<project>:<dest>`; the adapter
+  (`src/lib/backup/notices.ts`) is theirs to write. Where the module is
+  narrower than SPEC §6.3, for the owner to confirm or the spec to take in:
+  - A transient notice takes no action, by type: it could hide on its way to
+    being pressed. So `shrunk` and `skipped` (SPEC §6.1) go without "Open
+    backup settings".
+  - `show` under the same id in the same words is a refresh and is not read
+    out, as §6.3 says. A transient whose words changed is read again: it goes
+    in five seconds, and the announcement is the only time a screen reader
+    hears it. A persistent notice is never read again under its id (§6.4).
+  - Persistent notices in the same words are drawn as one box unless one
+    carries an action; a box has room for one action, and its ✕ closes every
+    id in it and fires each `onDismiss`. §6.2's texts name the novel and the
+    destination, so they never share words; an adapter that dropped those
+    names would merge destinations.
 
-- **Transient, auto-hide:** confirmations ("Saved.", "Backups are off.") and
-  hints ("Select a passage first."). Pause the timer while the pointer or focus
-  is on the message.
-- **Persistent:** an error the writer has to read to resolve. Auto-hiding it
-  fails WCAG 2.2.1 (timing) and loses the one message that matters.
-- **Inline, not a toast:** anything tied to a place — per-destination backup
-  outcomes, a field's validation error. Those are the record the writer reads
-  where they are.
+### Found while building the notices, not part of them
+
+- **Typewriter mode puts the line being written below the window** once the
+  chapter is longer than a screen: at 1000×640, after 30 lines, the caret's
+  line sits at y 850–886 in a scroller that ends at 608. HEAD without the
+  notices does the same (`tests/scratch/notices-fix/typewriter-probe-base.mjs`,
+  run against both). Probe: `tests/scratch/notices/typewriter-probe.mjs`.
+- **The censorship checkbox stays ticked after a save that failed**
+  (`LocalAiGroup.svelte`, `setCensorship`): it sets the state before the
+  write and never sets it back, so the box says it took while the notice says
+  it did not. The shared `Checkbox` is strictly controlled for exactly this;
+  this one is a raw `<input>`.
 
 ### Collapsible binder and top bar: the checks no automation reaches
 

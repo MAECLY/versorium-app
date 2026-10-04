@@ -675,6 +675,295 @@ lines measured in the first build (status 4.74–6.28:1, warnings
 second process run in Rust tests, every new line shows on the mock, and the
 spec's manual checks belong to the phases with a schedule.
 
+## Notifications: hints that go, errors that stay, one stack (2026-10-04, on `feat/landing-and-docs`)
+
+"Select a passage first." reached the writer through the error channel and sat
+in a warning box until somebody pressed ✕; so did "Nothing to roll back here.",
+"Nothing has changed since the last snapshot." and every failure written to
+`store.error` (13 places), while Settings kept its own "Saved." and "Backups are
+off." lines that never left. Nothing hid itself except the Focus hint. They now
+go through one module, `src/lib/notices/`, built from the TODO item
+"Notifications have no module and never hide".
+
+- **Two tiers.** A *transient* notice (a confirmation, a hint) goes after 5 s;
+  it waits while the pointer or keyboard focus is on it and then runs on with
+  the time it had left; ✕ or Escape closes it; a polite live region reads it
+  when it appears, again when its words change or the writer asks again
+  (`inform`), and not when the same words are shown again under its id (a
+  refresh, SPEC §6.3). A *persistent* notice (an error the writer has to read)
+  never goes on a timer, which would fail WCAG 2.2.1; it stays until ✕ or
+  Escape, or until the code that raised it sees the condition clear. An
+  assertive live region (`role="alert"`) reads it once, and not again when its
+  words change in place. Both regions are always in the page; the notices
+  themselves carry no live role. Each region keeps its words while a notice of
+  its tier still says one of them, and is emptied once none does: a notice
+  closed, an error whose words changed in place, two read together that have
+  both gone.
+- **One notice per condition.** Every notice has an id; the same id replaces in
+  place and keeps its position. `inform(text)` and `fail(text)` take the id from
+  the words, so the same words twice are one notice. Persistent notices with the
+  same words under different ids are drawn once: a full disk fails the save,
+  the change log and the minute's snapshot together, and one "File system
+  error." says more than three; the box goes when the last of them clears, and
+  its ✕ closes all of them. One that carries an action keeps its own box: a box
+  has room for one. Past three transient notices the oldest goes, never one
+  being read.
+- **Where it sits.** Mounted once in `App.svelte` between the page and what is
+  under it, so the stack hangs 8 px above History when that is open and above
+  the status bar otherwise, at the end edge (centred, it sat on the text
+  column). z-index 25: over the page, under menus, peeks and dialogs, so Focus
+  options, which opens from the status bar, covers a notice. Nothing in it takes
+  focus by itself. Tab reaches it straight after the page; a press on ✕ leaves
+  the caret in the text; a notice closed from the keyboard hands focus to the
+  next notice's ✕, or back to where focus came from. Escape on a notice closes
+  it and goes no further, so it never ends Focus or closes a peek. In Focus the
+  stack is where it always is, and it never wakes the faded edges.
+- **Never over the line being written.** Where the stack covers the text
+  column, CodeMirror gets a bottom scroll margin of that height
+  (`src/lib/notices/editor.ts`), so typing keeps the caret's line above it; a
+  notice that lands on that line scrolls it up once, and never when the caret
+  is off screen (the writer scrolled away; the page stays where they put it).
+  When a tall stack would still cover the last line, the page's foot grows
+  past its 120 px (`--v-notes-room`), and does not shrink again for that
+  chapter, so a notice going never drops the page under a writer at its end.
+- **The look.** `--bg-elev`, `--border`, `--radius-card`, `--shadow-menu`; words
+  in `--text` (11.19–17.39:1 over the six themes), ✕ in `--text-mute`
+  (4.75–5.63:1), 24 px square. A persistent notice has a `--warn` bar inside its
+  start edge, and its words say it failed, so colour is never the only sign. A
+  150 ms fade in, none under reduced motion or before the layout is drawn. Two
+  new keys: `notices.region` ("Notifications" / "Notificaciones") and
+  `notices.dismiss` ("Close" / "Cerrar", the name every other ✕ in the app
+  has; "Descartar" is the word for throwing a rewrite away), the ✕'s name,
+  described by the notice's words.
+- **What goes through it** (id in brackets):
+  - `App.svelte`: Save snapshot failing (`git.commit`, cleared by a snapshot
+    that goes through), and with nothing new now a hint that goes; Rewrite
+    with nothing selected and Restore with nothing to restore, as hints; the
+    minute's snapshot (`git.checkpoint`, cleared by the next minute that
+    works); a quit or a window close that the last save stopped (`app.quit`),
+    both in the quit's words ("Versorium did not quit: the chapter could not
+    be saved. …"; closing the one window is quitting); the change log
+    (`editor.ops`, cleared by the next batch written). `app.quit` is the one
+    error no later success clears: it is the record of a quit that did not
+    happen, and says why the app is still open, so it stays until the writer
+    closes it, or quits.
+  - The binder store: each action on a novel or chapter under an id of its own
+    (`binder.renameProject`, `binder.deleteProject`, `binder.renameChapter`,
+    `binder.chapterStatus`, `binder.moveChapter`, `binder.deleteChapter`),
+    cleared when the same action next works and left up by another, since
+    what failed still has not happened; the list of novels (`binder.list`),
+    the save (`binder.save`) and opening a novel or chapter
+    (`binder.navigate`), each cleared by the next that works. New project, New
+    chapter, the tour's project step and Project settings get their failure
+    back and say it in their own dialog (Project settings under the box that
+    did not change), where a notice would sit behind the backdrop.
+  - Settings: "Author profile saved." and its failure (`settings.author`, so a
+    save that works replaces one that did not); the censorship setting
+    (`settings.censorship`); "{destination}: backups will go there too." and
+    "Backups are off." (`backup.configure`); the GitHub backup's "GitHub
+    backup connected as @login.", "Sent main to GitHub.", "Brought the latest
+    changes from GitHub." and "Already up to date with GitHub."
+    (`backup.github`, one answer at a time); the three destinations hint; the
+    updates token's "Updates token connected as @login."
+    (`settings.updatesToken`). Each names its subject: in the corner, "Saved."
+    sat over the status bar's "Saved" about the chapter, "here" pointed at
+    nothing, and both tokens said the same "Connected as".
+- **`store.error` is gone**, not kept as an adapter: besides the box it had four
+  readers (the two dialogs, the tour, tests), all moved to return values.
+- **The contract for scheduled backups** (backup schedule SPEC §6.3):
+  `notices.show({ id, tier, text, action?, onDismiss? })`, `dismiss(id)` when
+  the condition clears (no `onDismiss`, so nothing records a dismissal the
+  writer did not make), `close(id)` for the writer's ✕ (calls `onDismiss`),
+  `inform`, `fail`, and `hold`/`release`. A transient notice cannot carry an
+  action, by type: it could hide on its way to being pressed. `show` under the
+  same id in the same words is a refresh and is not read out.
+
+Fixed on the way:
+
+- The New project and New chapter dialogs opened showing any older, unrelated
+  error (an autosave's, a rename's) as their own, and the same error was drawn
+  again behind the backdrop.
+- The tour's project step said "Something went wrong." for a name already
+  taken: the binder handed it a sentence, and it read the sentence's last word
+  as an error code.
+- The updates token's errors were drawn in the accent, in a polite region, so a
+  refusal read as a success; they are an alert in `--warn` now.
+- Author's "Saved." never went away, and was there from the first field left to
+  the last.
+- A rename that failed wrote its alert while the Rename dialog was still
+  modal, into a region the dialog had made inert
+  (`tests/scratch/notices-fix/rename-probe.mjs`). Rename now closes before it
+  runs, as Delete does.
+- Project settings' two boxes posted their failure behind the dialog's
+  backdrop.
+
+Left where they are, because each belongs to a place:
+
+| Where | Why it stays |
+|---|---|
+| Backup: each destination's outcome, the line beside Back up now, the press's own failure ("Not backed up: …"), coverage, a verified archive, the section's error | Tied to a destination, an archive or the button; the outcomes are the record the writer reads where they are |
+| Backup: "Restored to {path}" | It names the folder to go and find; a notice that went by would lose the only place the path is shown |
+| New project, New chapter, the tour, Project settings, Rewrite, Manuscript (export done, with its path), Update dialogs | Inside a modal dialog; a notice would sit behind its backdrop (Rename and Delete have no line of their own: they close before they run, and a failure is a notice) |
+| `Field` and `Checkbox` errors | Field validation, tied to the field by `aria-describedby` |
+| Updates' check outcome | Every outcome of a check is a line in its section, never an alert (spec §11.7) |
+| Assistants: "Restart … to see the change", MCP errors | Under the client's card, or about the section |
+| Local AI, continuity, typography, crash reports, editor settings errors; the corkboard's "Loading…" | Section state, progress or a count, read where it appears |
+| History panel's errors | Inside the panel the action was taken in |
+| The updates token's error (now an alert) | Beside the field it is about |
+| The Focus hint in the status bar and the chords' announcements | They belong to the Focus control, and the hint already hid itself |
+
+Where this departs from the plan or the spec, none confirmed by the owner yet:
+
+1. A transient notice takes no action, which is narrower than SPEC §6.3's type:
+   `shrunk` and `skipped` (SPEC §6.1) will go without "Open backup settings".
+2. The stack sits before History and the status bar in the page, not after the
+   status bar: Tab reaches it straight after the page, and it hangs above
+   History when that is open instead of covering it.
+3. Persistent notices with the same words are drawn once unless one carries
+   an action (above), and each screen-reader region is emptied once no
+   notice says its words.
+4. "Nothing has changed since the last snapshot." is a hint now, not an error.
+5. The change log's notice clears itself on the next batch written.
+6. The page's foot grows under a tall stack (above).
+7. The mock gains `failures` (a command rejects with a code until a spec
+   deletes it) and a `quit_ready` handler, which it never had.
+8. A transient notice shown again under its id is read again when its words
+   changed; SPEC §6.3's comment says no re-announcement for the same id. It
+   goes in five seconds, and the announcement is the only time a screen
+   reader hears it. The same words again are not read (the writer asking
+   again through `inform` is).
+
+Tests. Vitest: the store on a fake clock (`tests/unit/notices.test.ts`, 18:
+hides at 5000 ms and not at 4999, held by the pointer and by focus counted
+apart, the time left after a hold, a persistent notice an hour later, a repeat
+is one notice heard again, a replacement keeps its place and is not read
+again, a persistent one turned transient, `close` against `dismiss`, the cap,
+the same words under two ids, the screen-reader copy, words raised together);
+the geometry (`notices-cover.test.ts`, 7); the stack in jsdom
+(`notices.render.test.ts`, 8: both regions before the first notice, the pointer
+and focus holds through the DOM, Escape used up, ✕ and an action, ✕ on shared
+words, where focus lands); the binder (5 new) and the tour (1 new, 1
+rewritten without the mock that hid its bug). Playwright:
+`tests/e2e/notices.spec.ts`, 27, one per routed caller and per mechanism
+(hint timing and hover, Tab, Escape and Focus, the dedupe, the snapshot, the
+minute's snapshot, the save, the change log, one box for one failure,
+Settings' confirmations against the backup's outcomes, the updates token, the
+censorship setting, a binder action, the New chapter dialog, the tour, GitHub
+backup, quit, window close, the press's own failure, the caret's line with
+three notices in a 900×600 window, a page scrolled away from the caret, Focus
+and the caret on ✕, Focus options over the stack, reduced motion, Spanish, and
+contrast in all six themes); five specs edited for the stack's region and the
+chords' region (`author`, `backup`, `chrome`, `context-menu`, `m2-rewrite`).
+
+Each mechanism was removed once and its test watched fail
+(`tests/scratch/notices/mutate.py`, every file restored byte for byte after
+each run): 56 removals, 71 checks (31 vitest, 40 Playwright), 71 failed. Five
+checks missed on the way, over four removals, each fixed before that count.
+Removing the persistent tier's guard left a later `disarm` that undid it, so
+the removal changed nothing; it now arms persistent notices. With the lookup
+by id gone, Svelte refuses the duplicate key and the page still showed one
+notice, so the page-level control now gives the same words two ids. The
+window-close test read the status bar's "Saved", which an unsaved edit also
+shows, so it passed with the close's failure unreported; it now waits for the
+save on disk. The Focus options test first probed the empty part of the list,
+which lets clicks through, and passed with the stack painted over the menu; it
+now probes a notice.
+
+Measured with `make verify` (exit 0, 64 s): svelte-check 396 → 400 files, 0
+errors, 0 warnings; locale keys 750 → 752; vitest 180 → 219; `cargo test` 574
+unit plus 4 integration, 16 ignored (no Rust changed); clippy `--all-targets`
+0 findings; Playwright 166 → 193.
+
+Looked at in Chrome on the mock (`tests/scratch/notices/look.mjs`, `look2.mjs`)
+at 1280×800, 900×600 and 640×600, in EN and ES, in all six themes between the
+two passes: the stack, Focus, Settings, History open with a two-line error, a
+narrow window with keyboard focus on ✕, the caret's line lifted clear of three
+notices, and hover. One change came from looking: the persistent mark was a
+3 px border that the card's 12 px corners bent into a bracket; it is a bar
+inside the card now. The page logs nothing while notices come and go
+(`console-probe.mjs`; the one 404 is the favicon).
+
+Not done, or not reachable from here:
+
+- The real webviews were not driven: VoiceOver on WKWebView reading each notice
+  once, Option+Tab reaching ✕ with keyboard navigation off, Escape on a notice
+  in Focus (`TODO.md`). Playwright's WebKit passes `notices.spec.ts` (27 of 27,
+  Option+Tab there; `tests/scratch/notices/pw-webkit.config.ts`).
+- A notice raised while a modal dialog is open sits behind its backdrop and is
+  not announced: `showModal()` makes the rest of the page inert, live regions
+  included. A dialog's own action no longer does (second pass, below); a
+  background failure behind a dialog still does.
+- A notice keeps the language it was raised in until it goes.
+- A failure in the background says only why, not what failed: the save, the
+  change log and the minute's snapshot all say "File system error.". Which
+  words to add is the owner's call (`TODO.md`).
+
+### Second pass: what the verifiers found (2026-10-04)
+
+Twenty-five findings; each was checked against the code before anything
+changed. Fixed, each with a test that fails without the fix:
+
+- **Stale screen-reader copy.** The regions were cleared only when their text
+  equalled the words of the notice that went, so an error whose words changed
+  in place left its old words in the alert region for good, and two hints read
+  together ("A B") stayed in the polite one after both hid. Each region now
+  keeps the lines it holds and is emptied when no notice of its tier says any
+  of them (`prune`, run on every change to the list).
+- **Re-reading on a refresh.** `show` read a transient notice out again on
+  every call under its id; Phase 1's adapter calls it for every notice it sees
+  change. The same words under the same id are now a refresh; new words are
+  read, and `inform`, the writer asking again, is always heard.
+- **A box with an action is never shared** with another notice in the same
+  words (it would lose the second action, and one ✕ would close both).
+- **Binder actions** got an id each, cleared when the same action next works
+  (above). Before, a rename that failed and then worked left "File system
+  error." up until closed.
+- **The window close** said only "File system error." under `app.quit`; it
+  says the quit's sentence now, and stays after the save recovers because it
+  is still true. The first report said every persistent notice clears with
+  the next success of its kind; `app.quit` does not, by design (above).
+- **Rename** wrote its failure into an inert region (Fixed on the way, above);
+  **Project settings** posted its failure behind its backdrop and now says it
+  under the box.
+- **The tour** checks `store.loading` before making the project or seeding
+  chapters: `navigate` answers null both when it worked and when it did
+  nothing because another navigation was running.
+- **Copy:** the routed confirmations name their subject (above), and the ✕ is
+  "Close" / "Cerrar".
+- **Tests for mechanisms nothing caught:** a transient's clock surviving into
+  the error that took its id (it would have hidden the error after five
+  seconds), a closed notice's hold surviving into the next under its id (the
+  hint would never hide again), a hold taken for a notice not yet raised,
+  words announced after their notice went, any key closing a notice, a hint
+  folded into an error's box, Restore's hint as an error, New project's own
+  error line, an empty notice when one of two destinations is unticked, and
+  the page's foot shrinking when the notices go.
+
+Not changed: the "three destinations" hint (`backup.full`) stays routed but
+untested, because no path in the UI reaches it (the buttons that would are
+disabled when three are chosen). Recorded in `TODO.md`, not built: the Restore
+hint's "roll back" against the button's "Restore", the stack covering the
+foot of the Settings form, the module's departures from SPEC §6.3, and two
+older bugs found on the way (typewriter's caret line below the window, which
+HEAD shows too, and the censorship box staying ticked after a failed save).
+
+Tests now: `notices.test.ts` 25 (was 18), `notices.render.test.ts` 9 (was 8),
+the binder 7 new (was 5), the tour 2 new (was 1), `notices.spec.ts` 33 (was
+27). Each removal was made in a copy of the tree served by a Vite of its own
+on :1438, never in the live `src/` under the shared :1420, and every check ran
+only once that Vite served the edit; each verdict names the test that failed
+(`tests/scratch/notices-fix/mutate.py`, logs in
+`tests/scratch/out/notices-fix/`). First, all 36 checks passed unmutated; then
+35 removals, 48 checks (30 vitest, 18 Playwright), 48 failed, each in the test
+meant for it. Six of the 35 re-prove first-pass mechanisms in the code this
+pass rewrote. Playwright's WebKit passes `notices.spec.ts`, 33 of 33
+(`tests/scratch/notices-fix/pw-webkit.config.ts`).
+
+Measured with `make verify` (exit 0, 73 s): svelte-check 400 files, 0 errors,
+0 warnings; locale keys 752 → 753; vitest 219 → 230; `cargo test` 574 unit
+plus 4 integration, 16 ignored (no Rust changed); clippy `--all-targets` 0
+findings; Playwright 193 → 199.
+
 ## Merged in PR #9 (`feat/v11-hardening`, written 2026-09-28 → 29, merged 2026-10-03)
 
 ### Backup
