@@ -79,17 +79,17 @@ author, so exporting the same book again keeps its identity rather than minting
 a new edition. Changing either one gives it a new identifier. The nav heading
 is the English word "Contents" whatever the manuscript's language. That is a
 string hardcoded in `epub.rs`, a known gap in the EN+ES i18n rule.
-**It does not pass epubcheck today** with the default title page on. Spec §9
-makes passing epubcheck the acceptance bar for EPUB, so this is a spec
-requirement not currently met: see [Checking the output](#checking-the-output).
+It passes epubcheck 5.2.1 with the default title page and colophon on: 0
+errors, 0 warnings (2026-10-03, after the title page's role was fixed); see
+[Checking the output](#checking-the-output).
 
 **PDF** uses Times-Roman from the base-14 set, so the app embeds no fonts and
 ships none. Pages are US Letter with 1-inch margins, 12pt type and 24pt leading.
 Each chapter opens a new page, but not necessarily a right-hand (odd) one, so
 the spec's "chapter recto" for PDF is not met. Every paragraph gets a
 half-inch first-line indent, including a scene's first. The running head
-(`Surname / Title / N`) is on every page, including the title page and the
-colophon. Between scenes the PDF centres the scene's title, or `#` when the
+(`Surname / Title / N`) is on every page of the text; the title page and the
+colophon have none, and page 1 is the first page of the text. Between scenes the PDF centres the scene's title, or `#` when the
 scene has none. A heading on a chapter's first scene is not printed, and the
 export does not warn about it: `export_warnings` in `pdf.rs` only checks the
 encoding.
@@ -332,17 +332,13 @@ them is saved in the repository. What follows separates what the code shows
 from what a hand run on 2026-10-03 reported. All three tests export with the
 title page and colophon on (the default).
 
-- **EPUB / epubcheck 5.2.1: fails.** What the code shows: the title page in
-  `OEBPS/cover.xhtml` is written as
-  `<section epub:type="titlepage" role="doc-tithead">`, and `doc-tithead` is
-  not a DPUB-ARIA role at all, so it is not a valid `role` value anywhere. An
-  unlogged hand run on 2026-10-03 reported 1 error, 0 warnings, the error
-  being `RSC-005` on that file. Treat the counts as unverified. Spec §9 makes
-  passing epubcheck the acceptance bar for EPUB 3 (`epub.rs` says so in its
-  header), so today's default export misses a spec requirement. `STATUS.md`
-  records a pass at M5, before the title page existed. Until the role is
-  fixed, an EPUB with the title page switched off is the one to send anywhere
-  that runs epubcheck. That case has not been run.
+- **EPUB / epubcheck 5.2.1: passes.** The title page first shipped as
+  `<section epub:type="titlepage" role="doc-tithead">`; `doc-tithead` is not a
+  DPUB-ARIA role, and epubcheck reported `RSC-005` on it. The role is gone
+  (commit 6af6c60), and `every_aria_role_in_the_book_is_one_epubcheck_accepts`
+  keeps any new one inside the list epubcheck accepts. On 2026-10-03
+  `live_epubcheck_accepts_the_export`, which exports with the title page and
+  colophon on, reported 0 errors and 0 warnings.
 - **PDF / poppler: fails, and the fault is in the test.** It can be read off
   the code: `live_poppler_reads_the_pdf` expects `pdfinfo` to report 2 pages,
   but with the title page and colophon on, the same manuscript paginates to 4,

@@ -449,8 +449,9 @@ writing.
   interface's (`tIn`). **The importers skip this apparatus**: EPUB on `epub:type`,
   DOCX on this app's own paragraph style ids, so re-importing an exported file
   does not hand back two extra chapters. A PDF of a novel with no chapters is
-  still refused as empty, title page or not. The EPUB title page carries
-  `role="doc-tithead"`, which epubcheck rejects (`RSC-005`); see `FORMATS.md`.
+  still refused as empty, title page or not. The EPUB title page first
+  carried `role="doc-tithead"`, which epubcheck rejects (`RSC-005`); fixed, and
+  the default export passes epubcheck again (see `FORMATS.md`).
 - **Author metadata**, with a work profile and a personal one; see "Author
   metadata" below.
 
@@ -573,8 +574,6 @@ The full list, with file names, is `TODO.md`; the epubcheck result is in
 - **Quitting from the app menu or the Dock skips the last save.** Cmd+Q goes
   through `NSApp terminate:`, not the close path that flushes, so up to 800 ms
   of typing and the pending ops batch are lost.
-- **The EPUB title page fails epubcheck** (`RSC-005` on `role="doc-tithead"`),
-  measured in `FORMATS.md`.
 - **One unexplained test failure.** One `cargo test` run, on an earlier and
   smaller suite, reported 1 failure without naming it; the runs after it were
   reported clean, and no logs of them are kept. Not diagnosed, so not claimed
@@ -853,7 +852,7 @@ app.
 
 ## M5 DoD checklist (done)
 
-- [x] Export **Markdown** (canonical, lossless round trip), **DOCX** in standard manuscript format, **EPUB 3** (passed epubcheck 5.2.1 with zero errors and zero warnings at M5; since PR #9 added the title page, the default export fails with 1 error, `RSC-005` — see `FORMATS.md`) and **PDF** (base-14 Times-Roman, nothing embedded, chapter per page, running heads)
+- [x] Export **Markdown** (canonical, lossless round trip), **DOCX** in standard manuscript format, **EPUB 3** (passed epubcheck 5.2.1 with zero errors and zero warnings at M5; PR #9's title page broke it with `RSC-005`; fixed, and on 2026-10-03 the default export passed with 0 errors and 0 warnings again — see `FORMATS.md`) and **PDF** (base-14 Times-Roman, nothing embedded, chapter per page, running heads)
 - [x] Import **Markdown** (tolerant of setext, CRLF, BOM, no headings, prose before the first heading), **DOCX** (H1 = chapter, across Word / Google Docs / LibreOffice / pandoc spellings), **Scrivener** best-effort (v2 and v3 layouts, binder order, trash skipped; synopses are read but not saved — see `FORMATS.md`)
 - [x] **Round trip documented** — `FORMATS.md`, per format and per direction, plus the commands to verify each output
 - [x] Losses are said out loud: an export reports what it could not carry, an import shows its losses **before** writing a project
