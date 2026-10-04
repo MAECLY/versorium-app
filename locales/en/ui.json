@@ -571,7 +571,7 @@
     "noRemotes": "No remotes configured.",
     "updatesSlot": "Updates token (optional)",
     "novelSlot": "Novel backup",
-    "updatesSlotHint": "Only needed while maecly/versorium-app is private, or to lift GitHub's hourly limit on checks without a token.",
+    "updatesSlotHint": "Not needed to check for updates. Only lifts GitHub's hourly limit on checks made without a token.",
     "novelSlotHint": "Used only for your novel's own private backup. Never for updates.",
     "token": "GitHub token",
     "connect": "Connect",

@@ -571,7 +571,7 @@
     "noRemotes": "No hay remotos configurados.",
     "updatesSlot": "Token de actualizaciones (opcional)",
     "novelSlot": "Respaldo de la novela",
-    "updatesSlotHint": "Solo hace falta mientras maecly/versorium-app sea privado, o para levantar el límite por hora que GitHub pone a las búsquedas sin token.",
+    "updatesSlotHint": "No hace falta para buscar actualizaciones. Solo levanta el límite por hora que GitHub pone a las búsquedas sin token.",
     "novelSlotHint": "Solo se usa para el respaldo privado de tu novela. Nunca para actualizaciones.",
     "token": "Token de GitHub",
     "connect": "Conectar",
