@@ -288,7 +288,15 @@
     "mcp_http_bind_failed": "Versorium could not open a local port for HTTP.",
     "mcp_http_no_entropy": "Versorium could not get random bytes from the operating system, so it will not open an HTTP port with a guessable token.",
     "trash_failed": "Versorium could not move that to the Trash.",
-    "remote_not_github": "This project's remote is not a GitHub address, so the token was not sent. Versorium only signs in to github.com over https."
+    "remote_not_github": "This project's remote is not a GitHub address, so the token was not sent. Versorium only signs in to github.com over https.",
+    "backup_not_configured": "No backup folder has been chosen.",
+    "backup_dest_missing": "That folder is not there any more.",
+    "backup_dest_unwritable": "The folder doesn't accept new files: it is read-only, or Versorium has no permission.",
+    "backup_no_space": "The disk is full.",
+    "backup_write_failed": "The archive could not be written.",
+    "backup_unreadable": "The archive could not be read back.",
+    "backup_corrupt": "The archive did not read back intact.",
+    "repo_busy": "A backup is reading the novel's history. Try again in a moment."
   },
   "languages": {
     "en": "English",
@@ -802,6 +810,10 @@
     "keep": "Keep the newest",
     "now": "Back up now",
     "working": "Working…",
+    "running": "Backing up…",
+    "runningOther": "Backing up “{title}”…",
+    "finished": "The backup has finished; the list below is up to date.",
+    "notSavedFirst": "Not backed up: the chapter could not be saved first. {reason}",
     "written": "Saved, {size}.",
     "stored": "Stored backups",
     "restore": "Restore",
@@ -826,8 +838,9 @@
     "sameDisk": "{path} is on the same disk as the novel — if that disk fails, both go.",
     "allSet": "This meets the three-copy rule.",
     "resultOk": "{name}: saved, {size}.",
-    "resultUnavailable": "{name}: not reachable right now. It will be written next time.",
-    "resultFailed": "{name}: could not be written — {reason}",
+    "resultUnavailable": "{name}: not reachable right now. Press Back up now again once it is connected.",
+    "resultBusy": "{name}: skipped, because the novel's history was being written. Press Back up now again in a moment.",
+    "resultFailed": "{name}: not saved. {reason}",
     "verify": "Check",
     "verified": "Read back in full and intact.",
     "verifyHint": "Checking opens the archive and reads every file back. An archive that has sat on a disk for a year is the one this is for.",
@@ -838,7 +851,12 @@
     "alsoPruned": "{n} older ones were deleted to stay within the number you keep.",
     "onlyWhenChanged": "Back up now writes a new archive only when the novel has changed. It keeps two copies of each state at each destination, then tells you instead of writing — pressing it again cannot fill the folder.",
     "damaged": "could not be read back",
-    "keepHint": "Archives, not days. With two copies of each state, ten archives is at least five different states of the novel."
+    "keepHint": "Archives, not days. With two copies of each state, ten archives is at least five different states of the novel.",
+    "last": {
+      "held": {
+        "clockBehind": "A backup here is dated {stamp}, later than this computer's clock, so no backups were deleted. Check the date and time on this computer and on any other that backs up here, or remove that file yourself."
+      }
+    }
   },
   "author": {
     "title": "Author",

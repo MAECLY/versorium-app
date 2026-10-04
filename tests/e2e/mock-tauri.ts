@@ -3,6 +3,8 @@
 // with `?mock=tauri`; never bundled. Mirrors the Rust command contracts in
 // src-tauri/src/commands with in-memory state exposed at window.__VERSORIUM_MOCK__.
 
+import { BACKUP_STATE_EVENT } from "$lib/backup/events";
+
 type Args = Record<string, unknown>;
 
 interface Op {
@@ -371,6 +373,106 @@ const backupHeld = new Map<string, { print: string; copies: number }>();
     unchanged press from a real one without hashing anything. */
 let manuscriptRevision = 0;
 const backupArchives = new Map<string, MockArchive[]>();
+
+/**
+ * Whether a backup is running, as Rust's `backup_state` reports it, and what
+ * the next Back up now answers instead of the mock's own outcomes. A spec sets
+ * `nextOutcomes` to see `failed`, `repaired` or a held prune, which the mock
+ * never produces on its own; it is used once.
+ */
+const backup = {
+  running: null as null | { project: string; startedAt: number },
+  seq: 0,
+  nextOutcomes: null as null | unknown[],
+  /** End the run in progress just before the page's next listener for the
+   *  backup state is registered: the event it would have heard is gone. */
+  endOnNextListen: false,
+};
+
+/**
+ * A press held before it starts, as one queued behind another run waits in
+ * Rust, so a spec can look at the panel while its own press is pending.
+ */
+let backupHold: Promise<void> | null = null;
+let releaseHold: (() => void) | null = null;
+
+function holdBackup(): void {
+  backupHold = new Promise((resolve) => (releaseHold = resolve));
+}
+
+function releaseBackup(): void {
+  releaseHold?.();
+  backupHold = releaseHold = null;
+}
+
+/** Waiting for the run in progress to end, as Rust's queue does. */
+const backupWaiters: (() => void)[] = [];
+
+function backupEnded(): Promise<void> {
+  return new Promise((resolve) => backupWaiters.push(resolve));
+}
+
+/**
+ * Listeners registered through `plugin:event|listen`. Tauri delivers an event
+ * by calling the handler `transformCallback` registered on `window`, so
+ * `emit` does exactly that, and a spec can send what Rust would send.
+ */
+const listeners = new Map<number, { event: string; handler: number }>();
+let nextListener = 1;
+
+function emit(event: string, payload: unknown): void {
+  for (const [id, listener] of listeners) {
+    if (listener.event !== event) continue;
+    const handler = Reflect.get(window, `_${listener.handler}`);
+    if (typeof handler === "function") handler({ event, id, payload });
+  }
+}
+
+/** A backup starts or ends, and the page is told, as `backup_now` does. */
+function setBackupRunning(running: typeof backup.running): void {
+  backup.running = running;
+  backup.seq += 1;
+  emit(BACKUP_STATE_EVENT, { running, seq: backup.seq });
+  if (running === null) backupWaiters.splice(0).forEach((wake) => wake());
+}
+
+/** How many listeners the page has for `event` right now. */
+function listening(event: string): number {
+  return [...listeners.values()].filter((listener) => listener.event === event).length;
+}
+
+/** The mock's own Back up now: the real rule, without hashing anything. */
+function backupNow(): unknown[] {
+  // `/mock/Volumes/Respaldo` stands in for an unplugged drive: the case the
+  // whole per-destination reporting exists for.
+  const print = `state${manuscriptRevision}`.padEnd(16, "0");
+  return backupDirs.map((dir) => {
+    if (dir === "/mock/Volumes/Respaldo") return { state: "unavailable", path: dir };
+    const stored = backupArchives.get(dir) ?? [];
+    const held = backupHeld.get(dir);
+
+    // Mirrors the real rule: two copies of a state, then nothing.
+    if (held?.print === print && held.copies >= 2) {
+      return { state: "unchanged", path: dir, archive: { ...stored[0] }, pruned: 0 };
+    }
+    const copy = held?.print === print;
+    const stamp = `2026-09-28-01000${stored.length}`;
+    const archive: MockArchive = {
+      path: `${dir}/versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
+      name: `versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
+      bytes: 1_240_000,
+      modified: 1_790_553_600 + stored.length,
+      stamped: 1_790_553_600 + stored.length,
+      print,
+      sha256: "a".repeat(64),
+    };
+    const next = [archive, ...stored];
+    const pruned = Math.max(0, next.length - backupKeep);
+    backupArchives.set(dir, next.slice(0, backupKeep));
+    backupHeld.set(dir, { print, copies: copy ? (held?.copies ?? 0) + 1 : 1 });
+    return { state: copy ? "copy" : "ok", path: dir, archive: { ...archive }, pruned };
+  });
+}
 
 let mcpHttpEnabled = false;
 
@@ -938,38 +1040,25 @@ const commands: Record<string, (args: Args) => unknown> = {
     backupKeep = Math.min(200, Math.max(1, Number(keep ?? 10)));
     return undefined;
   },
-  backup_now: () => {
+  backup_now: async ({ path }) => {
     if (backupDirs.length === 0) throw "backup_not_configured";
-    // `/mock/Volumes/Respaldo` stands in for an unplugged drive: the case the
-    // whole per-destination reporting exists for.
-    const print = `state${manuscriptRevision}`.padEnd(16, "0");
-    return backupDirs.map((dir) => {
-      if (dir === "/mock/Volumes/Respaldo") return { state: "unavailable", path: dir };
-      const stored = backupArchives.get(dir) ?? [];
-      const held = backupHeld.get(dir);
-
-      // Mirrors the real rule: two copies of a state, then nothing.
-      if (held?.print === print && held.copies >= 2) {
-        return { state: "unchanged", path: dir, archive: { ...stored[0] }, pruned: 0 };
+    await backupHold;
+    // One run at a time: a press waits for the one in progress, then makes
+    // its own, as `flight::exclusive` does.
+    while (backup.running) await backupEnded();
+    setBackupRunning({ project: String(path), startedAt: now() });
+    try {
+      const scripted = backup.nextOutcomes;
+      if (scripted) {
+        backup.nextOutcomes = null;
+        return scripted;
       }
-      const copy = held?.print === print;
-      const stamp = `2026-09-28-01000${stored.length}`;
-      const archive: MockArchive = {
-        path: `${dir}/versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
-        name: `versorium-backup-el-largo-invierno-${stamp}-${print}.zip`,
-        bytes: 1_240_000,
-        modified: 1_790_553_600 + stored.length,
-        stamped: 1_790_553_600 + stored.length,
-        print,
-        sha256: "a".repeat(64),
-      };
-      const next = [archive, ...stored];
-      const pruned = Math.max(0, next.length - backupKeep);
-      backupArchives.set(dir, next.slice(0, backupKeep));
-      backupHeld.set(dir, { print, copies: copy ? (held?.copies ?? 0) + 1 : 1 });
-      return { state: copy ? "copy" : "ok", path: dir, archive: { ...archive }, pruned };
-    });
+      return backupNow();
+    } finally {
+      setBackupRunning(null);
+    }
   },
+  backup_state: () => ({ running: backup.running, seq: backup.seq }),
   backup_list: () =>
     backupDirs.map((dir) => [dir, (backupArchives.get(dir) ?? []).map((a) => ({ ...a }))]),
   backup_verify: () => "a".repeat(64),
@@ -1150,8 +1239,18 @@ const commands: Record<string, (args: Args) => unknown> = {
     const extension = o.filters?.[0]?.extensions?.[0] ?? "out";
     return o.defaultPath ?? `/mock/Documents/novel.${extension}`;
   },
-  "plugin:event|listen": () => Math.floor(Math.random() * 1e9),
-  "plugin:event|unlisten": () => undefined,
+  "plugin:event|listen": ({ event, handler }) => {
+    if (event === BACKUP_STATE_EVENT && backup.endOnNextListen) {
+      backup.endOnNextListen = false;
+      setBackupRunning(null);
+    }
+    const id = nextListener++;
+    listeners.set(id, { event: String(event), handler: Number(handler) });
+    return id;
+  },
+  "plugin:event|unlisten": ({ eventId }) => {
+    listeners.delete(Number(eventId));
+  },
   "plugin:window|destroy": () => undefined,
 };
 
@@ -1215,6 +1314,17 @@ declare global {
       crashes: CrashEntry[];
       /** True once the app was asked to restart into the new version. */
       relaunched: boolean;
+      /** A backup in progress, and the outcomes the next Back up now returns. */
+      backup: typeof backup;
+      /** Start or end a backup the way Rust reports it. */
+      setBackupRunning: typeof setBackupRunning;
+      /** Hold the next Back up now before it starts, and let it go. */
+      holdBackup: typeof holdBackup;
+      releaseBackup: typeof releaseBackup;
+      /** Send an event to the page, as Rust's `emit` does. */
+      emit: typeof emit;
+      /** How many listeners the page has for an event. */
+      listening: typeof listening;
     };
   }
 }
@@ -1235,10 +1345,15 @@ declare global {
 }
 
 window.__TAURI_INTERNALS__ = internals;
-window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => undefined };
+window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+  unregisterListener: (_event: string, id: number) => {
+    listeners.delete(id);
+  },
+};
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
     projects, settings, calls, agents, mcpClients, mcpLog, models, slots, update, github, crashes,
+    backup, setBackupRunning, holdBackup, releaseBackup, emit, listening,
     get relaunched() {
       return relaunched;
     },

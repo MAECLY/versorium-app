@@ -288,7 +288,15 @@
     "mcp_http_bind_failed": "Versorium no pudo abrir un puerto local para HTTP.",
     "mcp_http_no_entropy": "Versorium no pudo obtener bytes aleatorios del sistema operativo, así que no abrirá un puerto HTTP con un token adivinable.",
     "trash_failed": "Versorium no pudo mover eso a la papelera.",
-    "remote_not_github": "El remoto de este proyecto no es una dirección de GitHub, así que el token no se envió. Versorium solo se identifica en github.com por https."
+    "remote_not_github": "El remoto de este proyecto no es una dirección de GitHub, así que el token no se envió. Versorium solo se identifica en github.com por https.",
+    "backup_not_configured": "No se ha elegido ninguna carpeta de respaldo.",
+    "backup_dest_missing": "Esa carpeta ya no existe.",
+    "backup_dest_unwritable": "La carpeta no admite archivos nuevos: es de solo lectura o Versorium no tiene permiso.",
+    "backup_no_space": "El disco está lleno.",
+    "backup_write_failed": "No se pudo escribir el archivo.",
+    "backup_unreadable": "No se pudo volver a leer el archivo.",
+    "backup_corrupt": "El archivo no se pudo releer intacto.",
+    "repo_busy": "Un respaldo está leyendo el historial de la novela. Inténtalo de nuevo en un momento."
   },
   "languages": {
     "en": "English",
@@ -802,6 +810,10 @@
     "keep": "Conservar los más recientes",
     "now": "Respaldar ahora",
     "working": "Trabajando…",
+    "running": "Respaldando…",
+    "runningOther": "Respaldando «{title}»…",
+    "finished": "El respaldo ha terminado; la lista de abajo está al día.",
+    "notSavedFirst": "No se ha respaldado: antes no se pudo guardar el capítulo. {reason}",
     "written": "Guardado, {size}.",
     "stored": "Respaldos guardados",
     "restore": "Restaurar",
@@ -826,8 +838,9 @@
     "sameDisk": "{path} está en el mismo disco que la novela — si ese disco falla, se van las dos.",
     "allSet": "Esto cumple la regla de las tres copias.",
     "resultOk": "{name}: guardado, {size}.",
-    "resultUnavailable": "{name}: no accesible ahora mismo. Se escribirá la próxima vez.",
-    "resultFailed": "{name}: no se pudo escribir — {reason}",
+    "resultUnavailable": "{name}: no accesible ahora mismo. Pulsa «Respaldar ahora» otra vez cuando esté conectado.",
+    "resultBusy": "{name}: se ha saltado, porque se estaba escribiendo el historial de la novela. Pulsa «Respaldar ahora» otra vez dentro de un momento.",
+    "resultFailed": "{name}: no se guardó. {reason}",
     "verify": "Comprobar",
     "verified": "Leído entero y sin daños.",
     "verifyHint": "Comprobar abre el archivo y vuelve a leer cada fichero. Un archivo que lleva un año en un disco es justo para lo que esto sirve.",
@@ -838,7 +851,12 @@
     "alsoPruned": "Se han borrado {n} más antiguas para no pasar del número que conservas.",
     "onlyWhenChanged": "Respaldar ahora escribe un archivo nuevo solo si la novela ha cambiado. Guarda dos copias de cada estado en cada destino, y a partir de ahí te lo dice en vez de escribir — pulsarlo otra vez no puede llenar la carpeta.",
     "damaged": "no se pudo leer entera",
-    "keepHint": "Archivos, no días. Con dos copias de cada estado, diez archivos son al menos cinco estados distintos de la novela."
+    "keepHint": "Archivos, no días. Con dos copias de cada estado, diez archivos son al menos cinco estados distintos de la novela.",
+    "last": {
+      "held": {
+        "clockBehind": "Un respaldo que ya está aquí tiene fecha {stamp}, posterior a la hora de este ordenador, así que no se ha borrado ninguno. Revisa la fecha y la hora de este ordenador y de cualquier otro que respalde aquí, o quita tú ese archivo."
+      }
+    }
   },
   "author": {
     "title": "Autor",

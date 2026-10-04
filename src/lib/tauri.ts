@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { BACKUP_STATE_EVENT } from "$lib/backup/events";
 
 // Tauri command wrappers. All business logic lives in Rust; this is a thin typed edge.
 
@@ -382,21 +383,52 @@ export interface BackupCoverage {
   onTheNovelsDisk: string[];
 }
 
+/**
+ * Why a destination deleted none of its older archives on this run. The
+ * archive itself was written and read back; only the clean-up waited.
+ */
+export interface BackupHeld {
+  /** This computer's clock reads earlier than an archive already there. */
+  kind: "clockBehind";
+  /** The latest stamp in that folder, Unix seconds. */
+  stamp: number;
+}
+
 /** What happened at one destination. A missing disk is not a failure. */
 export type BackupOutcome =
-  | { state: "ok"; path: string; archive: BackupArchive; pruned: number }
-  | { state: "copy"; path: string; archive: BackupArchive; pruned: number }
-  | { state: "unchanged"; path: string; archive: BackupArchive; pruned: number }
+  | { state: "ok"; path: string; archive: BackupArchive; pruned: number; held?: BackupHeld }
+  | { state: "copy"; path: string; archive: BackupArchive; pruned: number; held?: BackupHeld }
+  | { state: "unchanged"; path: string; archive: BackupArchive; pruned: number; held?: BackupHeld }
   | {
       state: "repaired";
       path: string;
       archive: BackupArchive;
       pruned: number;
+      held?: BackupHeld;
       reason: string;
       damaged: string;
     }
   | { state: "unavailable"; path: string }
+  /** The novel's history was being written for longer than a backup waits
+   *  to read it. Nothing was written; not a failure. */
+  | { state: "busy"; path: string }
   | { state: "failed"; path: string; reason: string };
+
+/** A backup in progress, whoever started it. */
+export interface BackupRunning {
+  project: string;
+  /** Unix seconds. */
+  startedAt: number;
+}
+
+/**
+ * Whether a backup is running, as Rust knows it. `seq` grows with every
+ * change, so the newer of two reports can be told from the older.
+ */
+export interface BackupState {
+  running: BackupRunning | null;
+  seq: number;
+}
 
 /** How far along an install is. The phases are the real steps, not an
  *  animation: downloading has byte counts, verifying is the two signature
@@ -654,8 +686,11 @@ export const api = {
   backupDestinations: () => invoke<BackupDestination[]>("backup_destinations"),
   backupConfigure: (paths: string[], keep: number) =>
     invoke<void>("backup_configure", { paths, keep }),
-  /** One outcome per destination; never collapsed into a single result. */
+  /** One outcome per destination; never collapsed into a single result. Waits
+   *  for a backup already running to finish, then makes its own. */
   backupNow: (path: string) => invoke<BackupOutcome[]>("backup_now", { path }),
+  /** Whether a backup is running right now, for a panel that has just opened. */
+  backupState: () => invoke<BackupState>("backup_state"),
   backupList: (path: string) => invoke<[string, BackupArchive[]][]>("backup_list", { path }),
   /** Read an archive back and confirm it is complete and extractable. */
   backupVerify: (archive: string) => invoke<string>("backup_verify", { archive }),
@@ -715,6 +750,15 @@ export const api = {
   /** A Scrivener project, which is a .scriv bundle directory on macOS. */
   pickImportProject: () => open({ directory: true, multiple: false }),
 };
+
+/**
+ * Follow the backup in progress. Resolves to the function that stops
+ * following; call it when the listener goes out of scope.
+ */
+export async function onBackupState(handler: (state: BackupState) => void): Promise<() => void> {
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<BackupState>(BACKUP_STATE_EVENT, (event) => handler(event.payload));
+}
 
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

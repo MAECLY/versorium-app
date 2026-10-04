@@ -120,6 +120,7 @@ pub fn run() {
             commands::backup::backup_destinations,
             commands::backup::backup_configure,
             commands::backup::backup_now,
+            commands::backup::backup_state,
             commands::backup::backup_list,
             commands::backup::backup_restore,
             commands::backup::backup_verify,
