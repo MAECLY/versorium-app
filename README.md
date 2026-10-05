@@ -1,465 +1,318 @@
-# Versorium
+<p align="center">
+  <a href="https://versorium.maecly.com/en/"><img src=".github/readme/icon.png" width="96" height="96" alt="Versorium"></a>
+</p>
 
-A local-first desktop app for writing novels. Each novel is a plain folder of
-Markdown files with its own Git history. Versorium finds the AI tools already
-installed on the machine (Claude Code, Codex, OpenCode, Ollama) or runs a
-downloaded model itself, records every edit at character level together with
-who made it, makes a Git checkpoint before any AI change, and exposes the
-manuscript to your assistants through its own MCP server, read-only unless you
-allow more.
+<h1 align="center">Write your novel.<br>Every draft is <em>kept</em>.</h1>
 
-Project site: **https://versorium.maecly.com**
+<p align="center">
+  <b>Versorium</b> is a novel-writing app for your own computer. It works offline.<br>
+  AI stays off until you call it.
+</p>
 
-- Repository: `github.com/MAECLY/versorium-app`
-- App id: `dev.versorium.app` · version `0.1.0` · macOS bundle `Versorium.app`
-- License: [AGPL-3.0](LICENSE) · Contributions: [CLA.md](CLA.md), [CONTRIBUTING.md](CONTRIBUTING.md) ·
-  Marks: [TRADEMARKS.md](TRADEMARKS.md) · Bundled third-party licences:
-  [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
-- Copyright © 2026 Miguel Angel Esparza Calero (MAECLY). Open source under the
-  GNU Affero General Public License v3.0; the owner also offers it under other
-  terms (write to hola@maecly.com for a commercial licence).
+<p align="center">
+  <b>Free</b> · <b>No account</b> · <b>Open source</b>
+</p>
 
-## Status
+<p align="center">
+  <a href="https://versorium.maecly.com/en/#download"><img alt="Download for macOS, Windows and Linux" src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-2a6f6a?style=for-the-badge&labelColor=1b2422"></a>
+</p>
 
-- No release and no tag exist yet. The first one will be `v0.1.0`; see
-  [RELEASING.md](RELEASING.md).
-- The repository is private today, and the project site is not live. Before it
-  is: the two release-signing secrets have to be set (until then the release
-  workflow's `guard` job refuses any tag), the repository has to be made public,
-  Pages has to be enabled with `versorium.maecly.com` as its custom domain, and
-  a DNS record for `versorium.maecly.com` has to exist (it has none today). The
-  site's source (`docs/` and `.github/workflows/pages.yml`) is being written on
-  this branch and is not in the tree yet. The steps, in order, are under "Going
-  public" in [TODO.md](TODO.md).
-- Until the repository is public, the release downloads, and the issue that the
-  crash log's **Report** button opens on `MAECLY/versorium-app`, are reachable
-  only by people with access to the private repository. The in-app update
-  check runs without a token, but until then it sees no releases unless a
-  token that can read the repository is saved.
-- Half-done work and three specified-but-unbuilt features are in
-  [TODO.md](TODO.md). That list is not complete: other parts of the spec that
-  are not built are recorded, with the code they were checked against, in the
-  "Implementation notes" sections at the end of
-  [PROMPT-VERSORIUM.md](PROMPT-VERSORIUM.md) and
-  [DESIGN-VERSORIUM.md](DESIGN-VERSORIUM.md). What is finished, and how it was
-  verified, is in [STATUS.md](STATUS.md).
+<p align="center">
+  <a href="https://versorium.maecly.com/en/#download"><sub>v0.1.1 · tried on Apple silicon Macs, Windows 11 and Ubuntu 22.04 (v0.1.0) · not yet on Intel Macs</sub></a>
+</p>
 
-## Install
+<p align="center">
+  <a href="https://github.com/MAECLY/versorium-app/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/MAECLY/versorium-app?style=flat-square&label=release&color=2a6f6a&labelColor=1b2422"></a>
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/github/license/MAECLY/versorium-app?style=flat-square&color=2a6f6a&labelColor=1b2422"></a>
+  <a href="#ready-to-download"><img alt="macOS, Windows and Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-desktop-2a6f6a?style=flat-square&labelColor=1b2422"></a>
+  <a href="README.es.md"><img alt="English and Spanish" src="https://img.shields.io/badge/English%20%C2%B7%20Espa%C3%B1ol-UI-2a6f6a?style=flat-square&labelColor=1b2422"></a>
+  <a href="https://versorium.maecly.com/en/details/#privacy"><img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-2a6f6a?style=flat-square&labelColor=1b2422"></a>
+</p>
 
-Download the build for your system from the
-[releases page](https://github.com/MAECLY/versorium-app/releases). Builds are
-produced for macOS (Apple silicon and Intel), Windows and Linux by
-`.github/workflows/release.yml`.
+<p align="center">
+  <a href="https://versorium.maecly.com/en/"><b>Website</b></a> ·
+  <a href="#ready-to-download">Download</a> ·
+  <a href="https://versorium.maecly.com/en/details/">Limits and details</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="README.es.md">Español</a>
+</p>
 
-None of them carries an Apple Developer ID or a Windows Authenticode signature
-yet. Both need purchased certificates, and then a change to the release
-workflow and the Tauri config, which today pass no codesigning settings at all.
-Expect the two warnings below on macOS and Windows.
+<p align="center">
+  <a href="https://versorium.maecly.com/en/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/readme/en/corkboard-dark.webp">
+      <img src=".github/readme/en/corkboard-light.webp" width="100%" alt="The Corkboard view: eight cards, one per chapter of “Not on the List”, each with its number, status, title, the opening of its text and its word count. The card for “The Needle” is marked as the open one.">
+    </picture>
+  </a>
+</p>
 
-### macOS will say the app is damaged. It is not.
+> [!NOTE]
+> **Early days, said plainly.** Versorium has been tried on an Apple silicon Mac, on Windows 11, and on Ubuntu 22.04 with v0.1.0's `.deb`. Intel Macs, the `.rpm` and the AppImage have not been run. If you run one, an [issue](https://github.com/MAECLY/versorium-app/issues) saying how it went helps a lot.
 
-The bundle carries no Developer ID signature, so macOS quarantines it and
-Gatekeeper reports the most misleading message it has. Clear the quarantine flag
-once, in Terminal:
+---
 
-```bash
-xattr -rd com.apple.quarantine /Applications/Versorium.app
-```
+## I. Nothing gets lost.
 
-Run it only on a build you took from the
-[releases page](https://github.com/MAECLY/versorium-app/releases) — that flag
-is the check that protects you from a tampered download.
+Versorium saves as you type. Every minute when something changed, before an AI
+writes anything and before a chapter is deleted, it takes a snapshot. Deleted a
+sentence this session? **↩ Restore** brings it back.
 
-### SmartScreen will interrupt the installer.
+Snapshots are Git commits, made with Git built into the app: you don't need to
+install it, and you don't need to know it to write.
 
-The installer is unsigned for the same reason the macOS bundle is, so Windows
-shows the blue "Windows protected your PC" screen. Choose **More info**, then
-**Run anyway**. Signed builds need Apple and Microsoft certificates, which the
-project does not have yet.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/readme/en/history-dark.webp">
+    <img src=".github/readme/en/history-light.webp" width="80%" alt="The History panel, Snapshots tab: autosaves on 4 October at 5:55 PM and 6:52 PM, a snapshot taken before an AI rewrite at 6:31 PM, and one described by hand, “The needle, second pass”, at 6:40 PM; below them, two from the day before.">
+  </picture>
+</p>
 
-Buying them is not enough on its own: `release.yml` passes no Apple or Windows codesigning variables to
-`tauri-action`, and `src-tauri/tauri.conf.json` has no signing identity or
-certificate thumbprint, so both have to be wired in once the certificates are
-bought. They are separate from the updater's signing key described under
-Updates.
+> [!NOTE]
+> Going back to an old snapshot needs Git, for now. There is no screen for it in the app yet.
 
-### Linux
+## II. Yours, start to finish.
 
-The release produces an AppImage and a `.deb`. The AppImage runs as is; mark it
-executable (`chmod +x`) if your file manager has not. The `.deb` depends on
-`libvulkan1` and `libssl3`.
+- **A folder on your disk.** Every chapter is a plain Markdown file that opens
+  without Versorium.
+- **A record of who wrote what.** Every insert and delete is logged in the
+  novel's folder with its author: you, or the AI that made it.
+- **Backups you can trust.** One click writes a zip of the whole novel, history
+  included, to up to three folders. Each zip is read back and checked after it
+  is written, and a restore is unpacked beside your novel, never over it.
+- **No account, no telemetry.** On its own, the app only checks for updates,
+  with nothing from your novel, and you can turn that off.
 
-### Updates
+If Versorium disappears tomorrow, your novel doesn't.
 
-Settings → Application → Updates checks GitHub Releases. The updater verifies
-each download twice — the minisign signature against the public key compiled
-into the app, and the sha256 against the release's `SHA256SUMS` — and refuses
-anything that fails either check. Every request it makes goes to
-`api.github.com`, and the owner and repository are compiled in, not
-configurable. When GitHub redirects a download to its storage host, the
-updater follows that one hop and no further.
+### AI, only if you call it.
 
-No GitHub token is needed. Without one the check is anonymous, which is all a
-public repository requires (the rule since 2026-10-03; see §11 of
-[PROMPT-VERSORIUM.md](PROMPT-VERSORIUM.md)). A token saved under Settings →
-Application → **Updates token (optional)** is still sent, and only to
-`api.github.com`. It lets the updater see releases while the repository is
-private, and it lifts GitHub's limit of 60 anonymous requests an hour per
-address. When that limit is reached, the panel says so and says when it resets.
+It is off until you choose one, and it writes nothing without your permission.
+Every rewrite shows the change first, and Versorium takes a snapshot before
+applying it.
 
-Two limits today: the repository is still private, so a check without a token
-finds nothing to see and says so; and since no release has been published, the
-update path has not yet run end to end.
+| Level | What runs | Where your passage goes |
+|---|---|---|
+| **Off** | Nothing | Nowhere |
+| **On your computer** | A model run inside the app (built-in llama.cpp; 11 writing models to choose from, downloaded only when you ask), Ollama, or a local server such as LM Studio. | Stays on your computer. A local server you point at another machine is labelled Network. |
+| **Your tool** | The Claude Code, Codex or OpenCode you already have installed and signed in. Rewrite only. | To that tool's own service |
 
-## Rules this project keeps
+Today the AI rewrites passages and, with a model on your computer, checks
+continuity. Versorium is also an
+[MCP server](#for-developers), so the assistants you already use can read your
+manuscript. It is read-only unless you allow more.
 
-- Local-first. No SaaS, no account, no telemetry.
-- One `.md` file per chapter, inside a folder you own.
-- MCP starts read-only. Writing needs a per-client grant, made in a dialog that
-  shows the warning (Settings → Access to your novel → Allow writing…), only
-  for an app that is connected, and every write except `git_commit` is
-  preceded by a Git checkpoint (`git_commit` is itself the restore point).
-- No Creative Mode engine; the UI only says "Coming soon". Today the button is
-  visible and disabled, but its tooltip reads "Creative mode arrives in v1.1."
-  ("El modo creativo llega en la v1.1."), which promises a version the rule does
-  not. That copy is not yet in line with the rule.
-- English and Spanish throughout, with no hardcoded UI strings.
-- Themes Folio, Quarry and Needle, each light and dark, with the Needle Teal
-  accent. Not yet met in Folio: Folio is the default theme, and its accent in
-  `src/styles.css` is Folio's own green (`#3d5a45` light, `#a3b89a` dark), so a
-  fresh install does not show Needle Teal. Quarry and Needle use it.
-- Stack: Tauri 2 + Rust + Svelte 5 + CodeMirror 6 + git2.
-- The app's repository and your novels' repositories never mix.
-- Crash logs never contain novel text.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/readme/en/rewrite-dark.webp">
+    <img src=".github/readme/en/rewrite-light.webp" width="80%" alt="The Rewrite dialog. The agent is Qwen3 4B Instruct 2507, labelled Local: “This call goes to Qwen3 4B Instruct 2507.” The preview shows an unchanged paragraph, the original paragraph in red and the proposed one in green. At the bottom, “Versorium snapshots Git before applying. You can roll back.”, with Discard and Apply buttons.">
+  </picture>
+</p>
 
-## What is in the app
+**Updates.** The app checks for them once at launch, with no account and nothing
+from your novel; Settings → Application turns that off. An update installs only
+if its minisign signature matches the key built into the app and its SHA-256
+matches the release's `SHA256SUMS`. An update has been done end to end, from
+0.1.0 to 0.1.1, on macOS (Apple silicon) and on Windows 11.
 
-- **Projects as folders.** Each novel is a Git repository from the moment it is
-  created (libgit2, no system `git` needed). Chapters can be created, renamed,
-  reordered, given a status and deleted; deleting a novel sends its folder to
-  the system trash.
-- **Character-level history.** Every insert and delete is appended to an ops
-  log in the novel's folder with its author (you, or `ai:<name>`), and a full
-  copy of the chapter is saved every 200 ops. No screen reads those snapshots
-  back yet.
-- **Restore.** The status bar's Restore button (or Cmd/Ctrl+Alt+R) rolls back
-  the word at the cursor, or the selected text, using the edits you typed in
-  the current editor session for that chapter (up to the last 1000). That
-  in-memory history is cleared when you switch chapters and whenever the chapter
-  changes from outside the editor — an applied AI rewrite or an MCP edit
-  included. An AI or MCP change can only be undone through the Git checkpoint
-  commit made before it, and the app has no screen for checking out an earlier
-  commit yet, so today that means using Git on the novel's folder.
-- **Snapshots and backup.** Snapshots are Git commits. Backup writes a
-  timestamped zip to up to three folders (cloud-synced folders and other disks
-  are detected) and reports, per destination, whether it leaves the machine. A
-  novel can also be pushed to and pulled from GitHub. GitHub tokens are kept in
-  the OS credential store (Keychain, Credential Manager or Secret Service).
-- **Editor.** CodeMirror 6, with focus mode, typewriter mode and a corkboard of
-  chapter cards. Spelling is checked as you type by the operating system's own
-  checker, and nothing is corrected for you. That is shown on macOS; Linux
-  does not check the manuscript yet, and Windows has not been tried.
-  Settings → Editor turns it off, and sets the text size, line spacing and
-  text width, line numbers (off by default), the band behind the current
-  paragraph, and whether Tab indents or moves to the next control (it moves,
-  by default).
-- **Rewrite with AI.** See [Agents](#agents).
-- **Local models.** A catalogue of 12 GGUF models in `models/catalog.json`
-  (11 writing models from about 0.6 GB to 17 GB, plus one embedding model).
-  Nothing downloads on its own; downloads resume and are checked against a
-  sha256. A built-in llama.cpp runtime runs them in-process — Metal on macOS,
-  Vulkan in the Windows and Linux release builds, CPU otherwise. Ollama models
-  can be used as well, and so can a local server (LM Studio, llama-server, or
-  any app serving the OpenAI API): once saved under Settings → Models, its
-  models can do Rewrite and Continuity. Settings → Tasks says which model does
-  each, and where the passage goes with that choice. Saving the server at
-  another computer's address releases the tasks that ran on it, so no passage
-  goes to another machine unless it was chosen for that task.
-- **Continuity check.** Manuscript → Continuity sends chapter titles, scene
-  headings and the opening of codex entries (not the manuscript) to the model
-  chosen for Continuity — built in, in Ollama, or on the local server — and
-  says so plainly when it could not run.
-- **Import and export.** Export to Markdown, DOCX, EPUB 3, PDF and Scrivener;
-  import from Markdown, DOCX, EPUB and Scrivener. An import takes the novel's
-  language from the source when the source gives one and asks when it does
-  not (Project settings changes it later), and Scrivener synopses come across
-  onto the corkboard's cards. Each direction states what it could not carry.
-  Details per format: [FORMATS.md](FORMATS.md).
-- **Author metadata.** Two author profiles (work and personal) written into the
-  exported files; an optional title page and colophon per project.
-- **Crash log.** Kept on disk only, scrubbed of prose, paths, emails and tokens.
-  Nothing is sent unless you press Report, which opens a prefilled GitHub issue
-  in your browser.
-- **First run** with no signup, every step skippable.
+## III. A desk built for writing.
 
-Not there yet (from [TODO.md](TODO.md)): Settings → Tasks lists project chat,
-search by meaning and dictation under "Not built yet" — there is no chat, no
-search by meaning, and no Whisper model for dictation.
+Corkboard · Focus · Rewrite · Typewriter · Spell check · Text size and width ·
+Templates · One-click backup · English and Spanish
 
-## Build from source
+Three themes, Folio, Quarry and Needle, each light and dark. The pictures here
+are Needle.
 
-Prerequisites:
+**Formats.** Export to manuscript-format DOCX, EPUB 3, PDF, Markdown and
+Scrivener. Import from Markdown, DOCX, EPUB and Scrivener, with a preview before
+anything is created.
 
-- Rust, stable toolchain
-- Node `^20.19` or `>=22.12` (what Vite 7 requires; CI uses Node 20)
-- pnpm — `package.json` pins `pnpm@12.4.1` through `packageManager`
-- cmake and a C/C++ toolchain: llama.cpp is compiled from source, and bindgen
-  needs libclang
-- Linux only: the packages CI installs — `libwebkit2gtk-4.1-dev`,
-  `libayatana-appindicator3-dev`, `librsvg2-dev`, `libxdo-dev`, `libssl-dev`,
-  `build-essential`, `libclang-dev`, `cmake`, `patchelf`
-- For `pnpm test:e2e`: Google Chrome installed (the config uses the system
-  Chrome; set `PLAYWRIGHT_CHANNEL=chromium` to use Playwright's own Chromium, as
-  CI does)
+## Ready to download.
+
+[versorium.maecly.com](https://versorium.maecly.com/en/#download) picks the
+right file for your computer. Or take it straight from the latest release:
+
+| Computer | File | Tried |
+|---|---|---|
+| Mac with Apple silicon, macOS 10.15+ | [`.dmg`](https://github.com/MAECLY/versorium-app/releases/latest) | Yes |
+| Mac with an Intel processor, macOS 10.15+ | [`.dmg`](https://github.com/MAECLY/versorium-app/releases/latest) | Not yet |
+| Windows, x64 | [`.exe` installer or `.msi`](https://github.com/MAECLY/versorium-app/releases/latest) | Both (v0.1.0), on Windows 11, then the in-app update to 0.1.1 |
+| Linux, x64 | [`.deb`, `.rpm` or `.AppImage`](https://github.com/MAECLY/versorium-app/releases/latest) | The `.deb` of v0.1.0, on Ubuntu 22.04. Not yet the `.rpm` or the `.AppImage` |
+
+Each release lists a `SHA256SUMS` file. To hear about new releases: **Watch →
+Custom → Releases** on this page, or the
+[RSS feed](https://github.com/MAECLY/versorium-app/releases.atom).
+
+> [!WARNING]
+> The builds are not signed with an Apple or Microsoft certificate yet, so macOS
+> and Windows warn you the first time. Only follow these steps for a file you
+> took from this repository's releases.
+>
+> <details>
+> <summary><b>macOS says the app is damaged.</b> It isn't.</summary>
+>
+> macOS quarantines apps without an Apple Developer ID. Move Versorium to
+> Applications, then clear the flag once in Terminal:
+>
+> ```bash
+> xattr -rd com.apple.quarantine /Applications/Versorium.app
+> ```
+>
+> That flag is the check that protects you from a tampered download.
+>
+> </details>
+>
+> <details>
+> <summary><b>Windows shows "Windows protected your PC".</b></summary>
+>
+> Choose **More info**, then **Run anyway**. Versorium needs an x86-64-v2
+> processor (SSE4.2) and Vulkan (`vulkan-1.dll`, normally installed with the
+> graphics drivers); a PC without Vulkan drivers hasn't been tried. If v0.1.0
+> would not start because `MSVCP140.dll` was missing, v0.1.1 fixes that.
+>
+> </details>
+>
+> <details>
+> <summary><b>Linux</b></summary>
+>
+> Mark the AppImage executable (`chmod +x`) if your file manager has not. The
+> `.deb` depends on `libvulkan1` and `libssl3`. Versorium needs an x86-64-v2
+> processor (SSE4.2).
+>
+> </details>
+
+## What it doesn't do yet.
+
+- The AI only rewrites passages and checks continuity. Continuity reads chapter
+  titles, scene headings and the codex, not the prose, and only runs on a model
+  on your computer. There is no chat, and "Continue chapter" is there but
+  disabled.
+- Spell check uses your system's checker: it works on macOS and Windows, and
+  underlines nothing on Linux yet.
+- Not run yet: Intel Macs, the `.rpm`, the AppImage, and v0.1.1 on Linux.
+- Going back to a snapshot needs Git.
+- Backups are made by hand.
+- The builds are unsigned (see above).
+- Importing from Word, EPUB or Scrivener loses bold, italics and scenes.
+
+Every known limit, with what was and wasn't tried, is on the
+[details page](https://versorium.maecly.com/en/details/#limits).
+
+## Why it exists.
+
+> I made Versorium for myself. I wanted to write calmly, never afraid of losing a page, with AI on my terms or not at all. The apps I tried fell short for novels or charged too much. So it's free and open source: your novel lives in a folder you own, every change is kept, and AI (the one you already pay for, one on your computer, or none) only steps in when you call it. I keep improving it.
+>
+> — Miguel Angel Esparza Calero, [maecly.com](https://www.maecly.com/about)
+
+<details>
+<summary><b>Questions</b></summary>
+
+<br>
+
+**Does my novel leave my computer?**
+Only when you ask: sending it to GitHub, rewriting with an outside tool or a
+server on another machine, letting an assistant read it over MCP, or backing it
+up to a synced folder. On its own, the app only checks for updates,
+with nothing from your novel, and you can turn that off.
+
+**Do I need an account, or Git?**
+No account: there's no sign-up. And you don't need Git to write: Versorium takes
+the snapshots for you, with Git built in. For now, Git is only needed to go back
+to an old snapshot.
+
+**Which AI does it use?**
+None until you choose one: a model inside the app itself, Ollama or a local
+server, or Claude Code, Codex or OpenCode, which send the passage to their own
+service.
+
+**Does it work on Windows and Linux?**
+It has been tried on Windows 11, and on Ubuntu 22.04 with v0.1.0's `.deb`. On
+both it installed, created a novel and saved as you type, and on Windows an
+update from 0.1.0 to 0.1.1 installed from inside the app. The `.rpm`, the
+AppImage and v0.1.1 on Linux haven't been run yet.
+
+**Can I bring my novel from Scrivener or Word?**
+Yes: it imports Scrivener, DOCX, EPUB and Markdown, and shows you a preview
+before creating anything. From DOCX, EPUB or Scrivener, bold, italics and scenes
+are lost.
+
+**Why is it free?**
+It's open source (AGPL-3.0) and made by one person. There's no paid tier and no
+ads, and the app collects no data.
+
+</details>
+
+## Help make it better.
+
+You don't need to code to help.
+
+- **Try it on an Intel Mac, or the `.rpm` or AppImage on Linux**, and
+  [open an issue](https://github.com/MAECLY/versorium-app/issues) saying what
+  happened.
+- **Report a bug** from inside the app: the crash log's **Report** button opens
+  a prefilled issue in your browser, with no novel text in it.
+- **Improve the English or Spanish** in [`locales/`](locales).
+- **Send a fix.** Read [CONTRIBUTING.md](CONTRIBUTING.md) and agree to the
+  [Contributor License Agreement](CLA.md); you keep the copyright in what you
+  write. Run the checks below before you open the pull request.
+
+If Versorium is useful to you, a star helps other writers find it.
+
+---
+
+## For developers
+
+Tauri 2 · Rust · Svelte 5 · CodeMirror 6 · libgit2 · llama.cpp
+
+<details>
+<summary><b>Build from source</b></summary>
+
+<br>
+
+You need stable Rust, Node `^20.19` or `>=22.12`, pnpm (pinned in
+`package.json`), and cmake with a C/C++ toolchain, because llama.cpp is compiled
+from source. Linux also needs the packages CI installs (listed in
+[`ci.yml`](.github/workflows/ci.yml)).
 
 ```bash
 pnpm install
-pnpm tauri dev      # run the desktop app with hot reload
-pnpm tauri build --no-sign   # build installable bundles without the signing key (see below)
-pnpm check          # svelte-check
-pnpm test           # cargo test (Rust unit + integration tests)
-pnpm test:ui        # vitest (Svelte components and stores, jsdom)
-pnpm test:e2e       # Playwright against the Vite dev server with mocked IPC
-pnpm locales        # EN/ES locale key parity
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+make dev PNPM=pnpm             # the desktop app, with hot reload
+make verify PNPM=pnpm          # every check: types, locales, UI, Rust, clippy, end-to-end
+pnpm tauri build --no-sign     # installable bundles, without the maintainer's updater key
 ```
 
-`pnpm dev` alone serves the frontend at `http://localhost:1420`; open
-`http://localhost:1420/?mock=tauri` to run the UI in a browser with the Tauri
-IPC stubbed by `tests/e2e/mock-tauri.ts`.
+The Makefile expects a POSIX shell and defaults to Homebrew's pnpm on Apple
+silicon, hence `PNPM=pnpm`. On Windows, run the scripts directly: `pnpm tauri dev`,
+then `pnpm check`, `pnpm locales`, `pnpm test:ui`, `pnpm test:e2e` and
+`cargo test` / `cargo clippy --all-targets -- -D warnings` in `src-tauri/`. The
+end-to-end tests run in Google Chrome; set `PLAYWRIGHT_CHANNEL` to use another
+Playwright browser. `make help` lists every target. `make mock` runs the interface in a browser with
+the app's backend stubbed.
 
-Bundling and the signing key: `src-tauri/tauri.conf.json` turns on updater
-artifacts and compiles in the updater's public key, so a plain
-`pnpm tauri build` (and `make bundle`, which runs it) expects
-`TAURI_SIGNING_PRIVATE_KEY` in the environment and stops without it. Only the
-maintainer holds that key. Without it, pass `--no-sign`, which skips updater
-signing and code signing; the resulting bundle cannot be offered through the
-in-app updater. (Taken from the Tauri CLI's own messages; not run for this
-README.)
+</details>
 
-The [Makefile](Makefile) wraps most of these (`make help` lists them):
-`make dev`, `make devtools`, `make mock`, `make bundle`, `make check`,
-`make locales`, `make test`, `make test-ui`, `make test-e2e`, `make clippy`,
-`make mcp`, and `make verify`, which runs check, locales, test-ui, test, clippy
-and test-e2e. One difference: `make clippy` runs
-`cargo clippy -- -D warnings` without `--all-targets`, so it does not lint test
-code, and `make verify` is therefore a weaker gate than CI. Run the
-`--all-targets` command above before pushing. `make test-live` runs the
-`#[ignore]` tests that need the network, Ollama, epubcheck and other external
-tools; it is not part of `verify` or CI.
+**MCP.** Versorium's own binary is an MCP server over stdio, **read-only by
+default**. Settings → Access to your novel connects Claude Code, Claude Desktop,
+Codex and OpenCode for you and shows the exact command. Writing needs a grant per
+client; each write returns a diff preview first, needs `confirm: true`, and is
+preceded by a Git snapshot. An optional HTTP transport is off by default and
+listens on `127.0.0.1` only.
 
-Measured on 2026-10-03, on the head of `main` after PR #9:
+The full developer reference (the rules the project keeps, every build command,
+agents, the MCP tools and hand-written client configs, and a novel's layout on
+disk) is in [docs/project/REFERENCE.md](docs/project/REFERENCE.md). How the code
+is laid out is in [AGENTS.md](AGENTS.md).
 
-| Check | Result |
-|---|---|
-| `cargo test` | 464 unit + 4 integration passed, 16 ignored |
-| `cargo clippy --all-targets -- -D warnings` | 0 findings |
-| `pnpm test:ui` | 93 passed |
-| `pnpm test:e2e` | 96 passed |
-| `pnpm check` | 0 errors, 0 warnings, 377 files |
-| `node tests/locale-parity.mjs` | 679 keys in each of en and es |
-| CI (`.github/workflows/ci.yml`) | green |
+---
 
-## Agents
+Versorium is free software under the [GNU Affero General Public License v3.0](LICENSE).
+Contributions are accepted under the [CLA](CLA.md). The name, the wordmark and
+the mark belong to MAECLY and are not covered by that licence; see
+[TRADEMARKS.md](TRADEMARKS.md). Bundled third-party licences:
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). For a commercial licence, write
+to hola@maecly.com. Specs, status and how releases are made, for maintainers:
+[docs/project/](docs/project/).
 
-Settings → Assistants lists `claude`, `codex` and `opencode`, found on `PATH`
-and in the usual install locations. Nothing is stored: each tool keeps its own
-login. (Detection also looks for `ollama`, whose daemon on `127.0.0.1:11434`
-Settings → Models shows, and for `gh`, which nothing uses.)
-
-To rewrite: select a passage → **Rewrite** → pick an agent → preview the diff →
-**Apply**. The dialog opens on a model on this computer and says where the
-passage is going (Local, Network for a server elsewhere, or CLI). Before
-applying, Versorium makes a Git checkpoint; if that fails, nothing is written.
-Then it saves the chapter and records the ops as `ai:<provider>`. A rewrite can
-go to Claude Code, Codex, OpenCode, an Ollama model, a model on the saved local
-server, or a downloaded model run by the built-in runtime. Settings → Tasks
-chooses one for Rewrite, or leaves it to ask each time.
-
-"Show uncensored models" in Settings → Models, when unticked, hides the two
-uncensored (abliterated) models — `gemma4-12b-abliterated-q4k` and
-`qwen38-27b-abliterated-q4k` — from the catalogue there. It does not change
-which model or agent a task is sent to, and the one model marked Recommended
-is never uncensored.
-
-## MCP server
-
-Versorium's own binary is also an MCP server, so the assistants you already use
-can read the manuscript. It speaks stdio and is **read-only by default**.
-
-```bash
-<versorium-binary> mcp                      # serve stdio; this is what a client runs
-<versorium-binary> mcp --client claude-code # name the caller, for permissions and the log
-make mcp                                    # the same, from a source checkout
-```
-
-Settings → Access to your novel shows the exact command to use and connects a
-client for you, and Settings → Activity lists every tool call in words (tool,
-client, outcome, paths — never manuscript text; a write that only returned
-its diff is logged as a preview, not as done, and a write logged before
-previews were told apart says it may have been either). The `--client` id comes from the config you approved, not
-from the wire, so one client cannot borrow another's permission.
-
-### Over HTTP (optional, off by default)
-
-For clients that need a URL instead of starting a program, Settings → Access to
-your novel → Advanced can also serve MCP over Streamable HTTP. It listens on `127.0.0.1` only, on a
-port chosen at launch, checks `Origin` and `Host`, and requires a bearer token
-minted per launch. The URL and token are written to `mcp-http.json` in the app
-data folder (mode 600 on macOS and Linux). HTTP callers are identified as `unknown`,
-which cannot be granted write access, so HTTP is read-only. Turning it off takes
-effect at the next launch.
-
-### Read tools
-
-`get_app_state`, `list_projects`, `open_project`, `list_documents`,
-`read_document`, `search`, `assemble_context`, `history_list`, `history_blame`,
-`diff`, `git_status`, `git_log`, `get_style`, `codex_search`, `codex_get`.
-
-### Write tools
-
-`write_document`, `insert_text`, `delete_text`, `replace_text`,
-`create_document`, `codex_upsert`, `git_commit`, `delete_document`.
-
-They exist but **refuse** unless you grant that specific client write access in
-Settings → Access to your novel (Allow writing…, then a dialog that starts on
-"Keep read only"). Only the four clients Versorium can connect for you —
-Claude Code, Claude Desktop, Codex and OpenCode — can be granted it, and only
-once connected; the app refuses a grant for one that is not. When granted:
-
-1. a call without `confirm: true` returns a **diff preview** and changes nothing;
-2. Versorium makes a **Git checkpoint** first — if the snapshot fails, the write
-   does not happen (`git_commit` is itself the restore point);
-3. edits to a chapter are recorded in the ops log as `ai:<client>`, so you can
-   see who changed what. To undo one, go back to the checkpoint commit with Git
-   (there is no in-app screen for that yet); the editor's Restore does not reach
-   MCP edits.
-
-Deleting a document needs a second flag, `acknowledge_delete`, on top of
-`confirm`.
-
-The warning that opens the Allow writing… dialog in Settings → Access to your
-novel:
-
-> **Write lets the AI change your manuscript. Versorium will snapshot Git first.
-> You can roll back. The model can still delete text if you allow the edit.**
-
-"Roll back" there means returning to that Git snapshot, which today is done
-with Git outside the app.
-
-### Connecting a client by hand
-
-Settings → Access to your novel does this for Claude Code, Claude Desktop,
-Codex and OpenCode. For Claude Code and Codex it runs the client's own CLI; for Claude
-Desktop and OpenCode it edits the JSON file and keeps a `.versorium-backup` copy
-first. Restart the client afterwards. To do it yourself, replace
-`/path/to/versorium` with the path shown in that panel.
-
-**Claude Code** — use the CLI, because `~/.claude.json` is live state that a
-running Claude Code rewrites:
-
-```bash
-claude mcp add --scope user versorium -- /path/to/versorium mcp --client claude-code
-```
-
-**Codex** — likewise; a duplicate `[mcp_servers.versorium]` table would make the
-whole `config.toml` unparseable:
-
-```bash
-codex mcp add versorium -- /path/to/versorium mcp --client codex
-```
-
-**Claude Desktop** — no CLI; edit
-`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS),
-`%APPDATA%\Claude\claude_desktop_config.json` (Windows) or
-`~/.config/Claude/claude_desktop_config.json` (Linux), keeping every other key:
-
-```json
-{
-  "mcpServers": {
-    "versorium": {
-      "command": "/path/to/versorium",
-      "args": ["mcp", "--client", "claude-desktop"],
-      "env": {}
-    }
-  }
-}
-```
-
-**OpenCode** — `~/.config/opencode/opencode.json`. The shape differs: the key
-is `mcp`, `type` is required, and the command is a single array (no `args`):
-
-```json
-{
-  "mcp": {
-    "versorium": {
-      "type": "local",
-      "command": ["/path/to/versorium", "mcp", "--client", "opencode"],
-      "enabled": true
-    }
-  }
-}
-```
-
-**Cursor and VS Code** — Versorium does not write or test these configs, and
-neither client can be granted write access, so they stay read-only. Cursor
-reads `<repo>/.cursor/mcp.json` or `~/.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "versorium": {
-      "command": "/path/to/versorium",
-      "args": ["mcp", "--client", "cursor"]
-    }
-  }
-}
-```
-
-VS Code reads `<repo>/.vscode/mcp.json`, whose top-level key is `servers`, not
-`mcpServers`:
-
-```json
-{
-  "servers": {
-    "versorium": {
-      "command": "/path/to/versorium",
-      "args": ["mcp", "--client", "vscode"]
-    }
-  }
-}
-```
-
-## Project layout on disk
-
-New novels go under `Documents/Versorium/<slug>/` by default:
-
-```
-versorium.json        # project metadata
-manuscript/           # one .md file per chapter (frontmatter + body)
-codex/                # characters/ locations/ factions/ items/ + timeline.yml
-plot/                 # outline.md
-research/  style/  prompts/  snapshots/
-style/voice.md        # the project's voice guide
-.versorium/ops/       # the character-level ops log (committed with the novel)
-.versorium/snapshots/ # a full chapter copy every 200 ops (committed too)
-.versorium/cache/  .versorium/embeddings/   # local only, in .gitignore
-```
-
-App settings live elsewhere, in the platform's app-data folder under
-`dev.versorium.app` (on macOS, `~/Library/Application Support/dev.versorium.app`).
-
-## Documents
-
-- [PROMPT-VERSORIUM.md](PROMPT-VERSORIUM.md) — the product spec
-- [DESIGN-VERSORIUM.md](DESIGN-VERSORIUM.md) — the design system
-- [AGENTS.md](AGENTS.md) — how to work on this repo
-- [AGENT-BOOTSTRAP.md](AGENT-BOOTSTRAP.md) — the original build prompt, kept
-  for the record; not current instructions
-- [STATUS.md](STATUS.md) — milestones M0–M7 (skeleton, Git and ops, agents, MCP,
-  local models, formats, updater, polish) and the post-v1 work
-- [TODO.md](TODO.md) — half-done work, three unbuilt features and the steps to
-  go public (other unbuilt spec items are in the two Implementation notes
-  sections)
-- [FORMATS.md](FORMATS.md) — import and export, per format
-- [RELEASING.md](RELEASING.md) — how a release is cut and signed
+<p align="center">
+  <sub><em>A quiet desk, a sharp needle.</em><br>
+  Made by <a href="https://www.maecly.com/about">Miguel Angel Esparza Calero</a> · <a href="https://versorium.maecly.com/en/">versorium.maecly.com</a></sub>
+</p>
