@@ -1,4 +1,4 @@
-node_modules/
+node_modules
 dist/
 src-tauri/target/
 .DS_Store
@@ -16,6 +16,6 @@ playwright-report/
 # CI pins pnpm 10, which does not need it.
 
 # The original drop folder. Three of its files are byte-identical copies of
-# the specs tracked at the repo root, and the fourth is the draft AGENTS.md
+# the specs tracked in docs/project/, and the fourth is the draft AGENTS.md
 # itself calls obsolete. It was committed by accident.
 versorium-init/

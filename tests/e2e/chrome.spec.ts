@@ -491,7 +491,7 @@ test("focus that leaves a peek closes it, and a peek from the faded rail hands t
   browserName,
 }) => {
   // WebKit's Tab skips buttons unless macOS keyboard navigation is on;
-  // Option+Tab is how a default Mac reaches them (TODO.md, macOS checks).
+  // Option+Tab is how a default Mac reaches them (docs/project/TODO.md, macOS checks).
   const tab = browserName === "webkit" ? "Alt+Tab" : "Tab";
   await onPlatform(page, "MacIntel");
   await openSeeded(page);

@@ -4,7 +4,7 @@
 > known limits (for example, no release has been cut yet). `TODO.md` lists what is half-done or specified
 > and not yet started, including parts of the DoD below. The unticked checklists below are the original
 > prompt, not current status.
-> Agents working on the repo now should read [`AGENTS.md`](AGENTS.md) instead.
+> Agents working on the repo now should read [`AGENTS.md`](../../AGENTS.md) instead.
 
 ---
 

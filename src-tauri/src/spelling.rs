@@ -16,7 +16,7 @@
 //! WebView2 is expected to check spelling without being asked, as Edge does;
 //! nobody has looked yet. WebKitGTK does not: it needs
 //! `WebContext::set_spell_checking_enabled` and a language list, which is not
-//! done here because it can neither be compiled nor seen on a Mac (TODO.md).
+//! done here because it can neither be compiled nor seen on a Mac (docs/project/TODO.md).
 //! Until it is, Settings → Editor tells a Linux writer that nothing is
 //! underlined (`spellingUnderlines` in `src/lib/editor/preferences.ts`); the
 //! change that wires WebKitGTK removes that.

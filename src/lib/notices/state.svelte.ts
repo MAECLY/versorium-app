@@ -2,7 +2,7 @@ import { tick, untrack } from "svelte";
 import type { Cover } from "./cover";
 
 /**
- * What the app tells the writer in passing, in one place (STATUS.md,
+ * What the app tells the writer in passing, in one place (docs/project/STATUS.md,
  * "Notifications"). Before this, a hint went through the error channel and
  * stayed on screen until closed, and no message anywhere hid itself.
  *

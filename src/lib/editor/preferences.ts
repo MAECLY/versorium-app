@@ -89,8 +89,8 @@ export function contentLanguage(language: string | null | undefined): string | u
  * `spellcheck="true"` is a request, and the webview decides. WKWebView honours
  * it once `src-tauri/src/spelling.rs` has registered the default WebKit reads,
  * and WebView2 is expected to check by itself, as Edge does (not yet seen,
- * TODO.md). WebKitGTK checks nothing until Rust switches its checker on, which
- * is not done yet (TODO.md), so on Linux Settings says that rather than
+ * docs/project/TODO.md). WebKitGTK checks nothing until Rust switches its checker on, which
+ * is not done yet (docs/project/TODO.md), so on Linux Settings says that rather than
  * promising underlines. Drop this when spelling.rs learns WebKitGTK.
  * `navigator.platform` is "Linux x86_64" there, from uname.
  */

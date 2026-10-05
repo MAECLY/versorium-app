@@ -2,7 +2,7 @@
 //!
 //! Spec §6.2 asks for llama.cpp embedded, the active backend shown on Ready, and
 //! one heavy inference at a time. This module is the whole of that, minus the
-//! parts named honestly in STATUS.md: Metal and CPU work; CUDA and Vulkan are
+//! parts named honestly in docs/project/STATUS.md: Metal and CPU work; CUDA and Vulkan are
 //! not built from the current release matrix.
 //!
 //! **Why a dedicated thread rather than `spawn_blocking`.** `LlamaModel` is

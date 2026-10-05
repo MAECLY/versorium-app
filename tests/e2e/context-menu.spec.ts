@@ -301,7 +301,7 @@ test("Shift+F10 and the Menu key open row and card menus from the keyboard", asy
   // The Menu key; Tab closes and moves on from the row, to its ⋯. Chrome's
   // Tab: WebKit's, the macOS app's, skips buttons unless the system's
   // keyboard navigation is on, and Option+Tab is how a default Mac reaches
-  // them, so in WebKit this step fails as written (TODO.md, macOS checks).
+  // them, so in WebKit this step fails as written (docs/project/TODO.md, macOS checks).
   await page.keyboard.press("ContextMenu");
   await expect(menu(page)).toHaveCount(1);
   await page.keyboard.press("Tab");

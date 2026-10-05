@@ -2,8 +2,8 @@
 #
 # Push a tag `vX.Y.Z` to cut a stable release, or `vX.Y.Z-beta.N` for the beta
 # channel. The release is created as a DRAFT: a human verifies it (see
-# RELEASING.md) and publishes it, because the updater starts offering a version
-# the moment it is public.
+# docs/project/RELEASING.md) and publishes it, because the updater starts
+# offering a version the moment it is public.
 #
 # `workflow_dispatch` builds every target without touching a release, for
 # checking that the pipeline still compiles.
@@ -39,7 +39,7 @@ jobs:
           SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
           if [ -z "$SIGNING_KEY" ]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. See RELEASING.md — an unsigned build is rejected by every updater client."
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. See docs/project/RELEASING.md — an unsigned build is rejected by every updater client."
             exit 1
           fi
 
@@ -68,8 +68,9 @@ jobs:
     strategy:
       fail-fast: false
       # `assetPattern` names this build's files on the release, so a download
-      # says which computer it is for (RELEASING.md §7 lists every name). It is
-      # quoted because an unquoted `[name]…` is a YAML list, not a string.
+      # says which computer it is for (docs/project/RELEASING.md §7 lists every
+      # name). It is quoted because an unquoted `[name]…` is a YAML list, not a
+      # string.
       matrix:
         include:
           - platform: macos-latest
@@ -453,7 +454,7 @@ jobs:
           {
             echo "### Versorium $GITHUB_REF_NAME is built and waiting as a draft"
             echo
-            echo "Verify it before publishing — see RELEASING.md."
+            echo "Verify it before publishing — see docs/project/RELEASING.md."
             echo
             echo '```'
             cat SHA256SUMS

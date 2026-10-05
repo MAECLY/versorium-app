@@ -16,7 +16,7 @@ const ROOT = process.cwd();
 /**
  * Missing before the Settings redesign, and outside it: Application's
  * credential-store line asks for a key neither locale has, so the raw key is
- * what a writer would read (TODO.md, "Found while building the Settings
+ * what a writer would read (docs/project/TODO.md, "Found while building the Settings
  * redesign"). Listed so this test guards everything else; it fails once the
  * key is written, as a reminder to take it off this list.
  */

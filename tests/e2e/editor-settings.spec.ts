@@ -551,7 +551,7 @@ test("settings naming a face Typography does not offer mark no row, and the samp
   page,
 }) => {
   // set_editor_font takes the catalogue's mono face, which the panel does not
-  // list (TODO.md); a hand edit of settings.json stores it today.
+  // list (docs/project/TODO.md); a hand edit of settings.json stores it today.
   await savedSettings(page, { editorFont: "system-mono" });
   await page.goto(SEEDED);
   await continueSeeded(page);

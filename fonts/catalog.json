@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Fonts the app can offer today. Everything here resolves to families already on the machine, so nothing downloads and nothing is bundled. The downloadable OFL catalogue from DESIGN-VERSORIUM.md arrives with the font downloader in a later milestone; until then an entry that is not installable is marked available:false rather than given a URL it cannot honour.",
+  "note": "Fonts the app can offer today. Everything here resolves to families already on the machine, so nothing downloads and nothing is bundled. The downloadable OFL catalogue from docs/project/DESIGN-VERSORIUM.md arrives with the font downloader in a later milestone; until then an entry that is not installable is marked available:false rather than given a URL it cannot honour.",
   "defaultBody": "system-serif",
   "fonts": [
     {
@@ -11,7 +11,7 @@
       "license": "system",
       "bundled": false,
       "available": true,
-      "note": "The zero-download fallback named in DESIGN-VERSORIUM.md."
+      "note": "The zero-download fallback named in docs/project/DESIGN-VERSORIUM.md."
     },
     {
       "id": "system-ui",

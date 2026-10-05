@@ -7,7 +7,7 @@ import { writeFileSync } from "node:fs";
 const S = 1024;
 const cx = S / 2, cy = S / 2;
 
-// palette (DESIGN-VERSORIUM.md)
+// palette (docs/project/DESIGN-VERSORIUM.md)
 const paper = [0xf3, 0xec, 0xdd];
 const teal = [0x2a, 0x6f, 0x6a];
 const ink = [0x2c, 0x26, 0x1c];

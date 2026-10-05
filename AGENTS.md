@@ -7,8 +7,9 @@ frontend; git goes through libgit2 (`git2`), so the app never needs system git.
 
 The original build (milestones M0–M7) is finished and merged. You are not here
 to build the app; you are here to change one that exists. Before you start,
-read `STATUS.md` for what shipped, and `TODO.md` plus the "Implementation
-notes" at the end of `PROMPT-VERSORIUM.md` and `DESIGN-VERSORIUM.md` for what
+read `docs/project/STATUS.md` for what shipped, and `docs/project/TODO.md` plus
+the "Implementation notes" at the end of `docs/project/PROMPT-VERSORIUM.md` and
+`docs/project/DESIGN-VERSORIUM.md` for what
 is unfinished. When a request is ambiguous, ask the maintainer.
 
 ## Rules that do not bend
@@ -33,7 +34,7 @@ or docs.
   `ai:<client>` (spec §7). The order is permission → validate → preview unless
   confirmed → checkpoint → apply → ops. The preview is not yet the mandatory
   diff the spec asks for: an agent that sends `confirm: true` on its first
-  call skips it, and the writer never sees a diff. PROMPT-VERSORIUM.md's
+  call skips it, and the writer never sees a diff. `docs/project/PROMPT-VERSORIUM.md`'s
   implementation notes (§7) record this gap. A new write tool must not widen it.
 - **i18n EN + ES, no hardcoded strings.** Every user-facing string is a key in
   both locales. Rust returns error *codes*, never prose.
@@ -68,7 +69,7 @@ or docs.
 | `src/lib/i18n/` | `t()` and `errorMessage()`, which maps a Rust error code to `errors.<code>` |
 | `locales/en/ui.json`, `locales/es/ui.json` | All UI copy, one file per language |
 | `models/catalog.json` | The downloadable model catalogue (`tests/catalog/hf-files.py` fetches sizes and sha256) |
-| `fonts/catalog.json` | Font catalogue: four entries, nothing downloadable yet (see DESIGN-VERSORIUM.md's implementation notes) |
+| `fonts/catalog.json` | Font catalogue: four entries, nothing downloadable yet (see `docs/project/DESIGN-VERSORIUM.md`'s implementation notes) |
 | `tests/e2e/` | Playwright specs, and `mock-tauri.ts`, the in-browser IPC mock they run against |
 | `tests/locale-parity.mjs` | EN/ES key parity check |
 | `tests/scratch/`, `tests/icons/`, `tests/release/`, `tests/catalog/` | Scratch code and helper scripts |
@@ -198,7 +199,7 @@ move; re-run rather than quote them.
   `Field`, `TextField`, `NumberField`, `Select`, `Checkbox`. The hint goes in
   `aria-describedby`, and a live status readout stays outside the label so it
   never becomes part of the accessible name. 17 control tags in 11 files are
-  still hand-written; `TODO.md` lists them and the command to recount.
+  still hand-written; `docs/project/TODO.md` lists them and the command to recount.
 - **`Checkbox` stays strictly controlled.** Two-way call sites write
   `checked={x} onChange={(v) => (x = v)}`. Do not make `checked` `$bindable`:
   an unbound bindable keeps the child's write, so a permission the backend
@@ -210,16 +211,18 @@ move; re-run rather than quote them.
 
 | File | Read it for |
 |---|---|
-| `README.md` | The public entry point. Update it when a change alters a feature, the build steps or the landing page |
-| `PROMPT-VERSORIUM.md` | The product and architecture spec. Wins on product questions. Its "Implementation notes (2026-10-03)" section lists where the code differs from the spec, with evidence |
-| `DESIGN-VERSORIUM.md` | Themes, tokens, type. Wins on visual questions. Its "Implementation notes (2026-10-03)" section does the same for design |
-| `STATUS.md` | What shipped, per milestone and after, with the known limits |
-| `TODO.md` | Half-done work, three unstarted AI tasks (the ones Settings → Tasks lists under "Not built yet"), and the steps to go public. It is not the complete list of unbuilt spec items: the two implementation-notes sections above list more (command palette, BYOK, most CLI subcommands, the downloadable font catalogue, and others) |
+| `README.md`, `README.es.md` | The public entry point, in English and Spanish, with the same structure. Update both when a change alters a feature, the build steps or the landing page. Images live in `.github/readme/` |
+| `docs/project/REFERENCE.md` | The developer reference that used to be in the README: rules, what is in the app, updates, build, agents, MCP, layout on disk |
+| `docs/project/PROMPT-VERSORIUM.md` | The product and architecture spec. Wins on product questions. Its "Implementation notes (2026-10-03)" section lists where the code differs from the spec, with evidence |
+| `docs/project/DESIGN-VERSORIUM.md` | Themes, tokens, type. Wins on visual questions. Its "Implementation notes (2026-10-03)" section does the same for design |
+| `docs/project/STATUS.md` | What shipped, per milestone and after, with the known limits |
+| `docs/project/TODO.md` | Half-done work, three unstarted AI tasks (the ones Settings → Tasks lists under "Not built yet"), and the steps to go public. It is not the complete list of unbuilt spec items: the two implementation-notes sections above list more (command palette, BYOK, most CLI subcommands, the downloadable font catalogue, and others) |
 | `THIRD-PARTY-NOTICES.md` | Licences of bundled dependencies. A new dependency updates it |
-| `FORMATS.md` | What each import/export format keeps and loses |
-| `RELEASING.md` | The release procedure and the signing key |
+| `docs/project/FORMATS.md` | What each import/export format keeps and loses |
+| `docs/project/RELEASING.md` | The release procedure and the signing key |
 | `TRADEMARKS.md`, `LICENSE`, `CLA.md`, `CONTRIBUTING.md` | Name and mark use; AGPL-3.0 (since 2026-10-04, was Apache-2.0); contributions need the CLA |
-| `AGENT-BOOTSTRAP.md` | The original prompt that built M0–M7. Kept for history. Do not follow it: it tells an agent to build the app from scratch without asking questions. |
+| `docs/project/AGENT-BOOTSTRAP.md` | The original prompt that built M0–M7. Kept for history. Do not follow it: it tells an agent to build the app from scratch without asking questions. |
+| `docs/` (except `docs/project/`) | The landing page, published by `.github/workflows/pages.yml`. `docs/project/` holds the documents above and is never published; the workflow refuses to publish any `.md` |
 
 ## State of things outside the code
 
@@ -230,7 +233,7 @@ move; re-run rather than quote them.
 - The landing page for `versorium.maecly.com` (a GitHub Pages site built from
   `docs/` by `.github/workflows/pages.yml`) is being added on this branch and is
   not live. It needs the repo public, Pages enabled, and a Cloudflare CNAME
-  `versorium` → `maecly.github.io`. `TODO.md` has the order.
+  `versorium` → `maecly.github.io`. `docs/project/TODO.md` has the order.
 - The release signing secrets (`TAURI_SIGNING_PRIVATE_KEY`,
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) are set in the repository; only the
   maintainer changes them. Never commit a key, and never set or rotate these

@@ -588,7 +588,7 @@ mod tests {
         assert_eq!(
             updater["pubkey"],
             "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM5N0FDNjg3NDk5QUQzNDkKUldSSjA1cEpoOFo2T1Y4Y053TFNuQW1NbVRySTRCYnFhdTlVYXA5djd5b0RLL0UvTENEbmNsU2QK",
-            "minisign key id 397AC687499AD349 (RELEASING.md, section 1)"
+            "minisign key id 397AC687499AD349 (docs/project/RELEASING.md, section 1)"
         );
         assert_eq!(updater["endpoints"], serde_json::json!([]));
         assert_eq!(config["bundle"]["createUpdaterArtifacts"], true);

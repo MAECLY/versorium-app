@@ -2,7 +2,7 @@
 //!
 //! `fonts/catalog.json` is embedded at build time and validated on load, the
 //! same contract `models::catalog` follows: the UI renders whatever it finds
-//! rather than hardcoding a list (DESIGN-VERSORIUM.md).
+//! rather than hardcoding a list (docs/project/DESIGN-VERSORIUM.md).
 //!
 //! M7 ships a stub by design. Every entry resolves to a CSS font stack of
 //! families the machine already has, so nothing downloads. `Source Serif 4` is
@@ -195,7 +195,7 @@ mod tests {
     fn the_shipped_catalog_loads_and_offers_the_design_default() {
         let c = catalog().expect("fonts/catalog.json must be usable");
         assert_eq!(c.default_body, "system-serif");
-        // DESIGN-VERSORIUM.md's zero-download fallback stack.
+        // docs/project/DESIGN-VERSORIUM.md's zero-download fallback stack.
         let fallback = &find("system-serif").unwrap().stack;
         assert!(fallback.contains("Iowan Old Style"));
         assert!(fallback.ends_with("serif"));
