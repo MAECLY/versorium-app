@@ -482,7 +482,11 @@ html.phone [data-desktop] { display: none !important; }
 
 .sub { max-width: 24em; font-size: clamp(1.125rem, 1rem + 0.45vw, 1.3125rem); line-height: 1.5; }
 .hero .actions { margin-top: 28px; }
+/* Both hero buttons on one row, for every system. */
+@media (min-width: 1280px) { .hero-cta .btn { padding-inline: 14px; } }
 .assure { margin-top: 16px; color: var(--text-mute); font-size: 14px; line-height: 1.5; }
+/* Tried or not, on its own line. */
+.assure-os { display: block; }
 .aside { margin-top: 24px; color: var(--text-mute); font-size: 14px; line-height: 1.5; }
 
 .js .picker { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 32px; }
@@ -935,27 +939,24 @@ html.phone [data-desktop] { display: none !important; }
 
 .s-get .actions { margin-top: 36px; }
 .hint { margin-top: 16px; color: var(--text-mute); font-size: 14px; line-height: 1.6; }
-.platforms { display: flex; flex-wrap: wrap; gap: 8px; margin: 32px 0 0; padding: 0; list-style: none; }
-
-.platforms li {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-elev);
-  font-size: 14px;
-  line-height: 1.4;
-}
-
+.files { margin: 32px 0 0; padding: 0; border-top: 1px solid var(--border); list-style: none; }
+.files li { display: grid; gap: 10px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.files-os { font-size: 14px; font-weight: 600; }
+.files-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.file { display: inline-flex; align-items: baseline; gap: 8px; min-height: 40px; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-elev); color: var(--text); font: 600 14px/1.3 var(--font-ui); text-decoration: none; }
+.file::before { content: "↓" / ""; color: var(--accent); }
+.file:hover { border-color: var(--accent); }
+.file-meta { color: var(--text-mute); font-size: 13px; font-weight: 400; white-space: nowrap; }
 .os-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--text-mute); vertical-align: 1px; }
 .os-dot.is-tried { background: var(--accent); box-shadow: none; }
-.is-yours-label { display: none; }
 
-html[data-os="mac"] .platforms [data-os="mac"],
-html[data-os="win"] .platforms [data-os="win"],
-html[data-os="linux"] .platforms [data-os="linux"] { border-color: var(--accent); }
-html[data-os="mac"] [data-os="mac"] .is-yours-label,
-html[data-os="win"] [data-os="win"] .is-yours-label,
-html[data-os="linux"] [data-os="linux"] .is-yours-label { display: inline; }
+/* The visitor's system (theme.js): its row, button labels and file. A Mac
+   of unknown processor (download.js) is sent to this list instead. */
+.is-yours-label, .dl-for { display: none; }
+html[data-os="mac"] [data-os="mac"] .is-yours-label, html[data-os="win"] [data-os="win"] .is-yours-label, html[data-os="linux"] [data-os="linux"] .is-yours-label,
+html:not([data-os="mac"], [data-os="win"], [data-os="linux"]) .dl-any, html[data-os="mac"] .dl-mac, html[data-os="win"] .dl-win, html[data-os="linux"] .dl-linux { display: inline; }
+html[data-os="mac"]:not([data-arch]) .s-get .actions { display: none; }
+html[data-os="mac"][data-arch="arm"] [data-file="mac-arm"], html[data-os="mac"][data-arch="x86"] [data-file="mac-intel"], html[data-os="win"] [data-file="win"], html[data-os="linux"] [data-file="linux"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
 .limits { padding: 28px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elev); }
 .limits h3 { display: flex; align-items: center; gap: 10px; }
@@ -1123,6 +1124,93 @@ html[data-os="linux"] [data-os="linux"] .is-yours-label { display: inline; }
 .req-count { display: inline-block; min-width: 2ch; color: var(--accent); font-variant-numeric: tabular-nums; }
 html.js .proof-nojs, html:not(.js) .proof-js { display: none; }
 
+/* the comparison (IV): one table, Versorium's column a slip of paper laid on
+   it. Under 960 px the table scrolls sideways, its labels and Versorium's
+   column pinned, so each alternative is read against Versorium; a sliver of
+   the next column always shows. */
+
+.vs-cap { max-width: 44em; margin-top: 24px; color: var(--text-soft); font-size: 15px; line-height: 1.55; }
+/* position: relative keeps the .sr-only spans inside the scroller: without it
+   they escape its clip and widen the page. */
+.vs-scroll { position: relative; margin-top: clamp(32px, 4vw, 48px); overflow-x: auto; overscroll-behavior-x: contain; }
+.vs thead a { color: var(--text); text-decoration-color: var(--border); text-underline-offset: 0.25em; }
+.vs thead a:hover { text-decoration-color: var(--accent); }
+.vs { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 15px; line-height: 1.45; text-align: left; }
+.vs th, .vs td { padding: 14px 16px; vertical-align: top; }
+.vs thead th { padding-top: 18px; font-size: 16px; font-weight: 600; }
+.vs tbody th, .vs tbody td { border-top: 1px solid var(--border); }
+.vs tbody th { font-weight: 600; }
+.vs small { display: block; margin-top: 4px; color: var(--text-mute); font-size: 13.5px; font-weight: 400; line-height: 1.4; }
+/* th/td only: on the full page .is-us marks a row. */
+.vs th.is-us, .vs td.is-us { background: var(--bg-elev); border-inline: 1px solid var(--border); }
+.vs thead .is-us { border-top: 1px solid var(--border); border-radius: var(--radius-card) var(--radius-card) 0 0; }
+.vs tbody tr:last-child .is-us { border-bottom: 1px solid var(--border); border-radius: 0 0 var(--radius-card) var(--radius-card); }
+.vs thead .vmark { display: inline-block; width: 18px; height: 18px; margin: 0 6px -3px 0; }
+.vs-us-name { white-space: nowrap; }
+.vs-num { position: relative; display: inline-block; font: 400 2rem/1.05 var(--font-display); letter-spacing: -0.01em; white-space: nowrap; }
+.vs-ring { position: absolute; inset: -9px -15px -6px; width: calc(100% + 30px); height: calc(100% + 15px); overflow: visible; pointer-events: none; }
+.vs .vs-num + small { margin-top: 12px; }
+.vs-ring path { fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-dasharray: 1 2; stroke-dashoffset: 0; vector-effect: non-scaling-stroke; }
+.vs-dash { color: var(--text-mute); }
+.vs-hint { display: none; margin-top: 20px; color: var(--text-soft); font-size: 14px; }
+.vs-notes { display: grid; gap: 24px 40px; margin-top: 40px; }
+.vs-notes p { max-width: 36em; padding-top: 16px; border-top: 1px solid var(--border); }
+.vs-notes b { font-weight: 600; }
+.vs-more { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 28px; font-weight: 600; }
+
+@media (min-width: 900px) {
+  .vs-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Scoped to .s-vs, so it does not reach the full page's tables. */
+@media (max-width: 959px) {
+  /* Room for the alternatives: the scroller's width (cqw) less the pinned
+     columns. A tablet shows 3.4 of them, a phone one and a sliver; the last
+     column carries the spare room, so scrolled to the end it lines up beside
+     the pinned ones like every other. */
+  .s-vs .vs-scroll { --vs-label: 120px; --vs-us: 136px; container-type: inline-size; scroll-snap-type: x proximity; scroll-padding-inline-start: calc(var(--vs-label) + var(--vs-us)); }
+  .s-vs .vs { --vs-room: calc(100cqw - var(--vs-label) - var(--vs-us)); --vs-col: calc(var(--vs-room) / 3.4); --vs-tail: calc(var(--vs-room) - 3 * var(--vs-col)); table-layout: fixed; width: calc(var(--vs-label) + var(--vs-us) + 5 * var(--vs-col) + var(--vs-tail)); font-size: 14px; }
+  .s-vs .vs th, .s-vs .vs td { padding: 12px; }
+  .s-vs .vs small { font-size: 13px; }
+  .s-vs .vs thead td { width: var(--vs-label); }
+  .s-vs .vs thead .is-us { width: var(--vs-us); }
+  .s-vs .vs thead th:not(.is-us) { width: var(--vs-col); }
+  .s-vs .vs thead th:last-child { width: calc(var(--vs-col) + var(--vs-tail)); }
+  .s-vs .vs thead td, .s-vs .vs tbody th { position: sticky; left: 0; z-index: 1; background-color: var(--bg-editor); }
+  .s-vs .vs th.is-us, .s-vs .vs td.is-us { position: sticky; left: var(--vs-label); z-index: 1; }
+  .s-vs .vs td:not(.is-us), .s-vs .vs thead th:not(.is-us) { scroll-snap-align: start; }
+  .s-vs .vs-num { font-size: 1.75rem; }
+  /* Only where the table scrolls; audit-wordcount.py skips it, as it skips [data-phone]. */
+  .s-vs .vs-hint { display: block; }
+  .s-vs .vs-hint + .vs-scroll { margin-top: 12px; }
+  /* The pinned cells carry the page's paper grain where the page has it. */
+  [data-theme="needle-light"] .s-vs .vs thead td, [data-theme="needle-light"] .s-vs .vs tbody th { background-image: url("paper.svg"); background-size: 160px; }
+}
+
+@media (max-width: 959px) and (prefers-color-scheme: light) {
+  :root:not([data-theme]) .s-vs .vs thead td, :root:not([data-theme]) .s-vs .vs tbody th { background-image: url("paper.svg"); background-size: 160px; }
+}
+
+/* No column narrower than its longest word (122 px holds "Novelcrafter"): 2.4 columns where 3.4 won't fit. */
+@container (max-width: 670px) {
+  .s-vs .vs { --vs-col: calc(var(--vs-room) / 2.4); --vs-tail: calc(var(--vs-room) - 2 * var(--vs-col)); }
+}
+
+@media (max-width: 599px) {
+  .s-vs .vs-scroll { --vs-label: 88px; --vs-us: 108px; }
+  .s-vs .vs { --vs-col: max(122px, calc(var(--vs-room) * 0.8)); --vs-tail: max(0px, calc(var(--vs-room) - var(--vs-col))); }
+  .s-vs .vs thead .vmark { display: none; }
+}
+
+/* Too narrow to pin two columns: only the labels stay. */
+@media (max-width: 359px) {
+  .s-vs .vs-scroll { --vs-label: 84px; scroll-padding-inline-start: var(--vs-label); }
+  .s-vs .vs { --vs-room: calc(100cqw - var(--vs-label)); --vs-col: 120px; --vs-tail: max(0px, calc(var(--vs-room) - var(--vs-col))); }
+  .s-vs .vs th.is-us, .s-vs .vs td.is-us { position: static; }
+  .s-vs .vs tbody th { font-size: 13px; }
+  .s-vs .vs th, .s-vs .vs td { padding-inline: 10px; }
+}
+
 /* motion */
 
 @keyframes ink-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
@@ -1174,6 +1262,7 @@ html.js .proof-nojs, html:not(.js) .proof-js { display: none; }
   html.motion [data-reveal]:not(.is-in) .sheet-anim { opacity: 0; transform: var(--fall); }
   html.motion [data-reveal]:not(.is-in) .fsheet { transform: translateY(36px); }
   html.motion [data-reveal]:not(.is-in) .fan-card { transform: rotate(0deg); }
+  html.motion .vs-ring[data-reveal]:not(.is-in) path { stroke-dashoffset: 1; }
 
   html.motion .vc.is-in:not(.no-anim) .v-shade { animation: ink-draw 500ms var(--ease-ink) both; }
   html.motion .vc.is-in:not(.no-anim) .v-hair { animation: ink-draw 400ms var(--ease-ink) 500ms both; }
@@ -1182,6 +1271,8 @@ html.js .proof-nojs, html:not(.js) .proof-js { display: none; }
   html.motion .is-in:not(.no-anim) .fsheet { animation: fsheet-rise 520ms var(--ease-ink) var(--d, 0ms) both; }
   html.motion .is-in:not(.no-anim) .needle { animation: needle-settle 1400ms cubic-bezier(0.3, 0.7, 0.4, 1) both; }
   html.motion .is-in:not(.no-anim) .fan-card { animation: fan-open 600ms var(--ease-ink) var(--d, 0ms) both; }
+  /* A23: the ring closes around Versorium's price. */
+  html.motion .vs-ring.is-in:not(.no-anim) path { animation: ink-draw 600ms var(--ease-ink) 150ms both; }
   .sheet-2 .sheet-anim { --d: 140ms; }
   .sheet-3 .sheet-anim { --d: 280ms; }
   .sheet-4 .sheet-anim { --d: 420ms; }
@@ -1254,4 +1345,10 @@ html.js .proof-nojs, html:not(.js) .proof-js { display: none; }
   .ribbon-well, .picker, .replay, .clip-replay, .header-cta { display: none !important; }
   .topbar { position: static; }
   body { background-image: none !important; }
+  /* The comparison on paper: the whole table, nothing pinned or scrolled away. */
+  .s-vs .vs-scroll { overflow: visible; }
+  .s-vs .vs { table-layout: auto; width: 100%; font-size: 11px; }
+  .s-vs .vs thead td, .s-vs .vs thead th, .s-vs .vs tbody th, .s-vs .vs td.is-us { position: static; width: auto; }
+  .s-vs .vs-num { font-size: 1.25rem; }
+  .s-vs .vs-hint { display: none; }
 }

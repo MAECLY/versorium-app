@@ -29,7 +29,7 @@
 <meta property="og:locale" content="en_GB">
 <meta property="og:locale:alternate" content="es_ES">
 <meta property="og:title" content="Versorium · Write your novel. Every draft is kept.">
-<meta property="og:description" content="If Versorium disappears tomorrow, your novel doesn’t: it’s files on your computer, with every draft kept. Free and open source; no release yet.">
+<meta property="og:description" content="If Versorium disappears tomorrow, your novel doesn’t: it’s files on your computer, with every draft kept. Free and open source; v0.1.0, tried on macOS.">
 <meta property="og:url" content="https://versorium.maecly.com/en/">
 <meta property="og:image" content="https://versorium.maecly.com/assets/og-en.png">
 <meta property="og:image:width" content="1200">
@@ -43,13 +43,13 @@
 "@graph": [
 {"@type":"WebSite","@id":"https://versorium.maecly.com/#website","url":"https://versorium.maecly.com/","name":"Versorium · MAECLY","inLanguage":["es","en"]},
 {"@type":"Person","@id":"https://www.maecly.com/#miguel","name":"Miguel Esparza","url":"https://www.maecly.com/","email":"mailto:hola@maecly.com","jobTitle":"Full-Stack Developer & Content Creator"},
-{"@type":"SoftwareApplication","@id":"https://versorium.maecly.com/en/#software","name":"Versorium","description":"Free, open-source desktop app for writing novels on your own computer: every chapter is a text file in a folder you own, every draft is kept with automatic snapshots, and AI is optional and chosen by the writer. No release yet; so far only tried on macOS.","url":"https://versorium.maecly.com/en/","sameAs":["https://github.com/MAECLY/versorium-app"],"applicationCategory":"BusinessApplication","applicationSubCategory":"Writing","operatingSystem":"macOS, Windows, Linux","isAccessibleForFree":true,"license":"https://www.gnu.org/licenses/agpl-3.0.html","author":{"@id":"https://www.maecly.com/#miguel"},"inLanguage":["es","en"],"image":"https://versorium.maecly.com/assets/og-en.png","screenshot":"https://versorium.maecly.com/assets/shots/en/corkboard-needle-light.webp","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
+{"@type":"SoftwareApplication","@id":"https://versorium.maecly.com/en/#software","name":"Versorium","description":"Free, open-source desktop app for writing novels on your own computer: every chapter is a text file in a folder you own, every draft is kept with automatic snapshots, and AI is optional and chosen by the writer. Version 0.1.0 for macOS, Windows and Linux; so far only tried on macOS with Apple silicon.","url":"https://versorium.maecly.com/en/","sameAs":["https://github.com/MAECLY/versorium-app"],"applicationCategory":"BusinessApplication","applicationSubCategory":"Writing","operatingSystem":"macOS, Windows, Linux","softwareVersion":"0.1.0","datePublished":"2026-10-04","downloadUrl":["https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg","https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64.dmg","https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64-setup.exe","https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64_en-US.msi","https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.deb","https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium-0.1.0-1.x86_64.rpm","https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.AppImage"],"releaseNotes":"https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0","isAccessibleForFree":true,"license":"https://www.gnu.org/licenses/agpl-3.0.html","author":{"@id":"https://www.maecly.com/#miguel"},"inLanguage":["es","en"],"image":"https://versorium.maecly.com/assets/og-en.png","screenshot":"https://versorium.maecly.com/assets/shots/en/corkboard-needle-light.webp","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
 {"@type":"FAQPage","@id":"https://versorium.maecly.com/en/#faq","mainEntity":[
 {"@type":"Question","name":"Does my novel leave my computer?","acceptedAnswer":{"@type":"Answer","text":"Only when you ask: sending it to GitHub, rewriting with an outside tool, or backing it up to a synced folder. On its own, the app only checks for updates, with nothing from your novel, and you can turn that off. No telemetry."}},
 {"@type":"Question","name":"Do I need an account, or git?","acceptedAnswer":{"@type":"Answer","text":"No account: there’s no sign-up. And you don’t need git to write: Versorium takes the snapshots for you, with git built in. For now, git is only needed to go back to an old snapshot."}},
 {"@type":"Question","name":"Which AI does it use?","acceptedAnswer":{"@type":"Answer","text":"None until you choose one: a model inside the app itself, Ollama, or Claude Code, Codex or OpenCode, which send the passage to their own service. Today it rewrites passages and checks continuity."}},
 {"@type":"Question","name":"Can I bring my novel from Scrivener or Word?","acceptedAnswer":{"@type":"Answer","text":"Yes: it imports Scrivener, DOCX, EPUB and Markdown, and shows you a preview before creating anything. From DOCX, EPUB or Scrivener, bold, italics and scenes are lost."}},
-{"@type":"Question","name":"Why is it free?","acceptedAnswer":{"@type":"Answer","text":"It’s open source (AGPL-3.0) and made by one person. There’s no paid tier and no ads, and the app collects no data."}}
+{"@type":"Question","name":"Why is it free?","acceptedAnswer":{"@type":"Answer","text":"One person, Miguel Esparza, made it so he could write calmly and never lose a draft, without a monthly fee. It’s open source (AGPL-3.0): there’s no paid tier and no ads, and the app collects no data."}}
 ]}
 ]
 }
@@ -62,9 +62,10 @@
 <header class="topbar">
 <div class="wrap topbar-inner">
 <a class="brand" href="./"><svg class="vmark is-drawn" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><mask id="vh-m1" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-shade" pathLength="1" stroke-width="11" stroke-linejoin="round" d="M24.1 17.6L25.2 20.4L27.1 25.2L29.1 30.1L31.0 35.0L33.0 39.9L35.1 44.9L37.2 49.8L39.4 54.9L41.5 59.8L43.8 64.9L46.1 70.0L48.4 75.2L50.8 80.4L52.1 83.1"/></mask><mask id="vh-m2" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-hair" pathLength="1" stroke-width="7" stroke-linejoin="round" d="M49.3 83.0L50.8 80.4L53.7 75.5L56.5 70.4L59.3 65.4L62.0 60.3L64.6 55.2L67.2 50.0L69.7 44.8L72.2 39.5L74.5 34.2L76.8 28.9L79.0 23.4L81.2 18.0L82.3 15.2"/></mask><use class="v-ink" href="#v-s" mask="url(#vh-m1)"/><use class="v-ink hair" href="#v-h" mask="url(#vh-m2)"/></svg><span>versorium</span></a>
-<a class="btn btn-primary btn-small header-cta" href="#download">Notify me</a>
+<a class="btn btn-primary btn-small header-cta" href="#download">Download</a>
 <nav class="topnav" aria-label="Sections">
 <a href="#how">How it works</a>
+<a href="#compare">Compare</a>
 <a href="details/#limits">Limits</a>
 <a href="#questions">FAQ</a>
 </nav>
@@ -77,18 +78,18 @@
 <section class="hero" aria-labelledby="title">
 <div class="wrap">
 <div class="hero-head">
-<a class="pill" href="details/#limits"><span class="pill-dot" aria-hidden="true"></span>No release yet · only tried on macOS</a>
+<a class="pill" href="details/#platforms"><span class="pill-dot" aria-hidden="true"></span>v0.1.0 · only tried on macOS</a>
 <h1 id="title">Write your novel.<br> Every draft is <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>kept</span>.</h1>
 </div>
 <div class="hero-body">
 <div class="hero-copy">
 <p class="sub">An app for your own computer that works offline. AI stays off until you call it.</p>
 <div class="actions hero-cta">
-<a class="btn btn-primary" href="#download">Notify me when it’s out</a>
+<a class="btn btn-primary" href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0" data-dl data-desktop><span>Download<span class="dl-for dl-any"> v0.1.0</span><span class="dl-for dl-mac"> for Mac</span><span class="dl-for dl-win"> for Windows</span><span class="dl-for dl-linux"> for Linux</span></span></a>
 <a class="btn" href="#how" data-desktop>How it works <span aria-hidden="true">↓</span></a>
-<button class="btn" type="button" data-share data-phone>Send it to your computer</button>
+<button class="btn btn-primary" type="button" data-share data-phone>Send it to your computer</button>
 </div>
-<p class="assure">Free · No account · <a href="https://github.com/MAECLY/versorium-app">Open source</a></p>
+<p class="assure"><span class="assure-os"><span class="dl-for dl-mac">Tried on Apple silicon</span><span class="dl-for dl-win">Not tried on Windows</span><span class="dl-for dl-linux">Not tried on Linux</span></span>Free · No account · <a href="https://github.com/MAECLY/versorium-app">Open source</a></p>
 <div class="picker" id="theme-picker" role="group" aria-labelledby="pick-label">
 <span class="picker-label" id="pick-label">Try it in your colours</span>
 <fieldset class="themes"><legend class="sr-only">Theme</legend>
@@ -239,23 +240,53 @@
 </div>
 </section>
 
+<section class="section s-vs" id="compare" aria-labelledby="compare-title">
+<div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
+<div class="wrap">
+<div class="s-head">
+<span class="chapter-mark" aria-hidden="true">IV</span>
+<h2 id="compare-title">Cards on the <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>table</span>.</h2>
+<p class="vs-cap" id="vs-cap">List prices in USD and features from each one’s own website, as of October 2026. A dash: the site doesn’t say.</p>
+</div>
+<p class="vs-hint">Swipe the table to see all five alternatives <span aria-hidden="true">→</span></p>
+<div class="vs-scroll">
+<table class="vs" aria-labelledby="vs-cap">
+<thead><tr><td class="vs-corner"><span class="sr-only">What is compared</span></td><th scope="col" class="is-us" abbr="Versorium"><span class="vs-us-name"><svg class="vmark" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use class="v-ink" href="#v-s"/><use class="v-ink hair" href="#v-h"/></svg>Versorium</span><small>v0.1 · only tried on macOS</small></th><th scope="col"><a href="compare/#dabble">Dabble</a></th><th scope="col"><a href="compare/#notion">Notion</a></th><th scope="col"><a href="compare/#novelcrafter">Novelcrafter</a></th><th scope="col"><a href="compare/#scrivener">Scrivener</a></th><th scope="col"><a href="compare/#sudowrite">Sudowrite</a></th></tr></thead>
+<tbody>
+<tr><th scope="row">Three years<small>cheapest way</small></th><td class="is-us"><span class="vs-num">$0<svg class="vs-ring" data-reveal viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path pathLength="1" d="M70 5C50 1 22 3 10 13C1 21 2 40 14 49C27 58 62 59 81 51C96 44 99 27 92 16C86 7 74 3 58 4"/></svg></span><small>open source</small></td><td><span class="vs-num">$547.20</span></td><td><span class="vs-num">$0</span><small>Free plan</small></td><td><span class="vs-num">$120</span><small>with AI, $240</small></td><td><span class="vs-num">$59.99</span><small>one-off</small></td><td><span class="vs-num">$360</span></td></tr>
+<tr><th scope="row">Where your novel lives</th><td class="is-us">Your own files, in Markdown</td><td>Your computer and its cloud</td><td>Its cloud</td><td>Its web app</td><td>A project on your disk</td><td>Its web app</td></tr>
+<tr><th scope="row">History</th><td class="is-us">Every minute, no expiry; going back still needs git</td><td>Restorable versions and a cloud backup</td><td>7 to 90 days; Enterprise, unlimited</td><td>Revisions you can restore</td><td>Snapshots and automatic backups</td><td>Document history</td></tr>
+<tr><th scope="row">AI</th><td class="is-us">Off, local, or Claude Code, Codex or OpenCode<small>on your own subscription</small></td><td>None, by design</td><td>Notion AI, Business plan</td><td>Your own API key or local models</td><td><span class="vs-dash" aria-hidden="true">—</span><span class="sr-only">Not stated on its website</span></td><td>Its own, on credits</td></tr>
+<tr><th scope="row">Account, offline</th><td class="is-us">No account; works offline</td><td>Account; offline too</td><td>Account; pages you download</td><td>Account; online only</td><td>Licence; desktop app</td><td>Account; <span class="vs-dash" aria-hidden="true">—</span><span class="sr-only">Not stated on its website</span></td></tr>
+<tr><th scope="row">On your phone</th><td class="is-us">No</td><td>iOS and Android</td><td>iOS and Android</td><td><span class="vs-dash" aria-hidden="true">—</span><span class="sr-only">Not stated on its website</span></td><td>iOS, $23.99 extra</td><td>iOS and Android</td></tr>
+</tbody>
+</table>
+</div>
+<div class="vs-notes">
+<p><b>Where others are ahead:</b> syncing devices, writing with other people, and going back to a version inside the app.</p>
+<p><b>It keeps improving:</b> 229 changes in its first three weeks, and its <a href="https://github.com/MAECLY/versorium-app/blob/main/TODO.md">public to-do list</a> includes going back to a version inside the app and scheduled backups.</p>
+</div>
+<p class="vs-more"><a href="compare/">The full comparison, with sources <span aria-hidden="true">→</span></a><a href="details/#why">Why it exists <span aria-hidden="true">→</span></a></p>
+</div>
+</section>
+
 <section class="section s-get" id="download" aria-labelledby="download-title">
 <div class="ink-rule" aria-hidden="true"><svg><use href="#rule"/></svg></div>
 <div class="wrap s-get-grid">
 <div>
-<h2 id="download-title">The first release is <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>on its way</span>.</h2>
-<p class="lead">Nothing to download yet: follow it and you’ll know the day it’s out.</p>
+<h2 id="download-title">Ready to <span class="ink-word"><svg class="ink-under" aria-hidden="true" focusable="false"><use href="#nib-stroke"/></svg>download</span>.</h2>
+<p class="lead">Versorium 0.1.0, the first release.</p>
 <div class="actions">
-<a class="btn btn-primary btn-large" href="https://github.com/MAECLY/versorium-app">Notify me on GitHub</a>
-<button class="btn btn-large" type="button" data-share data-phone>Send it to your computer</button>
+<a class="btn btn-primary btn-large" href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0" data-dl data-desktop><span>Download<span class="dl-for dl-any"> v0.1.0</span><span class="dl-for dl-mac"> for Mac</span><span class="dl-for dl-win"> for Windows</span><span class="dl-for dl-linux"> for Linux</span></span></a>
+<button class="btn btn-primary btn-large" type="button" data-share data-phone>Send it to your computer</button>
 </div>
-<p class="hint">On GitHub: Watch → Custom → Releases · <a href="https://github.com/MAECLY/versorium-app/releases.atom">or follow it by RSS</a></p>
 <p class="hint" data-phone><a href="mailto:?subject=Versorium%20(to%20open%20on%20my%20computer)&amp;body=https%3A%2F%2Fversorium.maecly.com%2Fen%2F%23download">By email</a> · <button class="btn-link copy" type="button" data-copy="https://versorium.maecly.com/en/#download" data-done="Copied" data-failed="Couldn’t copy; press and hold the link." data-status="copied-link">Copy link</button><span class="sr-only" id="copied-link" role="status"></span></p>
-<ul class="platforms" aria-label="Platforms">
-<li data-os="mac"><span class="os-dot is-tried" aria-hidden="true"></span>macOS · tried<span class="is-yours-label"> · your system</span></li>
-<li data-os="win"><span class="os-dot" aria-hidden="true"></span>Windows · not tried yet<span class="is-yours-label"> · your system</span></li>
-<li data-os="linux"><span class="os-dot" aria-hidden="true"></span>Linux · not tried yet<span class="is-yours-label"> · your system</span></li>
+<ul class="files" aria-label="Files in release 0.1.0">
+<li data-os="mac"><span class="files-os"><span class="os-dot is-tried" aria-hidden="true"></span>macOS 10.15+<span class="is-yours-label"> · your system</span></span><span class="files-links"><a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg" data-file="mac-arm">Apple silicon <span class="file-meta">.dmg · 11.7 MB · tried</span></a><a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64.dmg" data-file="mac-intel">Intel <span class="file-meta">.dmg · 11.7 MB · not tried</span></a></span></li>
+<li data-os="win"><span class="files-os"><span class="os-dot" aria-hidden="true"></span>Windows · not tried<span class="is-yours-label"> · your system</span></span><span class="files-links"><a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64-setup.exe" data-file="win">.exe <span class="file-meta">11.6 MB</span></a><a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64_en-US.msi">.msi <span class="file-meta">23.2 MB</span></a></span></li>
+<li data-os="linux"><span class="files-os"><span class="os-dot" aria-hidden="true"></span>Linux · not tried<span class="is-yours-label"> · your system</span></span><span class="files-links"><a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.deb" data-file="linux">.deb <span class="file-meta">22.3 MB</span></a><a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium-0.1.0-1.x86_64.rpm">.rpm <span class="file-meta">22.3 MB</span></a><a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.AppImage">.AppImage <span class="file-meta">99.0 MB</span></a></span></li>
 </ul>
+<p class="hint"><a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/SHA256SUMS">SHA256SUMS</a> · <a href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0">What’s new</a> · Next releases: Watch → Custom → Releases on GitHub, or <a href="https://github.com/MAECLY/versorium-app/releases.atom">RSS</a></p>
 </div>
 <aside class="limits" aria-labelledby="not-yet">
 <h3 id="not-yet">What it doesn’t do yet</h3>
@@ -263,7 +294,7 @@
 <li>The AI only rewrites and checks continuity.</li>
 <li>Going back to a snapshot needs git.</li>
 <li>Backups are made by hand.</li>
-<li>Unsigned: macOS and Windows will warn you.</li>
+<li>Unsigned: macOS and Windows warn you when you open it (<a href="details/#install">what to do</a>).</li>
 <li>Importing from Word, EPUB or Scrivener loses bold, italics and scenes.</li>
 </ul>
 <a href="details/#limits">See every limit <span aria-hidden="true">→</span></a>
@@ -280,7 +311,7 @@
 <details><summary>Do I need an account, or git?</summary><div class="answer"><p>No account: there’s no sign-up. And you don’t need git to write: Versorium takes the snapshots for you, with git built in. For now, git is only needed to go back to an old snapshot.</p></div></details>
 <details><summary>Which AI does it use?</summary><div class="answer"><p>None until you choose one: a model inside the app itself, Ollama, or Claude Code, Codex or OpenCode, which send the passage to their own service. Today it rewrites passages and checks continuity.</p></div></details>
 <details><summary>Can I bring my novel from Scrivener or Word?</summary><div class="answer"><p>Yes: it imports Scrivener, DOCX, EPUB and Markdown, and shows you a preview before creating anything. From DOCX, EPUB or Scrivener, bold, italics and scenes are lost.</p></div></details>
-<details><summary>Why is it free?</summary><div class="answer"><p>It’s open source (<span class="nobreak">AGPL-3.0</span>) and made by one person. There’s no paid tier and no ads, and the app collects no data.</p></div></details>
+<details><summary>Why is it free?</summary><div class="answer"><p>One person, Miguel Esparza, made it so he could write calmly and never lose a draft, without a monthly fee. It’s open source (<span class="nobreak">AGPL-3.0</span>): there’s no paid tier and no ads, and the app collects no data.</p></div></details>
 </div>
 </div>
 </section>
@@ -290,10 +321,10 @@
 <svg class="vc" data-reveal viewBox="0 0 100 100" aria-hidden="true" focusable="false"><mask id="vc-m1" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-shade" pathLength="1" stroke-width="11" stroke-linejoin="round" d="M24.1 17.6L25.2 20.4L27.1 25.2L29.1 30.1L31.0 35.0L33.0 39.9L35.1 44.9L37.2 49.8L39.4 54.9L41.5 59.8L43.8 64.9L46.1 70.0L48.4 75.2L50.8 80.4L52.1 83.1"/></mask><mask id="vc-m2" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-hair" pathLength="1" stroke-width="7" stroke-linejoin="round" d="M49.3 83.0L50.8 80.4L53.0 76.7L55.1 73.0L57.2 69.2L59.3 65.4L61.3 61.6L63.3 57.8L65.3 53.9L67.2 50.0L69.1 46.1L71.0 42.2L72.8 38.2L74.3 34.0"/></mask><use class="v-ink" href="#v-s" mask="url(#vc-m1)"/><use class="v-ink hair" href="#v-h" mask="url(#vc-m2)"/><g class="v-nib"><path class="v-ink" d="M72.0 40.1L79.5 33.5L82.4 23.3L76.6 20.9L71.4 30.2Z"/><path class="v-cut" d="M73.5 36.6L77.2 27.7" fill="none" stroke-width="2.4" stroke-linecap="round"/><circle class="v-hole" cx="77.2" cy="27.7" r="1.7"/></g></svg>
 <h2 id="closing-title">If Versorium disappears tomorrow, your novel doesn’t.</h2>
 <div class="actions">
-<a class="btn btn-invert btn-large" href="https://github.com/MAECLY/versorium-app" data-desktop>Notify me on GitHub</a>
+<a class="btn btn-invert btn-large" href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0" data-dl data-desktop><span>Download<span class="dl-for dl-any"> v0.1.0</span><span class="dl-for dl-mac"> for Mac</span><span class="dl-for dl-win"> for Windows</span><span class="dl-for dl-linux"> for Linux</span></span></a>
 <button class="btn btn-invert btn-large" type="button" data-share data-phone>Send it to your computer</button>
 </div>
-<p class="assure">Free · No account · Open source</p>
+<p class="assure"><span class="assure-os"><span class="dl-for dl-mac">Tried on Apple silicon</span><span class="dl-for dl-win">Not tried on Windows</span><span class="dl-for dl-linux">Not tried on Linux</span></span>Free · No account · Open source</p>
 </div>
 </section>
 </main>
@@ -311,6 +342,7 @@
 <li><a href="https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md">Trademark</a></li>
 <li><a href="https://github.com/MAECLY/versorium-app/blob/main/THIRD-PARTY-NOTICES.md">Third-party notices</a></li>
 <li><a href="details/">Limits and details</a></li>
+<li><a href="compare/">Comparison</a></li>
 <li><a href="../llms.txt">llms.txt</a></li>
 <li><a href="../" hreflang="es" lang="es">Español</a></li>
 </ul></nav>

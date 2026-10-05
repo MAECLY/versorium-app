@@ -158,3 +158,43 @@ kbd { padding: 0 0.3em; border: 1px solid var(--border); border-radius: 4px; bac
 .lost .lead + .actions, .lost .intro + .actions { margin-top: 28px; }
 .lost .intro { max-width: 34em; margin-top: 16px; font-size: 17px; }
 .lost-en { margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--border); }
+
+/* The full comparison (/comparar/, /en/compare/): one row per app, its name
+   pinned when the table scrolls sideways; Versorium's row a slip of paper.
+   The table's own look (hairlines, second lines, dashes) is site.css's .vs. */
+.vs-legend { max-width: 40em; margin-top: 14px; color: var(--text-soft); font-size: 15px; }
+/* Sideways, a column comes to rest beside the pinned names, as on the landing:
+   the snap padding and the pinned column are one width, --vs-app, so a column
+   at rest is never partly under the names (compare-parity.mjs measures it). */
+.prose .vs-scroll { --vs-app: 168px; margin-top: 24px; container-type: inline-size; scroll-snap-type: x proximity; scroll-padding-inline-start: var(--vs-app); }
+.vs-full td, .vs-full thead th:not(.vs-app) { scroll-snap-align: start; }
+.vs-full .vs { width: max(100%, 860px); font-size: 14px; }
+.vs-full .vs-f { width: max(100%, 640px); }
+.vs-full th, .vs-full td { padding: 12px; }
+/* A long name breaks inside the column (between its words, where the page
+   marks them) instead of widening it past the snap padding. */
+.vs-full .vs-app { position: sticky; left: 0; z-index: 1; width: var(--vs-app); min-width: var(--vs-app); max-width: var(--vs-app); overflow-wrap: anywhere; background-color: var(--bg-editor); }
+.vs-full .vs-name { display: block; font-weight: 600; }
+.vs-full .vs-src { display: inline-block; margin-top: 4px; font-size: 13px; font-weight: 400; }
+.vs-full tr.is-us > * { background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.vs-full tr.is-us > :first-child { border-left: 1px solid var(--border); border-radius: var(--radius-card) 0 0 var(--radius-card); }
+.vs-full tr.is-us > :last-child { border-right: 1px solid var(--border); border-radius: 0 var(--radius-card) var(--radius-card) 0; }
+/* A group's row: its name pinned with the others, and the column names again
+   above its rows, so a column of short answers keeps its name 29 rows on. */
+.vs-full .vs-group > * { padding-top: 28px; border-top: 0; color: var(--text-mute); font-size: 13px; font-weight: 600; text-align: left; vertical-align: bottom; }
+[data-theme="needle-light"] .vs-full .vs-app { background-image: url("paper.svg"); background-size: 160px; }
+/* Versorium's row is one slip: no grain on its pinned name. */
+:root .vs-full tr.is-us > .vs-app { background-image: none; }
+.vs-sources dd { line-height: 1.7; }
+.vs-sources div { scroll-margin-top: 72px; }
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .vs-full .vs-app { background-image: url("paper.svg"); background-size: 160px; }
+}
+
+@media (max-width: 599px) {
+  .prose .vs-scroll { --vs-app: 112px; }
+}
+
+/* "Por qué existe": the maker's reasons, the first paragraph set like the page of a book. */
+.prose .why-first { max-width: 30em; font: 400 1.375rem/1.45 var(--font-page); }

@@ -1,5 +1,8 @@
 // The weight and speed budgets (site spec §12.4), in Chrome:
-//   landing HTML ≤ 36 KB raw / 10 KB gzip each; site.css ≤ 44 / 10 KB; the
+//   landing HTML ≤ 44.5 KB raw / 12.5 KB gzip each; site.css ≤ 50 / 12 KB (36 / 10
+//   and 44 / 10 until release 0.1.0 added the per-system download list, 40 /
+//   10.5 and 44 / 10.5 until the comparison, section IV, added its table); the
+//   comparison pages ≤ 64 / 14 KB each and details.css ≤ 10 KB raw; the
 //   three scripts ≤ 9 KB gzip together, motion.js ≤ 6 KB raw and download.js
 //   ≤ 3 KB raw (§8.2, §8.3); one font ≤ 14 KB; a phone's first view
 //   ≤ 80 KB transferred; not one request to another server on any page, after
@@ -33,13 +36,23 @@ async function size(file) {
 for (const file of ["index.html", "en/index.html"]) {
   const s = await size(file);
   console.log(`${file}: ${kb(s.raw)} KB raw, ${kb(s.gz)} KB gzip`);
-  if (s.raw > 36 * 1024) bad(`${file} is ${kb(s.raw)} KB raw (36)`);
-  if (s.gz > 10 * 1024) bad(`${file} is ${kb(s.gz)} KB gzipped (10)`);
+  if (s.raw > 44.5 * 1024) bad(`${file} is ${kb(s.raw)} KB raw (44.5)`);
+  if (s.gz > 12.5 * 1024) bad(`${file} is ${kb(s.gz)} KB gzipped (12.5)`);
 }
 const css = await size("assets/site.css");
 console.log(`site.css: ${kb(css.raw)} KB raw, ${kb(css.gz)} KB gzip`);
-if (css.raw > 44 * 1024) bad(`site.css is ${kb(css.raw)} KB raw (44)`);
-if (css.gz > 10 * 1024) bad(`site.css is ${kb(css.gz)} KB gzipped (10)`);
+if (css.raw > 50 * 1024) bad(`site.css is ${kb(css.raw)} KB raw (50)`);
+if (css.gz > 12 * 1024) bad(`site.css is ${kb(css.gz)} KB gzipped (12)`);
+// The full comparison: long tables and their sources, read once, not on the landing.
+for (const file of ["comparar/index.html", "en/compare/index.html"]) {
+  const s = await size(file);
+  console.log(`${file}: ${kb(s.raw)} KB raw, ${kb(s.gz)} KB gzip`);
+  if (s.raw > 64 * 1024) bad(`${file} is ${kb(s.raw)} KB raw (64)`);
+  if (s.gz > 14 * 1024) bad(`${file} is ${kb(s.gz)} KB gzipped (14)`);
+}
+const details = await size("assets/details.css");
+console.log(`details.css: ${kb(details.raw)} KB raw, ${kb(details.gz)} KB gzip`);
+if (details.raw > 10 * 1024) bad(`details.css is ${kb(details.raw)} KB raw (10)`);
 let js = { raw: 0, gz: 0 };
 for (const [file, limit] of [
   ["assets/theme.js", null],
@@ -59,7 +72,7 @@ if (font.raw > 14 * 1024) bad(`the font is ${kb(font.raw)} KB (14)`);
 const browser = process.env.STATIC === "1" ? null : await chromium.launch({ channel: "chrome", headless: true });
 if (browser) try {
   // Not one request leaves the site, on any page, after scrolling and opening everything.
-  for (const route of ["/", "/en/", "/detalles/", "/en/details/", "/404.html"]) {
+  for (const route of ["/", "/en/", "/detalles/", "/en/details/", "/comparar/", "/en/compare/", "/404.html"]) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     const off = [];
     page.on("request", (r) => {

@@ -50,7 +50,9 @@ function audit({ js, reduce }) {
     (!js && el.closest(".picker, .proof-js")) ||
     el.closest("details:not([open]) > :not(summary)") ||
     // On a phone the window is two clippings: the page shows its second paragraph only (§6.6).
-    (el.matches(".r-p:not(.is-active)") && innerWidth < 720);
+    (el.matches(".r-p:not(.is-active)") && innerWidth < 720) ||
+    // The comparison's "swipe" hint shows only where its table scrolls sideways.
+    (el.closest(".vs-hint") && innerWidth >= 960);
   const opacity = (el) => {
     let o = 1;
     for (let e = el; e && e.nodeType === 1; e = e.parentElement) o *= Number(getComputedStyle(e).opacity);

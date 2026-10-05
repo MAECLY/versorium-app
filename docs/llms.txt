@@ -1,6 +1,6 @@
 # Versorium by MAECLY
 
-> Free and open-source desktop writing studio for novelists, for macOS, Windows and Linux. Local-first: each chapter is a plain Markdown file in a folder the writer owns, each novel is its own git repository, and AI is optional and chosen by the writer. AGPL-3.0. No release has been published yet, and so far the app has only been run on macOS.
+> Free and open-source desktop writing studio for novelists, for macOS, Windows and Linux. Local-first: each chapter is a plain Markdown file in a folder the writer owns, each novel is its own git repository, and AI is optional and chosen by the writer. AGPL-3.0. Version 0.1.0, the first public release, was published on 4 October 2026 with installers for all three systems; so far the app has only been run on macOS (Apple silicon).
 
 ## Canonical pages
 
@@ -8,8 +8,11 @@
 - [English landing](https://versorium.maecly.com/en/)
 - [Limits and details, Spanish](https://versorium.maecly.com/detalles/)
 - [Limits and details, English](https://versorium.maecly.com/en/details/)
+- [Comparison with the alternatives, Spanish](https://versorium.maecly.com/comparar/)
+- [Comparison with the alternatives, English](https://versorium.maecly.com/en/compare/)
 - [Source code](https://github.com/MAECLY/versorium-app)
-- [Releases](https://github.com/MAECLY/versorium-app/releases/latest): installers will be published here; none has been built or published yet
+- [Release 0.1.0](https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0): installers, signatures, SHA256SUMS and release notes
+- [Releases](https://github.com/MAECLY/versorium-app/releases/latest): the latest release; Watch → Custom → Releases on GitHub to hear about new ones
 - [Issues](https://github.com/MAECLY/versorium-app/issues)
 - [Licence: AGPL-3.0](https://github.com/MAECLY/versorium-app/blob/main/LICENSE)
 - [Trademark policy](https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md)
@@ -37,12 +40,12 @@
 
 ## Limits and what is not available yet
 
-- No release has been published yet, and no installer has been built for any platform: the release workflow has never run. So far the app has only been run on macOS (Apple silicon), never on Windows or Linux.
-- No Apple Developer ID signature or notarisation and no Windows Authenticode: there are no certificates, and signing would also need new secrets and changes to the release workflow and the app's config. So macOS will report the app as damaged until the quarantine flag is cleared, and Windows SmartScreen will interrupt the installer. Only the updater's minisign signature exists.
-- The update path (detect, verify, install) has not run end to end, because no release exists yet.
+- Version 0.1.0 is the first release. Only its macOS Apple silicon build has been run: the released .dmg was opened and its window checked on 2026-10-04. The Intel Mac, Windows and Linux builds exist but have never been run.
+- No Apple Developer ID signature or notarisation and no Windows Authenticode: there are no certificates, and signing would also need new secrets and changes to the release workflow and the app's config. So macOS reports the app as damaged until the quarantine flag is cleared, and Windows SmartScreen interrupts the installer. Only the updater's minisign signature exists.
+- Installing an update has not run end to end, because 0.1.0 is the first release and there is no newer one yet. Every 0.1.0 package's minisign signature has been checked against the key built into the app.
 - AI does two jobs today: rewrite and continuity. Project chat (a slot exists, no window), search by meaning (no index, no search box), dictation (no speech model) and Creative Mode (the disabled "Continue chapter" button) are not available.
 - A local OpenAI-compatible server (LM Studio, llama-server) can be saved and connection-tested, but cannot generate anything.
-- GPU: Metal is verified on Apple silicon (M4 Max), with about 15 s of first-run shader compilation hidden by a warm-up; no Intel Mac has run the app. Vulkan (NVIDIA, AMD, Intel) is the GPU backend the Windows and Linux builds will use: CI checks that it compiles on Ubuntu 22.04, but it has never run on real hardware. CUDA is deliberately not built. Inference runs in-process, so an engine abort ends the app (autosave and snapshots limit what can be lost).
+- GPU: Metal is verified on Apple silicon (M4 Max), with about 15 s of first-run shader compilation hidden by a warm-up; no Intel Mac has run the app. Vulkan (NVIDIA, AMD, Intel) is the GPU backend of the Windows and Linux builds: CI checks that it compiles on Ubuntu 22.04, but it has never run on real hardware. CUDA is deliberately not built. Inference runs in-process, so an engine abort ends the app (autosave and snapshots limit what can be lost).
 - Restoring an older snapshot or a deleted chapter has no in-app interface; it is done with git outside the app. The on-disk operations log has no in-app viewer.
 - The GitHub repository and remote must be set up outside the app; pull does not merge diverged histories.
 - Backups are manual only; nothing is scheduled.
@@ -51,18 +54,29 @@
 - Export limits: scene titles are dropped in DOCX and Scrivener exports, with a warning; the PDF prints them, except the heading of a chapter's first scene, which it drops without one; PDF is US Letter in Times-Roman and replaces emoji and non-Latin scripts, with a warning; the cover is a typographic title page, not an image. DOCX, EPUB and Scrivener imports lose bold, italics and scene structure; images are not imported, and DOCX footnotes and comments are not read.
 - No in-app editors for the codex, plot or research folders; chapter reordering is Move earlier / Move later, without drag and drop; no downloadable fonts.
 
+## Compared with alternatives
+
+Prices and features of 29 alternatives, as each vendor's own website or repository gave them on 2026-10-04, are on the comparison page, each with its source. Versorium is $0; Scrivener 3 is $59.99 once per platform; Dabble from $19 a month; Novelcrafter from $4 a month, and from $8 a month with AI (your own API key, or local models through Ollama or LM Studio); Sudowrite from $10 a month billed yearly; Notion is free, with Notion AI on its Business plan. Do not restate these prices without the date. Do not say Versorium is the only app that uses the AI subscription you already have: Novel Engine and Siming (司命) also drive Claude Code and Codex, and Siming has local models and an MCP of its own too. What we have not found is another app that brings all of it together: the AI you already have and local models, its own MCP that only reads until you allow writing, a git snapshot every minute plus a log of every change, Markdown files you own, and DOCX, EPUB, PDF and Scrivener both ways. Where alternatives are ahead (restoring a version inside the app, phone apps, sync, writing with other people, years of use) is listed on the same page.
+
 ## Platforms
 
-What the release workflow will build for the first release. It has never run, so none of these exists yet.
+Release 0.1.0 (2026-10-04). Direct downloads, sizes in decimal megabytes; each Windows and Linux installer, and each macOS updater bundle (.app.tar.gz, not the .dmg), has a .sig minisign signature beside it, and every file is listed in [SHA256SUMS](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/SHA256SUMS).
 
-- macOS: separate Apple silicon (aarch64) and Intel (x86_64) builds, as .app and .dmg. The only platform the app has run on so far, on Apple silicon.
-- Windows: x64, MSI and NSIS installers, built for x86-64-v2 CPUs with Vulkan. The app has not been run on Windows.
-- Linux: x64 .deb (declaring libvulkan1 and libssl3), .rpm and AppImage, built on Ubuntu 22.04 (webkit2gtk-4.1), x86-64-v2 with Vulkan. The app has not been run on Linux; CI runs the automated tests there. Saving credentials will need Secret Service.
+- macOS 10.15 or later: separate Apple silicon (aarch64) and Intel (x86_64) builds, as .dmg (and .app.tar.gz for the updater). The only platform the app has run on, on Apple silicon; the Intel build has never been run.
+  - [Versorium_0.1.0_aarch64.dmg](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg), Apple silicon, 11.7 MB, tried
+  - [Versorium_0.1.0_x64.dmg](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64.dmg), Intel, 11.7 MB, never run
+- Windows: x64, NSIS and MSI installers, built for x86-64-v2 CPUs with Vulkan. Never run on Windows.
+  - [Versorium_0.1.0_x64-setup.exe](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64-setup.exe), NSIS, 11.6 MB
+  - [Versorium_0.1.0_x64_en-US.msi](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64_en-US.msi), MSI, 23.2 MB
+- Linux: x64 .deb (declaring libvulkan1 and libssl3), .rpm and AppImage, built on Ubuntu 22.04 (webkit2gtk-4.1), x86-64-v2 with Vulkan. Never run on Linux; CI runs the automated tests there. Saving credentials needs Secret Service.
+  - [Versorium_0.1.0_amd64.deb](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.deb), 22.3 MB
+  - [Versorium-0.1.0-1.x86_64.rpm](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium-0.1.0-1.x86_64.rpm), 22.3 MB
+  - [Versorium_0.1.0_amd64.AppImage](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.AppImage), 99.0 MB
 
 ## Install notes
 
-- macOS: "macOS will say the app is damaged. It is not." Clear the quarantine flag once, in Terminal, only for a build taken from the releases page: xattr -rd com.apple.quarantine /Applications/Versorium.app
-- Windows: SmartScreen will show "Windows protected your PC" (in Spanish, "Windows protegió su PC"); choose More info, then Run anyway (Más información, Ejecutar de todas formas). Signed builds need Apple and Microsoft certificates, which do not exist yet, plus changes to the release workflow.
+- macOS: "macOS says the app is damaged. It is not." Clear the quarantine flag once, in Terminal, only for a build taken from the releases page: xattr -rd com.apple.quarantine /Applications/Versorium.app
+- Windows: SmartScreen shows "Windows protected your PC" (in Spanish, "Windows protegió su PC"); choose More info, then Run anyway (Más información, Ejecutar de todas formas). Signed builds need Apple and Microsoft certificates, which do not exist yet, plus changes to the release workflow.
 
 ## Publisher
 

@@ -6,9 +6,15 @@ A word is a run of non-space characters with a letter or a digit in it. Not
 counted: <script>, <style>, <svg>, <template>, anything aria-hidden (the app
 window included), .sr-only, [hidden], a closed <details> other than its
 <summary>; and, since static HTML has no computed styles, what the stylesheet
-hides by default: [data-phone] (a desktop is assumed), .no-picker, .proof-nojs.
-"Your system" (.is-yours-label) shows on one platform chip at most, the
+hides by default: [data-phone] (a desktop is assumed), .no-picker, .proof-nojs,
+and the comparison's .vs-hint (shown only where its table scrolls, below 960 px).
+"Your system" (.is-yours-label) shows on one platform row at most, the
 visitor's: it is counted once, as on a desktop whose system is listed.
+The download buttons, and the line under the hero and closing ones, name the
+visitor's system (.dl-for, chosen by the stylesheet from html[data-os]): the
+page is counted once per system (.dl-mac, .dl-win, .dl-linux; .dl-any is the
+no-script label and never shows beside them) and the largest total is the one
+reported, so the gate always sees the visitor with the most words.
 The replay buttons are hidden until their scene has played; they are counted
 apart, as the spec's totals leave them out.
 
@@ -21,14 +27,16 @@ from html.parser import HTMLParser
 
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
 SKIP_TAGS = {"script", "style", "svg", "template", "head"}
-SKIP_CLASSES = {"sr-only", "no-picker", "proof-nojs"}
+SKIP_CLASSES = {"sr-only", "no-picker", "proof-nojs", "dl-any", "vs-hint"}
+SYSTEMS = ("mac", "win", "linux")
 LATER_CLASSES = {"replay", "clip-replay"}
 ONCE_CLASSES = {"is-yours-label"}
 
 
 class Counter(HTMLParser):
-    def __init__(self):
+    def __init__(self, system):
         super().__init__()
+        self.skip_classes = SKIP_CLASSES | {f"dl-{o}" for o in SYSTEMS if o != system}
         self.stack = []  # (tag, skip, later, section, in_closed_details, in_summary)
         self.per = {}
         self.later = 0
@@ -40,7 +48,7 @@ class Counter(HTMLParser):
         a = dict(attrs)
         classes = set((a.get("class") or "").split())
         parent = self.stack[-1] if self.stack else (None, False, False, "other", False, False)
-        skip = parent[1] or tag in SKIP_TAGS or a.get("aria-hidden") == "true" or "hidden" in a or "data-phone" in a or bool(classes & SKIP_CLASSES)
+        skip = parent[1] or tag in SKIP_TAGS or a.get("aria-hidden") == "true" or "hidden" in a or "data-phone" in a or bool(classes & self.skip_classes)
         for c in classes & ONCE_CLASSES:
             skip = skip or c in self.once
             self.once.add(c)
@@ -77,10 +85,15 @@ class Counter(HTMLParser):
 
 
 for path in sys.argv[1:]:
-    c = Counter()
-    c.feed(open(path, encoding="utf-8").read())
-    total = sum(c.per.values())
+    html = open(path, encoding="utf-8").read()
+    counts = []
+    for system in SYSTEMS:
+        c = Counter(system)
+        c.feed(html)
+        counts.append((sum(c.per.values()), system, c))
+    total, system, c = max(counts, key=lambda t: t[0])
     print(f"== {path}")
     for k, v in c.per.items():
         print(f"  {k:12s} {v}")
-    print(f"  TOTAL {total} (+{c.later} once the replay buttons show)")
+    print(f"  per system: {', '.join(f'{s} {t}' for t, s, _ in counts)}")
+    print(f"  TOTAL {total} (as on {system}; +{c.later} once the replay buttons show)")

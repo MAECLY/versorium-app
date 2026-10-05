@@ -1,14 +1,18 @@
 /* The download section's two jobs.
 
-   Now, before any release: on a phone, "Send it to your computer" hands the
-   page's own address to the system share sheet, or opens an email to oneself
-   where there is none. The email and copy links beside it are plain HTML and
-   work without this.
+   Every a[data-dl] (hero, download section, closing) points at the release
+   page as the HTML ships it. Here it gets the file for the visitor's system:
+   the a[data-file] of the list that matches html[data-os] (theme.js). A Mac
+   needs its processor too, which only Chromium tells (html[data-arch], set
+   here); until then, and for good in Safari and Firefox, the buttons point
+   at the list, where both Mac files are, so an Intel Mac is never handed the
+   Apple silicon file. Phones and unknown systems keep the release page (the
+   buttons are hidden on phones anyway). The labels are the stylesheet's,
+   from data-os alone, so nothing here changes text.
 
-   Later, with the release: once #descargar / #download holds download links
-   marked a[data-os], the one for the visitor's system becomes the primary
-   button, the others move under "Other platforms", and a click opens the
-   first-run notes. Until then this part does nothing. */
+   On a phone, "Send it to your computer" hands the page's own address to
+   the system share sheet, or opens an email to oneself where there is none.
+   The email and copy links beside it are plain HTML and work without this. */
 
 (function () {
   "use strict";
@@ -38,38 +42,31 @@
     }
   }
 
-  function wireRelease() {
-    if (!section) return;
-    var links = section.querySelectorAll("a[data-os]");
-    if (!links.length) return;
+  function pointDownloads() {
     var os = html.getAttribute("data-os");
-    var mine = null;
-    for (var i = 0; i < links.length && !mine; i += 1) if (links[i].getAttribute("data-os") === os) mine = links[i];
-    var others = section.querySelector(".other-platforms");
-    if (mine) {
-      var row = mine.parentNode;
-      for (var j = 0; j < links.length; j += 1) {
-        var link = links[j];
-        if (link === mine) continue;
-        link.classList.remove("btn-primary");
-        if (others && link.parentNode === row) others.appendChild(link);
-      }
-      mine.classList.add("btn-primary");
-      if (row.firstChild !== mine) row.insertBefore(mine, row.firstChild);
+    var arch = html.getAttribute("data-arch");
+    var href;
+    if (os === "mac") {
+      var mac = arch && document.querySelector('a[data-file="mac-' + (arch === "x86" ? "intel" : "arm") + '"]');
+      href = mac ? mac.href : section ? "#" + section.id : "";
+    } else {
+      var file = document.querySelector('a[data-file="' + os + '"]');
+      href = file ? file.href : "";
     }
-    var firstRun = document.getElementById("primera-vez") || document.getElementById("first-run");
-    var star = section.querySelector(".star-line");
-    for (var k = 0; k < links.length; k += 1) {
-      links[k].addEventListener("click", function () {
-        if (firstRun) {
-          firstRun.open = true;
-          firstRun.scrollIntoView({ block: "start" });
-        }
-        if (star) star.hidden = false;
-      });
-    }
+    if (!href) return;
+    var links = document.querySelectorAll("a[data-dl]");
+    for (var i = 0; i < links.length; i += 1) links[i].href = href;
   }
 
   wireShare();
-  wireRelease();
+  pointDownloads();
+  var ua = navigator.userAgentData;
+  if (html.getAttribute("data-os") === "mac" && ua && ua.getHighEntropyValues) {
+    ua.getHighEntropyValues(["architecture"]).then(function (v) {
+      var arch = v.architecture === "x86" ? "x86" : v.architecture === "arm" ? "arm" : "";
+      if (!arch) return;
+      html.setAttribute("data-arch", arch);
+      pointDownloads();
+    }, function () {});
+  }
 })();

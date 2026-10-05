@@ -41,7 +41,9 @@ async function shape(route) {
         .map((u) => new URL(u, location.href).pathname.replace(/\/(es|en)\//, "/<lang>/").split("/").slice(-2).join("/")),
       external: q(s, "a[href]")
         .map((a) => a.href)
-        .filter((h) => !h.startsWith(location.origin))
+        // This site's own pages, even linked by their public address (the
+        // comparison's sources cite the details page in each page's language).
+        .filter((h) => !h.startsWith(location.origin) && !h.startsWith("https://versorium.maecly.com/"))
         // A mail's subject and body are in the page's language.
         .map((h) => (h.startsWith("mailto:") ? "mailto:" : h))
         .sort(),
@@ -79,9 +81,11 @@ async function shape(route) {
   return data;
 }
 
+// Section ids are translated (#comparar, #compare…): their counts are compared, not their names.
 for (const [es, en] of [
   ["/", "/en/"],
   ["/detalles/", "/en/details/"],
+  ["/comparar/", "/en/compare/"],
 ]) {
   const a = await shape(es);
   const b = await shape(en);

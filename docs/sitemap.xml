@@ -36,4 +36,22 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://versorium.maecly.com/en/details/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://versorium.maecly.com/detalles/" />
   </url>
+  <url>
+    <loc>https://versorium.maecly.com/comparar/</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://versorium.maecly.com/comparar/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://versorium.maecly.com/en/compare/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versorium.maecly.com/comparar/" />
+  </url>
+  <url>
+    <loc>https://versorium.maecly.com/en/compare/</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://versorium.maecly.com/comparar/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://versorium.maecly.com/en/compare/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://versorium.maecly.com/comparar/" />
+  </url>
 </urlset>

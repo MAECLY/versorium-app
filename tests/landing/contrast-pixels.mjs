@@ -34,7 +34,9 @@ const SELECTORS = [
   ".step-text .small",
   ".chips",
   ".hint",
-  ".platforms li",
+  ".files-os",
+  ".file",
+  ".file-meta",
   ".limits li",
   ".faq summary",
   ".closing h2",
@@ -43,6 +45,20 @@ const SELECTORS = [
   ".footer .proof",
   ".footer .legal p",
   ".tagline",
+  // The comparison (IV): caption, hint, the slip and the other columns, the
+  // ledger amounts, second lines, the notes and links under the table.
+  ".vs-cap",
+  ".vs-hint",
+  ".vs thead th",
+  ".vs thead small",
+  ".vs tbody th",
+  ".vs tbody td",
+  ".vs td.is-us",
+  ".vs tbody tr:nth-child(4) td",
+  ".vs tbody small",
+  ".vs-num",
+  ".vs-notes p",
+  ".vs-more a",
 ];
 
 const DIR = "/tmp/versorium-landing/contrast";
@@ -60,6 +76,7 @@ const HIDE = `
 .__probe, .__probe * { color: transparent !important; text-shadow: none !important; text-decoration-color: transparent !important; }
 .__probe .pill-dot, .__probe .os-dot, .__probe .ink-under, .__probe::before, .__probe::after, .__probe *::before, .__probe *::after { visibility: hidden !important; }
 .annot.__off { visibility: hidden !important; }
+.__probe .vs-ring, .__probe .vs-dash, .__probe .vmark { visibility: hidden !important; }
 .topbar, .ribbon-well { visibility: hidden !important; }
 `;
 

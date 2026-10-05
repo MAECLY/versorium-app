@@ -54,9 +54,10 @@
 <header class="topbar">
 <div class="wrap topbar-inner">
 <a class="brand" href="../"><svg class="vmark is-drawn" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><mask id="vh-m1" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-shade" pathLength="1" stroke-width="11" stroke-linejoin="round" d="M24.1 17.6L25.2 20.4L27.1 25.2L29.1 30.1L31.0 35.0L33.0 39.9L35.1 44.9L37.2 49.8L39.4 54.9L41.5 59.8L43.8 64.9L46.1 70.0L48.4 75.2L50.8 80.4L52.1 83.1"/></mask><mask id="vh-m2" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-hair" pathLength="1" stroke-width="7" stroke-linejoin="round" d="M49.3 83.0L50.8 80.4L53.7 75.5L56.5 70.4L59.3 65.4L62.0 60.3L64.6 55.2L67.2 50.0L69.7 44.8L72.2 39.5L74.5 34.2L76.8 28.9L79.0 23.4L81.2 18.0L82.3 15.2"/></mask><use class="v-ink" href="#v-s" mask="url(#vh-m1)"/><use class="v-ink hair" href="#v-h" mask="url(#vh-m2)"/></svg><span>versorium</span></a>
-<a class="btn btn-primary btn-small header-cta" href="../#descargar">Avísame</a>
+<a class="btn btn-primary btn-small header-cta" href="../#descargar">Descargar</a>
 <nav class="topnav" aria-label="Secciones">
 <a href="../#como">Cómo funciona</a>
+<a href="../comparar/">Comparar</a>
 <a href="#limites">Límites</a>
 <a href="../#preguntas">Preguntas</a>
 </nav>
@@ -78,15 +79,16 @@
 <li><a href="#archivos">Archivos, exportar e importar</a></li>
 <li><a href="#instalar">La primera vez que la abras</a></li>
 <li><a href="#plataformas">Plataformas</a></li>
+<li><a href="#por-que">Por qué existe</a></li>
 <li><a href="#creditos">Créditos</a></li>
 </ol></nav>
 <div class="prose">
 <section id="limites" aria-labelledby="limites-t">
 <h2 id="limites-t">Lo que aún no hace</h2>
 <ul class="limit-list">
-<li>Aún no hay versión publicada ni instaladores; la app solo se ha usado en macOS con Apple silicon, nunca en Windows, Linux ni en un Mac con Intel.</li>
-<li>Sin firma de Apple ni de Microsoft: macOS dirá que está dañada y Windows mostrará SmartScreen (ver <a href="#instalar">«La primera vez que la abras»</a>).</li>
-<li>Las actualizaciones aún no se han probado de principio a fin.</li>
+<li>La versión 0.1.0, la primera, trae instaladores para macOS, Windows y Linux, pero la app solo se ha usado en macOS con Apple silicon: los de Windows, Linux y Mac con Intel nunca se han ejecutado.</li>
+<li>Sin firma de Apple ni de Microsoft: macOS dice que está dañada y Windows muestra SmartScreen (ver <a href="#instalar">«La primera vez que la abras»</a>).</li>
+<li>Instalar una actualización aún no se ha probado de principio a fin: 0.1.0 es la primera versión, así que todavía no hay ninguna.</li>
 <li>La IA hace dos cosas: reescribir y revisar la continuidad, que razona sobre los títulos de los capítulos y el códice, no sobre la prosa. No hay chat, búsqueda por significado, dictado ni «Continuar capítulo» (el botón se ve desactivado).</li>
 <li>Un servidor local compatible con OpenAI (LM Studio, <span class="nobreak">llama-server</span>) se puede guardar y probar, pero no genera nada.</li>
 <li>La IA integrada corre dentro de la app: si su motor falla, Versorium se cierra con él; el autoguardado y las instantáneas acotan lo que se pierde.</li>
@@ -178,8 +180,8 @@ Arriba, la lente ocupaba todo el aire. <span class="c">…</span></code></pre>
 <div class="notices">
 <article class="card notice" aria-labelledby="aviso-mac">
 <p class="notice-os">macOS</p>
-<h3 id="aviso-mac">macOS dirá que la app está dañada. No lo está.</h3>
-<p>El paquete no llevará firma de Developer ID, así que macOS lo pondrá en cuarentena y Gatekeeper mostrará el mensaje más engañoso que tiene. Quita la marca de cuarentena una sola vez, en Terminal:</p>
+<h3 id="aviso-mac">macOS dice que la app está dañada. No lo está.</h3>
+<p>El paquete no lleva firma de Developer ID, así que macOS lo pone en cuarentena y Gatekeeper muestra el mensaje más engañoso que tiene. Quita la marca de cuarentena una sola vez, en Terminal:</p>
 <div class="command">
 <div class="command-line"><pre><code>xattr -rd com.apple.quarantine /Applications/<wbr>Versorium.app</code></pre></div>
 <button class="btn btn-small copy" type="button" data-copy="xattr -rd com.apple.quarantine /Applications/Versorium.app" data-done="Copiado" data-failed="No se pudo copiar; selecciona el texto." data-status="copiado-mac">Copiar</button>
@@ -189,34 +191,43 @@ Arriba, la lente ocupaba todo el aire. <span class="c">…</span></code></pre>
 </article>
 <article class="card notice" aria-labelledby="aviso-win">
 <p class="notice-os">Windows</p>
-<h3 id="aviso-win">SmartScreen interrumpirá el instalador.</h3>
-<p>El instalador no estará firmado, por la misma razón que el paquete de macOS, así que Windows mostrará la pantalla azul «Windows protegió su PC». Elige <b>Más información</b> y después <b>Ejecutar de todas formas</b>. Las versiones firmadas necesitan certificados de Apple y de Microsoft, que aún no existen, y cambios en el flujo de publicación.</p>
+<h3 id="aviso-win">SmartScreen interrumpe el instalador.</h3>
+<p>El instalador no está firmado, por la misma razón que el paquete de macOS, así que Windows muestra la pantalla azul «Windows protegió su PC». Elige <b>Más información</b> y después <b>Ejecutar de todas formas</b>. Las versiones firmadas necesitan certificados de Apple y de Microsoft, que aún no existen, y cambios en el flujo de publicación.</p>
 </article>
 </div>
-<p class="updates">Las actualizaciones van firmadas con minisign: la app solo instala una si su firma coincide con la clave pública que lleva dentro y si su <span class="nobreak">SHA-256</span> coincide con el <code>SHA256SUMS</code> de la versión. Las busca una vez al abrirse, sin cuenta ni token, y puedes desactivarlo en Ajustes → Aplicación. Un token de GitHub es opcional: solo hace falta para leer un repositorio privado o para superar el límite de 60 consultas por hora que GitHub impone sin token. Como todavía no hay ninguna versión publicada, este camino aún no se ha probado de principio a fin.</p>
+<p class="updates">Las actualizaciones van firmadas con minisign: la app solo instala una si su firma coincide con la clave pública que lleva dentro y si su <span class="nobreak">SHA-256</span> coincide con el <code>SHA256SUMS</code> de la versión. Las busca una vez al abrirse, sin cuenta ni token, y puedes desactivarlo en Ajustes → Aplicación. Un token de GitHub es opcional: solo hace falta para leer un repositorio privado o para superar el límite de 60 consultas por hora que GitHub impone sin token. La firma de cada paquete de la versión 0.1.0 se ha comprobado con esa clave; instalar una actualización, en cambio, aún no se ha probado de principio a fin, porque todavía no hay ninguna.</p>
 </section>
 
 <section id="plataformas" aria-labelledby="plataformas-t">
 <h2 id="plataformas-t">Plataformas</h2>
 <div class="platform-notes">
 <article class="card" aria-labelledby="p-mac"><h3 id="p-mac">macOS</h3>
-<p>La primera versión traerá dos descargas en <code>.dmg</code>: una para Apple silicon y otra para Intel.</p>
-<p class="detail">La app se ha ejecutado en un Mac con Apple silicon (un M4 Max), donde la IA integrada usa Metal: la primera vez tarda unos 15 s en compilar, y la app lo adelanta al arrancar. En un Mac con Intel no se ha probado.</p>
+<p>La versión 0.1.0 trae dos <code>.dmg</code>, para macOS 10.15 o posterior: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg">Apple silicon</a> (11,7 MB) e <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64.dmg">Intel</a> (11,7 MB).</p>
+<p class="detail">La app se ha ejecutado en un Mac con Apple silicon (un M4 Max), donde la IA integrada usa Metal: la primera vez tarda unos 15 s en compilar, y la app lo adelanta al arrancar. El <code>.dmg</code> publicado para Apple silicon se abrió el 4 de octubre de 2026 en un Mac con Apple silicon, y su ventana se comprobó. El de Intel nunca se ha ejecutado.</p>
 </article>
 <article class="card" aria-labelledby="p-win"><h3 id="p-win">Windows</h3>
-<p>La primera versión traerá un instalador para x64, en MSI y en NSIS.</p>
-<p class="detail">La app todavía no se ha ejecutado en Windows. La IA integrada usará Vulkan (NVIDIA, AMD, Intel); no habrá CUDA, a propósito. Necesitará un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2).</p>
+<p>La versión 0.1.0 trae un instalador para x64 en dos formatos: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64-setup.exe">NSIS, <code>.exe</code></a> (11,6 MB) y <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64_en-US.msi">MSI</a> (23,2 MB).</p>
+<p class="detail">Los instaladores existen, pero la app nunca se ha ejecutado en Windows. La IA integrada usa Vulkan (NVIDIA, AMD, Intel); no hay CUDA, a propósito. Necesita un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2).</p>
 </article>
 <article class="card" aria-labelledby="p-linux"><h3 id="p-linux">Linux</h3>
-<p>La primera versión traerá <code>.deb</code>, <code>.rpm</code> y AppImage para x64, construidos en Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
-<p class="detail">La app todavía no se ha ejecutado en Linux: allí solo corren las pruebas automáticas, y la IA integrada se compila con Vulkan, pero ninguna GPU real la ha usado. El <code>.deb</code> declarará libvulkan1 y libssl3. Necesitará un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2). Para guardar un token hará falta Secret Service; si no está disponible, la app te avisará.</p>
+<p>La versión 0.1.0 trae <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.deb"><code>.deb</code></a> (22,3 MB), <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium-0.1.0-1.x86_64.rpm"><code>.rpm</code></a> (22,3 MB) y <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.AppImage">AppImage</a> (99,0 MB) para x64, construidos en Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
+<p class="detail">Los paquetes existen, pero la app nunca se ha ejecutado en Linux: allí solo corren las pruebas automáticas, y la IA integrada se compila con Vulkan, pero ninguna GPU real la ha usado. El <code>.deb</code> declara libvulkan1 y libssl3. Necesita un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2). Para guardar un token hace falta Secret Service; si no está disponible, la app debería avisarte, aunque eso tampoco se ha probado.</p>
 </article>
 </div>
+<p class="updates">Cada archivo tiene su suma en <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/SHA256SUMS"><code>SHA256SUMS</code></a>. Las notas de la versión están en la <a href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0">página de la 0.1.0</a>; para enterarte de las próximas, en GitHub: <span lang="en">Watch → Custom → Releases</span>.</p>
+</section>
+
+<section id="por-que" aria-labelledby="por-que-t">
+<h2 id="por-que-t">Por qué existe</h2>
+<p class="why-first">Miguel Esparza la empezó para sí: quería escribir con calma, con la IA a su medida —&#8288;de ninguna a las herramientas que ya pagaba&#8288;— y, sobre todo, no perder nunca un borrador, porque para quien escribe una novela la copia de seguridad del manuscrito es lo más importante.</p>
+<p>Las apps que probó o no tenían lo que pide una novela, o cobraban demasiado por ello. Por eso Versorium es gratis y de código abierto. Y la sigue mejorando.</p>
+<p>En septiembre de 2026 buscó una app así y no encontró ninguna que juntara las IA que ya tienes, los modelos locales, un MCP propio y el historial de cada cambio en un escritorio tranquilo. La empezó el 14 de septiembre; la primera versión salió el 4 de octubre.</p>
+<p><a href="../comparar/">La comparación, con sus fuentes <span aria-hidden="true">→</span></a></p>
 </section>
 
 <section id="creditos" aria-labelledby="creditos-t">
 <h2 id="creditos-t">Créditos</h2>
-<p>Los titulares usan Aguja Display, una versión modificada de Source Serif 4, de Adobe, con licencia SIL Open Font License 1.1 (<a href="../assets/fonts/OFL.txt">assets/fonts/OFL.txt</a>). La página no carga nada de otros servidores ni usa bibliotecas de terceros. Los demás nombres que aparecen aquí son de sus dueños y solo describen compatibilidad.</p>
+<p>Los titulares usan Aguja Display, una versión modificada de Source Serif 4, de Adobe, con licencia SIL Open Font License 1.1 (<a href="../assets/fonts/OFL.txt">assets/fonts/OFL.txt</a>). La página no carga nada de otros servidores ni usa bibliotecas de terceros. Los demás nombres que aparecen aquí son de sus dueños y solo describen compatibilidad o sirven para comparar.</p>
 </section>
 </div>
 </div>
@@ -235,6 +246,7 @@ Arriba, la lente ocupaba todo el aire. <span class="c">…</span></code></pre>
 <li><a href="https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md">Marca</a></li>
 <li><a href="https://github.com/MAECLY/versorium-app/blob/main/THIRD-PARTY-NOTICES.md">Avisos de terceros</a></li>
 <li><a href="./" aria-current="page">Límites y detalles</a></li>
+<li><a href="../comparar/">Comparación</a></li>
 <li><a href="../llms.txt">llms.txt</a></li>
 <li><a href="../en/details/" hreflang="en" lang="en">English</a></li>
 </ul></nav>

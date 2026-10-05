@@ -108,7 +108,6 @@
               : "other";
   root.setAttribute("data-os", os);
   if (os === "ios" || os === "android") root.classList.add("phone");
-
   function stillPreferred() {
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
@@ -346,7 +345,18 @@
           /* No :focus-visible: treat every focus as the keyboard's. */
         }
         if (document.activeElement !== el || !keyboard) return;
-        if (el.getBoundingClientRect().top < header.getBoundingClientRect().bottom) el.scrollIntoView({ block: "nearest" });
+        var box = el.getBoundingClientRect();
+        /* Chrome leaves a control half out of a sideways-scrolling table where it is. */
+        var row = el.closest && el.closest(".vs-scroll");
+        var side = false;
+        if (row) {
+          var r = row.getBoundingClientRect();
+          var pins = parseFloat(getComputedStyle(row).scrollPaddingLeft) || 0;
+          side = box.left < r.left + pins - 0.5 || box.right > r.right + 0.5;
+        }
+        /* "start": the snap point a column sits on, beside the pinned ones. */
+        if (side) el.scrollIntoView({ block: "nearest", inline: "start" });
+        else if (box.top < header.getBoundingClientRect().bottom) el.scrollIntoView({ block: "nearest" });
       });
     });
   }

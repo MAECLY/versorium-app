@@ -54,9 +54,10 @@
 <header class="topbar">
 <div class="wrap topbar-inner">
 <a class="brand" href="../"><svg class="vmark is-drawn" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><mask id="vh-m1" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-shade" pathLength="1" stroke-width="11" stroke-linejoin="round" d="M24.1 17.6L25.2 20.4L27.1 25.2L29.1 30.1L31.0 35.0L33.0 39.9L35.1 44.9L37.2 49.8L39.4 54.9L41.5 59.8L43.8 64.9L46.1 70.0L48.4 75.2L50.8 80.4L52.1 83.1"/></mask><mask id="vh-m2" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><path class="ink-draw v-hair" pathLength="1" stroke-width="7" stroke-linejoin="round" d="M49.3 83.0L50.8 80.4L53.7 75.5L56.5 70.4L59.3 65.4L62.0 60.3L64.6 55.2L67.2 50.0L69.7 44.8L72.2 39.5L74.5 34.2L76.8 28.9L79.0 23.4L81.2 18.0L82.3 15.2"/></mask><use class="v-ink" href="#v-s" mask="url(#vh-m1)"/><use class="v-ink hair" href="#v-h" mask="url(#vh-m2)"/></svg><span>versorium</span></a>
-<a class="btn btn-primary btn-small header-cta" href="../#download">Notify me</a>
+<a class="btn btn-primary btn-small header-cta" href="../#download">Download</a>
 <nav class="topnav" aria-label="Sections">
 <a href="../#how">How it works</a>
+<a href="../compare/">Compare</a>
 <a href="#limits">Limits</a>
 <a href="../#questions">FAQ</a>
 </nav>
@@ -78,15 +79,16 @@
 <li><a href="#files">Files, export and import</a></li>
 <li><a href="#install">The first time you open it</a></li>
 <li><a href="#platforms">Platforms</a></li>
+<li><a href="#why">Why it exists</a></li>
 <li><a href="#credits">Credits</a></li>
 </ol></nav>
 <div class="prose">
 <section id="limits" aria-labelledby="limits-t">
 <h2 id="limits-t">What it doesn’t do yet</h2>
 <ul class="limit-list">
-<li>No release and no installers yet; the app has only been used on macOS with Apple silicon, never on Windows, Linux or an Intel Mac.</li>
-<li>Not signed by Apple or Microsoft: macOS will say it’s damaged and Windows will show SmartScreen (see <a href="#install">“The first time you open it”</a>).</li>
-<li>Updates have not yet been tried end to end.</li>
+<li>Version 0.1.0, the first release, has installers for macOS, Windows and Linux, but the app has only been used on macOS with Apple silicon: the Windows, Linux and Intel Mac builds have never been run.</li>
+<li>Not signed by Apple or Microsoft: macOS says it’s damaged and Windows shows SmartScreen (see <a href="#install">“The first time you open it”</a>).</li>
+<li>Installing an update has not been tried end to end: 0.1.0 is the first release, so there is none yet.</li>
 <li>The AI does two things: rewriting, and checking continuity, which reasons over chapter titles and the codex, not the prose. There is no chat, search by meaning, dictation or “Continue chapter” (the button is there, but disabled).</li>
 <li>A local OpenAI-compatible server (LM Studio, <span class="nobreak">llama-server</span>) can be saved and tested, but generates nothing.</li>
 <li>The built-in AI runs inside the app: if its engine fails, Versorium closes with it; autosave and snapshots limit what you can lose.</li>
@@ -178,8 +180,8 @@ Up there, the lens took up all the air. <span class="c">…</span></code></pre>
 <div class="notices">
 <article class="card notice" aria-labelledby="notice-mac">
 <p class="notice-os">macOS</p>
-<h3 id="notice-mac">macOS will say the app is damaged. It is not.</h3>
-<p>The bundle will carry no Developer ID signature, so macOS will quarantine it and Gatekeeper will report the most misleading message it has. Clear the quarantine flag once, in Terminal:</p>
+<h3 id="notice-mac">macOS says the app is damaged. It is not.</h3>
+<p>The bundle carries no Developer ID signature, so macOS quarantines it and Gatekeeper reports the most misleading message it has. Clear the quarantine flag once, in Terminal:</p>
 <div class="command">
 <div class="command-line"><pre><code>xattr -rd com.apple.quarantine /Applications/<wbr>Versorium.app</code></pre></div>
 <button class="btn btn-small copy" type="button" data-copy="xattr -rd com.apple.quarantine /Applications/Versorium.app" data-done="Copied" data-failed="Could not copy; select the text instead." data-status="copied-mac">Copy</button>
@@ -189,34 +191,43 @@ Up there, the lens took up all the air. <span class="c">…</span></code></pre>
 </article>
 <article class="card notice" aria-labelledby="notice-win">
 <p class="notice-os">Windows</p>
-<h3 id="notice-win">SmartScreen will interrupt the installer.</h3>
-<p>The installer will be unsigned, for the same reason as the macOS bundle, so Windows will show the blue “Windows protected your PC” screen. Choose <b>More info</b>, then <b>Run anyway</b>. Signed builds need Apple and Microsoft certificates, which do not exist yet, plus changes to the release workflow.</p>
+<h3 id="notice-win">SmartScreen interrupts the installer.</h3>
+<p>The installer is unsigned, for the same reason as the macOS bundle, so Windows shows the blue “Windows protected your PC” screen. Choose <b>More info</b>, then <b>Run anyway</b>. Signed builds need Apple and Microsoft certificates, which do not exist yet, plus changes to the release workflow.</p>
 </article>
 </div>
-<p class="updates">Updates are signed with minisign: the app installs one only if its signature matches the public key built into it and its <span class="nobreak">SHA-256</span> matches the release's <code>SHA256SUMS</code>. It checks for them once at launch, with no account and no token; you can turn that off in Settings → Application. A GitHub token is optional: it is only needed to read a private repository, or to get past GitHub's limit of 60 requests an hour without one. With no release out yet, this path has not been tried end to end.</p>
+<p class="updates">Updates are signed with minisign: the app installs one only if its signature matches the public key built into it and its <span class="nobreak">SHA-256</span> matches the release's <code>SHA256SUMS</code>. It checks for them once at launch, with no account and no token; you can turn that off in Settings → Application. A GitHub token is optional: it is only needed to read a private repository, or to get past GitHub's limit of 60 requests an hour without one. Every package in release 0.1.0 has had its signature checked against that key; installing an update, on the other hand, has not been tried end to end, because there is none yet.</p>
 </section>
 
 <section id="platforms" aria-labelledby="platforms-t">
 <h2 id="platforms-t">Platforms</h2>
 <div class="platform-notes">
 <article class="card" aria-labelledby="p-mac"><h3 id="p-mac">macOS</h3>
-<p>The first release will have two <code>.dmg</code> downloads: one for Apple silicon and one for Intel.</p>
-<p class="detail">The app has run on an Apple silicon Mac (an M4 Max), where the built-in AI uses Metal: the first run takes about 15 s to compile, and the app does that ahead of time at launch. It has not been tried on an Intel Mac.</p>
+<p>Release 0.1.0 has two <code>.dmg</code> downloads, for macOS 10.15 or later: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg">Apple silicon</a> (11.7 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64.dmg">Intel</a> (11.7 MB).</p>
+<p class="detail">The app has run on an Apple silicon Mac (an M4 Max), where the built-in AI uses Metal: the first run takes about 15 s to compile, and the app does that ahead of time at launch. The released Apple silicon <code>.dmg</code> was opened on an Apple silicon Mac on 4 October 2026, and its window checked. The Intel one has never been run.</p>
 </article>
 <article class="card" aria-labelledby="p-win"><h3 id="p-win">Windows</h3>
-<p>The first release will have x64 installers in two formats, MSI and NSIS.</p>
-<p class="detail">The app has not been run on Windows yet. The built-in AI will use Vulkan (NVIDIA, AMD, Intel); there will be no CUDA, on purpose. It will need an <span class="nobreak">x86-64-v2</span> processor (SSE4.2).</p>
+<p>Release 0.1.0 has an x64 installer in two formats: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64-setup.exe">NSIS, <code>.exe</code></a> (11.6 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64_en-US.msi">MSI</a> (23.2 MB).</p>
+<p class="detail">The installers exist, but the app has never been run on Windows. The built-in AI uses Vulkan (NVIDIA, AMD, Intel); there is no CUDA, on purpose. It needs an <span class="nobreak">x86-64-v2</span> processor (SSE4.2).</p>
 </article>
 <article class="card" aria-labelledby="p-linux"><h3 id="p-linux">Linux</h3>
-<p>The first release will have x64 <code>.deb</code>, <code>.rpm</code> and AppImage packages, built on Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
-<p class="detail">The app has not been run on Linux yet: only the automated tests run there, and the built-in AI is compiled with Vulkan, but no real GPU has used it. The <code>.deb</code> will declare libvulkan1 and libssl3. It will need an <span class="nobreak">x86-64-v2</span> processor (SSE4.2). Saving a token will need Secret Service; without it, the app will say so.</p>
+<p>Release 0.1.0 has x64 <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.deb"><code>.deb</code></a> (22.3 MB), <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium-0.1.0-1.x86_64.rpm"><code>.rpm</code></a> (22.3 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.AppImage">AppImage</a> (99.0 MB) packages, built on Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
+<p class="detail">The packages exist, but the app has never been run on Linux: only the automated tests run there, and the built-in AI is compiled with Vulkan, but no real GPU has used it. The <code>.deb</code> declares libvulkan1 and libssl3. It needs an <span class="nobreak">x86-64-v2</span> processor (SSE4.2). Saving a token needs Secret Service; without it, the app should say so, though that has not been tried either.</p>
 </article>
 </div>
+<p class="updates">Every file has its checksum in <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/SHA256SUMS"><code>SHA256SUMS</code></a>. The release notes are on the <a href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0">0.1.0 release page</a>; to hear about the next ones, on GitHub: Watch → Custom → Releases.</p>
+</section>
+
+<section id="why" aria-labelledby="why-t">
+<h2 id="why-t">Why it exists</h2>
+<p class="why-first">Miguel Esparza started it for himself: he wanted to write calmly, with AI on his own terms, from none at all to the tools he already paid for, and above all never to lose a draft, because when you write a novel the backup of the manuscript matters more than anything.</p>
+<p>The apps he tried either lacked what a novel needs or charged too much for it. That is why Versorium is free and open source. And he keeps improving it.</p>
+<p>In September 2026 he looked for an app like this and found none that brought together the AIs you already have, local models, its own MCP and the history of every change, on a quiet desk. He started it on 14 September; the first release came out on 4 October.</p>
+<p><a href="../compare/">The comparison, with its sources <span aria-hidden="true">→</span></a></p>
 </section>
 
 <section id="credits" aria-labelledby="credits-t">
 <h2 id="credits-t">Credits</h2>
-<p>Headings use Aguja Display, a modified version of Adobe’s Source Serif 4, under the SIL Open Font License 1.1 (<a href="../../assets/fonts/OFL.txt">assets/fonts/OFL.txt</a>). The page loads nothing from other servers and uses no third-party libraries. Other names on this site belong to their owners and only describe compatibility.</p>
+<p>Headings use Aguja Display, a modified version of Adobe’s Source Serif 4, under the SIL Open Font License 1.1 (<a href="../../assets/fonts/OFL.txt">assets/fonts/OFL.txt</a>). The page loads nothing from other servers and uses no third-party libraries. Other names on this site belong to their owners and only describe compatibility or serve to compare.</p>
 </section>
 </div>
 </div>
@@ -235,6 +246,7 @@ Up there, the lens took up all the air. <span class="c">…</span></code></pre>
 <li><a href="https://github.com/MAECLY/versorium-app/blob/main/TRADEMARKS.md">Trademark</a></li>
 <li><a href="https://github.com/MAECLY/versorium-app/blob/main/THIRD-PARTY-NOTICES.md">Third-party notices</a></li>
 <li><a href="./" aria-current="page">Limits and details</a></li>
+<li><a href="../compare/">Comparison</a></li>
 <li><a href="../../llms.txt">llms.txt</a></li>
 <li><a href="../../detalles/" hreflang="es" lang="es">Español</a></li>
 </ul></nav>

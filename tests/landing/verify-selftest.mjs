@@ -114,7 +114,7 @@ const MUTATIONS = [
       const thirty = "Una frase más para comprobar que el límite de palabras visibles salta cuando alguien añade texto de más a la página sin quitar otro texto que sobre ahora.";
       await edit(d, "index.html", "</main>", `<p>${thirty} ${thirty.split(" ").slice(0, 2).join(" ")}</p>\n</main>`);
     },
-    expect: [/\/ words: 4\d\d visible words, over 420/, /\/ words \(audit-wordcount\.py\): 4\d\d visible words, over 420/],
+    expect: [/\/ words: \d+ visible words, over 680/, /\/ words \(audit-wordcount\.py\): \d+ visible words, over 680/],
   },
   {
     name: "js-budget",
@@ -214,12 +214,106 @@ const MUTATIONS = [
   },
   {
     name: "download-url",
-    what: "a downloadUrl back in the Spanish JSON-LD, with no release to download",
+    what: "the Spanish JSON-LD's first downloadUrl and first file link moved to the releases page",
     env: { ONLY: "pages", ...ONE },
     async mutate(d) {
-      await edit(d, "index.html", '"applicationCategory":"BusinessApplication"', '"downloadUrl":"https://github.com/MAECLY/versorium-app/releases/latest","applicationCategory":"BusinessApplication"');
+      await edit(d, "index.html", '"downloadUrl":["https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg"', '"downloadUrl":["https://github.com/MAECLY/versorium-app/releases/latest"');
+      await edit(d, "index.html", '<a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg"', '<a class="file" href="https://github.com/MAECLY/versorium-app/releases/latest"');
     },
-    expect: [/downloadUrl https:\/\/github\.com\/MAECLY\/versorium-app\/releases\/latest before any release exists/],
+    expect: [/downloadUrl \["https:\/\/github\.com\/MAECLY\/versorium-app\/releases\/latest"/, /the download list is not the release's installers/, /a download button points at https:\/\/github\.com\/MAECLY\/versorium-app\/releases\/latest/],
+  },
+  {
+    name: "compare-source",
+    what: "one source dropped from the Spanish comparison page's list",
+    env: { ONLY: "compare" },
+    async mutate(d) {
+      await edit(d, "comparar/index.html", '<a href="https://www.dabblewriter.com/terms">Términos: todos los derechos reservados</a> · ', "");
+    },
+    expect: [/source dab-terms \(https:\/\/www\.dabblewriter\.com\/terms\) is listed 0 times/],
+  },
+  {
+    name: "compare-price",
+    what: "Dabble's three years changed in the Spanish landing only",
+    env: { ONLY: "compare" },
+    async mutate(d) {
+      await edit(d, "index.html", '<span class="vs-num">547,20&nbsp;$</span>', '<span class="vs-num">574,20&nbsp;$</span>');
+    },
+    expect: [/\/ comparison: Dabble · three: “574,20 \$”, the data says “547,20 \$”/],
+    absent: [/\/en\/ comparison: Dabble · three/],
+  },
+  {
+    name: "compare-dash",
+    what: "Scrivener's unstated AI turned into a “No” on the English landing",
+    env: { ONLY: "compare" },
+    async mutate(d) {
+      const from = '<td><span class="vs-dash" aria-hidden="true">—</span><span class="sr-only">Not stated on its website</span></td><td>Its own, on credits</td>';
+      await edit(d, "en/index.html", from, "<td>No</td><td>Its own, on credits</td>");
+    },
+    expect: [/\/en\/ comparison: Scrivener 3 · ai: “No”, the data says “—”/],
+  },
+  {
+    name: "compare-words",
+    what: "six more words in the Spanish comparison",
+    env: { ONLY: "words", ROUTES: "/" },
+    async mutate(d) {
+      await edit(d, "index.html", "<b>Donde otras van por delante:</b> ", "<b>Donde otras van por delante:</b> y seis palabras más para probar: ");
+    },
+    expect: [/\/ words: \d+ visible words in #comparar, over 235/, /\/ words \(audit-wordcount\.py\): \d+ visible words in #comparar, over 235/],
+  },
+  {
+    name: "compare-overflow",
+    what: "the comparison's scroller without position: relative (its screen-reader words widen the page)",
+    env: { ONLY: "pages", ROUTES: "/", VARIANTS: "needle-light", WIDTHS: "375" },
+    async mutate(d) {
+      await edit(d, "assets/site.css", ".vs-scroll { position: relative; margin-top", ".vs-scroll { margin-top");
+    },
+    expect: [/\/ needle-light 375: horizontal overflow \d+px at 375/],
+  },
+  {
+    name: "compare-stale",
+    what: "the comparison read 200 days ago (today pretended to be 2027-04-22)",
+    env: { ONLY: "compare" },
+    // Only the mutant run pretends; the untouched copy is checked today.
+    mutantEnv: { COMPARE_TODAY: "2027-04-22" },
+    async mutate() {},
+    expect: [/read on 2026-10-04, 200 days ago: re-read the sources/],
+  },
+  {
+    name: "compare-count",
+    what: "the first three weeks' changes miscounted on the Spanish landing",
+    env: { ONLY: "compare" },
+    async mutate(d) {
+      await edit(d, "index.html", "<b>Sigue mejorando:</b> 229 cambios", "<b>Sigue mejorando:</b> 230 cambios");
+    },
+    expect: [/\/ comparison: says 230 changes; git rev-list --count v0\.1\.0 gives 229/],
+  },
+  {
+    name: "compare-snap",
+    what: "the full comparison's snap padding 20 px short of its pinned names (each column rests partly under them)",
+    env: { ONLY: "compare", COMPARE_WIDTHS: "390" },
+    async mutate(d) {
+      await edit(d, "assets/details.css", "scroll-padding-inline-start: var(--vs-app);", "scroll-padding-inline-start: calc(var(--vs-app) - 20px);");
+    },
+    expect: [/\/comparar\/ at 390px: table\.vs\.vs-a: the pinned columns end at 112px but the snap padding is 92px/, /\/en\/compare\/ at 390px: table\.vs\.vs-b loads scrolled 20px sideways/],
+  },
+  {
+    name: "compare-split",
+    what: "the landing table's phone columns back to 104 px, narrower than “Novelcrafter”",
+    env: { ONLY: "compare", COMPARE_WIDTHS: "360" },
+    async mutate(d) {
+      await edit(d, "assets/site.css", "--vs-col: max(122px,", "--vs-col: max(104px,");
+    },
+    expect: [/\/ at 360px: table\.vs: “Novelcrafter” breaks in the middle/],
+  },
+  {
+    name: "compare-series",
+    what: "Versorium's column naming a release series other than the hero pill's",
+    env: { ONLY: "compare", COMPARE_WIDTHS: "1280" },
+    async mutate(d) {
+      await edit(d, "index.html", "<small>v0.1 · probada solo en macOS</small>", "<small>v0.2 · probada solo en macOS</small>");
+    },
+    expect: [/\/ comparison: Versorium's note names v0\.2, the hero pill v0\.1\.\d+/],
+    absent: [/\/en\/ comparison: Versorium's note/],
   },
   {
     name: "ring",
@@ -286,7 +380,7 @@ try {
     let run;
     try {
       await waitFor(PORTS.mutant);
-      run = verify(copy.docs, PORTS.mutant, m.env);
+      run = verify(copy.docs, PORTS.mutant, { ...m.env, ...(m.mutantEnv ?? {}) });
     } finally {
       server.kill();
       await rm(copy.dir, { recursive: true, force: true });

@@ -9,6 +9,7 @@
 //   QUICK=1 node tests/landing/verify.mjs    # Needle Light only, fewer widths
 //   ONLY=links,words node tests/landing/verify.mjs   # some gates only
 //   DOCS_DIR=/tmp/copy/docs SITE_URL=…       # check another copy of docs/
+//   PROGRESS=1 …                             # name each page as it loads
 //
 // Gates (ONLY= names):
 //   files     the copied tokens match src/styles.css (tokens.mjs --check),
@@ -36,9 +37,13 @@
 //             in all six variants (contrast-pixels.mjs, both languages);
 //   motion    nothing hidden by motion, in Chrome, WebKit and Firefox, with
 //             and without script, motion allowed and reduced
-//             (motion-safety.mjs, both languages).
+//             (motion-safety.mjs, both languages);
+//   compare   the comparison (landing section IV and /comparar/, /en/compare/)
+//             says what tests/landing/comparison-data.mjs says: every cell,
+//             dash, quote, amount, source and date, the release facts from
+//             git, no logos (compare-parity.mjs).
 //
-// For both languages, the landing and the details pages and the 404:
+// For both languages, the landing, details and comparison pages and the 404:
 //   - not one request leaves the site; no CSP violation, console error or
 //     page error; no horizontal overflow; no layout shift (CLS ≤ 0.001, with
 //     motion allowed so the hero plays);
@@ -53,8 +58,9 @@
 //   - the head: canonical, hreflang, Open Graph, Twitter, JSON-LD with the
 //     org's Person node byte for byte and the FAQ equal to the page's;
 // and, on the landing page:
-//   - the theme picker, the word gate (≤ 420 visible words, in the browser
-//     and in the static count of audit-wordcount.py), nothing but text above
+//   - the theme picker, the word gate (≤ 680 visible words, and ≤ 235 in the
+//     comparison, in the browser and in the static count of
+//     audit-wordcount.py), nothing but text above
 //     the fold, the whole app window above the fold on a laptop;
 //   - without script and under reduced motion: the named pieces (typed
 //     sentence, limits, questions, proof line…) and, beyond them, every piece
@@ -75,7 +81,22 @@ const SHOTS = process.env.SHOTS !== "0";
 const QUICK = process.env.QUICK === "1";
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 const gate = (name) => !ONLY || ONLY.includes(name);
-const WORD_LIMIT = 420;
+const WORD_LIMIT = 680; // 420 until release 0.1.0 added the per-system download list, 435 until the comparison (IV) added its table
+// The comparison may not creep: its own cap, by section id (browser and static counts).
+const SECTION_WORDS = { comparar: 235, compare: 235 };
+const RELEASE = {
+  version: "0.1.0",
+  base: "https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/",
+  installers: [
+    "Versorium_0.1.0_aarch64.dmg",
+    "Versorium_0.1.0_x64.dmg",
+    "Versorium_0.1.0_x64-setup.exe",
+    "Versorium_0.1.0_x64_en-US.msi",
+    "Versorium_0.1.0_amd64.deb",
+    "Versorium-0.1.0-1.x86_64.rpm",
+    "Versorium_0.1.0_amd64.AppImage",
+  ],
+};
 const PUBLIC = "https://versorium.maecly.com";
 
 const PERSON =
@@ -88,6 +109,8 @@ const PAGES = [
   { route: "/en/", lang: "en", landing: true },
   { route: "/detalles/", lang: "es", details: true },
   { route: "/en/details/", lang: "en", details: true },
+  { route: "/comparar/", lang: "es", details: true, compare: true },
+  { route: "/en/compare/", lang: "en", details: true, compare: true },
   { route: "/404.html", lang: "es", is404: true },
 ].filter((p) => !(process.env.ROUTES ?? "").length || process.env.ROUTES.split(",").includes(p.route));
 const list = (name) => (process.env[name] ? process.env[name].split(",") : null);
@@ -260,10 +283,11 @@ function shownContent(designed) {
 /** What the spec hides on purpose, by the mode that hides it (§5, §12.1, §12.3). */
 const DESIGNED = {
   // Shown only when script runs: the picker, the live counter, Replay, share,
-  // and "your system" on the visitor's platform (theme.js detects it).
-  nojs: ".picker, .proof-js, .proof-ext, .replay, .clip-replay, [data-share], .is-yours-label",
-  // Shown only without script.
-  js: ".no-picker, .proof-nojs",
+  // and "your system" on the visitor's platform (theme.js detects it), which
+  // the download buttons also name.
+  nojs: ".picker, .proof-js, .proof-ext, .replay, .clip-replay, [data-share], .is-yours-label, .dl-mac, .dl-win, .dl-linux",
+  // Shown only without script (or on a system with no file of its own).
+  js: ".no-picker, .proof-nojs, .dl-any",
   // Replay exists only after a scene has played; under reduce nothing plays.
   reduce: ".replay, .clip-replay",
 };
@@ -333,7 +357,28 @@ async function checkLoad(page, log, where, { width, height, requestsOnly = false
     for (const v of await page.evaluate(() => window.__csp)) fail(where, `CSP violation ${v}`);
     return;
   }
-  for (const f of log.failed) fail(where, `request failed ${f}`);
+  // theme.js swaps every screenshot to the visitor's theme at DOMContentLoaded;
+  // a lazy image the browser had already started in the shipped theme is then
+  // cancelled (net::ERR_ABORTED), more or less often depending on timing. That
+  // is a superseded request, not a broken one, as long as the page no longer
+  // names the file and every image it does show has loaded.
+  const named = await page.evaluate(() => {
+    const urls = new Set();
+    for (const el of document.querySelectorAll("picture source, picture img")) {
+      if (el.src) urls.add(el.src);
+      for (const part of (el.getAttribute("srcset") || "").split(",")) {
+        const u = part.trim().split(/\s+/)[0];
+        if (u) urls.add(new URL(u, document.baseURI).href);
+      }
+    }
+    return { urls: [...urls], broken: [...document.images].filter((img) => img.complete && img.currentSrc && !img.naturalWidth).map((img) => img.currentSrc) };
+  });
+  const superseded = (f) => {
+    const [url, ...why] = f.split(" ");
+    return why.join(" ") === "net::ERR_ABORTED" && new URL(url).pathname.includes("/assets/shots/") && !named.urls.includes(url);
+  };
+  for (const f of log.failed) if (!superseded(f)) fail(where, `request failed ${f}`);
+  for (const b of named.broken) fail(where, `image did not load ${b}`);
   for (const c of log.console) fail(where, `console ${c}`);
   for (const e of log.errors) fail(where, `page error ${e}`);
   const csp = await page.evaluate(() => window.__csp);
@@ -453,7 +498,7 @@ async function checkStructure(page, where, { is404 }) {
   }
 }
 
-async function checkHead(page, where, lang, { landing }) {
+async function checkHead(page, where, lang, { landing, compare }) {
   const head = await page.evaluate(() => {
     const meta = (sel) => document.querySelector(sel)?.getAttribute("content") ?? null;
     return {
@@ -479,7 +524,7 @@ async function checkHead(page, where, lang, { landing }) {
   const base = "https://versorium.maecly.com/";
   const canonical = new URL(page.url()).pathname.replace(/^\//, base);
   if (head.canonical !== canonical) fail(where, `canonical ${head.canonical}`);
-  const pair = landing ? [base, `${base}en/`] : [`${base}detalles/`, `${base}en/details/`];
+  const pair = landing ? [base, `${base}en/`] : compare ? [`${base}comparar/`, `${base}en/compare/`] : [`${base}detalles/`, `${base}en/details/`];
   for (const want of [`es=${pair[0]}`, `en=${pair[1]}`, `x-default=${pair[0]}`]) {
     if (!head.hreflang.includes(want)) fail(where, `hreflang missing ${want}`);
   }
@@ -512,9 +557,22 @@ async function checkHead(page, where, lang, { landing }) {
   for (const t of ["WebSite", "Person", "SoftwareApplication", "FAQPage"]) if (!types.includes(t)) fail(where, `JSON-LD missing ${t}`);
   const app = graph.find((n) => n["@type"] === "SoftwareApplication");
   if (app.license !== "https://www.gnu.org/licenses/agpl-3.0.html") fail(where, "licence URL");
-  // No release exists, so there is nothing to download yet: downloadUrl comes
-  // back with v0.1.0 (site spec §5.6.2), pointing at a real file.
-  if ("downloadUrl" in app) fail(where, `downloadUrl ${app.downloadUrl} before any release exists`);
+  // Release 0.1.0 (site spec §5.6.2): its version, and downloadUrl lists its
+  // installers, the very files the download section links to, in order.
+  if (app.softwareVersion !== RELEASE.version) fail(where, `softwareVersion ${app.softwareVersion}`);
+  const urls = RELEASE.installers.map((name) => RELEASE.base + name);
+  if (JSON.stringify(app.downloadUrl) !== JSON.stringify(urls)) fail(where, `downloadUrl ${JSON.stringify(app.downloadUrl)}`);
+  const links = await page.evaluate(() => ({
+    files: [...document.querySelectorAll(".files a.file")].map((a) => a.href),
+    buttons: [...document.querySelectorAll("a[data-dl]")].map((a) => a.href),
+    sums: [...document.querySelectorAll("a[href$='/SHA256SUMS']")].length,
+  }));
+  if (JSON.stringify(links.files) !== JSON.stringify(urls)) fail(where, `the download list is not the release's installers: ${links.files.join(", ")}`);
+  // Headless Chrome here reports the reference machine's system: on a Mac,
+  // Linux or Windows each button gives that system's file.
+  for (const href of links.buttons) if (!urls.includes(href)) fail(where, `a download button points at ${href}`);
+  if (links.buttons.length !== 3) fail(where, `${links.buttons.length} download buttons`);
+  if (!links.sums) fail(where, "no link to SHA256SUMS");
   if (app.operatingSystem !== "macOS, Windows, Linux") fail(where, "operatingSystem");
   if (app.isAccessibleForFree !== true || app.offers?.price !== "0") fail(where, "free offer");
   const shot = path.join(DOCS, new URL(app.screenshot).pathname);
@@ -638,9 +696,20 @@ async function checkWords(browser, route) {
   await page.goto(SITE + route, { waitUntil: "networkidle" });
   await walk(page);
   await page.waitForTimeout(6000);
-  const words = await page.evaluate(wordCount);
-  console.log(`${route} visible words: ${words.total} (${Object.entries(words.per).map(([k, v]) => `${k} ${v}`).join(", ")})`);
+  // The download labels follow html[data-os] (one stylesheet rule per
+  // system), so the page is counted as each desktop system sees it and the
+  // largest count is the one held to the cap (audit-wordcount.py does the same).
+  const counts = [];
+  for (const os of ["mac", "win", "linux"]) {
+    await page.evaluate((os) => document.documentElement.setAttribute("data-os", os), os);
+    counts.push({ os, ...(await page.evaluate(wordCount)) });
+  }
+  const words = counts.reduce((a, b) => (b.total > a.total ? b : a));
+  console.log(`${route} visible words: ${words.total} as on ${words.os} (${counts.map((c) => `${c.os} ${c.total}`).join(", ")}; ${Object.entries(words.per).map(([k, v]) => `${k} ${v}`).join(", ")})`);
   if (words.total > WORD_LIMIT) fail(`${route} words`, `${words.total} visible words, over ${WORD_LIMIT}`);
+  for (const [id, cap] of Object.entries(SECTION_WORDS)) {
+    if (words.per[id] > cap) fail(`${route} words`, `${words.per[id]} visible words in #${id}, over ${cap}`);
+  }
   await context.close();
   return words;
 }
@@ -699,6 +768,13 @@ async function checkNoScript(browser, route) {
           proof: vis(".proof-nojs"),
           limits: [...document.querySelectorAll(".limits li")].filter((li) => getComputedStyle(li).display !== "none").length,
           summaries: document.querySelectorAll(".faq summary").length,
+          // The comparison: every row and cell there, the ring drawn, the names links.
+          vsCells: [...document.querySelectorAll(".s-vs tbody tr")].map((tr) => [...tr.children].filter((c) => getComputedStyle(c).display !== "none" && getComputedStyle(c).visibility === "visible").length),
+          vsRing: (() => {
+            const ring = document.querySelector(".s-vs .vs-ring path");
+            return ring ? parseFloat(getComputedStyle(ring).strokeDashoffset) || 0 : null;
+          })(),
+          vsLinks: document.querySelectorAll(".s-vs thead a[href]").length,
         };
       });
       const bg = scheme === "dark" ? "rgb(18, 28, 26)" : "rgb(244, 247, 246)";
@@ -710,6 +786,9 @@ async function checkNoScript(browser, route) {
       if (!s.proof) fail(where, "the no-script proof line is hidden");
       if (s.limits !== 5) fail(where, `${s.limits} limits visible`);
       if (s.summaries !== 5) fail(where, `${s.summaries} questions`);
+      if (s.vsCells.length !== 6 || s.vsCells.some((n) => n !== 7)) fail(where, `the comparison shows ${JSON.stringify(s.vsCells)} cells per row, not 6 × 7`);
+      if (s.vsRing !== 0) fail(where, `the ring around Versorium's price is not drawn (dash offset ${s.vsRing})`);
+      if (s.vsLinks !== 5) fail(where, `${s.vsLinks} names link to the full comparison, not 5`);
       if (SHOTS && width === 1280) await page.screenshot({ path: `${OUT}/noscript-${route === "/" ? "es" : "en"}-${scheme}-1280.png` });
       await context.close();
     }
@@ -737,6 +816,10 @@ async function checkReducedMotion(browser, route) {
         reveal,
         btn: getComputedStyle(document.querySelector(".btn")).transitionDuration,
         scroll: getComputedStyle(document.documentElement).scrollBehavior,
+        ring: (() => {
+          const path = document.querySelector(".s-vs .vs-ring path");
+          return path ? parseFloat(getComputedStyle(path).strokeDashoffset) || 0 : null;
+        })(),
       };
     });
     if (s.animations) fail(where, `${s.animations} animation(s) running`);
@@ -746,6 +829,7 @@ async function checkReducedMotion(browser, route) {
     if (s.reveal) fail(where, `${s.reveal} drawing part(s) not at full opacity`);
     if (s.btn !== "0s") fail(where, `button transition ${s.btn}`);
     if (s.scroll !== "auto") fail(where, `scroll-behavior ${s.scroll}`);
+    if (s.ring !== 0) fail(where, `the ring around Versorium's price is not drawn (dash offset ${s.ring})`);
     if (log.requests.some((u) => u.includes(".anim.webp"))) fail(where, "a clip was requested");
     await context.close();
   }
@@ -932,9 +1016,15 @@ function runScript(name, script, args = []) {
 function checkStaticWords() {
   const out = execFileSync("python3", [path.join(ROOT, "tests/landing/audit-wordcount.py"), path.join(DOCS, "index.html"), path.join(DOCS, "en/index.html")]).toString();
   const totals = [...out.matchAll(/TOTAL (\d+)/g)].map((m) => Number(m[1]));
+  // Each page's report: its section lines, then TOTAL.
+  const reports = out.split("== ").slice(1);
   ["/", "/en/"].forEach((route, i) => {
     console.log(`${route} static word count: ${totals[i]}`);
     if (!(totals[i] <= WORD_LIMIT)) fail(`${route} words (audit-wordcount.py)`, `${totals[i]} visible words, over ${WORD_LIMIT}`);
+    for (const [id, cap] of Object.entries(SECTION_WORDS)) {
+      const n = Number(reports[i]?.match(new RegExp(`^\\s+${id}\\s+(\\d+)$`, "m"))?.[1]);
+      if (n > cap) fail(`${route} words (audit-wordcount.py)`, `${n} visible words in #${id}, over ${cap}`);
+    }
   });
 }
 
@@ -962,7 +1052,7 @@ async function checkFiles() {
   ]) {
     if (!workflow.includes(pin)) fail("pages.yml", `missing ${pin}`);
   }
-  for (const file of ["robots.txt", "sitemap.xml", "llms.txt", "agents.txt", "site.webmanifest", "404.html", "favicon.ico", "assets/paper.svg", "assets/fonts/aguja-display-400.woff2", "assets/fonts/OFL.txt"]) {
+  for (const file of ["robots.txt", "sitemap.xml", "llms.txt", "agents.txt", "site.webmanifest", "404.html", "favicon.ico", "assets/paper.svg", "assets/fonts/aguja-display-400.woff2", "assets/fonts/OFL.txt", "comparar/index.html", "en/compare/index.html"]) {
     try {
       await readFile(path.join(DOCS, file));
     } catch {
@@ -989,13 +1079,14 @@ try {
   }
   if (gate("pages")) {
     gatesRun.push("pages");
-    for (const { route, lang, is404, landing } of PAGES) {
+    for (const { route, lang, is404, landing, compare } of PAGES) {
       for (const variant of VARIANTS) {
         for (const width of WIDTHS) {
           // Every theme at phone and desktop widths; the extremes in Needle Light only.
           if ((width === 320 || width === 1920) && variant !== "needle-light") continue;
           if (is404 && ![375, 1280].includes(width)) continue;
           const where = `${route} ${variant} ${width}`;
+          if (process.env.PROGRESS) console.log(`… ${where}`);
           const height = width < 700 ? 780 : 900;
           const { context, page, log } = await newPage(browser, { width, height, variant });
           await page.goto(SITE + route, { waitUntil: "networkidle" });
@@ -1016,7 +1107,7 @@ try {
           await checkLoad(page, log, where, { width, height, requestsOnly: true });
           if (width === 1280 && variant === "needle-light") {
             await checkStructure(page, where, { is404 });
-            if (!is404) await checkHead(page, where, lang, { landing: !!landing });
+            if (!is404) await checkHead(page, where, lang, { landing: !!landing, compare: !!compare });
           }
           if (SHOTS && ["needle-light", "folio-dark", "quarry-dark"].includes(variant) && [375, 1280].includes(width)) {
             const name = `${route.replace(/\W+/g, "") || "es"}-${variant}-${width}`;
@@ -1040,7 +1131,7 @@ try {
   }
   if (gate("keyboard")) {
     gatesRun.push("keyboard");
-    for (const route of ["/", "/en/", "/detalles/", "/en/details/"].filter((r) => !ROUTES || ROUTES.includes(r))) await checkKeyboard(browser, route);
+    for (const route of ["/", "/en/", "/detalles/", "/en/details/", "/comparar/", "/en/compare/"].filter((r) => !ROUTES || ROUTES.includes(r))) await checkKeyboard(browser, route);
   }
   for (const g of ["picker", "words", "fold", "noscript", "reduced"]) if (gate(g)) gatesRun.push(g);
   if (gate("words")) checkStaticWords();
@@ -1071,6 +1162,10 @@ if (gate("contrast")) {
   gatesRun.push("contrast");
   runScript("contrast", "contrast.mjs", ["--check"]);
   for (const route of landings) runScript("contrast", "contrast-pixels.mjs", ["--route", route]);
+}
+if (gate("compare")) {
+  gatesRun.push("compare");
+  runScript("compare", "compare-parity.mjs");
 }
 if (gate("motion")) {
   gatesRun.push("motion");
