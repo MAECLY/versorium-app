@@ -1,7 +1,7 @@
 {
   "name": "Versorium · MAECLY",
   "short_name": "Versorium",
-  "description": "Escribe tu novela en tu ordenador: cada borrador queda guardado. Gratis y de código abierto. Versión 0.1.0, probada en macOS.",
+  "description": "Escribe tu novela en tu ordenador: cada borrador queda guardado. Gratis y de código abierto. Versión 0.1.1, para macOS, Windows y Linux.",
   "lang": "es",
   "dir": "ltr",
   "start_url": "/",

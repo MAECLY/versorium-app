@@ -217,8 +217,8 @@ const MUTATIONS = [
     what: "the Spanish JSON-LD's first downloadUrl and first file link moved to the releases page",
     env: { ONLY: "pages", ...ONE },
     async mutate(d) {
-      await edit(d, "index.html", '"downloadUrl":["https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg"', '"downloadUrl":["https://github.com/MAECLY/versorium-app/releases/latest"');
-      await edit(d, "index.html", '<a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg"', '<a class="file" href="https://github.com/MAECLY/versorium-app/releases/latest"');
+      await edit(d, "index.html", '"downloadUrl":["https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_apple_silicon.dmg"', '"downloadUrl":["https://github.com/MAECLY/versorium-app/releases/latest"');
+      await edit(d, "index.html", '<a class="file" href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_apple_silicon.dmg"', '<a class="file" href="https://github.com/MAECLY/versorium-app/releases/latest"');
     },
     expect: [/downloadUrl \["https:\/\/github\.com\/MAECLY\/versorium-app\/releases\/latest"/, /the download list is not the release's installers/, /a download button points at https:\/\/github\.com\/MAECLY\/versorium-app\/releases\/latest/],
   },
@@ -258,7 +258,7 @@ const MUTATIONS = [
     async mutate(d) {
       await edit(d, "index.html", "<b>Donde otras van por delante:</b> ", "<b>Donde otras van por delante:</b> y seis palabras más para probar: ");
     },
-    expect: [/\/ words: \d+ visible words in #comparar, over 235/, /\/ words \(audit-wordcount\.py\): \d+ visible words in #comparar, over 235/],
+    expect: [/\/ words: \d+ visible words in #comparar, over 237/, /\/ words \(audit-wordcount\.py\): \d+ visible words in #comparar, over 237/],
   },
   {
     name: "compare-overflow",
@@ -310,7 +310,7 @@ const MUTATIONS = [
     what: "Versorium's column naming a release series other than the hero pill's",
     env: { ONLY: "compare", COMPARE_WIDTHS: "1280" },
     async mutate(d) {
-      await edit(d, "index.html", "<small>v0.1 · probada solo en macOS</small>", "<small>v0.2 · probada solo en macOS</small>");
+      await edit(d, "index.html", "<small>v0.1 · probada en macOS, Windows y Linux</small>", "<small>v0.2 · probada en macOS, Windows y Linux</small>");
     },
     expect: [/\/ comparison: Versorium's note names v0\.2, the hero pill v0\.1\.\d+/],
     absent: [/\/en\/ comparison: Versorium's note/],

@@ -86,13 +86,12 @@
 <section id="limites" aria-labelledby="limites-t">
 <h2 id="limites-t">Lo que aún no hace</h2>
 <ul class="limit-list">
-<li>La versión 0.1.0, la primera, trae instaladores para macOS, Windows y Linux, pero la app solo se ha usado en macOS con Apple silicon: los de Windows, Linux y Mac con Intel nunca se han ejecutado.</li>
+<li>La versión 0.1.1 trae instaladores para macOS, Windows y Linux. La app se ha probado en un Mac con Apple silicon, en Windows 11 y, con el <code>.deb</code> de la 0.1.0, en Ubuntu 22.04. El <code>.dmg</code> para Intel, el <code>.rpm</code> y el AppImage nunca se han ejecutado.</li>
 <li>Sin firma de Apple ni de Microsoft: macOS dice que está dañada y Windows muestra SmartScreen (ver <a href="#instalar">«La primera vez que la abras»</a>).</li>
-<li>Instalar una actualización aún no se ha probado de principio a fin: 0.1.0 es la primera versión, así que todavía no hay ninguna.</li>
+<li>Actualizar desde la app, de la 0.1.0 a la 0.1.1, se ha probado de principio a fin en el Mac y en Windows 11; en Linux, todavía no.</li>
 <li>La IA hace dos cosas: reescribir y revisar la continuidad, que razona sobre los títulos de los capítulos y el códice, no sobre la prosa. No hay chat, búsqueda por significado, dictado ni «Continuar capítulo» (el botón se ve desactivado).</li>
-<li>Un servidor local compatible con OpenAI (LM Studio, <span class="nobreak">llama-server</span>) se puede guardar y probar, pero no genera nada.</li>
 <li>La IA integrada corre dentro de la app: si su motor falla, Versorium se cierra con él; el autoguardado y las instantáneas acotan lo que se pierde.</li>
-<li>GPU: Metal probado en Apple silicon (M4 Max), con unos 15 s de compilación la primera vez; Vulkan, para Windows y Linux, compila pero nunca ha corrido en una GPU real; no hay CUDA.</li>
+<li>GPU: Metal probado en Apple silicon (M4 Max), con unos 15 s de compilación la primera vez; Vulkan, para Windows y Linux, compila, pero la IA integrada aún no se ha probado con una GPU; no hay CUDA.</li>
 <li>Volver a una instantánea antigua o recuperar un capítulo borrado se hace con git, fuera de la app; el registro de cambios no se puede consultar desde ella.</li>
 <li>↩ Restaurar llega hasta el principio de la sesión en curso, con un máximo de 1000 cambios.</li>
 <li>Abrir Ajustes reconstruye el editor y se pierde su historial de deshacer.</li>
@@ -100,7 +99,7 @@
 <li>El repositorio de GitHub y su remoto se preparan fuera de la app, y traer cambios no fusiona historias separadas.</li>
 <li>DOCX y Scrivener pierden los títulos de escena, con aviso; el PDF los imprime, salvo el de la primera escena de cada capítulo, que omite sin avisar. El PDF va en tamaño carta con <span class="nobreak">Times-Roman</span> y sustituye, con aviso, los emoji y las escrituras no latinas. La portada es tipográfica, no una imagen.</li>
 <li>Importar DOCX, EPUB o Scrivener pierde negritas, cursivas y escenas; no importa imágenes, ni las notas al pie ni los comentarios de DOCX. Las novelas importadas se crean en inglés, y el idioma de una novela no se puede cambiar.</li>
-<li>El corrector usa el del sistema: funciona en macOS; en Linux aún no subraya nada; en Windows no se ha probado.</li>
+<li>El corrector usa el del sistema: funciona en macOS y en Windows 11; en Linux aún no subraya nada.</li>
 <li>Sin editores propios para el códice, la trama o la documentación; los capítulos se ordenan con «Mover antes» y «Mover después», sin arrastrar; sin fuentes descargables.</li>
 </ul>
 </section>
@@ -132,7 +131,7 @@
 
 <section id="ia" aria-labelledby="ia-t">
 <h2 id="ia-t">La IA</h2>
-<p>Versorium no trae ninguna IA activada. Si la quieres, eliges de dónde sale: un modelo que corre dentro de la app con llama.cpp, Ollama si ya lo usas, o las herramientas que ya tienes en la terminal: Claude Code, Codex u OpenCode.</p>
+<p>Versorium no trae ninguna IA activada. Si la quieres, eliges de dónde sale: un modelo que corre dentro de la app con llama.cpp, Ollama si ya lo usas, un servidor local compatible con OpenAI (LM Studio, <span class="nobreak">llama-server</span>), o las herramientas que ya tienes en la terminal: Claude Code, Codex u OpenCode.</p>
 <p>Para la IA integrada hay un catálogo de 11 modelos de escritura en cuatro tamaños, de 0,58 a 17,4 GB. La app te recomienda el tamaño mayor que cabe con holgura en tu equipo, solo descarga cuando pulsas Descargar, retoma lo que se cortó y comprueba cada archivo con <span class="nobreak">SHA-256</span>.</p>
 <p>Al reescribir, seleccionas un pasaje y ves la diferencia antes de aplicarla; Versorium hace antes una instantánea y apunta el cambio a nombre de la IA. Cada proveedor aparece marcado como Local o CLI, porque una herramienta CLI envía el pasaje a su propio servicio.</p>
 <p>Los asistentes que se conectan por MCP —Claude Code, Claude Desktop, Codex y OpenCode se configuran con un clic; Cursor y VS Code, a mano— solo leen, salvo que des permiso de escritura a uno concreto. Aun así, cada escritura devuelve primero la diferencia y solo se aplica con una segunda llamada que la confirma, después de una instantánea.</p>
@@ -195,26 +194,26 @@ Arriba, la lente ocupaba todo el aire. <span class="c">…</span></code></pre>
 <p>El instalador no está firmado, por la misma razón que el paquete de macOS, así que Windows muestra la pantalla azul «Windows protegió su PC». Elige <b>Más información</b> y después <b>Ejecutar de todas formas</b>. Las versiones firmadas necesitan certificados de Apple y de Microsoft, que aún no existen, y cambios en el flujo de publicación.</p>
 </article>
 </div>
-<p class="updates">Las actualizaciones van firmadas con minisign: la app solo instala una si su firma coincide con la clave pública que lleva dentro y si su <span class="nobreak">SHA-256</span> coincide con el <code>SHA256SUMS</code> de la versión. Las busca una vez al abrirse, sin cuenta ni token, y puedes desactivarlo en Ajustes → Aplicación. Un token de GitHub es opcional: solo hace falta para leer un repositorio privado o para superar el límite de 60 consultas por hora que GitHub impone sin token. La firma de cada paquete de la versión 0.1.0 se ha comprobado con esa clave; instalar una actualización, en cambio, aún no se ha probado de principio a fin, porque todavía no hay ninguna.</p>
+<p class="updates">Las actualizaciones van firmadas con minisign: la app solo instala una si su firma coincide con la clave pública que lleva dentro y si su <span class="nobreak">SHA-256</span> coincide con el <code>SHA256SUMS</code> de la versión. Las busca una vez al abrirse, sin cuenta ni token, y puedes desactivarlo en Ajustes → Aplicación. Un token de GitHub es opcional: solo hace falta para leer un repositorio privado o para superar el límite de 60 consultas por hora que GitHub impone sin token. La actualización de la 0.1.0 a la 0.1.1 se ha hecho desde la app, de principio a fin, en un Mac con Apple silicon y en Windows 11; en Linux aún no se ha probado.</p>
 </section>
 
 <section id="plataformas" aria-labelledby="plataformas-t">
 <h2 id="plataformas-t">Plataformas</h2>
 <div class="platform-notes">
 <article class="card" aria-labelledby="p-mac"><h3 id="p-mac">macOS</h3>
-<p>La versión 0.1.0 trae dos <code>.dmg</code>, para macOS 10.15 o posterior: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg">Apple silicon</a> (11,7 MB) e <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64.dmg">Intel</a> (11,7 MB).</p>
-<p class="detail">La app se ha ejecutado en un Mac con Apple silicon (un M4 Max), donde la IA integrada usa Metal: la primera vez tarda unos 15 s en compilar, y la app lo adelanta al arrancar. El <code>.dmg</code> publicado para Apple silicon se abrió el 4 de octubre de 2026 en un Mac con Apple silicon, y su ventana se comprobó. El de Intel nunca se ha ejecutado.</p>
+<p>La versión 0.1.1 trae dos <code>.dmg</code>, para macOS 10.15 o posterior: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_apple_silicon.dmg">Apple silicon</a> (11,7 MB) e <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_apple_intel.dmg">Intel</a> (11,8 MB).</p>
+<p class="detail">La app se ha ejecutado en un Mac con Apple silicon (un M4 Max), donde la IA integrada usa Metal: la primera vez tarda unos 15 s en compilar, y la app lo adelanta al arrancar. El <code>.dmg</code> publicado de la 0.1.0 para Apple silicon se abrió el 4 de octubre de 2026 en un Mac con Apple silicon, y su ventana se comprobó; instalada esa 0.1.0, la app ofreció la 0.1.1, la descargó, la instaló y se reinició en ella. El de Intel nunca se ha ejecutado.</p>
 </article>
 <article class="card" aria-labelledby="p-win"><h3 id="p-win">Windows</h3>
-<p>La versión 0.1.0 trae un instalador para x64 en dos formatos: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64-setup.exe">NSIS, <code>.exe</code></a> (11,6 MB) y <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64_en-US.msi">MSI</a> (23,2 MB).</p>
-<p class="detail">Los instaladores existen, pero la app nunca se ha ejecutado en Windows. La IA integrada usa Vulkan (NVIDIA, AMD, Intel); no hay CUDA, a propósito. Necesita un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2).</p>
+<p>La versión 0.1.1 trae un instalador para x64 en dos formatos: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_windows_x64.exe">NSIS, <code>.exe</code></a> (11,7 MB) y <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_windows_x64.msi">MSI</a> (23,3 MB).</p>
+<p class="detail">Se ha probado en Windows 11. Allí, el <code>.exe</code> y el <code>.msi</code> de la 0.1.0 se instalaron; con el runtime de Visual C++, que la 0.1.0 necesitaba y la 0.1.1 ya no, se creó una novela, escribir guardó el capítulo y el registro de cambios, el corrector subrayó y la búsqueda de actualizaciones respondió; después, la app se actualizó a la 0.1.1 desde dentro. Necesita <code>vulkan-1.dll</code>, que suelen instalar los controladores gráficos; en un PC sin controladores Vulkan no se ha probado. La IA integrada usa Vulkan (NVIDIA, AMD, Intel); no hay CUDA, a propósito. Necesita un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2).</p>
 </article>
 <article class="card" aria-labelledby="p-linux"><h3 id="p-linux">Linux</h3>
-<p>La versión 0.1.0 trae <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.deb"><code>.deb</code></a> (22,3 MB), <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium-0.1.0-1.x86_64.rpm"><code>.rpm</code></a> (22,3 MB) y <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.AppImage">AppImage</a> (99,0 MB) para x64, construidos en Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
-<p class="detail">Los paquetes existen, pero la app nunca se ha ejecutado en Linux: allí solo corren las pruebas automáticas, y la IA integrada se compila con Vulkan, pero ninguna GPU real la ha usado. El <code>.deb</code> declara libvulkan1 y libssl3. Necesita un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2). Para guardar un token hace falta Secret Service; si no está disponible, la app debería avisarte, aunque eso tampoco se ha probado.</p>
+<p>La versión 0.1.1 trae <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.deb"><code>.deb</code></a> (22,4 MB), <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.rpm"><code>.rpm</code></a> (22,3 MB) y <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.AppImage">AppImage</a> (99,0 MB) para x64, construidos en Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
+<p class="detail">El <code>.deb</code> de la 0.1.0 se probó en Ubuntu 22.04 (amd64): se instaló, se abrió, se creó una novela sin necesitar git y escribir guardó el capítulo. Esa prueba encontró que, sin las carpetas XDG estándar, la app no daba con su carpeta de proyectos; la 0.1.1 lo corrige, pero aún no se ha ejecutado en Linux, y el <code>.rpm</code> y el AppImage tampoco. La IA integrada se compila con Vulkan, pero aún no se ha probado con una GPU. El <code>.deb</code> declara libvulkan1 y libssl3. Necesita un procesador <span class="nobreak">x86-64-v2</span> (SSE4.2). Para guardar un token hace falta Secret Service; si no está disponible, la app debería avisarte, aunque eso tampoco se ha probado.</p>
 </article>
 </div>
-<p class="updates">Cada archivo tiene su suma en <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/SHA256SUMS"><code>SHA256SUMS</code></a>. Las notas de la versión están en la <a href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0">página de la 0.1.0</a>; para enterarte de las próximas, en GitHub: <span lang="en">Watch → Custom → Releases</span>.</p>
+<p class="updates">Cada archivo tiene su suma en <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/SHA256SUMS"><code>SHA256SUMS</code></a>. Las notas de la versión están en la <a href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.1">página de la 0.1.1</a>; para enterarte de las próximas, en GitHub: <span lang="en">Watch → Custom → Releases</span>.</p>
 </section>
 
 <section id="por-que" aria-labelledby="por-que-t">

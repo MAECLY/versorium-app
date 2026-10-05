@@ -1,6 +1,6 @@
 # Versorium by MAECLY
 
-> Free and open-source desktop writing studio for novelists, for macOS, Windows and Linux. Local-first: each chapter is a plain Markdown file in a folder the writer owns, each novel is its own git repository, and AI is optional and chosen by the writer. AGPL-3.0. Version 0.1.0, the first public release, was published on 4 October 2026 with installers for all three systems; so far the app has only been run on macOS (Apple silicon).
+> Free and open-source desktop writing studio for novelists, for macOS, Windows and Linux. Local-first: each chapter is a plain Markdown file in a folder the writer owns, each novel is its own git repository, and AI is optional and chosen by the writer. AGPL-3.0. Version 0.1.0, the first public release, was published on 4 October 2026 with installers for all three systems, and 0.1.1, with fixes, the same day. The app has been tried on an Apple silicon Mac, on Windows 11 and on Ubuntu 22.04.
 
 ## Canonical pages
 
@@ -11,7 +11,7 @@
 - [Comparison with the alternatives, Spanish](https://versorium.maecly.com/comparar/)
 - [Comparison with the alternatives, English](https://versorium.maecly.com/en/compare/)
 - [Source code](https://github.com/MAECLY/versorium-app)
-- [Release 0.1.0](https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0): installers, signatures, SHA256SUMS and release notes
+- [Release 0.1.1](https://github.com/MAECLY/versorium-app/releases/tag/v0.1.1): installers, signatures, SHA256SUMS and release notes
 - [Releases](https://github.com/MAECLY/versorium-app/releases/latest): the latest release; Watch → Custom → Releases on GitHub to hear about new ones
 - [Issues](https://github.com/MAECLY/versorium-app/issues)
 - [Licence: AGPL-3.0](https://github.com/MAECLY/versorium-app/blob/main/LICENSE)
@@ -22,11 +22,11 @@
 - Editor: a CodeMirror 6 Markdown editor. One file per chapter at manuscript/ch-NN-slug.md, with YAML frontmatter that the app manages (title, status, word count) and a plain body. Saves are atomic, with an 800 ms autosave. Word count in the status bar; Cmd/Ctrl+F finds text inside a chapter.
 - On macOS, quitting (Cmd+Q, the app menu, the Dock, logging out or shutting down) waits for the last save; a save that fails cancels the quit and says why.
 - The projects-and-chapters panel and the top bar each fold away to a labelled edge and come back; the layout is remembered. Focus hides them too (its ⋯ menu chooses which; both by default) and keeps the status bar; Escape leaves it. Typewriter mode keeps the caret line in place; a corkboard shows one card per chapter.
-- Editor settings (Settings → Editor): spell checking as you type, on by default, using the operating system's checker (seen working on macOS in a development build; Linux underlines nothing yet; untried on Windows); text size 18/21/24 px, line spacing 1.5/1.7/2, text width 60/72/84 characters; line numbers (off by default); a band behind the current paragraph (on by default); Tab moves to the next control (default) or indents.
+- Editor settings (Settings → Editor): spell checking as you type, on by default, using the operating system's checker (seen working on macOS in a development build, and underlining on Windows 11; Linux underlines nothing yet); text size 18/21/24 px, line spacing 1.5/1.7/2, text width 60/72/84 characters; line numbers (off by default); a band behind the current paragraph (on by default); Tab moves to the next control (default) or indents.
 - Binder: create, rename (the title changes, the file keeps its name), reorder chapters (Move earlier / Move later), set a status (draft, revised, final), delete (a git snapshot is taken first). Right-clicking a chapter, a novel or a corkboard card opens the same action menu as its ⋯ button. Deleting a novel sends its folder to the system trash. Four structure templates (Blank, Three acts, Save the Cat, Kishōtenketsu), offered in the first-run guide (which can be replayed from Settings → Application), seed chapter titles only, never prose, in the language of the interface.
 - History: every editor transaction is logged as insert/delete operations in an append-only JSONL log under .versorium/ops/, tagged with its author (human, or ai:<client>), with a full chapter body every 200 operations. Restore (the status bar's ↩ Restore button) puts back the previous text of the selection or of the word under the cursor, within the current editing session (up to 1000 edits).
 - Snapshots: each novel is a git repository through a built-in libgit2, so no system git is needed. Snapshots are taken every 60 seconds when something changed, before every AI write and before a chapter is deleted; the writer can take one by hand with a description. The History panel lists snapshots and shows the current changes.
-- AI, all optional: llama.cpp built into the app, with a catalogue of 11 GGUF writing models in four size tiers (0.58 to 17.4 GB) plus one embedding model, a hardware fit recommendation, downloads only when the writer presses Download, resumable and checked against SHA-256; Ollama on 127.0.0.1:11434; or the command-line tools Claude Code, Codex and OpenCode, which send the selected passage to their own (usually cloud) service. The Rewrite dialog labels each provider Local or CLI, shows a diff before applying, takes a git snapshot first and logs the change as ai:<provider>. A continuity check runs through a built-in or Ollama model and reasons over chapter titles and codex excerpts, not over the prose.
+- AI, all optional: llama.cpp built into the app, with a catalogue of 11 GGUF writing models in four size tiers (0.58 to 17.4 GB) plus one embedding model, a hardware fit recommendation, downloads only when the writer presses Download, resumable and checked against SHA-256; Ollama on 127.0.0.1:11434; a local OpenAI-compatible server (LM Studio, llama-server), which since 0.1.1 can be given a task like any other model; or the command-line tools Claude Code, Codex and OpenCode, which send the selected passage to their own (usually cloud) service. The Rewrite dialog labels each provider Local or CLI, shows a diff before applying, takes a git snapshot first and logs the change as ai:<provider>. A continuity check runs through a built-in or Ollama model and reasons over chapter titles and codex excerpts, not over the prose.
 - Assistants over MCP: the same binary serves MCP over stdio (versorium mcp --client <id>) with 15 read tools and 8 write tools. Writes are refused unless the writer grants that specific client; a granted write first returns a diff preview, needs confirm:true, and takes a git snapshot first. One-click setup for Claude Code, Claude Desktop, Codex and OpenCode; Cursor and VS Code are set up by hand. An optional Streamable HTTP transport is off by default and binds to loopback only, with a per-launch bearer token. The tool log records tool, client and outcome, never manuscript text.
 - Backup: "Back up now" writes one timestamped zip of the whole project, git history included, to up to three destinations (iCloud Drive, Google Drive, OneDrive, Dropbox, Nextcloud and ownCloud folders are detected; second disks are offered), and each destination says whether it leaves the machine. Unchanged states are skipped, archives can be verified by reading them back, and a restore is extracted beside the novel, never over it. Retention defaults to 10 archives.
 - GitHub: send (push) and bring (pull) a novel's repository with a token kept in the OS credential store; credentials are only ever sent to https github.com hosts. Pull only fast-forwards.
@@ -40,12 +40,12 @@
 
 ## Limits and what is not available yet
 
-- Version 0.1.0 is the first release. Only its macOS Apple silicon build has been run: the released .dmg was opened and its window checked on 2026-10-04. The Intel Mac, Windows and Linux builds exist but have never been run.
+- Version 0.1.1 is the newest release (0.1.0, the first, came out the same day). Where it has been tried: macOS on Apple silicon (0.1.0's released .dmg was opened and its window checked on 2026-10-04, and the in-app updater then took it to 0.1.1). Windows 11 (build 26300): 0.1.0's .exe and .msi installed; it needed the Visual C++ runtime (fixed in 0.1.1, which links it statically); with it, a novel was created, typing saved the chapter and the change log, spell checking underlined and the update check answered; then the in-app updater took it to 0.1.1. Linux: 0.1.0's .deb on Ubuntu 22.04 (amd64): it installed, opened, created a novel (no git needed) and saved typing; that test found the missing-XDG-folders bug that 0.1.1 fixes. 0.1.1 itself has not been run on Linux. The Intel Mac build, the .rpm and the AppImage have never been run.
 - No Apple Developer ID signature or notarisation and no Windows Authenticode: there are no certificates, and signing would also need new secrets and changes to the release workflow and the app's config. So macOS reports the app as damaged until the quarantine flag is cleared, and Windows SmartScreen interrupts the installer. Only the updater's minisign signature exists.
-- Installing an update has not run end to end, because 0.1.0 is the first release and there is no newer one yet. Every 0.1.0 package's minisign signature has been checked against the key built into the app.
+- Updating from inside the app has run end to end, from 0.1.0 to 0.1.1, on macOS (Apple silicon) and on Windows 11; not on Linux.
+- The Windows build needs vulkan-1.dll, normally installed with graphics drivers; a PC without Vulkan drivers has not been tried.
 - AI does two jobs today: rewrite and continuity. Project chat (a slot exists, no window), search by meaning (no index, no search box), dictation (no speech model) and Creative Mode (the disabled "Continue chapter" button) are not available.
-- A local OpenAI-compatible server (LM Studio, llama-server) can be saved and connection-tested, but cannot generate anything.
-- GPU: Metal is verified on Apple silicon (M4 Max), with about 15 s of first-run shader compilation hidden by a warm-up; no Intel Mac has run the app. Vulkan (NVIDIA, AMD, Intel) is the GPU backend of the Windows and Linux builds: CI checks that it compiles on Ubuntu 22.04, but it has never run on real hardware. CUDA is deliberately not built. Inference runs in-process, so an engine abort ends the app (autosave and snapshots limit what can be lost).
+- GPU: Metal is verified on Apple silicon (M4 Max), with about 15 s of first-run shader compilation hidden by a warm-up; no Intel Mac has run the app. Vulkan (NVIDIA, AMD, Intel) is the GPU backend of the Windows and Linux builds: CI checks that it compiles on Ubuntu 22.04; the built-in AI has not yet been tried on a GPU through Vulkan. CUDA is deliberately not built. Inference runs in-process, so an engine abort ends the app (autosave and snapshots limit what can be lost).
 - Restoring an older snapshot or a deleted chapter has no in-app interface; it is done with git outside the app. The on-disk operations log has no in-app viewer.
 - The GitHub repository and remote must be set up outside the app; pull does not merge diverged histories.
 - Backups are manual only; nothing is scheduled.
@@ -60,23 +60,23 @@ Prices and features of 29 alternatives, as each vendor's own website or reposito
 
 ## Platforms
 
-Release 0.1.0 (2026-10-04). Direct downloads, sizes in decimal megabytes; each Windows and Linux installer, and each macOS updater bundle (.app.tar.gz, not the .dmg), has a .sig minisign signature beside it, and every file is listed in [SHA256SUMS](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/SHA256SUMS).
+Release 0.1.1 (2026-10-04). Direct downloads, sizes in decimal megabytes; each Windows and Linux installer, and each macOS updater bundle (.app.tar.gz, not the .dmg), has a .sig minisign signature beside it, and every file is listed in [SHA256SUMS](https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/SHA256SUMS). Each file name says the computer it is for: apple_silicon, apple_intel, windows_x64, linux_amd64 (0.1.0's files used other names).
 
-- macOS 10.15 or later: separate Apple silicon (aarch64) and Intel (x86_64) builds, as .dmg (and .app.tar.gz for the updater). The only platform the app has run on, on Apple silicon; the Intel build has never been run.
-  - [Versorium_0.1.0_aarch64.dmg](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg), Apple silicon, 11.7 MB, tried
-  - [Versorium_0.1.0_x64.dmg](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64.dmg), Intel, 11.7 MB, never run
-- Windows: x64, NSIS and MSI installers, built for x86-64-v2 CPUs with Vulkan. Never run on Windows.
-  - [Versorium_0.1.0_x64-setup.exe](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64-setup.exe), NSIS, 11.6 MB
-  - [Versorium_0.1.0_x64_en-US.msi](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64_en-US.msi), MSI, 23.2 MB
-- Linux: x64 .deb (declaring libvulkan1 and libssl3), .rpm and AppImage, built on Ubuntu 22.04 (webkit2gtk-4.1), x86-64-v2 with Vulkan. Never run on Linux; CI runs the automated tests there. Saving credentials needs Secret Service.
-  - [Versorium_0.1.0_amd64.deb](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.deb), 22.3 MB
-  - [Versorium-0.1.0-1.x86_64.rpm](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium-0.1.0-1.x86_64.rpm), 22.3 MB
-  - [Versorium_0.1.0_amd64.AppImage](https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.AppImage), 99.0 MB
+- macOS 10.15 or later: separate Apple silicon and Intel builds, as .dmg (and .app.tar.gz for the updater). Run on Apple silicon; the Intel build has never been run.
+  - [Versorium_0.1.1_apple_silicon.dmg](https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_apple_silicon.dmg), Apple silicon, 11.7 MB, tried
+  - [Versorium_0.1.1_apple_intel.dmg](https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_apple_intel.dmg), Intel, 11.8 MB, never run
+- Windows: x64, NSIS and MSI installers, built for x86-64-v2 CPUs with Vulkan (needs vulkan-1.dll). Tried on Windows 11: 0.1.0's .exe and .msi, then the in-app update to 0.1.1.
+  - [Versorium_0.1.1_windows_x64.exe](https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_windows_x64.exe), NSIS, 11.7 MB
+  - [Versorium_0.1.1_windows_x64.msi](https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_windows_x64.msi), MSI, 23.3 MB
+- Linux: x64 .deb (declaring libvulkan1 and libssl3), .rpm and AppImage, built on Ubuntu 22.04 (webkit2gtk-4.1), x86-64-v2 with Vulkan. 0.1.0's .deb has been run on Ubuntu 22.04; 0.1.1, the .rpm and the AppImage have not. CI runs the automated tests on Ubuntu 22.04. Saving credentials needs Secret Service.
+  - [Versorium_0.1.1_linux_amd64.deb](https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.deb), 22.4 MB
+  - [Versorium_0.1.1_linux_amd64.rpm](https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.rpm), 22.3 MB, never run
+  - [Versorium_0.1.1_linux_amd64.AppImage](https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.AppImage), 99.0 MB, never run
 
 ## Install notes
 
 - macOS: "macOS says the app is damaged. It is not." Clear the quarantine flag once, in Terminal, only for a build taken from the releases page: xattr -rd com.apple.quarantine /Applications/Versorium.app
-- Windows: SmartScreen shows "Windows protected your PC" (in Spanish, "Windows protegió su PC"); choose More info, then Run anyway (Más información, Ejecutar de todas formas). Signed builds need Apple and Microsoft certificates, which do not exist yet, plus changes to the release workflow.
+- Windows: 0.1.1 no longer needs the Visual C++ runtime (0.1.0 did, and did not start without it: "MSVCP140.dll was not found"). SmartScreen shows "Windows protected your PC" (in Spanish, "Windows protegió su PC"); choose More info, then Run anyway (Más información, Ejecutar de todas formas). Signed builds need Apple and Microsoft certificates, which do not exist yet, plus changes to the release workflow.
 
 ## Publisher
 

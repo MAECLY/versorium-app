@@ -86,13 +86,12 @@
 <section id="limits" aria-labelledby="limits-t">
 <h2 id="limits-t">What it doesn’t do yet</h2>
 <ul class="limit-list">
-<li>Version 0.1.0, the first release, has installers for macOS, Windows and Linux, but the app has only been used on macOS with Apple silicon: the Windows, Linux and Intel Mac builds have never been run.</li>
+<li>Release 0.1.1 has installers for macOS, Windows and Linux. The app has been tried on an Apple silicon Mac, on Windows 11 and, with 0.1.0’s <code>.deb</code>, on Ubuntu 22.04. The Intel <code>.dmg</code>, the <code>.rpm</code> and the AppImage have never been run.</li>
 <li>Not signed by Apple or Microsoft: macOS says it’s damaged and Windows shows SmartScreen (see <a href="#install">“The first time you open it”</a>).</li>
-<li>Installing an update has not been tried end to end: 0.1.0 is the first release, so there is none yet.</li>
+<li>Updating from inside the app, from 0.1.0 to 0.1.1, has been tried end to end on the Mac and on Windows 11; on Linux, not yet.</li>
 <li>The AI does two things: rewriting, and checking continuity, which reasons over chapter titles and the codex, not the prose. There is no chat, search by meaning, dictation or “Continue chapter” (the button is there, but disabled).</li>
-<li>A local OpenAI-compatible server (LM Studio, <span class="nobreak">llama-server</span>) can be saved and tested, but generates nothing.</li>
 <li>The built-in AI runs inside the app: if its engine fails, Versorium closes with it; autosave and snapshots limit what you can lose.</li>
-<li>GPU: Metal tried on Apple silicon (M4 Max), with about 15 s of compiling the first time; Vulkan, for Windows and Linux, builds but has never run on a real GPU; there is no CUDA.</li>
+<li>GPU: Metal tried on Apple silicon (M4 Max), with about 15 s of compiling the first time; Vulkan, for Windows and Linux, builds, but the built-in AI has not yet been tried on a GPU; there is no CUDA.</li>
 <li>Going back to an old snapshot or recovering a deleted chapter is done with git, outside the app; the change log can’t be browsed from it.</li>
 <li>↩ Restore reaches back to the start of the current session, up to 1000 edits.</li>
 <li>Opening Settings rebuilds the editor, which loses its undo history.</li>
@@ -100,7 +99,7 @@
 <li>The GitHub repository and remote are set up outside the app, and pulling doesn’t merge diverged histories.</li>
 <li>DOCX and Scrivener drop scene titles, with a warning; the PDF prints them, except the first scene’s in each chapter, which it drops without one. The PDF is US Letter in <span class="nobreak">Times-Roman</span> and replaces emoji and non-Latin scripts, with a warning. The cover is a typographic title page, not an image.</li>
 <li>Importing DOCX, EPUB or Scrivener loses bold, italics and scenes; images, DOCX footnotes and comments are not imported. Imported novels are created as English, and a novel’s language can’t be changed.</li>
-<li>Spell checking uses the system’s checker: it works on macOS; on Linux it underlines nothing yet; on Windows it hasn’t been tried.</li>
+<li>Spell checking uses the system’s checker: it works on macOS and on Windows 11; on Linux it underlines nothing yet.</li>
 <li>No built-in editors for the codex, plot or research; chapters are reordered with Move earlier / Move later, not by dragging; no downloadable fonts.</li>
 </ul>
 </section>
@@ -132,7 +131,7 @@
 
 <section id="ai" aria-labelledby="ai-t">
 <h2 id="ai-t">AI</h2>
-<p>Versorium ships with no AI switched on. If you want one, you choose where it comes from: a model that runs inside the app with llama.cpp, Ollama if you already use it, or the tools already in your terminal: Claude Code, Codex or OpenCode.</p>
+<p>Versorium ships with no AI switched on. If you want one, you choose where it comes from: a model that runs inside the app with llama.cpp, Ollama if you already use it, a local OpenAI-compatible server (LM Studio, <span class="nobreak">llama-server</span>), or the tools already in your terminal: Claude Code, Codex or OpenCode.</p>
 <p>For the built-in AI there is a catalogue of 11 writing models in four sizes, from 0.58 to 17.4 GB. The app recommends the largest size that fits your machine with room to spare, downloads only when you press Download, resumes what was cut off and checks every file against <span class="nobreak">SHA-256</span>.</p>
 <p>To rewrite, you select a passage and see the difference before applying it; Versorium takes a snapshot first and records the change under the AI's name. Each provider is labelled Local or CLI, because a CLI tool sends the passage to its own service.</p>
 <p>Assistants connected through MCP (Claude Code, Claude Desktop, Codex and OpenCode set up in one click; Cursor and VS Code by hand) can only read, unless you grant write access to one in particular. Even then, every write first returns the diff and is applied only by a second call that confirms it, after a snapshot.</p>
@@ -195,26 +194,26 @@ Up there, the lens took up all the air. <span class="c">…</span></code></pre>
 <p>The installer is unsigned, for the same reason as the macOS bundle, so Windows shows the blue “Windows protected your PC” screen. Choose <b>More info</b>, then <b>Run anyway</b>. Signed builds need Apple and Microsoft certificates, which do not exist yet, plus changes to the release workflow.</p>
 </article>
 </div>
-<p class="updates">Updates are signed with minisign: the app installs one only if its signature matches the public key built into it and its <span class="nobreak">SHA-256</span> matches the release's <code>SHA256SUMS</code>. It checks for them once at launch, with no account and no token; you can turn that off in Settings → Application. A GitHub token is optional: it is only needed to read a private repository, or to get past GitHub's limit of 60 requests an hour without one. Every package in release 0.1.0 has had its signature checked against that key; installing an update, on the other hand, has not been tried end to end, because there is none yet.</p>
+<p class="updates">Updates are signed with minisign: the app installs one only if its signature matches the public key built into it and its <span class="nobreak">SHA-256</span> matches the release's <code>SHA256SUMS</code>. It checks for them once at launch, with no account and no token; you can turn that off in Settings → Application. A GitHub token is optional: it is only needed to read a private repository, or to get past GitHub's limit of 60 requests an hour without one. The update from 0.1.0 to 0.1.1 has been installed from inside the app, end to end, on an Apple silicon Mac and on Windows 11; on Linux it has not been tried yet.</p>
 </section>
 
 <section id="platforms" aria-labelledby="platforms-t">
 <h2 id="platforms-t">Platforms</h2>
 <div class="platform-notes">
 <article class="card" aria-labelledby="p-mac"><h3 id="p-mac">macOS</h3>
-<p>Release 0.1.0 has two <code>.dmg</code> downloads, for macOS 10.15 or later: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg">Apple silicon</a> (11.7 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64.dmg">Intel</a> (11.7 MB).</p>
-<p class="detail">The app has run on an Apple silicon Mac (an M4 Max), where the built-in AI uses Metal: the first run takes about 15 s to compile, and the app does that ahead of time at launch. The released Apple silicon <code>.dmg</code> was opened on an Apple silicon Mac on 4 October 2026, and its window checked. The Intel one has never been run.</p>
+<p>Release 0.1.1 has two <code>.dmg</code> downloads, for macOS 10.15 or later: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_apple_silicon.dmg">Apple silicon</a> (11.7 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_apple_intel.dmg">Intel</a> (11.8 MB).</p>
+<p class="detail">The app has run on an Apple silicon Mac (an M4 Max), where the built-in AI uses Metal: the first run takes about 15 s to compile, and the app does that ahead of time at launch. 0.1.0’s released Apple silicon <code>.dmg</code> was opened on an Apple silicon Mac on 4 October 2026, and its window checked; with that 0.1.0 installed, the app offered 0.1.1, downloaded it, installed it and restarted into it. The Intel one has never been run.</p>
 </article>
 <article class="card" aria-labelledby="p-win"><h3 id="p-win">Windows</h3>
-<p>Release 0.1.0 has an x64 installer in two formats: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64-setup.exe">NSIS, <code>.exe</code></a> (11.6 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_x64_en-US.msi">MSI</a> (23.2 MB).</p>
-<p class="detail">The installers exist, but the app has never been run on Windows. The built-in AI uses Vulkan (NVIDIA, AMD, Intel); there is no CUDA, on purpose. It needs an <span class="nobreak">x86-64-v2</span> processor (SSE4.2).</p>
+<p>Release 0.1.1 has an x64 installer in two formats: <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_windows_x64.exe">NSIS, <code>.exe</code></a> (11.7 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_windows_x64.msi">MSI</a> (23.3 MB).</p>
+<p class="detail">It has been tried on Windows 11. There, 0.1.0’s <code>.exe</code> and <code>.msi</code> installed; with the Visual C++ runtime, which 0.1.0 needed and 0.1.1 no longer does, a novel was created, typing saved the chapter and the change log, spell checking underlined and the update check answered; then the app updated itself to 0.1.1. It needs <code>vulkan-1.dll</code>, which graphics drivers usually install; a PC without Vulkan drivers has not been tried. The built-in AI uses Vulkan (NVIDIA, AMD, Intel); there is no CUDA, on purpose. It needs an <span class="nobreak">x86-64-v2</span> processor (SSE4.2).</p>
 </article>
 <article class="card" aria-labelledby="p-linux"><h3 id="p-linux">Linux</h3>
-<p>Release 0.1.0 has x64 <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.deb"><code>.deb</code></a> (22.3 MB), <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium-0.1.0-1.x86_64.rpm"><code>.rpm</code></a> (22.3 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/Versorium_0.1.0_amd64.AppImage">AppImage</a> (99.0 MB) packages, built on Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
-<p class="detail">The packages exist, but the app has never been run on Linux: only the automated tests run there, and the built-in AI is compiled with Vulkan, but no real GPU has used it. The <code>.deb</code> declares libvulkan1 and libssl3. It needs an <span class="nobreak">x86-64-v2</span> processor (SSE4.2). Saving a token needs Secret Service; without it, the app should say so, though that has not been tried either.</p>
+<p>Release 0.1.1 has x64 <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.deb"><code>.deb</code></a> (22.4 MB), <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.rpm"><code>.rpm</code></a> (22.3 MB) and <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/Versorium_0.1.1_linux_amd64.AppImage">AppImage</a> (99.0 MB) packages, built on Ubuntu 22.04 (<span class="nobreak">webkit2gtk-4.1</span>).</p>
+<p class="detail">0.1.0’s <code>.deb</code> was tried on Ubuntu 22.04 (amd64): it installed, opened, created a novel without needing git, and typing saved the chapter. That test found that, without the standard XDG folders, the app could not find its projects folder; 0.1.1 fixes it, but has not been run on Linux yet, and neither have the <code>.rpm</code> and the AppImage. The built-in AI is compiled with Vulkan, but it has not yet been tried on a GPU. The <code>.deb</code> declares libvulkan1 and libssl3. It needs an <span class="nobreak">x86-64-v2</span> processor (SSE4.2). Saving a token needs Secret Service; without it, the app should say so, though that has not been tried either.</p>
 </article>
 </div>
-<p class="updates">Every file has its checksum in <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/SHA256SUMS"><code>SHA256SUMS</code></a>. The release notes are on the <a href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0">0.1.0 release page</a>; to hear about the next ones, on GitHub: Watch → Custom → Releases.</p>
+<p class="updates">Every file has its checksum in <a href="https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/SHA256SUMS"><code>SHA256SUMS</code></a>. The release notes are on the <a href="https://github.com/MAECLY/versorium-app/releases/tag/v0.1.1">0.1.1 release page</a>; to hear about the next ones, on GitHub: Watch → Custom → Releases.</p>
 </section>
 
 <section id="why" aria-labelledby="why-t">

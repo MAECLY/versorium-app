@@ -3,7 +3,7 @@
 // comparison-data.mjs says, and the data keeps its own rules:
 //   1. the landing table's shape, columns and links; Versorium's note is the
 //      hero pill's own words, but for naming the release series (v0.1) where
-//      the pill names one release (v0.1.0): every claim in the column holds
+//      the pill names one release (v0.1.1): every claim in the column holds
 //      for the series' newest release, which the data cites;
 //   2. every cell, on every table, equals its data; a dash appears exactly
 //      where the website doesn't say, with its words for screen readers;

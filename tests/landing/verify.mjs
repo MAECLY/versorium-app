@@ -58,7 +58,7 @@
 //   - the head: canonical, hreflang, Open Graph, Twitter, JSON-LD with the
 //     org's Person node byte for byte and the FAQ equal to the page's;
 // and, on the landing page:
-//   - the theme picker, the word gate (≤ 680 visible words, and ≤ 235 in the
+//   - the theme picker, the word gate (≤ 680 visible words, and ≤ 237 in the
 //     comparison, in the browser and in the static count of
 //     audit-wordcount.py), nothing but text above
 //     the fold, the whole app window above the fold on a laptop;
@@ -83,18 +83,18 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 const gate = (name) => !ONLY || ONLY.includes(name);
 const WORD_LIMIT = 680; // 420 until release 0.1.0 added the per-system download list, 435 until the comparison (IV) added its table
 // The comparison may not creep: its own cap, by section id (browser and static counts).
-const SECTION_WORDS = { comparar: 235, compare: 235 };
+const SECTION_WORDS = { comparar: 237, compare: 237 }; // 235 until release 0.1.1: Versorium's note names macOS, Windows and Linux
 const RELEASE = {
-  version: "0.1.0",
-  base: "https://github.com/MAECLY/versorium-app/releases/download/v0.1.0/",
+  version: "0.1.1",
+  base: "https://github.com/MAECLY/versorium-app/releases/download/v0.1.1/",
   installers: [
-    "Versorium_0.1.0_aarch64.dmg",
-    "Versorium_0.1.0_x64.dmg",
-    "Versorium_0.1.0_x64-setup.exe",
-    "Versorium_0.1.0_x64_en-US.msi",
-    "Versorium_0.1.0_amd64.deb",
-    "Versorium-0.1.0-1.x86_64.rpm",
-    "Versorium_0.1.0_amd64.AppImage",
+    "Versorium_0.1.1_apple_silicon.dmg",
+    "Versorium_0.1.1_apple_intel.dmg",
+    "Versorium_0.1.1_windows_x64.exe",
+    "Versorium_0.1.1_windows_x64.msi",
+    "Versorium_0.1.1_linux_amd64.deb",
+    "Versorium_0.1.1_linux_amd64.rpm",
+    "Versorium_0.1.1_linux_amd64.AppImage",
   ],
 };
 const PUBLIC = "https://versorium.maecly.com";
@@ -557,7 +557,7 @@ async function checkHead(page, where, lang, { landing, compare }) {
   for (const t of ["WebSite", "Person", "SoftwareApplication", "FAQPage"]) if (!types.includes(t)) fail(where, `JSON-LD missing ${t}`);
   const app = graph.find((n) => n["@type"] === "SoftwareApplication");
   if (app.license !== "https://www.gnu.org/licenses/agpl-3.0.html") fail(where, "licence URL");
-  // Release 0.1.0 (site spec §5.6.2): its version, and downloadUrl lists its
+  // The release in force, 0.1.1 (site spec §5.6.2): its version, and downloadUrl lists its
   // installers, the very files the download section links to, in order.
   if (app.softwareVersion !== RELEASE.version) fail(where, `softwareVersion ${app.softwareVersion}`);
   const urls = RELEASE.installers.map((name) => RELEASE.base + name);

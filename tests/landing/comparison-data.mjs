@@ -154,10 +154,11 @@ export const APPS = [
   {
     id: "versorium", name: "Versorium", group: "us",
     landing: {
-      // The series, not one release: true of 0.1.0 and of 0.1.1, which came out
-      // hours later (Codex rewrites in the installed app from 0.1.1). The words
+      // The series, not one release: 0.1.0 and 0.1.1, which came out hours
+      // later. Tried on an Apple silicon Mac and on Windows 11 (0.1.0, then the
+      // in-app update to 0.1.1), and on Ubuntu 22.04 (0.1.0's .deb). The words
       // after the version are the hero pill's (compare-parity.mjs, rule 9).
-      note: code("v0.1 · probada solo en macOS", "v0.1 · only tried on macOS", "vs-release", "vs-first"),
+      note: code("v0.1 · probada en macOS, Windows y Linux", "v0.1 · tried on macOS, Windows and Linux", "vs-release", "vs-first"),
       three: { ...code("0 $", "$0", ...VS), calc: "0" }, threeNote: code("código abierto", "open source", "vs-readme"),
       lives: code("Tus archivos, en Markdown", "Your own files, in Markdown", "vs-formats"),
       history: code("Cada minuto, sin caducar; volver aún requiere git", "Every minute, no expiry; going back still needs git", "vs-details", "vs-todo"),
@@ -168,7 +169,7 @@ export const APPS = [
     type: code("Escritorio · novela", "Desktop · novels"),
     price: code("Gratis", "Free", ...VS),
     three: { ...code("0 $", "$0", ...VS), calc: "0" },
-    ai: code("Ninguna, un modelo dentro de la app, Ollama, o Claude Code, Codex u OpenCode con tu propia suscripción", "None, a model inside the app, Ollama, or Claude Code, Codex or OpenCode on your own subscription", ...VS),
+    ai: code("Ninguna, un modelo dentro de la app, Ollama, un servidor local como LM Studio, o Claude Code, Codex u OpenCode con tu propia suscripción", "None, a model inside the app, Ollama, a local server such as LM Studio, or Claude Code, Codex or OpenCode on your own subscription", "vs-release", ...VS),
     account: code("No", "No", "vs-readme"),
     lives: code("Archivos Markdown en una carpeta tuya", "Markdown files in a folder you own", "vs-formats"),
     history: code("Instantánea git cada minuto, antes de que la IA escriba y antes de borrar; registro de cada cambio; sin caducidad. Volver a una, por ahora, con git", "A git snapshot every minute, before AI writes and before a deletion; a log of every change; no expiry. Going back to one needs git, for now", "vs-details", "vs-todo"),
@@ -668,7 +669,7 @@ export const FOUNDING = {
     history: { es: "Historial", en: "History" },
   },
   rows: [
-    { id: "versorium", sub: f("Sí: Claude Code, Codex, OpenCode", "Yes: Claude Code, Codex, OpenCode"), local: f("Sí: integrado y Ollama", "Yes: built in, and Ollama"), mcp: f("Sí: solo lee hasta que lo permitas", "Yes: read-only until you allow writing"), desk: f("Sí", "Yes"), history: f("Git cada minuto y cada cambio", "Git every minute, and every change") },
+    { id: "versorium", sub: f("Sí: Claude Code, Codex, OpenCode", "Yes: Claude Code, Codex, OpenCode"), local: f("Sí: integrado, Ollama o LM Studio", "Yes: built in, Ollama or LM Studio"), mcp: f("Sí: solo lee hasta que lo permitas", "Yes: read-only until you allow writing"), desk: f("Sí", "Yes"), history: f("Git cada minuto y cada cambio", "Git every minute, and every change") },
     { id: "novelengine", sub: f("Sí: Claude Code, Codex", "Yes: Claude Code, Codex"), local: f("Sí: Ollama, llama-server", "Yes: Ollama, llama-server"), mcp: ns(), desk: f("Siete agentes, de la idea al libro", "Seven agents, from pitch to book", "Seven AI agents handle the editorial pipeline"), history: f("Instantáneas, hasta 50 por archivo", "Snapshots, up to 50 per file") },
     { id: "siming", sub: f("Sí: Claude Code, Codex, OpenCode", "Yes: Claude Code, Codex, OpenCode"), local: f("Sí: llama.cpp", "Yes: llama.cpp"), mcp: f("Sí", "Yes", "通过 MCP 读取项目上下文"), desk: f("Sí, en Windows y Android", "Yes, on Windows and Android"), history: f("Instantáneas antes y después de cada capítulo", "Snapshots before and after each chapter") },
     { id: "denova", sub: f("Sí: Codex, Claude Code", "Yes: Codex, Claude Code"), local: ns(), mcp: ns(), desk: f("Sí, para novela y rol", "Yes, for novels and role-play"), history: f("Versiones locales", "Local versions") },
