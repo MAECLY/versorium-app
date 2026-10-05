@@ -711,6 +711,61 @@ an older build stored is kept and nothing reads it.
 - **Dictation.** There is no Whisper pack in `models/catalog.json` (no model
   with `"task": "dictation"`).
 
+### More AI providers: API keys, MCP and assistants (owner, 2026-10-04)
+
+Bring Cursor, Grok, Antigravity, OpenRouter, Devin, Z.ai and Copilot to
+everything Versorium already does with AI. Today that is three paths, and none
+of them takes a key:
+
+- **Assistants** run the writer's own CLI on a passage (Rewrite): Claude Code,
+  Codex, OpenCode (`CLI_HARNESSES` and `detect_binaries` in
+  `src-tauri/src/agents/mod.rs`; the scratch-folder rule from `ae509c6`).
+- **Models on this computer:** built-in llama.cpp, Ollama, a saved local server
+  (LM Studio, llama-server).
+- **Access to your novel (MCP):** Versorium's server registered in Claude Code,
+  Claude Desktop, Codex and OpenCode (`catalog()` in
+  `src-tauri/src/mcp/clients.rs`), read-only unless the writer grants writes.
+
+What each provider could add. **Check every one of these against the
+provider's current docs before building**; this is the request, not research:
+
+| Provider | API key (a new "API" slot kind) | Assistant (CLI) | Access to your novel (MCP client) |
+|---|---|---|---|
+| Cursor | No public model API (check) | `cursor-agent -p` (check the name and flags) | `~/.cursor/mcp.json`, `mcpServers` |
+| Grok (xAI) | xAI API, OpenAI-compatible (`api.x.ai`) | Grok Build, `grok -p` (1.0.46 is on this Mac, per the WHY research) | Grok Build's own config (check) |
+| Antigravity (Google) | Gemini API key (check what Antigravity itself exposes) | Gemini CLI, free with a Google account (WHY research) | Antigravity's MCP config (check where it lives) |
+| OpenRouter | One OpenAI-compatible key for many models (`openrouter.ai/api/v1`) | — | — |
+| Devin | Devin API, by sessions (check whether it can do a one-shot rewrite) | — | Check whether Devin can act as an MCP client; DeepWiki is an MCP server, not a client |
+| Z.ai (GLM) | OpenAI-compatible API; also an Anthropic-compatible endpoint that Claude Code can be pointed at (check) | — | — |
+| Copilot | GitHub Models API with a GitHub token (check limits and terms) | Copilot CLI, `copilot -p` (check) | VS Code / Copilot `mcp.json` (check the path and key: `servers`, not `mcpServers`?) |
+
+What it takes in the app:
+
+- **An "API" slot kind** next to built-in, Ollama, server and CLI
+  (`SlotAssignment` in `src-tauri/src/commands/settings.rs`, dispatch in
+  `agents::rewrite`). One OpenAI-compatible client covers OpenRouter, xAI,
+  Z.ai and most others: base URL, model, key. The model list comes from the
+  provider's `/models` where there is one.
+- **Keys only in the system's credential store**, through `src-tauri/src/secrets`
+  as the updates token is: never in `settings.json`, a log, a crash file or
+  the MCP activity log. A key field shows whether a key is set, never the key.
+- **Say plainly that the passage leaves the computer.** Today's AI paths keep
+  it local or go through a tool the writer already runs; an API key sends it
+  to that company. Same wording rules as the assistants, in both languages,
+  and the landing's "Does my novel leave my computer?" answer must change with
+  it.
+- **More MCP clients** in `catalog()`: each one's config path per OS, JSON or
+  CLI strategy, the backup-before-edit rule, and the same read-only default.
+- **More assistants** in `CLI_HARNESSES` and `detect_binaries`, each run in
+  its own empty scratch folder with whatever flag lets it run outside a
+  repository, and tested live from `/` like the others
+  (`live_detect_and_rewrite_with_installed_agents`).
+- **Continuity** runs only on a model on this computer today; whether it may
+  use an API model is a decision for the owner, not a default.
+- The spec already plans this order: CLI → MCP write-back → API key → local
+  (`PROMPT-VERSORIUM.md` §6, "Grok / xAI" row), and "no BYOK" is listed in its
+  implementation notes.
+
 ## Going public
 
 The recommended order is below. Only two dependencies are hard: the signing
