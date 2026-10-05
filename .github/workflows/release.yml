@@ -383,6 +383,7 @@ jobs:
           release_id=$(gh api --paginate "repos/$REPO/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id" | head -n1)
           test -n "$release_id" || { echo "::error::no release for $GITHUB_REF_NAME"; exit 1; }
           gh api --paginate "repos/$REPO/releases/$release_id/assets" > release-assets.json
+          gh api "repos/$REPO/releases/$release_id" > release.json
           python3 - <<'REWRITE'
           import json, os, sys, urllib.parse
 
@@ -426,6 +427,14 @@ jobs:
               for key in absent:
                   print(f"::error::latest.json has no {key} entry; re-run the build for that platform")
               sys.exit(1)
+
+          # The updater shows `notes` under "What changed". tauri-action fills
+          # it with its own releaseBody (how to install), not the release's
+          # notes, so the notes written on the release page win.
+          with open("release.json") as f:
+              body = (json.load(f).get("body") or "").strip()
+          if body:
+              manifest["notes"] = body
 
           with open("latest.json", "w") as f:
               json.dump(manifest, f, indent=2)

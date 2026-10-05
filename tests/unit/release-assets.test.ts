@@ -469,11 +469,12 @@ describe("finalise, with the new names", () => {
   ];
 
   /** Runs the step's Python as the runner would, in a folder of its own. */
-  function rewrite(platforms: Record<string, string>) {
+  function rewrite(platforms: Record<string, string>, body = "## What's new\n- Something") {
     const dir = resolve(ROOT, `tests/scratch/out/release-finalise-${process.pid}-${seq++}`);
     dirs.push(dir);
     mkdirSync(join(dir, "assets"), { recursive: true });
     writeFileSync(join(dir, "release-assets.json"), JSON.stringify(listing()));
+    writeFileSync(join(dir, "release.json"), JSON.stringify({ body }));
     const manifest = {
       version: VERSION,
       platforms: Object.fromEntries(Object.entries(platforms).map(([key, url]) => [key, { signature: "sig", url }])),
@@ -482,8 +483,13 @@ describe("finalise, with the new names", () => {
     const run = spawnSync("python3", ["-"], { input: SCRIPT, cwd: dir, env: { ...process.env, REPO }, encoding: "utf8" });
     expect(run.error, "python3 runs").toBeUndefined();
     let written: Record<string, { url: string }> | null = null;
-    if (run.status === 0) written = JSON.parse(readFileSync(join(dir, "latest.json"), "utf8")).platforms;
-    return { status: run.status, stdout: run.stdout, stderr: run.stderr, written };
+    let notes: string | null = null;
+    if (run.status === 0) {
+      const out = JSON.parse(readFileSync(join(dir, "latest.json"), "utf8"));
+      written = out.platforms;
+      notes = out.notes ?? null;
+    }
+    return { status: run.status, stdout: run.stdout, stderr: run.stderr, written, notes };
   }
 
   const idOf = (name: string) => listing().find((asset) => asset.name === name)?.id;
@@ -521,6 +527,12 @@ describe("finalise, with the new names", () => {
     const byId = rewrite({ "darwin-aarch64": `${API}1` });
     expect(byId.status).toBe(1);
     expect(byId.stdout).toContain("::error::latest.json names 1 for darwin-aarch64");
+  });
+
+  it("puts the release's own notes in latest.json, which the update dialog shows", () => {
+    expect(rewrite(complete({}), "## What's new in 9.9\n- A fix").notes).toBe("## What's new in 9.9\n- A fix");
+    // An empty release body leaves tauri-action's text rather than blanking it.
+    expect(rewrite(complete({}), "  ").notes).toBeNull();
   });
 
   it("refuses a latest.json that lost a platform, so its updaters are not left behind", () => {
