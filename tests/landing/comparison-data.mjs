@@ -35,8 +35,8 @@ const ns = () => ({ es: null, en: null, s: "ns", src: [] });
     `urlEn`, where there is one, is the same page in English, for the English list. */
 export const SOURCES = {
   "vs-readme": { app: "versorium", url: "https://github.com/MAECLY/versorium-app#readme", es: "README: licencia, sin cuenta ni telemetría", en: "README: licence, no account or telemetry" },
-  "vs-formats": { app: "versorium", url: "https://github.com/MAECLY/versorium-app/blob/main/FORMATS.md", es: "FORMATS.md: exportar e importar", en: "FORMATS.md: export and import" },
-  "vs-todo": { app: "versorium", url: "https://github.com/MAECLY/versorium-app/blob/main/TODO.md", es: "TODO.md: lo que está en la lista", en: "TODO.md: what is on the list" },
+  "vs-formats": { app: "versorium", url: "https://github.com/MAECLY/versorium-app/blob/main/docs/project/FORMATS.md", es: "FORMATS.md: exportar e importar", en: "FORMATS.md: export and import" },
+  "vs-todo": { app: "versorium", url: "https://github.com/MAECLY/versorium-app/blob/main/docs/project/TODO.md", es: "TODO.md: lo que está en la lista", en: "TODO.md: what is on the list" },
   "vs-first": { app: "versorium", url: "https://github.com/MAECLY/versorium-app/releases/tag/v0.1.0", es: "Versión 0.1.0, la primera", en: "Release 0.1.0, the first" },
   // The newest release in the series the landing's note names (compare-parity.mjs warns when a newer one is out).
   "vs-release": { app: "versorium", url: "https://github.com/MAECLY/versorium-app/releases/tag/v0.1.1", es: "Versión 0.1.1, con arreglos", en: "Release 0.1.1, with fixes" },

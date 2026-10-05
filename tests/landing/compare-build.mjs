@@ -64,7 +64,7 @@ export const LANDING_COPY = {
     corner: "Qué se compara",
     rows: ["Tres años<small>lo más barato</small>", "Dónde vive tu novela", "Historial", "IA", "Cuenta y conexión", "En el móvil"],
     ahead: "<b>Donde otras van por delante:</b> sincronizar equipos, escribir a varias manos y volver a una versión desde la app.",
-    better: (n) => `<b>Sigue mejorando:</b> ${n} cambios en tres semanas, y su <a href="${REPO}/blob/main/TODO.md">lista pública</a> incluye restaurar versiones desde la app y respaldos programados.`,
+    better: (n) => `<b>Sigue mejorando:</b> ${n} cambios en tres semanas, y su <a href="${REPO}/blob/main/docs/project/TODO.md">lista pública</a> incluye restaurar versiones desde la app y respaldos programados.`,
     more: '<a href="comparar/">La comparación completa, con sus fuentes <span aria-hidden="true">→</span></a><a href="detalles/#por-que">Por qué existe <span aria-hidden="true">→</span></a>',
   },
   en: {
@@ -75,7 +75,7 @@ export const LANDING_COPY = {
     corner: "What is compared",
     rows: ["Three years<small>cheapest way</small>", "Where your novel lives", "History", "AI", "Account, offline", "On your phone"],
     ahead: "<b>Where others are ahead:</b> syncing devices, writing with other people, and going back to a version inside the app.",
-    better: (n) => `<b>It keeps improving:</b> ${n} changes in its first three weeks, and its <a href="${REPO}/blob/main/TODO.md">public to-do list</a> includes going back to a version inside the app and scheduled backups.`,
+    better: (n) => `<b>It keeps improving:</b> ${n} changes in its first three weeks, and its <a href="${REPO}/blob/main/docs/project/TODO.md">public to-do list</a> includes going back to a version inside the app and scheduled backups.`,
     more: '<a href="compare/">The full comparison, with sources <span aria-hidden="true">→</span></a><a href="details/#why">Why it exists <span aria-hidden="true">→</span></a>',
   },
 };
@@ -222,7 +222,7 @@ const PAGE = {
     better: { h: "Sigue mejorando", p: (r) => `La 0.1.0, la primera versión, salió el 4 de octubre de 2026: ${r.commits} cambios en tres semanas, el primero el 14 de septiembre. La 0.1.1 llegó horas después, con sus primeros arreglos. Lo que viene se escribe a la vista:`, items: [
       "<b>En la lista, ya pensado:</b> ver qué cambió entre dos versiones, como en un editor de código; volver a una versión desde la app; elegir cuándo se hacen los respaldos; notas ancladas en cualquier punto del texto; y escribir las sinopsis.",
       "<b>Especificado, sin empezar:</b> un chat sobre el proyecto, buscar por significado y dictado.",
-    ], tail: `Es la lista de trabajo pendiente, no una promesa con fechas: <a href="${REPO}/blob/main/TODO.md">TODO.md</a> · <a href="${REPO}/releases">versiones</a> · <a href="${REPO}/issues">cuéntanos qué te falta</a>.` },
+    ], tail: `Es la lista de trabajo pendiente, no una promesa con fechas: <a href="${REPO}/blob/main/docs/project/TODO.md">TODO.md</a> · <a href="${REPO}/releases">versiones</a> · <a href="${REPO}/issues">cuéntanos qué te falta</a>.` },
     src: { h: "Fuentes", p: "Todas leídas el 4 de octubre de 2026 en la web de cada fabricante o en su repositorio.", ai: "La IA que quizá ya pagas o usas", date: "4 oct. 2026" },
     method: { h: "Cómo se hizo", p: [
       "Cada precio y cada función salen de la web del fabricante o de su repositorio, leídos el 4 de octubre de 2026 con un navegador: algunas tiendas solo muestran el precio después de cargar. Los precios están en dólares (USD), tal como los mostraba cada tienda, y cambian con el país, los impuestos y las promociones. «Tres años» es nuestra cuenta, con precios de lista.",
@@ -276,7 +276,7 @@ const PAGE = {
     better: { h: "It keeps improving", p: (r) => `v0.1.0, the first release, came out on 4 October 2026: ${r.commits} changes in three weeks, the first on 14 September. v0.1.1 followed hours later, with its first fixes. What comes next is written in plain sight:`, items: [
       "<b>On the list, already thought through:</b> seeing what changed between two versions, as a code editor shows it; going back to a version inside the app; choosing when backups run; notes anchored anywhere in the text; and writing the synopses.",
       "<b>Specified, not started:</b> a chat about the project, search by meaning, and dictation.",
-    ], tail: `It is the list of pending work, not a promise with dates: <a href="${REPO}/blob/main/TODO.md">TODO.md</a> · <a href="${REPO}/releases">releases</a> · <a href="${REPO}/issues">tell us what you miss</a>.` },
+    ], tail: `It is the list of pending work, not a promise with dates: <a href="${REPO}/blob/main/docs/project/TODO.md">TODO.md</a> · <a href="${REPO}/releases">releases</a> · <a href="${REPO}/issues">tell us what you miss</a>.` },
     src: { h: "Sources", p: "All read on 4 October 2026, on each maker’s own website or repository.", ai: "The AI you may already pay for or use", date: "4 Oct 2026" },
     method: { h: "How this was made", p: [
       "Every price and feature comes from the maker’s own website or repository, read on 4 October 2026 in a browser: some shops only show their prices once the page has loaded. Prices are in US dollars, as each shop showed them, and change with country, tax and promotions. “Three years” is our arithmetic, at list prices.",
