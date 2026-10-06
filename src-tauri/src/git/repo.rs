@@ -210,10 +210,19 @@ pub fn branches(root: &Path) -> Result<BranchInfo, String> {
     Ok(BranchInfo { current, branches: list })
 }
 
+/// Create a branch at HEAD and switch to it. Two writes to `.git` (the
+/// branch, then HEAD), so it holds the history lock like a commit: a backup
+/// capturing between them would archive a HEAD naming a branch it does not
+/// hold. Waits as a commit on the main thread does.
 pub fn branch_create(root: &Path, name: &str) -> Result<String, String> {
+    branch_create_waiting(root, name, Wait::Upto(COMMIT_WAIT))
+}
+
+pub fn branch_create_waiting(root: &Path, name: &str, wait: Wait) -> Result<String, String> {
     if name.is_empty() || name.contains('/') {
         return Err("bad_branch".to_string());
     }
+    let _history = RepoLock::acquire(root, wait)?;
     let repo = open(root)?;
     let head = repo
         .head()
@@ -227,7 +236,14 @@ pub fn branch_create(root: &Path, name: &str) -> Result<String, String> {
 }
 
 /// Restore one file from a commit (default HEAD). Used by rollback.
+/// Put one file back as a snapshot (or HEAD) has it. It rewrites a chapter a
+/// backup may be capturing, so it holds the history lock too.
 pub fn checkout_file(root: &Path, file: &str, sha: Option<&str>) -> Result<(), String> {
+    checkout_file_waiting(root, file, sha, Wait::Upto(COMMIT_WAIT))
+}
+
+pub fn checkout_file_waiting(root: &Path, file: &str, sha: Option<&str>, wait: Wait) -> Result<(), String> {
+    let _history = RepoLock::acquire(root, wait)?;
     let repo = open(root)?;
     let commit = match sha {
         Some(s) => repo
@@ -557,6 +573,30 @@ mod tests {
         checkout_file(&root, "a.md", None).unwrap();
         // back at branch tip content
         assert_eq!(fs::read_to_string(root.join("a.md")).unwrap(), "changed\n");
+    }
+
+    #[test]
+    fn a_branch_and_a_restored_file_wait_for_the_history_lock() {
+        // While a backup holds the history, neither writes; once it lets go,
+        // both do what they were asked.
+        let (_dir, root) = tmp_repo();
+        init_with_commit(&root).unwrap();
+        fs::write(root.join("a.md"), "changed\n").unwrap();
+
+        let backup = RepoLock::acquire(&root, Wait::TryOnly).unwrap();
+        assert_eq!(branch_create_waiting(&root, "draft-2", Wait::TryOnly).unwrap_err(), crate::git::lock::BUSY);
+        assert_eq!(
+            checkout_file_waiting(&root, "a.md", None, Wait::TryOnly).unwrap_err(),
+            crate::git::lock::BUSY
+        );
+        assert!(branches(&root).unwrap().branches.iter().all(|b| b != "draft-2"), "branched while held");
+        assert_eq!(fs::read_to_string(root.join("a.md")).unwrap(), "changed\n", "restored while held");
+        drop(backup);
+
+        assert_eq!(branch_create_waiting(&root, "draft-2", Wait::TryOnly).unwrap(), "draft-2");
+        assert_eq!(branches(&root).unwrap().current.as_deref(), Some("draft-2"));
+        checkout_file_waiting(&root, "a.md", None, Wait::TryOnly).unwrap();
+        assert_ne!(fs::read_to_string(root.join("a.md")).unwrap(), "changed\n");
     }
 
     #[test]
