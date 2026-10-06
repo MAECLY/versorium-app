@@ -490,7 +490,8 @@
     }
 
     // Escape peels one layer per press: an open menu (its own handler, which
-    // stops the key before it gets here), then a peek, then Focus. A key
+    // stops the key before it gets here), then Settings, then a peek, then
+    // Focus. A key
     // something else already used is not ours: CodeMirror's search panel,
     // the completion list, collapsing a selection.
     if (event.key !== "Escape" || event.defaultPrevented) return;
@@ -498,6 +499,12 @@
       // Reaching here means focus already left the menu, so its own handler
       // never saw the key. It closes now, and nothing else does.
       closeOpenMenu();
+      return;
+    }
+    if (showSettings) {
+      // Back to writing, as its button does, focus included.
+      event.preventDefault();
+      void closeSettings();
       return;
     }
     if (chrome.peek) {

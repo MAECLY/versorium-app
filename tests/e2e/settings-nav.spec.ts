@@ -274,3 +274,25 @@ test("the rail is translated", async ({ page }) => {
   await expect(nav.getByRole("heading", { level: 2 })).toHaveText("Ajustes");
   await expect(nav.getByRole("button", { name: "← Volver a escribir" })).toBeVisible();
 });
+
+test("Escape closes Settings like its way back, from the rail or from a field", async ({ page }) => {
+  let settings = await openSettings(page);
+  await page.keyboard.press("Escape");
+  await expect(settings).toHaveCount(0);
+  // Focus goes back where the way back sends it: the button that opened Settings.
+  await expect(page.getByRole("banner").getByRole("button", { name: "Settings" })).toBeFocused();
+
+  // From inside a page's field too.
+  await page.getByRole("banner").getByRole("button", { name: "Settings" }).click();
+  settings = page.getByRole("region", { name: "Settings" });
+  await navOf(settings).getByRole("button", { name: "Author", exact: true }).click();
+  const field = settings.getByRole("textbox").first();
+  await field.focus();
+  await page.keyboard.press("Escape");
+  await expect(settings).toHaveCount(0);
+
+  // In Spanish as well: the key is the same, the region's name is not.
+  const ajustes = await openSettings(page, "Ajustes");
+  await page.keyboard.press("Escape");
+  await expect(ajustes).toHaveCount(0);
+});

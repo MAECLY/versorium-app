@@ -285,8 +285,9 @@ test("a right-click on a selected link never gets the engine's menu, which would
   await expect.poll(() => page.evaluate(() => window.__menus.length)).toBe(2);
   expect(await page.evaluate(() => window.__menus[1].prevented)).toBe(false);
   // Nor did the right button open the link: the next one clicked is the first
-  // address the opener hears.
-  await page.keyboard.press("Escape");
+  // address the opener hears. (No Escape to dismiss the engine's menu: a real
+  // one takes that key itself, and here the page would read it as closing
+  // Settings.)
   await link(settings, LINKS[4].href).click();
   await expect.poll(() => opened(page)).toEqual([LINKS[4].href]);
 });
