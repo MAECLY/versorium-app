@@ -535,6 +535,23 @@ describe("finalise, with the new names", () => {
     expect(rewrite(complete({}), "  ").notes).toBeNull();
   });
 
+  it("hashes every file but latest.json, and leaves it for the rewrite that follows", () => {
+    // v0.1.2's finalise failed here: this step deleted assets/latest.json and
+    // the rewrite, tested only on its own, then had nothing to read.
+    const dir = resolve(ROOT, `tests/scratch/out/release-finalise-${process.pid}-${seq++}`);
+    dirs.push(dir);
+    mkdirSync(join(dir, "assets"), { recursive: true });
+    const files = [`Versorium_${VERSION}_apple_silicon.dmg`, `Versorium_${VERSION}_windows_x64.exe`, "with space.deb"];
+    for (const file of files) writeFileSync(join(dir, "assets", file), file);
+    writeFileSync(join(dir, "assets", "latest.json"), "{}");
+    const script = step(WORKFLOW, "Write SHA256SUMS").split("run: |\n")[1].replace(/^ {10}/gm, "");
+    const run = spawnSync("bash", ["-e", "-c", script], { cwd: dir, encoding: "utf8" });
+    expect(run.status, run.stderr).toBe(0);
+    const sums = readFileSync(join(dir, "SHA256SUMS"), "utf8").trim().split("\n");
+    expect(sums.map((line) => line.replace(/^[0-9a-f]{64} [ *]?/, ""))).toEqual([...files].sort());
+    expect(readFileSync(join(dir, "assets", "latest.json"), "utf8")).toBe("{}");
+  });
+
   it("refuses a latest.json that lost a platform, so its updaters are not left behind", () => {
     const all = complete({});
     expect(rewrite(all).status).toBe(0);

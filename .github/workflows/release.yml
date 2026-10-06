@@ -371,8 +371,10 @@ jobs:
       - name: Write SHA256SUMS
         run: |
           cd assets
-          rm -f SHA256SUMS latest.json
-          sha256sum -- * > ../SHA256SUMS
+          rm -f SHA256SUMS
+          # latest.json is rewritten by the next step, so it is not hashed, but
+          # it stays: that step reads it from here.
+          for f in *; do [ "$f" = latest.json ] || printf '%s\0' "$f"; done | xargs -0 sha256sum -- > ../SHA256SUMS
           cat ../SHA256SUMS
 
       # A private repository does not serve
