@@ -51,6 +51,12 @@
           "libvulkan1",
           "libssl3"
         ]
+      },
+      "rpm": {
+        "depends": [
+          "libvulkan.so.1()(64bit)",
+          "libssl.so.3()(64bit)"
+        ]
       }
     },
     "macOS": {
