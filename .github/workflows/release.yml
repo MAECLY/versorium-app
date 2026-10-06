@@ -366,7 +366,7 @@ jobs:
         run: |
           cd assets
           rm -f SHA256SUMS latest.json
-          sha256sum * > ../SHA256SUMS
+          sha256sum -- * > ../SHA256SUMS
           cat ../SHA256SUMS
 
       # A private repository does not serve
