@@ -13,7 +13,7 @@
   --bg-elev: #f7f1e6;
   --border: #d4cbb8;
   --text: #2c261c;
-  --text-mute: #6f675a;
+  --text-mute: #696155;
   --accent: #3d5a45;
   --accent-contrast: #f7f1e6;
   --sel: #e2d3a8;
@@ -61,7 +61,7 @@
   --bg-elev: #fffffb;
   --border: #d9d6cf;
   --text: #1a1a18;
-  --text-mute: #6b6964;
+  --text-mute: #676561;
   --accent: #2a6f6a;
   --accent-contrast: #fffffb;
   --sel: #d3e4e2;
@@ -879,7 +879,8 @@ input[type="number"] {
 }
 
 /* The rail and the lip: one ordinary button each, labelled in --text, which
-   holds AA where --text-mute does not (4.2:1 on --bg-app in Folio Light).
+   holds AA with room to spare (--text-mute holds it too since 2026-10-06, at
+   4.6:1 on --bg-app in Folio Light).
    Under the panel in paint order: a folding panel fades out over its edge,
    and an inert one is clicked through (inert hit-tests as pointer-events:
    none). */
@@ -1006,9 +1007,10 @@ input[type="number"] {
 /* ------------------------------------------------------------ Settings
 
    The rail: four labelled categories and a footer (Settings redesign SPEC
-   §2). The title and the labels are --text: --text-mute on --bg-app is
+   §2). The title and the labels are --text: --text-mute on --bg-app was
    4.21:1 in Folio light and 4.40:1 in Quarry light, under AA, and the old
-   "SETTINGS" title was exactly that. The page you are on is --sel with a 3px
+   "SETTINGS" title was exactly that (both mutes are darker since
+   2026-10-06: 4.61:1 and 4.66:1). The page you are on is --sel with a 3px
    --accent bar on its leading edge, the way .v-list-item-active marks the
    open chapter; an --accent fill is left for each page's one primary action.
    No margins on classes a heading also gets utilities on: these rules are
