@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { gotoMock } from "./mock-page";
 
 // The projects-and-chapters panel and the top bar fold away and come back,
 // and Focus is a toggle with a menu choosing which of them it hides
@@ -793,7 +794,9 @@ test("on Windows and Linux the chords are Ctrl+Shift", async ({ page }) => {
 });
 
 test("Focus is not restored at launch", async ({ page }) => {
-  await page.goto("/?mock=tauri&seed=1&legacyFocus=1");
+  // gotoMock waits for the mock: it is imported inside boot(), which can end
+  // after the load event, and the control below reads it straight away.
+  await gotoMock(page, "/?mock=tauri&seed=1&legacyFocus=1");
   // Control: the file really says Focus was on.
   expect(await page.evaluate(() => window.__VERSORIUM_MOCK__.settings.focusMode)).toBe(true);
   await page.getByRole("button", { name: /^Continue/ }).click();
