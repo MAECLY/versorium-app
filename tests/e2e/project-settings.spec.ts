@@ -118,6 +118,34 @@ test("the closing page's preview is in the novel's language, and follows the pic
   await expect(settings.getByText("Open exports with a title page")).toBeVisible();
 });
 
+test("the closing page's preview carries the profile's publisher and rights, as the export writes them", async ({
+  page,
+}) => {
+  await page.goto("/?mock=tauri");
+  await page.getByRole("button", { name: "Create your first novel" }).click();
+  const create = page.getByRole("dialog", { name: "New project" });
+  await create.getByLabel("Title").fill("El largo invierno");
+  await create.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".cm-content")).toBeVisible();
+  // The dialog reads the author profile when it opens.
+  await page.evaluate(() => {
+    window.__VERSORIUM_MOCK__.settings.authorProfiles.work = {
+      name: "Ana Ruiz",
+      sortAs: "",
+      role: "",
+      organization: "Editorial Norte",
+      rights: "© 2026 Ana Ruiz",
+    };
+  });
+  await page.getByRole("button", { name: "Actions for the novel El largo invierno" }).click();
+  await page.getByRole("menuitem", { name: "Project settings…" }).click();
+  const card = page.getByRole("dialog", { name: "Project" }).locator(".v-card[lang]");
+
+  await expect(card.getByText("Author: Ana Ruiz", { exact: true })).toBeVisible();
+  await expect(card.getByText("Publisher: Editorial Norte", { exact: true })).toBeVisible();
+  await expect(card.getByText("Rights: © 2026 Ana Ruiz", { exact: true })).toBeVisible();
+});
+
 /** The page's editable text, and a mark on it that a rebuilt editor would not carry. */
 async function markEditor(page: Page) {
   const content = page.locator(".cm-content");

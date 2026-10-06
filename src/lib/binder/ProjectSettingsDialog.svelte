@@ -173,6 +173,10 @@
             <b>{labels.heading}</b>
             <div>{labels.title}: {project?.meta.title}</div>
             {#if byline}<div>{labels.author}: {byline}</div>{/if}
+            <!-- The profile's publisher and rights, as `colophon_lines` writes
+                 them when they are set, and the cover preview shows them. -->
+            {#if profile?.organization?.trim()}<div>{labels.publisher}: {profile.organization}</div>{/if}
+            {#if profile?.rights?.trim()}<div>{labels.rights}: {profile.rights}</div>{/if}
             <div>{labels.language}: {language}</div>
             <div>{labels.chapters}: {project?.chapters.length ?? 0}</div>
             <!-- Bare digits, as the export writes the count: grouped by the
