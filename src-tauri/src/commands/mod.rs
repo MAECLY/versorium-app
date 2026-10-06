@@ -3,6 +3,7 @@ pub mod backup;
 pub mod chapters;
 pub mod formats;
 pub mod git;
+pub mod gpu;
 pub mod llama;
 pub mod mcp;
 pub mod models;

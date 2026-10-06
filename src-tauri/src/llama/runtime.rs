@@ -75,6 +75,17 @@ static BACKEND: OnceLock<Result<LlamaBackend, String>> = OnceLock::new();
 /// `warm_up` exists and why the UI has a "preparing" state — without it the
 /// first rewrite of a session appears to hang.
 pub fn backend() -> Result<&'static LlamaBackend, String> {
+    // Nothing reaches llama.cpp before the GPU check allows it: its Vulkan
+    // backend opens the loader as it starts (src/gpu/mod.rs). Checked before
+    // the cell, so a refusal is not kept as a failure once a later check
+    // passes.
+    if BACKEND.get().is_none() {
+        crate::gpu::allows_engine()?;
+        // vulkan-1.dll is delay-loaded on Windows: bound here, under SEH, so a
+        // loader that vanished since the check is an error, not a crash.
+        #[cfg(all(windows, target_env = "msvc", feature = "vulkan"))]
+        crate::gpu::bind_vulkan().map_err(|code| format!("{LOAD_FAILED} vulkan-1.dll {code:#x}"))?;
+    }
     match BACKEND.get_or_init(|| {
         LlamaBackend::init().map_err(|e| format!("{LOAD_FAILED} {e}")).map(|mut b| {
             // ggml logs a wall of device and kernel detail to stderr. A desktop
@@ -135,6 +146,11 @@ pub struct BackendState {
 
 pub fn backend_state() -> BackendState {
     match BACKEND.get() {
+        // Not started because this computer cannot start it, which waiting
+        // will not change: the status modal says why.
+        None if crate::gpu::allows_engine().is_err_and(|e| e == crate::gpu::UNAVAILABLE) => {
+            BackendState { state: "unavailable".into(), device: None, gpu_offload: false }
+        }
         None => BackendState { state: "warming".into(), device: None, gpu_offload: false },
         Some(Err(_)) => BackendState { state: "failed".into(), device: None, gpu_offload: false },
         Some(Ok(backend)) => BackendState {

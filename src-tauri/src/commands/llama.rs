@@ -48,7 +48,7 @@ mod tests {
     fn the_backend_reports_a_state_the_ui_can_branch_on() {
         let state = llama_backend();
         assert!(
-            ["warming", "ready", "failed"].contains(&state.state.as_str()),
+            ["warming", "ready", "failed", "unavailable"].contains(&state.state.as_str()),
             "unexpected backend state: {}",
             state.state
         );

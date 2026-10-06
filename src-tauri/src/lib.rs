@@ -10,6 +10,7 @@ mod crash;
 mod fonts;
 mod formats;
 mod git;
+mod gpu;
 mod llama;
 mod ops;
 mod mcp;
@@ -30,6 +31,11 @@ pub fn run() {
     // Records a scrubbed crash file locally. Nothing is sent: spec §12.
     crash::install_panic_hook();
 
+    // `versorium --gpu-probe`: what Vulkan sees, printed for the app that
+    // started this process to read (src/gpu/child.rs). No window.
+    if let Some(code) = gpu::child::parse_cli(std::env::args()) {
+        std::process::exit(code);
+    }
     // `versorium mcp` serves stdio instead of opening a window (spec §7/§13).
     if let Some(options) = mcp::parse_cli(std::env::args()) {
         std::process::exit(mcp::serve_stdio(options));
@@ -57,7 +63,9 @@ pub fn run() {
             // compiles the embedded Metal shaders, measured at ~15 s on an M4
             // Max, so paying it here makes it invisible unless somebody asks
             // for a rewrite in the first few seconds of a session.
-            llama::warm_up();
+            // Behind the GPU check on Windows and Linux (src/gpu/mod.rs);
+            // straight to warm-up on macOS, where it is Metal.
+            gpu::start();
 
             // Cmd+Q and the Dock's Quit wait for the last save (quit.rs).
             quit::install(app.handle());
@@ -162,6 +170,8 @@ pub fn run() {
             commands::models::models_cancel,
             commands::models::models_delete,
             commands::models::models_progress,
+            commands::gpu::gpu_readiness,
+            commands::gpu::gpu_check_again,
             commands::llama::llama_backend,
             commands::llama::llama_progress,
             commands::llama::llama_cancel,

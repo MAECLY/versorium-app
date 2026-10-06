@@ -335,7 +335,7 @@ jobs:
       # The installer cannot bring the Visual C++ redistributable, so the app
       # must not need it. Runs after the upload, but the release is a draft:
       # a red job here stops it being published.
-      - name: No Visual C++ runtime DLLs (Windows)
+      - name: No Visual C++ runtime DLLs, Vulkan delay-loaded (Windows)
         if: startsWith(matrix.platform, 'windows')
         shell: pwsh
         run: |
@@ -344,6 +344,12 @@ jobs:
           $deps = & $dumpbin.FullName /dependents "$env:CARGO_TARGET_DIR\release\versorium.exe"
           $deps
           if ($deps -match '(?i)(msvcp|vcruntime)\d+') { Write-Error "versorium.exe needs the Visual C++ runtime"; exit 1 }
+          # vulkan-1.dll must be delay-loaded (build.rs): as a load-time import,
+          # Windows refuses to start the app on a computer without Vulkan.
+          $text = $deps -join "`n"
+          $normal, $delayed = $text -split 'Image has the following delay load dependencies:'
+          if ($normal -match '(?i)vulkan-1\.dll') { Write-Error "vulkan-1.dll is a load-time import; the app would not start without the Vulkan loader"; exit 1 }
+          if ($delayed -notmatch '(?i)vulkan-1\.dll') { Write-Error "vulkan-1.dll is not among the delay-load imports"; exit 1 }
 
   # Everything the spec asks for that tauri-action does not do: a SHA256SUMS
   # asset, and a latest.json whose URLs a private repository can actually serve.
