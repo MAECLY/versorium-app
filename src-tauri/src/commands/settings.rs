@@ -404,11 +404,35 @@ pub struct SettingsStore {
     inner: RwLock<Settings>,
 }
 
+/// Read a settings file key by key: a key whose value does not parse keeps its
+/// default, and every other key is kept.
+///
+/// A derived read refuses the whole file over one bad value, and the store
+/// then fell back to defaults for everything, theme, backups and MCP grants
+/// included: a hand-edited `"editorFont": 5` cost the writer all of it.
+/// `editor` and `layout` are lenient inside as well (their own `Deserialize`).
+/// A file that is not JSON, or not an object, still reads as the defaults.
+pub(crate) fn parse_leniently(text: &str) -> Settings {
+    let Ok(serde_json::Value::Object(file)) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Settings::default();
+    };
+    let Ok(serde_json::Value::Object(mut kept)) = serde_json::to_value(Settings::default()) else {
+        return Settings::default();
+    };
+    for (key, value) in file {
+        let mut candidate = kept.clone();
+        candidate.insert(key.clone(), value.clone());
+        if serde_json::from_value::<Settings>(serde_json::Value::Object(candidate)).is_ok() {
+            kept.insert(key, value);
+        }
+    }
+    serde_json::from_value(serde_json::Value::Object(kept)).unwrap_or_default()
+}
+
 impl SettingsStore {
     pub fn load(path: PathBuf) -> Self {
-        let mut settings: Settings = fs::read_to_string(&path)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
+        let mut settings = fs::read_to_string(&path)
+            .map(|text| parse_leniently(&text))
             .unwrap_or_default();
         // One destination became a list. Without this, an install that was
         // already backing up would come back with backups off and no reason
@@ -529,6 +553,41 @@ pub(crate) fn apply_patch(s: &mut Settings, patch: &serde_json::Value) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn one_mistyped_key_keeps_its_default_and_costs_nothing_else() {
+        // A hand edit: the face as a number, the channel as null.
+        let text = r#"{
+            "theme": "quarry",
+            "editorFont": 5,
+            "updateChannel": null,
+            "backupDirs": ["/Volumes/Backup"],
+            "mcpWriteClients": ["claude-code"]
+        }"#;
+        let read = parse_leniently(text);
+        let defaults = Settings::default();
+        assert_eq!(read.theme, "quarry");
+        assert_eq!(read.backup_dirs, vec!["/Volumes/Backup".to_string()]);
+        assert_eq!(read.mcp_write_clients, vec!["claude-code".to_string()]);
+        assert_eq!(read.editor_font, defaults.editor_font, "the bad value falls back alone");
+        assert_eq!(read.update_channel, defaults.update_channel);
+        // Not JSON, or not an object: the defaults, as before.
+        assert_eq!(parse_leniently("not json").theme, defaults.theme);
+        assert_eq!(parse_leniently("[1, 2]").theme, defaults.theme);
+    }
+
+    #[test]
+    fn a_well_formed_file_reads_exactly_as_a_strict_read_does() {
+        let written = Settings {
+            theme: "needle".into(),
+            editor_font: "source-serif-4".into(),
+            studio_port: 1234,
+            ..Default::default()
+        };
+        let text = serde_json::to_string(&written).unwrap();
+        let strict: Settings = serde_json::from_str(&text).unwrap();
+        assert_eq!(serde_json::to_value(parse_leniently(&text)).unwrap(), serde_json::to_value(strict).unwrap());
+    }
+
     use super::*;
 
     #[test]
