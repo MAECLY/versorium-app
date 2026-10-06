@@ -28,8 +28,8 @@ The shared primitives exist in `src/lib/components/forms/` — `Field`,
 `AuthorSection.svelte`, `ProjectSettingsDialog.svelte`, the backup retention
 count in `BackupGroup.svelte`, every control on Settings → Tasks, Models,
 Access to your novel and Activity (`src/lib/settings/groups/`,
-`src/lib/settings/models/`) and the import's language picker in
-`ManuscriptDialog.svelte`.
+`src/lib/settings/models/`) and the language pickers of the import
+(`ManuscriptDialog.svelte`), New project and the welcome guide.
 
 The stylesheet (`src/styles.css`) already fixes how every native control
 *looks*, component or not: accent colour on checkboxes and radios, no
@@ -42,15 +42,15 @@ carried their status inside the `<label>`, "Censorship — On" and "Allow
 write — Read-only", went with the Settings redesign: one is "Show uncensored
 models", the other a button and a dialog.)
 
-Still hand-written, 17 control tags in 11 files:
+Still hand-written, 15 control tags in 11 files:
 
 | File | Controls |
 |---|---|
 | `src/lib/components/ManuscriptDialog.svelte` | 3 |
 | `src/lib/settings/UpdatesSection.svelte` | 2 |
-| `src/lib/onboarding/Onboarding.svelte` | 2 |
+| `src/lib/onboarding/Onboarding.svelte` | 1 |
 | `src/lib/components/GitPanel.svelte` | 2 |
-| `src/lib/binder/NewProjectDialog.svelte` | 2 |
+| `src/lib/binder/NewProjectDialog.svelte` | 1 |
 | `src/lib/settings/groups/BackupGroup.svelte` | 1 |
 | `src/lib/settings/groups/AppearanceGroup.svelte` | 1 |
 | `src/lib/settings/groups/AppGroup.svelte` | 1 |
@@ -252,16 +252,6 @@ webviews and a real server are still to be checked by hand:
   (D7): they are fixed when in-app restore lands.
 - **Hand-written controls outside Settings' AI pages:** `RewriteDialog.svelte`
   (its model picker) and `ManuscriptDialog.svelte` (three), in the table above.
-- **`.v-section-title` (`--text-mute`, small capitals) is still used outside
-  Settings** (the binder's PROJECTS and CHAPTERS, the corkboard, dialogs). Its
-  contrast on `--bg-app` is 4.21:1 in Folio light and 4.40:1 in Quarry light
-  by the token math, under AA; measured in the rail only.
-- **Contrast outside Settings, measured by the verifiers:** the "· in use"
-  inside the pressed Author profile button (`AuthorSection.svelte`, a
-  `.v-muted` span in the button) is about 1.05 to 1.45:1 in all six themes;
-  the status bar's chapter and word count ("ch-01 · Novela 1", "0 words") are
-  4.21:1 in Folio light and 4.40:1 in Quarry light, the same figures as
-  `--text-mute` on `--bg-app` by the token math.
 
 ### Choose when the backup runs
 
@@ -326,21 +316,12 @@ do:
   own action no longer does this: New project, New chapter, the tour and
   Project settings say their failure inside, and Rename and Delete close
   before they run.
-- **An error raised on the Settings page covers the foot of the form** until
-  it is closed: at 1100×640 the stack sits over the third backup card's path
-  and part of Author's "Publisher or company". The manuscript keeps room for
-  the stack (`--v-notes-room`); the Settings page could do the same.
 - **The words of a background failure** say why and not what: a save, the
   change log and the minute's snapshot that fail on a full disk all say "File
   system error.". The owner's call: a line per source ("The chapter was not
   saved. …"), which would also stop them sharing one box.
 - **A notice keeps the language it was raised in** until it goes. The
   contract carries text, not a key (backup schedule SPEC §6.3).
-- **Save snapshot says nothing when it works.** A transient "Snapshot
-  saved." would be the first confirmation the status bar's own button gives.
-- **Copy:** "Nothing to roll back here." answers a button labelled "↩
-  Restore"; the Spanish says "restaurar" for both. "Nothing to restore here."
-  in the next copy pass.
 - **Scheduled backups (Phase 1)** report through `notices.show`, `dismiss`
   and `close`, with ids `backup:<kind>:<project>:<dest>`; the adapter
   (`src/lib/backup/notices.ts`) is theirs to write. Where the module is
@@ -400,11 +381,6 @@ gate) and in Playwright's WebKit; the real webviews are still to be checked:
 - **The corkboard still rebuilds the editor**: the status bar's Corkboard
   swaps it out (`{#if corkboard}` in `App.svelte`), with the same loss of the
   undo history, the selection and Restore's session that Settings had.
-- **Typography in Spanish reads "System serif · system"**: the row shows the
-  catalogue's `family` and `license` as they are written, in English. The
-  system faces want names of their own in both languages (keyed by catalogue
-  id, falling back to `family`), and "system" a translated license label;
-  "Source Serif 4" and "OFL-1.1" are names and stay.
 - **Restore on a word typed key by key takes back its last letter only.**
   `RollbackHistory.take` undoes the latest change inside the word, and the
   editor records one change per key, so a typed word needs a press per
@@ -412,13 +388,6 @@ gate) and in Playwright's WebKit; the real webviews are still to be checked:
   status bar's hint promises the word. `tests/e2e/bars.spec.ts` accepts
   either outcome, and the Settings specs insert their words whole. Seen in
   Playwright's Chrome while writing the Settings test for Restore.
-- **A hand-edited `editorFont` that is not a string** (a number, `null`)
-  costs the whole settings.json, going by the code: serde rejects the file
-  and `SettingsStore::load` falls back to every default, not only the face's.
-  The same holds for any mistyped key outside the `editor` and `layout`
-  blocks, the two read leniently. Not run. The mock does not mirror it
-  (`?persist=1` merges what it reads with `Object.assign`, keeping the other
-  keys, and answers the default face); no spec depends on either.
 
 ### Collapsible binder and top bar: the checks no automation reaches
 
@@ -581,14 +550,6 @@ writes it back (`STATUS.md`, 2026-10-04). What is left:
   seconds later. Project settings' preview of the closing page adds up the
   binder's counts, so for a novel with scene headings it says more words
   than the page the export writes. One counter for all three.
-- **New project offers the languages in another order, from a list of its
-  own.** `NewProjectDialog.svelte` hardcodes Español then English;
-  `Onboarding.svelte` keeps its own `LANGUAGES` (English, Español); Project
-  settings and the import use `NOVEL_LANGUAGES` and `languageOptions` in
-  `src/lib/i18n/languages.ts`. All four are called "Manuscript language" now
-  (`dialog.language`). Both older ones are hand-written controls (the table
-  above); moving them to `Select` with `languageOptions("")` gives one list
-  in one order.
 
 ## Specified, not started
 

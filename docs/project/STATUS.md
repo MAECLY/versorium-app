@@ -2903,3 +2903,24 @@ installs a release is the part that needs the public repository and the tag.
   disagree.
 - **Escape closes Settings**, after an open menu and before a peek and Focus.
 - **"Focus is not restored at launch"** waits for the mock (`gotoMock`).
+
+## Eight more short fixes (2026-10-06)
+
+- **"Nothing to restore here."** answers the Restore button (the Spanish
+  already said "restaurar").
+- **The status bar's Save snapshot says "Snapshot saved."** for five seconds,
+  under the id that also takes a previous failure's place.
+- **Settings leaves room for the notices stack** below its last field, as the
+  manuscript does, so an error raised there no longer covers the foot of the
+  form.
+- **"in use" on the pressed Author profile button** takes the button's own
+  colour (it was 1.05 to 1.45:1).
+- **Typography names the system faces in the writer's language** ("Serif del
+  sistema · del sistema"); Source Serif 4 and OFL-1.1 stay.
+- **One language list, in one order,** for New project, the welcome guide,
+  Project settings and the import (`Select` with `languageOptions`).
+- **One mistyped key no longer resets every setting:** `settings.json` is
+  read key by key, and a bad value keeps its default alone.
+- **`--text-mute` holds AA in every theme:** Folio light `#696155` and Quarry
+  light `#676561` (4.61:1 and 4.66:1 at worst), in the app and the landing;
+  `text-mute-contrast.test.ts` holds all six themes to it.
