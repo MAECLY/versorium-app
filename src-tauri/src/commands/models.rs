@@ -275,19 +275,21 @@ pub async fn ollama_remove(state: tauri::State<'_, SettingsStore>, name: String)
 
 #[tauri::command]
 pub async fn studio_test(host: String, port: u16) -> Result<bool, String> {
+    studio_answers(&host, port).await
+}
+
+/// The probe Test connection makes: the one Save and the tasks make
+/// (`agents::server_status`), so the two cannot disagree. It used to allow 5
+/// seconds and drop an IPv6 literal's brackets, so a server answering in 3
+/// seconds tested as answering and saved as not, and `::1` could not be
+/// tested at all.
+async fn studio_answers(host: &str, port: u16) -> Result<bool, String> {
     let host = host.trim();
     if host.is_empty() {
         return Err("bad_args".into());
     }
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .map_err(|_| "network".to_string())?;
-    // The OpenAI-compatible shape LM Studio and llama-server both serve.
-    match client.get(format!("http://{host}:{port}/v1/models")).send().await {
-        Ok(response) => Ok(response.status().is_success()),
-        Err(_) => Ok(false),
-    }
+    let server = crate::agents::LocalServer { host: host.to_string(), port };
+    Ok(crate::agents::server_status(&server).await.0)
 }
 
 /// Save the local server (`enabled`), or forget it. The answer says, once
@@ -418,6 +420,37 @@ fn set_slot_in(
 
 #[cfg(test)]
 mod tests {
+    /// Test connection asks the way Save does: an IPv6 literal, brackets
+    /// added, and a closed port says no rather than failing.
+    #[test]
+    fn test_connection_reaches_an_ipv6_loopback_and_says_no_to_a_closed_port() {
+        use std::io::{Read, Write};
+        let block = |f| tauri::async_runtime::block_on(f);
+        let server = crate::agents::tests::FakeServer::start(&["qwen"], "ok");
+        assert_eq!(block(studio_answers("127.0.0.1", server.server.port)), Ok(true));
+        assert_eq!(block(studio_answers("  ", server.server.port)), Err("bad_args".to_string()));
+
+        let Ok(listener) = std::net::TcpListener::bind("[::1]:0") else {
+            eprintln!("no IPv6 loopback here; skipped");
+            return;
+        };
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let body = r#"{"data":[]}"#;
+                let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            }
+        });
+        assert_eq!(block(studio_answers("::1", port)), Ok(true));
+        assert_eq!(block(studio_answers("[::1]", port)), Ok(true));
+        drop(server);
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        assert_eq!(block(studio_answers("127.0.0.1", closed)), Ok(false));
+    }
+
 
     /// The frontend reads these keys by name. serde's camelCase is not always
     /// what a human would write — `ram_hint_gb` becomes `ramHintGb`, not
