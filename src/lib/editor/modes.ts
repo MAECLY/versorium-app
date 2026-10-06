@@ -58,7 +58,14 @@ function typewriterScroller(): Extension {
     view.requestMeasure({
       read(v) {
         const head = v.state.selection.main.head;
-        return { lineTop: v.lineBlockAt(head).top, height: v.scrollDOM.clientHeight };
+        const scroller = v.scrollDOM;
+        // A block's top counts from the start of the document, which sits
+        // below the content's top padding: TYPEWRITER_HEAD, two thirds of
+        // the viewport. Measured from the scroller instead, the padding is
+        // in it. Without this, past the first screen the line rode that much
+        // lower than the anchor, under the window's edge.
+        const documentTop = v.documentTop - scroller.getBoundingClientRect().top + scroller.scrollTop;
+        return { lineTop: documentTop + v.lineBlockAt(head).top, height: scroller.clientHeight };
       },
       write({ lineTop, height }, v) {
         if (height <= 0) return;
