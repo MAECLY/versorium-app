@@ -90,12 +90,16 @@ test("Restore acts on the selection, or on the word under the cursor", async ({ 
   await expect(bar.getByRole("button", { name: /↩ Word/ })).toHaveCount(0);
   await expect(bar.getByRole("button", { name: /↩ Selection/ })).toHaveCount(0);
 
-  // And it has a key, since it no longer sits in the header.
+  // And it has a key, since it no longer sits in the header. With the caret
+  // inside a word typed key by key, the whole word goes in one press: the
+  // editor records a change per key, and Restore joins a word's keys.
   await page.locator(".cm-content").click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Control+Alt+r");
-  // Either it restored something or it said there was nothing to restore; what
-  // matters is that the shortcut is wired at all.
-  await expect(page.locator(".cm-content")).toContainText("El faro");
+  await expect(page.locator(".cm-content")).toContainText("El faro giraba .");
+  await expect(page.locator(".cm-content")).not.toContainText("despacio");
 });
 
 test("both bars are translated", async ({ page }) => {
