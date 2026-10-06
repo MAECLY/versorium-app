@@ -2881,3 +2881,25 @@ installs a release is the part that needs the public repository and the tag.
   `requireSignedVersion` decision.
 - **`actionlint` is clean:** `sha256sum -- *` in `release.yml` (SC2035); the
   names in `SHA256SUMS` stay bare, as the app's lookup needs.
+
+## Nine more short fixes (2026-10-06)
+
+- **Ollama's answers lose their reasoning block** (`<think>…</think>`), as the
+  built-in engine's and the local server's do, before Rewrite or Continuity
+  reads them.
+- **The welcome guide speaks like Settings:** "this computer", "assistants",
+  "the change", in English and Spanish.
+- **"← Back to writing" / "← Volver a escribir"** replaces "Back to the
+  manuscript", which shared its word with the top bar's Manuscript dialog.
+- **The page is one textbox, named "Chapter text" / "Texto del capítulo"**
+  on CodeMirror's editable area, following the interface's language; the
+  wrapper is no longer a second textbox named "Chapters".
+- **The closing page's preview shows the profile's publisher and rights**, as
+  the export writes them.
+- **The page is set only in a body face:** `set_editor_font` refuses the
+  chrome's and the counters' faces, and a stored one reads as the default.
+- **Test connection asks the local server the way Save does**
+  (`agents::server_status`), so `::1` can be tested and the two cannot
+  disagree.
+- **Escape closes Settings**, after an open menu and before a peek and Focus.
+- **"Focus is not restored at launch"** waits for the mock (`gotoMock`).

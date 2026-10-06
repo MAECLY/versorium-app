@@ -183,13 +183,6 @@ Neither is a real webview or a real release:
 
 - ~~The Linux files said `ubuntu`~~: the owner chose `…_linux_amd64[ext]` (2026-10-04), which fits the `.rpm` and the AppImage too.
 - ~~`finalise` did not check that every platform is in `latest.json`~~: it now fails when darwin-aarch64, darwin-x86_64, windows-x86_64 or linux-x86_64 is missing.
-- **The tests of this build are untracked**: `git status` shows
-  `tests/unit/about-group.render.test.ts`, `external.test.ts`,
-  `release-assets.test.ts`, `opener-acl.test.ts`, `settings-pages.test.ts`,
-  `settings-keys.test.ts` (and eight more unit tests from earlier builds),
-  `tests/e2e/settings-about.spec.ts`, `tests/e2e/opener-acl.ts` and
-  `src-tauri/tests/opener_scope.rs` as `??`. `make verify` runs them; CI runs
-  only what is committed, so they go in the feature's commit.
 - **A writer cannot copy an About address** without the browser failing
   first: a link is not text to the right-click policy (deliberately), a drag
   across it selects nothing, and a select-all copy carries the hidden "(opens
@@ -253,59 +246,22 @@ webviews and a real server are still to be checked by hand:
 
 ### Found while building the Settings redesign, not part of it
 
-- **Author profiles are never saved in the desktop app.** Settings → Author
-  saves with `set_settings({ authorProfiles, authorProfile })`, but
-  `apply_patch` (`src-tauri/src/commands/settings.rs`) has no arm for either
-  key and no other command writes `author_profiles`, so every edit is dropped
-  while the page says "Saved.", and exports keep the empty default profile.
-  Older than the redesign (`aabe369`); the E2E tests miss it because the
-  mock's `set_settings` takes any shape. The fix: validated
-  `authorProfiles` (trimmed, field by field) and `authorProfile`
-  (`work` | `hobby`) arms, and a Rust test that sends AuthorSection's exact
-  patch through `apply_patch` and reads it back.
 - **ES `ai.checkpointNote` still says "punto de control"**, and it, together
   with `git.commitHint` and `binder.confirm.chapterBody`, still promises a
   roll-back the app cannot do yet. Left as they are by the owner's decision
   (D7): they are fixed when in-app restore lands.
 - **Hand-written controls outside Settings' AI pages:** `RewriteDialog.svelte`
   (its model picker) and `ManuscriptDialog.svelte` (three), in the table above.
-- **`docs/llms.txt` and `docs/en/details/index.html` still name "Local AI" and
-  "Assistants"**; they need the new page names once the landing work releases
-  `docs/`.
 - **`.v-section-title` (`--text-mute`, small capitals) is still used outside
   Settings** (the binder's PROJECTS and CHAPTERS, the corkboard, dialogs). Its
   contrast on `--bg-app` is 4.21:1 in Folio light and 4.40:1 in Quarry light
   by the token math, under AA; measured in the rail only.
-- **Ollama's answer is not cleaned of a reasoning block**: the built-in
-  engine and the new local-server path take a `<think>…</think>` out of a
-  model's reply before it can reach a chapter
-  (`llama::runtime::strip_reasoning`); `agents::ollama_generate` does not.
-  Whether Ollama sends one depends on the model and on Ollama's version; not
-  checked.
-- **Test connection and Save ask the server differently.** `studio_test`
-  allows 5 seconds and builds its URL without brackets, so an IPv6 address
-  such as `::1` cannot be tested; Save and the tasks go through
-  `agents::server_status` (2 seconds, brackets added). A server that answers
-  in 3 seconds would test as "Answered." and save as "Saved · not answering".
-  One probe for both would settle it.
-- **A finding's kind was shown raw** ("contradiction", "note") by the old
-  continuity runner, in both languages. Manuscript → Continuity translates it
-  now (`continuity.kinds.*`); recorded because the old surface shipped that
-  way.
 - **Contrast outside Settings, measured by the verifiers:** the "· in use"
   inside the pressed Author profile button (`AuthorSection.svelte`, a
   `.v-muted` span in the button) is about 1.05 to 1.45:1 in all six themes;
   the status bar's chapter and word count ("ch-01 · Novela 1", "0 words") are
   4.21:1 in Folio light and 4.40:1 in Quarry light, the same figures as
   `--text-mute` on `--bg-app` by the token math.
-- **Onboarding still says "this machine" and "agent tools"**
-  (`onboarding.step.machine`, `machineUnknown`, `agentsNone`,
-  `firstSceneBody`, `replayHint`), where Settings now says "this computer" and
-  "assistants".
-- **`chrome.spec.ts`, "Focus is not restored at launch"**, reads
-  `window.__VERSORIUM_MOCK__` straight after `page.goto`, the race the
-  Settings specs had: the mock is imported inside `boot()`, which can end
-  after the load event. `gotoMock` (`tests/e2e/mock-page.ts`) waits for it.
 
 ### Choose when the backup runs
 
@@ -444,25 +400,11 @@ gate) and in Playwright's WebKit; the real webviews are still to be checked:
 - **The corkboard still rebuilds the editor**: the status bar's Corkboard
   swaps it out (`{#if corkboard}` in `App.svelte`), with the same loss of the
   undo history, the selection and Restore's session that Settings had.
-- **Settings has no Escape**, and opened with a click on its top-bar button
-  keeps focus on that button (WebKit drops it, and App now moves it to the
-  group Settings opens on).
-- **`set_editor_font` takes any catalogue id**, the `ui` and `mono` faces
-  included, which Typography never offers: settings naming one render the
-  page in it with no row marked (the sample paragraph follows the page, so
-  the panel at least shows the face in use). And `fonts/catalog.json` says
-  `system-ui` is "offered for writers who prefer a sans page", while its
-  `ui` role keeps it out of Typography.
 - **Typography in Spanish reads "System serif · system"**: the row shows the
   catalogue's `family` and `license` as they are written, in English. The
   system faces want names of their own in both languages (keyed by catalogue
   id, falling back to `family`), and "system" a translated license label;
   "Source Serif 4" and "OFL-1.1" are names and stay.
-- **"Manuscript" names two things while Settings is open**: "← Back to the
-  manuscript" / "← Volver al manuscrito" (`settings.backToWriting`) returns
-  to the page, and the top bar's "Manuscript" / "Manuscrito", in view beside
-  it, opens the separate Manuscript dialog. One of them wants another word,
-  such as "← Back to the page", or "Back to writing" as the key itself says.
 - **Restore on a word typed key by key takes back its last letter only.**
   `RollbackHistory.take` undoes the latest change inside the word, and the
   editor records one change per key, so a typed word needs a press per
@@ -470,9 +412,6 @@ gate) and in Playwright's WebKit; the real webviews are still to be checked:
   status bar's hint promises the word. `tests/e2e/bars.spec.ts` accepts
   either outcome, and the Settings specs insert their words whole. Seen in
   Playwright's Chrome while writing the Settings test for Restore.
-- **The manuscript's editing host is named "Chapters"**
-  (`role="textbox"` and `aria-label={t("binder.chapters")}` in
-  `MarkdownEditor.svelte`).
 - **A hand-edited `editorFont` that is not a string** (a number, `null`)
   costs the whole settings.json, going by the code: serde rejects the file
   and `SettingsStore::load` falls back to every default, not only the face's.
@@ -650,9 +589,6 @@ writes it back (`STATUS.md`, 2026-10-04). What is left:
   (`dialog.language`). Both older ones are hand-written controls (the table
   above); moving them to `Select` with `languageOptions("")` gives one list
   in one order.
-- **The closing page's preview leaves out the publisher and rights rows**
-  that `colophon_lines` writes when the author profile has them. The title
-  page preview beside it shows both.
 
 ## Specified, not started
 
