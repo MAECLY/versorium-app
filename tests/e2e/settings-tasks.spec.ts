@@ -218,7 +218,7 @@ test("Tasks is translated", async ({ page }) => {
 
 /** A novel open with a sentence selected, ready for Rewrite. */
 async function selectALine(page: Page, text: string): Promise<void> {
-  await page.getByRole("button", { name: "← Back to the manuscript" }).click();
+  await page.getByRole("button", { name: "← Back to writing" }).click();
   const editor = page.locator(".cm-content");
   await editor.click();
   await page.keyboard.type(text);
@@ -385,7 +385,7 @@ test("a server saved at another computer's address is said to be elsewhere, ever
     page.getByText("That address is not this computer: a passage given to its models leaves this computer for it."),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "← Back to the manuscript" }).click();
+  await page.getByRole("button", { name: "← Back to writing" }).click();
   await page.locator(".cm-content").click();
   await page.keyboard.type("Lejos.");
   await page.keyboard.press("Shift+Home");

@@ -411,7 +411,7 @@ test("Back up now saves what is on the page before it backs up", async ({ page }
   await withProject(page);
   const backup = await openBackup(page);
   await backup.getByRole("button", { name: "Use this" }).first().click();
-  await page.getByRole("button", { name: "← Back to the manuscript" }).click();
+  await page.getByRole("button", { name: "← Back to writing" }).click();
 
   // Time stops, so the editor's 800 ms save cannot run: whatever is on disk
   // when the backup starts is there because the press put it there.

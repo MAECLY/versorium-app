@@ -722,7 +722,7 @@ test("text keeps the platform's menu", async ({ page }) => {
   await settings.getByRole("button", { name: "Application" }).click();
   // Pasting a token is the reason this menu matters most.
   await native(settings.getByPlaceholder("GitHub token"), "a token password field");
-  await settings.getByRole("button", { name: "← Back to the manuscript" }).click();
+  await settings.getByRole("button", { name: "← Back to writing" }).click();
 
   // The editor is locked while a chapter switch is in flight.
   await addChapter(page, "Segundo");

@@ -50,7 +50,7 @@ async function openSettings(page: Page): Promise<void> {
 }
 
 async function backToManuscript(page: Page): Promise<void> {
-  await settings(page).getByRole("button", { name: "← Back to the manuscript" }).click();
+  await settings(page).getByRole("button", { name: "← Back to writing" }).click();
   await expect(settings(page)).toHaveCount(0);
   await expect(content(page)).toBeVisible();
 }
@@ -456,7 +456,7 @@ test("the Focus keys from Settings close it, and the caret comes back with its h
 test("with no chapter to go back to, closing Settings puts focus on the button that opened it", async ({ page }) => {
   await page.goto("/?mock=tauri");
   await openSettings(page);
-  await settings(page).getByRole("button", { name: "← Back to the manuscript" }).click();
+  await settings(page).getByRole("button", { name: "← Back to writing" }).click();
   await expect(settings(page)).toHaveCount(0);
   await expect(page.getByRole("banner").getByRole("button", { name: "Settings" })).toBeFocused();
 });
@@ -475,7 +475,7 @@ test("with no chapter to go back to and the top bar folded, closing Settings put
   await expect(page.getByRole("banner").getByRole("button", { name: "Settings" })).toHaveCount(0);
   // From the keyboard, which moves focus onto Back in either engine; Back
   // goes with Settings, so focus would otherwise fall to <body>.
-  await settings(page).getByRole("button", { name: "← Back to the manuscript" }).focus();
+  await settings(page).getByRole("button", { name: "← Back to writing" }).focus();
   await page.keyboard.press("Enter");
   await expect(settings(page)).toHaveCount(0);
   await expect(lip).toBeFocused();
@@ -562,7 +562,7 @@ test("a notice already up when Settings opens leaves the scroll where the writer
 
   await page.getByRole("banner").getByRole("button", { name: "Settings" }).click();
   await expect(page.getByRole("region", { name: "Settings" })).toBeVisible();
-  await page.getByRole("region", { name: "Settings" }).getByRole("button", { name: "← Back to the manuscript" }).click();
+  await page.getByRole("region", { name: "Settings" }).getByRole("button", { name: "← Back to writing" }).click();
   await page.waitForTimeout(300);
   const after = await noticeGeometry(page);
   expect(after.scrollTop, "the round trip moved the page the writer left").toBe(before.scrollTop);

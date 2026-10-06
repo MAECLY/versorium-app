@@ -603,7 +603,7 @@ test("a backup press whose save failed says so beside the button, not in the sta
   await settings.getByRole("button", { name: "History & backup" }).click();
   const backup = settings.getByRole("region", { name: "Backup" });
   await backup.getByRole("button", { name: "Use this" }).first().click();
-  await settings.getByRole("button", { name: "← Back to the manuscript" }).click();
+  await settings.getByRole("button", { name: "← Back to writing" }).click();
 
   await failing(page, "save_chapter", "io");
   await typeInManuscript(page, "Lo último.");

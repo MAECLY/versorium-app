@@ -89,7 +89,7 @@ async function onPlatform(page: Page, platform: "MacIntel" | "Linux x86_64"): Pr
 }
 
 async function backToManuscript(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /^← (Back to the manuscript|Volver al manuscrito)/ }).click();
+  await page.getByRole("button", { name: /^← (Back to writing|Volver a escribir)/ }).click();
   await expect(page.locator(".cm-content")).toBeVisible();
 }
 

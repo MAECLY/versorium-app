@@ -89,12 +89,12 @@ test("every page is reachable with Tab, and arrows only move focus", async ({ pa
     await page.keyboard.press("Tab");
   }
   expect(stops).toEqual(PAGES);
-  await expect(page.getByRole("button", { name: "← Back to the manuscript" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "← Back to writing" })).toBeFocused();
 });
 
 test("in the shortest window the whole rail fits, the way back included", async ({ page }) => {
   // tauri.conf.json's minimum window. Eleven pages ran 24px past the room
-  // here and cut "← Back to the manuscript" in half.
+  // here and cut "← Back to writing" in half.
   await page.setViewportSize({ width: 1024, height: 640 });
   const nav = navOf(await openSettings(page));
   const fit = await nav.evaluate((el) => {
@@ -272,5 +272,5 @@ test("the rail is translated", async ({ page }) => {
     "Acerca de",
   ]);
   await expect(nav.getByRole("heading", { level: 2 })).toHaveText("Ajustes");
-  await expect(nav.getByRole("button", { name: "← Volver al manuscrito" })).toBeVisible();
+  await expect(nav.getByRole("button", { name: "← Volver a escribir" })).toBeVisible();
 });
