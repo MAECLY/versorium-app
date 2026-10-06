@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Select from "$lib/components/forms/Select.svelte";
+  import { languageOptions } from "$lib/i18n/languages";
   import { t } from "$lib/i18n";
   import { isTauri } from "$lib/tauri";
   import Modal from "$lib/components/Modal.svelte";
@@ -13,8 +15,6 @@
   } from "$lib/onboarding/state.svelte";
 
   let { onClose }: { onClose: () => void } = $props();
-
-  const LANGUAGES = ["en", "es"] as const;
 
   let titles = $derived(templateChapterKeys(onboarding.template).map((key) => t(key)));
 
@@ -108,16 +108,14 @@
           disabled={onboarding.created || onboarding.busy}
         />
       </label>
-      <label class="mt-3 flex flex-col gap-1" style="font-size: 13px;">
-        {t("dialog.language")}
-        <span class="v-select">
-        <select bind:value={onboarding.language} disabled={onboarding.created || onboarding.busy}>
-          {#each LANGUAGES as code (code)}
-            <option value={code}>{t(`languages.${code}`)}</option>
-          {/each}
-        </select>
-        </span>
-      </label>
+      <div class="mt-3">
+        <Select
+          label={t("dialog.language")}
+          bind:value={onboarding.language}
+          options={languageOptions("")}
+          disabled={onboarding.created || onboarding.busy}
+        />
+      </div>
       {#if onboarding.created}
         <p class="m-0 mt-2" style="font-size: 12px; color: var(--ok);">
           {t("onboarding.projectCreated")}

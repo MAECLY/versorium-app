@@ -323,3 +323,30 @@ test("picking a regional language back during a write sends it once, not forever
   expect(sent2, "writes stopped").toBe(sent);
   expect(sent2).toBeLessThanOrEqual(2);
 });
+
+test("New project, the welcome guide and Project settings offer the languages from one list, in one order", async ({
+  page,
+}) => {
+  const optionsOf = (picker: Locator) => picker.locator("option").allTextContents();
+  // New project, as the first novel is made.
+  await page.goto("/?mock=tauri");
+  await page.getByRole("button", { name: "Create your first novel" }).click();
+  const create = page.getByRole("dialog", { name: "New project" });
+  const offered = await optionsOf(create.getByLabel("Manuscript language"));
+  await page.keyboard.press("Escape");
+
+  // Project settings: the list Project settings and the import share.
+  const settings = await openProjectSettings(page);
+  const expected = await optionsOf(settings.getByLabel("Manuscript language"));
+  expect(expected).toEqual(["English", "Español"]);
+  expect(offered).toEqual(expected);
+
+  // The welcome guide's last step, on a fresh install.
+  await page.goto("/?mock=tauri&fresh=1");
+  const tour = page.getByRole("dialog", { name: "Welcome to Versorium" });
+  const language = tour.getByLabel("Manuscript language");
+  for (let step = 0; step < 5 && !(await language.isVisible()); step += 1) {
+    await tour.getByRole("button", { name: "Next" }).click();
+  }
+  expect(await optionsOf(language)).toEqual(expected);
+});

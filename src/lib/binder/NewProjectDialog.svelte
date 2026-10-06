@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Select from "$lib/components/forms/Select.svelte";
+  import { languageOptions } from "$lib/i18n/languages";
   import { store } from "$lib/binder/store.svelte";
   import { t, getLocale } from "$lib/i18n";
   import Modal from "$lib/components/Modal.svelte";
@@ -37,15 +39,8 @@
       />
     </label>
 
-    <label class="flex flex-col gap-1" style="font-size: 13px;">
-      {t("dialog.language")}
-      <span class="v-select">
-      <select bind:value={language}>
-        <option value="es">{t("languages.es")}</option>
-        <option value="en">{t("languages.en")}</option>
-      </select>
-      </span>
-    </label>
+    <!-- The one list, in the one order, Project settings and the import use. -->
+    <Select label={t("dialog.language")} bind:value={language} options={languageOptions("")} />
 
     {#if error}<p role="alert" class="m-0">{error}</p>{/if}
 
