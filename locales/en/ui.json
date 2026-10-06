@@ -859,17 +859,17 @@
     "steps": "Setup steps",
     "stepOf": "Step {step} of {total}",
     "step": {
-      "machine": "This machine",
+      "machine": "This computer",
       "agents": "What we found",
       "project": "Your novel",
       "template": "A shape to start from",
       "firstScene": "The first scene"
     },
     "machineSummary": "{ram} of memory and {cores} cores: models up to {size} fit comfortably.",
-    "machineUnknown": "Versorium could not read this machine's memory. You can still pick a model later.",
+    "machineUnknown": "Versorium could not read this computer's memory. You can still choose a model later.",
     "machineHint": "Nothing is downloaded here. Models are chosen in Settings, when you want them.",
     "agentsHint": "Versorium uses the AI tools you already have. Each keeps its own login — no keys are stored here.",
-    "agentsNone": "No agent tools were found. Versorium works without them; you can add one later.",
+    "agentsNone": "No assistants were found. Versorium works without them; you can add one later.",
     "projectHint": "A novel is a plain folder on your disk, keeping its own history from the first save.",
     "projectCreated": "Created. Your novel is on disk and under version control.",
     "templateHint": "A structure only seeds chapter titles. Versorium never writes prose you did not ask for.",
@@ -911,8 +911,8 @@
         "4": "Ketsu — Conclusion"
       }
     },
-    "firstSceneBody": "That is everything. Your manuscript is Markdown on your disk, and it never leaves this machine unless you send it somewhere.",
-    "rewriteHint": "Select a passage and press Rewrite to hand it to an agent. You see the diff before anything changes.",
+    "firstSceneBody": "That is everything. Your manuscript is Markdown on your disk, and it never leaves this computer unless you send it somewhere.",
+    "rewriteHint": "Select a passage and press Rewrite to hand it to an assistant. You see the change before it is applied.",
     "createProject": "Create it",
     "useTemplate": "Use this",
     "next": "Next",
@@ -922,7 +922,7 @@
     "working": "Working…",
     "none": "Setup runs inside the desktop app.",
     "replay": "Show the guide again",
-    "replayHint": "The short tour from the first run: this machine, what it found, and a novel to start from."
+    "replayHint": "The short tour from the first run: this computer, what it found, and a novel to start from."
   },
   "typography": {
     "intro": "What the editor renders your prose in.",

@@ -859,17 +859,17 @@
     "steps": "Pasos de configuración",
     "stepOf": "Paso {step} de {total}",
     "step": {
-      "machine": "Esta máquina",
+      "machine": "Este equipo",
       "agents": "Lo que encontramos",
       "project": "Tu novela",
       "template": "Una forma para empezar",
       "firstScene": "La primera escena"
     },
     "machineSummary": "{ram} de memoria y {cores} núcleos: caben con holgura los modelos de hasta tamaño {size}.",
-    "machineUnknown": "Versorium no pudo leer la memoria de esta máquina. Igual puedes elegir un modelo después.",
+    "machineUnknown": "Versorium no pudo leer la memoria de este equipo. Igual puedes elegir un modelo después.",
     "machineHint": "Aquí no se descarga nada. Los modelos se eligen en Ajustes, cuando los quieras.",
     "agentsHint": "Versorium usa las IAs que ya tienes. Cada una conserva su propia sesión: aquí no se guarda ninguna clave.",
-    "agentsNone": "No encontramos ninguna herramienta de agente. Versorium funciona sin ellas; puedes añadir una después.",
+    "agentsNone": "No encontramos ningún asistente. Versorium funciona sin ellos; puedes añadir uno después.",
     "projectHint": "Una novela es una carpeta normal en tu disco, con su propio historial desde el primer guardado.",
     "projectCreated": "Creada. Tu novela está en disco y bajo control de versiones.",
     "templateHint": "Una estructura solo siembra títulos de capítulo. Versorium nunca escribe prosa que no pediste.",
@@ -911,8 +911,8 @@
         "4": "Ketsu — Conclusión"
       }
     },
-    "firstSceneBody": "Eso es todo. Tu manuscrito es Markdown en tu disco, y no sale de esta máquina salvo que tú lo envíes a algún sitio.",
-    "rewriteHint": "Selecciona un pasaje y pulsa Reescribir para pasárselo a un agente. Ves el diff antes de que cambie nada.",
+    "firstSceneBody": "Eso es todo. Tu manuscrito es Markdown en tu disco, y no sale de este equipo salvo que tú lo envíes a algún sitio.",
+    "rewriteHint": "Selecciona un pasaje y pulsa Reescribir para pasárselo a un asistente. Ves el cambio antes de que se aplique.",
     "createProject": "Crearla",
     "useTemplate": "Usar esta",
     "next": "Siguiente",
@@ -922,7 +922,7 @@
     "working": "Trabajando…",
     "none": "La configuración corre dentro de la app de escritorio.",
     "replay": "Ver la guía otra vez",
-    "replayHint": "El recorrido corto de la primera vez: esta máquina, lo que encontró, y una novela por la que empezar."
+    "replayHint": "El recorrido corto de la primera vez: este equipo, lo que encontró, y una novela por la que empezar."
   },
   "typography": {
     "intro": "Con qué letra te muestra el editor tu prosa.",
