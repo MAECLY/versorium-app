@@ -766,6 +766,42 @@ What it takes in the app:
   (`PROMPT-VERSORIUM.md` §6, "Grok / xAI" row), and "no BYOK" is listed in its
   implementation notes.
 
+### Choose the model an assistant uses (owner, 2026-10-05)
+
+An assistant runs with whatever model its CLI defaults to: a slot stores
+`{ kind: "cli", id: "claude" }` and nothing more (`SlotAssignment` in
+`src-tauri/src/commands/settings.rs`), and `CLI_HARNESSES` in
+`src-tauri/src/agents/mod.rs` passes no model flag. The writer should pick
+the model per assistant, the way a model is picked for Ollama or the local
+server: for Claude Code, Fable 5.1, Opus 5.5, Sonnet 5.5 and the others the
+writer's plan includes; the same for Codex, OpenCode and every assistant added
+by "More AI providers" above (Cursor, Grok Build, Gemini CLI, Copilot CLI…).
+
+**Check against each CLI's current docs before building**; this is the
+request, not research:
+
+- **The flag.** Claude Code `--model <alias|id>`, Codex `-m`/`--model`,
+  OpenCode `--model provider/model` (check each, and whether aliases like
+  `opus`/`sonnet` or full ids are what they accept).
+- **The list.** Where each CLI can say which models the writer's account can
+  use (a command, a config file, or nothing — then a short curated list per
+  CLI with "Default" first, and a free-text field for an id the list does not
+  know). Never assume a plan includes a model: a model the account cannot use
+  must fail as a clear message, not as "the agent did not answer".
+
+What it takes in the app:
+
+- `SlotAssignment` gains an optional model for `cli` slots (absent = the
+  CLI's own default, which is today's behaviour, so old settings keep
+  working); `apply_patch` and the settings test cover it.
+- `cli_rewrite` adds the harness's model flag only when a model is set, and
+  the live test (`live_detect_and_rewrite_with_installed_agents`) runs each
+  harness once with its default and once with a named model.
+- Settings → Tasks → Rewrite (and Assistants): a model picker under the
+  assistant, in both languages, saying which model will answer.
+- The MCP activity log and the rewrite dialog name the model that answered,
+  with the assistant.
+
 ## Going public
 
 The recommended order is below. Only two dependencies are hard: the signing
