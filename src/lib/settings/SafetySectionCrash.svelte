@@ -3,6 +3,7 @@
   import { t } from "$lib/i18n";
   import { api, isTauri, type CrashEntry } from "$lib/tauri";
   import { errorMessage } from "$lib/i18n/errors";
+  import { openExternal } from "$lib/external";
 
   let crashes = $state<CrashEntry[]>([]);
   let busy = $state(false);
@@ -36,15 +37,20 @@
     }
   }
 
+  /** The report whose browser did not open, so its card shows the address to copy. */
+  let notOpened = $state<string | null>(null);
+
   /// Spec §12: Report opens the browser. Nothing is sent until they do.
+  /// Through the same opener as About's links: https only, and a refusal is
+  /// said on the card instead of vanishing.
   async function openIssue(id: string): Promise<void> {
     const url = reportUrl[id];
     if (!url) return;
-    if (isTauri()) {
-      const { openUrl } = await import("@tauri-apps/plugin-opener");
-      await openUrl(url);
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
+    try {
+      await openExternal(url);
+      notOpened = null;
+    } catch {
+      notOpened = id;
     }
   }
 
@@ -66,6 +72,7 @@
       await api.crashClear();
       crashes = [];
       reportUrl = {};
+      notOpened = null;
     } catch (e) {
       error = errorMessage(e);
     } finally {
@@ -135,6 +142,11 @@
                 {copied === crash.id ? t("crash.copied") : t("crash.copyLink")}
               </button>
             </div>
+            {#if notOpened === crash.id}
+              <p role="alert" class="m-0 mt-2" style="font-size: 12px; line-height: 1.6; color: var(--warn);">
+                {t("links.openFailed")} <span class="v-mono-select" style="overflow-wrap: anywhere;">{reportUrl[crash.id]}</span>
+              </p>
+            {/if}
             <p class="v-muted m-0 mt-1" style="font-size: 11px;">{t("crash.reviewHint")}</p>
           {:else}
             <button

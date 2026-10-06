@@ -74,6 +74,34 @@ test("a crash report carries no manuscript and is not sent on its own", async ({
   expect(await page.evaluate(() => window.__VERSORIUM_MOCK__.calls.some((c) => c.cmd === "crash_report_url"))).toBe(false);
 });
 
+test("Report opens the issue in the browser, and a browser that does not open shows the address", async ({ page }) => {
+  await withProject(page);
+  const settings = await openSettings(page, "Application");
+  const crash = settings.getByRole("region", { name: "Crash reports" });
+  await crash.getByRole("button", { name: "Report" }).first().click();
+  const open = crash.getByRole("button", { name: "Open an issue" });
+  await expect(open).toBeVisible();
+
+  // Through the opener and its https scope, the way About's links go.
+  await open.click();
+  await expect
+    .poll(() => page.evaluate(() => window.__VERSORIUM_MOCK__.browser.at(-1) ?? ""))
+    .toBe("https://github.com/mock/versorium-app/issues/new?title=crash&body=redacted");
+  await expect(crash.getByRole("alert")).toHaveCount(0);
+
+  // A browser that will not open is said on the card, with the address to copy.
+  await page.evaluate(() => (window.__VERSORIUM_MOCK__.failures["plugin:opener|open_url"] = "no browser"));
+  await open.click();
+  const alert = crash.getByRole("alert");
+  await expect(alert).toContainText("Your browser could not be opened. The address is:");
+  await expect(alert).toContainText("https://github.com/mock/versorium-app/issues/new?title=crash&body=redacted");
+
+  // Once it opens again, the line goes.
+  await page.evaluate(() => delete window.__VERSORIUM_MOCK__.failures["plugin:opener|open_url"]);
+  await open.click();
+  await expect(alert).toHaveCount(0);
+});
+
 /** Manuscript › Continuity, from the top bar. */
 async function openContinuity(page: Page) {
   await page.getByRole("banner").getByRole("button", { name: "Manuscript" }).click();
