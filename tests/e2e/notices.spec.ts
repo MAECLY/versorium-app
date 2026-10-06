@@ -147,7 +147,7 @@ test("a snapshot that fails stays until the writer closes it, once however often
   const snapshot = statusBar(page).getByRole("button", { name: "Save snapshot" });
 
   await snapshot.click();
-  const words = "A backup is reading the novel's history. Try again in a moment.";
+  const words = "Something else is using the novel's history right now: a backup, bringing changes from GitHub, or an assistant's change. Try again in a moment.";
   const error = notice(page, words);
   await expect(error).toBeVisible();
   await expect(assertive(page)).toHaveText(words);
