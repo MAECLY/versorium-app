@@ -2948,3 +2948,16 @@ now measures the line from the document's place in the scroller
 had looked right only because the scroll clamps at zero there.
 `tests/e2e/typewriter.spec.ts` types past a screen and walks back up; without
 the fix it reads 0.935.
+
+## Restore takes the whole word (2026-10-06)
+
+A word typed key by key went back a letter per press of Restore, though the
+status bar promises the word: the editor records a change per key, and
+`RollbackHistory.take` undoes the latest change inside the word.
+`RollbackHistory.record` (`src/lib/git/rollback.ts`) now joins a key that
+carries on the latest edit within the same word, typed or erased with
+Backspace, so a typed word, an erased word and a word replaced by typing all
+come back in one press. A space, a jump or a paste starts a new edit, which
+keeps every edit inside one word. `src/lib/git/rollback.test.ts` is the
+class's first unit test; `tests/e2e/bars.spec.ts` requires the whole word to
+go.

@@ -361,13 +361,6 @@ gate) and in Playwright's WebKit; the real webviews are still to be checked:
 - **The corkboard still rebuilds the editor**: the status bar's Corkboard
   swaps it out (`{#if corkboard}` in `App.svelte`), with the same loss of the
   undo history, the selection and Restore's session that Settings had.
-- **Restore on a word typed key by key takes back its last letter only.**
-  `RollbackHistory.take` undoes the latest change inside the word, and the
-  editor records one change per key, so a typed word needs a press per
-  letter; a word that arrived in one insertion (a paste) goes at once. The
-  status bar's hint promises the word. `tests/e2e/bars.spec.ts` accepts
-  either outcome, and the Settings specs insert their words whole. Seen in
-  Playwright's Chrome while writing the Settings test for Restore.
 
 ### Collapsible binder and top bar: the checks no automation reaches
 
