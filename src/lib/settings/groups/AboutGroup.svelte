@@ -84,7 +84,11 @@
   <p class="m-0 mt-1" style="font-size: 12.5px;">
     <ExternalLink href={links.cla} onopen={opened} onfail={notOpened}>{t("settings.about.readCla")}</ExternalLink>
   </p>
-  {@render failure([links.license, links.cla])}
+  <p class="m-0 mt-3" style="font-size: 13px; line-height: 1.6;">{t("settings.about.notices")}</p>
+  <p class="m-0 mt-1" style="font-size: 12.5px;">
+    <ExternalLink href={links.notices} onopen={opened} onfail={notOpened}>{t("settings.about.readNotices")}</ExternalLink>
+  </p>
+  {@render failure([links.license, links.cla, links.notices])}
 </section>
 
 <!-- Outside the desktop app there is no updater, and Application says so. -->

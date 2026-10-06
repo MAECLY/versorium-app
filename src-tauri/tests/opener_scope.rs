@@ -170,6 +170,7 @@ fn the_page_may_open_its_https_addresses_in_the_browser() {
         REPOSITORY.to_string(),
         format!("{REPOSITORY}/blob/main/LICENSE"),
         format!("{REPOSITORY}/blob/main/CLA.md"),
+        format!("{REPOSITORY}/blob/main/THIRD-PARTY-NOTICES.md"),
         format!("{REPOSITORY}/releases"),
         // A crash report's Report (crash::report_url): a query, encoded.
         format!("{REPOSITORY}/issues/new?title=Crash%3A%20index%20out%20of%20bounds&body=Versorium%200.1.0%0A%60%60%60"),

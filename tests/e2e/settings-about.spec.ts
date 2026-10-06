@@ -44,6 +44,11 @@ const LINKS = [
     es: "Lee el CLA en GitHub (se abre en tu navegador)",
   },
   {
+    href: `${REPO}/blob/main/THIRD-PARTY-NOTICES.md`,
+    en: "Read the third-party notices on GitHub (opens in your browser)",
+    es: "Lee los avisos de terceros en GitHub (se abre en tu navegador)",
+  },
+  {
     href: `${REPO}/releases`,
     en: "See the releases on GitHub (opens in your browser)",
     es: "Mira las versiones en GitHub (se abre en tu navegador)",
@@ -102,7 +107,7 @@ function asked(page: Page): Promise<string[]> {
 const content = (page: Page) => page.locator("#settings-page-title").locator("xpath=../..");
 
 /** The section each link sits in, by its heading, in page order (LINKS). */
-const SECTION_OF = [0, 0, 0, 1, 1, 2];
+const SECTION_OF = [0, 0, 0, 1, 1, 1, 2];
 
 const link = (settings: Locator, href: string) => settings.locator(`a[href="${href}"]`);
 

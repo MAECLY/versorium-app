@@ -29,6 +29,7 @@ const LINKS = [
   { text: "github.com/MAECLY/versorium-app", href: "https://github.com/MAECLY/versorium-app", name: "github.com/MAECLY/versorium-app (opens in your browser)" },
   { text: "Read the license on GitHub", href: "https://github.com/MAECLY/versorium-app/blob/main/LICENSE", name: "Read the license on GitHub (opens in your browser)" },
   { text: "Read the CLA on GitHub", href: "https://github.com/MAECLY/versorium-app/blob/main/CLA.md", name: "Read the CLA on GitHub (opens in your browser)" },
+  { text: "Read the third-party notices on GitHub", href: "https://github.com/MAECLY/versorium-app/blob/main/THIRD-PARTY-NOTICES.md", name: "Read the third-party notices on GitHub (opens in your browser)" },
   { text: "See the releases on GitHub", href: "https://github.com/MAECLY/versorium-app/releases", name: "See the releases on GitHub (opens in your browser)" },
 ];
 
@@ -94,9 +95,10 @@ it("links to the author, the website, the code, the license, the CLA and the rel
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
     expect(link.getAttribute("draggable")).toBe("false");
   }
-  // The two documents the license links name are in this repository.
+  // The documents the license section links are in this repository, at its root.
   expect(existsSync(resolve(process.cwd(), "LICENSE"))).toBe(true);
   expect(existsSync(resolve(process.cwd(), "CLA.md"))).toBe(true);
+  expect(existsSync(resolve(process.cwd(), "THIRD-PARTY-NOTICES.md"))).toBe(true);
 });
 
 it("names every link by its words, then says it opens the browser", async () => {
@@ -148,6 +150,7 @@ const SECTIONS = [
   "about-versorium-title",
   "about-license-title",
   "about-license-title",
+  "about-license-title",
   "about-updates-title",
 ];
 
@@ -194,7 +197,8 @@ it("outside the desktop app has no version to show and no updater to point at", 
   expect(api.appInfo).not.toHaveBeenCalled();
   expect(target.querySelector('[data-about="version"]')?.textContent).toBe("—");
   expect(target.querySelector("#about-updates-title")).toBeNull();
-  expect(links()).toHaveLength(5);
+  // Every link but the releases one, which sits in the updates section.
+  expect(links()).toHaveLength(LINKS.length - 1);
 });
 
 it("names the repository the updater is compiled to read", () => {

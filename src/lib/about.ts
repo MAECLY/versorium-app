@@ -19,6 +19,7 @@ export const ABOUT = {
     repository: REPOSITORY,
     license: `${REPOSITORY}/blob/main/LICENSE`,
     cla: `${REPOSITORY}/blob/main/CLA.md`,
+    notices: `${REPOSITORY}/blob/main/THIRD-PARTY-NOTICES.md`,
     releases: `${REPOSITORY}/releases`,
   },
 } as const;

@@ -537,6 +537,8 @@
       "readLicense": "Lee la licencia en GitHub",
       "cla": "Las contribuciones se aceptan bajo el acuerdo de licencia para colaboradores (CLA).",
       "readCla": "Lee el CLA en GitHub",
+      "notices": "Versorium se apoya en software libre hecho por otras personas. Sus licencias y avisos están reunidos en un archivo.",
+      "readNotices": "Lee los avisos de terceros en GitHub",
       "updatesTitle": "De dónde vienen las actualizaciones",
       "updatesFrom": "Solo de las versiones publicadas en el repositorio de Versorium en GitHub. Antes de instalar una, la descarga se comprueba con la clave de firma propia de Versorium y con las sumas de verificación publicadas con ella.",
       "seeReleases": "Mira las versiones en GitHub",

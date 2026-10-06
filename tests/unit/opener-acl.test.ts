@@ -26,13 +26,14 @@ const ACL = JSON.parse(readFileSync(resolve(ROOT, "src-tauri/gen/schemas/acl-man
 const SHIPPED = JSON.parse(readFileSync(resolve(ROOT, "src-tauri/capabilities/default.json"), "utf8")) as Capability;
 
 const REPO = "https://github.com/MAECLY/versorium-app";
-/** What the page opens: About's six links and a crash report's Report. */
+/** What the page opens: About's seven links and a crash report's Report. */
 const PAGE = [
   "https://www.maecly.com/about",
   "https://www.maecly.com",
   REPO,
   `${REPO}/blob/main/LICENSE`,
   `${REPO}/blob/main/CLA.md`,
+  `${REPO}/blob/main/THIRD-PARTY-NOTICES.md`,
   `${REPO}/releases`,
   `${REPO}/issues/new?title=Crash%3A%20x&body=Versorium%200.1.0`,
 ];
