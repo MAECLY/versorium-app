@@ -356,18 +356,94 @@ pub fn split_frontmatter(text: &str) -> (BTreeMap<String, String>, String) {
         None => return (BTreeMap::new(), text.to_string()),
     };
     let mut map = BTreeMap::new();
-    for line in rest[..end].lines() {
-        if let Some((k, v)) = line.split_once(':') {
-            let key = k.trim();
-            let val = serde_json::from_str::<String>(v.trim()).unwrap_or_else(|_| v.trim().to_string());
-            if !key.is_empty() {
-                map.insert(key.to_string(), val);
-            }
+    let lines: Vec<&str> = rest[..end].lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i];
+        i += 1;
+        // A key starts at the margin; an indented line belongs to the value
+        // above it, and is never a key of its own.
+        if line.starts_with([' ', '\t']) {
+            continue;
         }
+        let Some((k, v)) = line.split_once(':') else { continue };
+        let key = k.trim();
+        if key.is_empty() {
+            continue;
+        }
+        let raw = v.trim();
+        let val = if let Some(style) = block_style(raw) {
+            // `synopsis: |` (or `>`) and indented lines under it: the YAML a
+            // writer reaches for when a value runs to several lines.
+            let start = i;
+            while i < lines.len() && (lines[i].trim().is_empty() || lines[i].starts_with([' ', '\t'])) {
+                i += 1;
+            }
+            block_value(&lines[start..i], style)
+        } else {
+            serde_json::from_str::<String>(raw).unwrap_or_else(|_| raw.to_string())
+        };
+        map.insert(key.to_string(), val);
     }
     let body_start = 4 + end + 5;
     let body = trimmed.get(body_start..).unwrap_or("").to_string();
     (map, body)
+}
+
+/// A YAML block scalar's header: `|` keeps line breaks, `>` folds them into
+/// spaces; `-` drops the final line break, `+` keeps every trailing one.
+#[derive(Clone, Copy)]
+struct BlockStyle {
+    folded: bool,
+    keep_trailing: bool,
+}
+
+fn block_style(header: &str) -> Option<BlockStyle> {
+    let (folded, chomp) = match header.chars().next()? {
+        '|' => (false, &header[1..]),
+        '>' => (true, &header[1..]),
+        _ => return None,
+    };
+    match chomp.trim() {
+        "" | "-" => Some(BlockStyle { folded, keep_trailing: false }),
+        "+" => Some(BlockStyle { folded, keep_trailing: true }),
+        _ => None,
+    }
+}
+
+/// The text of a block scalar's lines: the first line's indentation is taken
+/// off every line; a literal block keeps its line breaks, a folded one joins
+/// a paragraph's lines with spaces and keeps one break between paragraphs.
+fn block_value(lines: &[&str], style: BlockStyle) -> String {
+    let indent = lines
+        .iter()
+        .find(|line| !line.trim().is_empty())
+        .map(|line| line.len() - line.trim_start().len())
+        .unwrap_or(0);
+    let body: Vec<&str> = lines
+        .iter()
+        .map(|line| if line.trim().is_empty() { "" } else { line.get(indent..).unwrap_or(line.trim_start()) })
+        .collect();
+    let mut out = String::new();
+    for (n, line) in body.iter().enumerate() {
+        if n > 0 {
+            let previous = body[n - 1];
+            match (style.folded, previous.is_empty(), line.is_empty()) {
+                // Folded: lines of one paragraph join with a space, and the
+                // blank line between paragraphs is itself the one break.
+                (true, false, false) => out.push(' '),
+                (true, true, false) => {}
+                _ => out.push('\n'),
+            }
+        }
+        out.push_str(line);
+    }
+    if style.keep_trailing {
+        out.push('\n');
+        out
+    } else {
+        out.trim_end_matches('\n').to_string()
+    }
 }
 
 pub fn count_words(body: &str) -> u32 {
@@ -406,6 +482,32 @@ fn now_secs() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_synopsis_written_as_a_yaml_block_reads_whole() {
+        let file = "---\nid: ch-01\ntitle: \"North\"\nsynopsis: |\n  She leaves at dawn.\n  He says: wait.\n\n  Nobody follows.\nstatus: draft\n---\nBody.\n";
+        let (map, body) = split_frontmatter(file);
+        assert_eq!(map.get("synopsis").map(String::as_str), Some("She leaves at dawn.\nHe says: wait.\n\nNobody follows."));
+        // A line inside the block is never a key of its own, colon or not.
+        assert!(!map.contains_key("He says"));
+        assert_eq!(map.get("status").map(String::as_str), Some("draft"), "the key after the block");
+        assert_eq!(map.get("title").map(String::as_str), Some("North"));
+        assert_eq!(body, "Body.\n");
+    }
+
+    #[test]
+    fn a_folded_block_joins_its_lines_and_keeps_its_paragraphs() {
+        let file = "---\nsynopsis: >-\n    One long\n    sentence.\n\n    Another.\nwords: 3\n---\n";
+        let (map, _) = split_frontmatter(file);
+        assert_eq!(map.get("synopsis").map(String::as_str), Some("One long sentence.\nAnother."));
+        assert_eq!(map.get("words").map(String::as_str), Some("3"));
+        // `+` keeps the final break; a plain `|` drops it like `-`.
+        let kept = split_frontmatter("---\nsynopsis: |+\n  Line.\n---\n").0;
+        assert_eq!(kept.get("synopsis").map(String::as_str), Some("Line.\n"));
+        // Not a block header: a value that merely starts with the character.
+        let plain = split_frontmatter("---\ntitle: |x|\n---\n").0;
+        assert_eq!(plain.get("title").map(String::as_str), Some("|x|"));
+    }
 
     #[test]
     fn renaming_a_novel_leaves_its_folder_where_everything_points_at_it() {

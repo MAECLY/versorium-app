@@ -472,13 +472,14 @@ mod tests {
         let second = crate::commands::project::create_chapter(root.clone(), "Dos".into()).unwrap();
         let first = &project.chapters[0].file;
         crate::commands::chapters::set_synopsis(&root, first, "Se va.\nSola.").unwrap();
-        // A block written by hand reaches the reader as its indicator alone.
+        // A block written by hand reads whole (`split_frontmatter` reads YAML
+        // block values since 2026-10-06; before, it arrived as `|` alone).
         let raw = std::fs::read_to_string(root.join(&second.file)).unwrap();
         std::fs::write(root.join(&second.file), raw.replacen("---\n", "---\nsynopsis: |\n  A mano.\n", 1)).unwrap();
 
         let manuscript = read_manuscript(&root).unwrap();
         assert_eq!(manuscript.chapters[0].synopsis.as_deref(), Some("Se va.\nSola."));
-        assert_eq!(manuscript.chapters[1].synopsis, None, "a lone `|` is not a synopsis");
+        assert_eq!(manuscript.chapters[1].synopsis.as_deref(), Some("A mano."));
     }
 
     #[test]
