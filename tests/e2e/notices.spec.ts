@@ -130,10 +130,10 @@ test("Restore pressed twice with nothing to restore says it once, as a hint that
   const restore = statusBar(page).getByRole("button", { name: "↩ Restore" });
   await restore.click();
   await restore.click();
-  const hint = notice(page, "Nothing to roll back here.");
+  const hint = notice(page, "Nothing to restore here.");
   await expect(hint).toBeVisible();
   await expect(region(page).getByRole("listitem")).toHaveCount(1);
-  await expect(polite(page)).toHaveText("Nothing to roll back here.");
+  await expect(polite(page)).toHaveText("Nothing to restore here.");
   await expect(assertive(page), "a hint, not an alert").toHaveText("");
   await page.clock.fastForward(5100);
   await expect(hint).toHaveCount(0);

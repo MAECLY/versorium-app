@@ -584,7 +584,7 @@
     "createRepo": "Create a private backup",
     "privateDefault": "Backups are created private.",
     "noToken": "Paste a GitHub personal access token to set up the backup.",
-    "nothingToRollback": "Nothing to roll back here.",
+    "nothingToRollback": "Nothing to restore here.",
     "tab_advanced": "Advanced",
     "advancedNote": "Versorium keeps your novel's history in Git. These are Git's own controls — you never need them to write.",
     "fileEdited": "edited",

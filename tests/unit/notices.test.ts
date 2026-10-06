@@ -280,23 +280,23 @@ describe("a persistent notice", () => {
 describe("announcements", () => {
   it("raised in the same moment are read together, not the last one alone", async () => {
     notices.inform("Select a passage first.");
-    notices.inform("Nothing to roll back here.");
+    notices.inform("Nothing to restore here.");
     await tick();
-    expect(notices.polite).toBe("Select a passage first. Nothing to roll back here.");
+    expect(notices.polite).toBe("Select a passage first. Nothing to restore here.");
   });
 
   it("read together stay while either notice is up, and go with the last of them", async () => {
     notices.inform("Select a passage first.");
-    notices.inform("Nothing to roll back here.");
+    notices.inform("Nothing to restore here.");
     await tick();
-    notices.hold("inform:Nothing to roll back here.", "pointer");
+    notices.hold("inform:Nothing to restore here.", "pointer");
     vi.advanceTimersByTime(TRANSIENT_MS);
-    expect(texts()).toEqual(["Nothing to roll back here."]);
+    expect(texts()).toEqual(["Nothing to restore here."]);
     expect(notices.polite, "emptied, not rewritten: rewritten, the rest is read again").toBe(
-      "Select a passage first. Nothing to roll back here.",
+      "Select a passage first. Nothing to restore here.",
     );
 
-    notices.release("inform:Nothing to roll back here.", "pointer");
+    notices.release("inform:Nothing to restore here.", "pointer");
     vi.advanceTimersByTime(TRANSIENT_MS);
     expect(texts()).toEqual([]);
     expect(notices.polite).toBe("");

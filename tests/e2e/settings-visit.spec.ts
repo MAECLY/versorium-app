@@ -144,7 +144,7 @@ test("undo and Restore reach what was typed before a visit to Settings", async (
   await backToManuscript(page);
   await page.keyboard.press("Control+Alt+r");
   await expect.poll(async () => (await editor(page)).doc).toBe("");
-  await expect(notices(page), "not \"Nothing to roll back here.\"").toHaveCount(0);
+  await expect(notices(page), "not \"Nothing to restore here.\"").toHaveCount(0);
 });
 
 for (const typewriter of [false, true]) {
@@ -321,7 +321,7 @@ test("Rewrite and Restore pressed over Settings close it, and act on the page it
   await statusBar(page).getByRole("button", { name: "↩ Restore" }).click();
   await expect(settings(page)).toHaveCount(0);
   await expect.poll(async () => (await editor(page)).doc).toBe("Hola mundo ");
-  await expect(notices(page).getByRole("listitem").filter({ hasText: "Nothing to roll back here." })).toHaveCount(0);
+  await expect(notices(page).getByRole("listitem").filter({ hasText: "Nothing to restore here." })).toHaveCount(0);
   await expect.poll(() => caretInManuscript(page)).toBe(true);
 });
 
