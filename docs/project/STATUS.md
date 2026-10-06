@@ -2935,3 +2935,16 @@ installs a release is the part that needs the public repository and the tag.
   compares ids, and the stylesheet no longer names Source Serif 4 first.
 - **The v0.1.1 names check** leaves the to-do list: the release carried the
   sixteen names, and v0.1.0 updated to v0.1.1 on macOS and Windows 11.
+
+## Typewriter past the first screen (2026-10-06)
+
+Typewriter mode put the caret's line below the window once a chapter ran
+longer than a screen (94% of the page at 1000×640 after 30 lines). The
+scroll was computed from `lineBlockAt(head).top`, which counts from the start
+of the document, below the content's top padding, and typewriter makes that
+padding two thirds of the viewport. `typewriterScroller` (`src/lib/editor/modes.ts`)
+now measures the line from the document's place in the scroller
+(`view.documentTop`), and the line rides at 0.667 of the page. Short chapters
+had looked right only because the scroll clamps at zero there.
+`tests/e2e/typewriter.spec.ts` types past a screen and walks back up; without
+the fix it reads 0.935.

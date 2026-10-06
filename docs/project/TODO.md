@@ -332,14 +332,6 @@ do:
     destination, so they never share words; an adapter that dropped those
     names would merge destinations.
 
-### Found while building the notices, not part of them
-
-- **Typewriter mode puts the line being written below the window** once the
-  chapter is longer than a screen: at 1000×640, after 30 lines, the caret's
-  line sits at y 850–886 in a scroller that ends at 608. HEAD without the
-  notices does the same (`tests/scratch/notices-fix/typewriter-probe-base.mjs`,
-  run against both). Probe: `tests/scratch/notices/typewriter-probe.mjs`.
-
 ### Settings over the editor: the checks no automation reaches, and what it left
 
 Built on 2026-10-04 (see "Settings over the editor, and the typeface on the
