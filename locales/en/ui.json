@@ -590,6 +590,7 @@
     "fileEdited": "edited",
     "fileNew": "new",
     "changedCount": "{count} changed",
+    "snapshotSaved": "Snapshot saved.",
     "snapshotOf": "Snapshot of {when}",
     "restore": "↩ Restore",
     "restoreHint": "Put the selection back as it was, or the word under the cursor when nothing is selected.",

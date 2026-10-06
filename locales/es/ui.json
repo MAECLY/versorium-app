@@ -590,6 +590,7 @@
     "fileEdited": "editado",
     "fileNew": "nuevo",
     "changedCount": "{count} con cambios",
+    "snapshotSaved": "Instantánea guardada.",
     "snapshotOf": "Instantánea del {when}",
     "restore": "↩ Restaurar",
     "restoreHint": "Devuelve la selección a como estaba, o la palabra bajo el cursor si no hay nada seleccionado.",

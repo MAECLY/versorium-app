@@ -405,7 +405,8 @@
           }),
         }),
       );
-      notices.dismiss("git.commit");
+      // Under the same id, so it also takes a failure's place.
+      notices.inform(t("git.snapshotSaved"), "git.commit");
       await refreshGit();
     } catch (e) {
       const message = store.codeMessagePublic(e);

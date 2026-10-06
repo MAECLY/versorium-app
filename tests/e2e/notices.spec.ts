@@ -158,12 +158,14 @@ test("a snapshot that fails stays until the writer closes it, once however often
   await page.clock.fastForward(120_000);
   await expect(error, "two minutes later").toBeVisible();
 
-  // A snapshot that goes through takes the failure's place.
+  // A snapshot that goes through takes the failure's place, and says so.
   await healed(page, "git_commit");
   await typeInManuscript(page, " Y más.");
   await snapshot.click();
   await expect.poll(() => calls(page, "git_commit")).toBe(3);
   await expect(error).toHaveCount(0);
+  await expect(notice(page, "Snapshot saved.")).toBeVisible();
+  await page.clock.fastForward(5100);
 
   // Or the writer closes it.
   await failing(page, "git_commit", "repo_busy");
@@ -181,6 +183,12 @@ test("a snapshot with nothing new is an answer that goes, not an error that stay
   const snapshot = statusBar(page).getByRole("button", { name: "Save snapshot" });
   await snapshot.click();
   await expect.poll(() => calls(page, "git_commit")).toBe(1);
+  // The status bar's button says it worked, briefly, as a hint.
+  const saved = notice(page, "Snapshot saved.");
+  await expect(saved).toBeVisible();
+  await expect(polite(page)).toHaveText("Snapshot saved.");
+  await expect(assertive(page)).toHaveText("");
+  await page.clock.fastForward(5100);
   await expect(region(page)).toHaveCount(0);
 
   await snapshot.click();
