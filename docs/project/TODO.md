@@ -199,34 +199,6 @@ Neither is a real webview or a real release:
   is `Versorium_X.Y.Z_windows_x64.exe` beside the `.msi`.
   `[name]_[version]_windows_x64[setup][ext]` would keep `-setup`; the owner's
   pattern was kept as given.
-- **The landing links v0.1.0's files by tauri's names**
-  (`docs/index.html` and `docs/en/index.html`, lines 254-258:
-  `releases/download/v0.1.0/Versorium_0.1.0_aarch64.dmg`, `…_x64.dmg`,
-  `…_x64-setup.exe`, `…_x64_en-US.msi`, `…_amd64.deb`,
-  `Versorium-0.1.0-1.x86_64.rpm`, `…_amd64.AppImage`). They keep working for
-  v0.1.0. When the landing moves to v0.1.1 it has to use the new names
-  (`releases/download/v0.1.1/Versorium_0.1.1_apple_silicon.dmg`,
-  `…_apple_intel.dmg`, `…_windows_x64.exe`, `…_windows_x64.msi`,
-  `…_linux_ubuntu_amd64.deb`, `.rpm`, `.AppImage`). Every name carries the
-  version, so one fixed `releases/latest/download/<name>` link is not possible
-  without a version-free pattern.
-- **Four places still say no release exists**: the top of `STATUS.md`
-  ("No release has been cut"), README's Status, `RELEASING.md`'s "Where
-  things stand on 2026-10-03", and step 5 of "Going public" below. v0.1.0 was
-  tagged and published on 2026-10-04 (20:23 UTC).
-- **`SafetySectionCrash.svelte` opens the issue page with its own copy of the
-  opener code** (`openIssue`), without the https check; it could call
-  `openExternal` (`src/lib/external.ts`). Its Report button opened nothing in
-  v0.1.0: the capability's empty opener scope refused it, as it refused
-  About's links. The https scope opens it now (its `issues/new?…` address is
-  in `src-tauri/tests/opener_scope.rs`), and a refusal there still says
-  nothing on the page.
-- **`THIRD-PARTY-NOTICES.md` is bundled** (`bundle.resources` in
-  `tauri.conf.json`) but About does not link it.
-- **actionlint has one finding in `release.yml`**, older than this change:
-  SC2035 (info) on `sha256sum *` in "Write SHA256SUMS". `sha256sum -- *`
-  answers it; `./*` would not do, because every line would then name
-  `./Versorium_…`, which the app's lookup by name would miss.
 
 ### Settings, regrouped: the checks no automation reaches, and what it left
 
@@ -291,11 +263,6 @@ webviews and a real server are still to be checked by hand:
   `authorProfiles` (trimmed, field by field) and `authorProfile`
   (`work` | `hobby`) arms, and a Rust test that sends AuthorSection's exact
   patch through `apply_patch` and reads it back.
-- **`errors.keyring_unavailable` is in neither locale**, so Settings →
-  Application's updates token and History & backup's GitHub card show the raw
-  key when the OS credential store cannot be used (`AppGroup.svelte`,
-  `BackupGroup.svelte`). `tests/unit/settings-keys.test.ts` lists it as known
-  missing, and fails once it is written, to be taken off that list.
 - **ES `ai.checkpointNote` still says "punto de control"**, and it, together
   with `git.commitHint` and `binder.confirm.chapterBody`, still promises a
   roll-back the app cannot do yet. Left as they are by the owner's decision
@@ -352,12 +319,6 @@ up now; the writer should be able to pick when it runs on its own. Specified on
   and makes its own run, after its own save; the spec's Phase 1 has it join
   the first, whose plan predates that save. Phase 1's scheduler has to pick
   one. A pull locks the history for its local half only, not for the fetch.
-- **Two git writers skip the repository lock:** `git_branch_create`
-  (writes the branch, then HEAD) and `git_checkout_file` (rewrites
-  `.git/index`). A branch created during a backup's capture can leave an
-  archive whose HEAD names a branch file it does not hold. Narrow window; take
-  the lock in both before Phase 1. Also, `errors.repo_busy` blames a backup,
-  but the holder can be a pull or an MCP commit.
 - **Found in Phase 0's review, for Phase 1:** the id that tells this
   computer's temporary files from another's lives in the app's folder, so a
   Mac set up with Migration Assistant shares it with the old one (one failed
@@ -837,13 +798,11 @@ depend on the secrets, and the DNS record can be added before Pages exists.
    `dig gaming-toggles.maecly.com` returned the CNAME `maecly.github.io` and
    GitHub's addresses, not Cloudflare's, and `dig versorium.maecly.com`
    returned no record.
-5. **First release.** Tag `v0.1.0`. The `guard` job refuses a tag that does not
-   match the version in `tauri.conf.json`, `package.json` and
-   `src-tauri/Cargo.toml` (all three are `0.1.0`). The release workflow builds
-   a *draft* so a person checks `latest.json` and `SHA256SUMS` before any
-   client is offered it (see `RELEASING.md`).
+5. **Done** on 2026-10-04: `v0.1.0` published at 20:23 UTC and `v0.1.1` at
+   23:17 UTC, each checked as a draft first (`latest.json`, `SHA256SUMS`, every
+   signature against the app's key; see `RELEASING.md`).
 
-   Before tagging, decide whether to set `"requireSignedVersion": true` under
+   **Still open, for the owner:** whether to set `"requireSignedVersion": true` under
    `plugins.updater` in `src-tauri/tauri.conf.json` (raised in review on
    2026-10-03, separate from the token change). Left off, as now (the
    plugin's default), the updater accepts a signature that names no version,
@@ -852,15 +811,18 @@ depend on the secrets, and the DNS record can be added before Pages exists.
    `pnpm-lock.yaml` locks `@tauri-apps/cli` 2.12.0, whose changelog says
    `tauri build` records the app version in every updater signature, and the
    plugin already refuses a signature whose version differs from the one
-   announced. The flag makes the version a requirement. If it is set for
-   `v0.1.0`, decode a `.sig` from the draft (it is base64) and confirm its
-   trusted comment contains `version:0.1.0` before publishing: an install with
-   the flag refuses every later release whose signature names no version.
+   announced. The flag makes the version a requirement. Checked on
+   2026-10-06: all seven of v0.1.1's update signatures carry
+   `version:0.1.1` in their trusted comment, so setting the flag would refuse
+   nothing the workflow publishes; an install with the flag refuses every
+   later release whose signature names no version.
 
 Two things in the app reach the repository directly. What going public does
 for each:
 
-- **The in-app updater: decided and changed, not yet proven.** On 2026-10-03
+- **The in-app updater: proven.** v0.1.0 updated itself to v0.1.1 with no
+  token, on macOS and on Windows 11 (2026-10-04). What follows is how it got
+  there. On 2026-10-03
   the founder decided that once the repository is public, updates must work
   without a token, and `PROMPT-VERSORIUM.md` §11 opens with that amendment.
   The code follows it: `update_check` in `src-tauri/src/commands/update.rs`
@@ -869,16 +831,14 @@ for each:
   for while the repository is private and to lift GitHub's anonymous rate
   limit. Going public is what makes the anonymous check find anything: until
   then GitHub answers it with a 404, and Settings → Updates says no published
-  version is visible yet. **To do after step 5:** on an install with no token
-  saved, press Check now and see the release offered and installed. Until
-  that is done, the anonymous path is proven only against the mocked IPC and
-  the unit tests.
+  version is visible yet. Done after step 5: an install with no token saved
+  was offered v0.1.1 and installed it.
 - **The crash reporter's "report" action** opens
   `https://github.com/MAECLY/versorium-app/issues/new` with a prefilled title
   and body (`report_url` in `src-tauri/src/crash/mod.rs`, owner and repo
-  compiled in as `ISSUES_OWNER` / `ISSUES_REPO`). While the repository is
-  private, anyone outside the org gets a 404 there. Going public fixes this
-  with no code change.
+  compiled in as `ISSUES_OWNER` / `ISSUES_REPO`). The repository is public, so
+  the page opens for anyone; in v0.1.0 the button opened nothing at all (the
+  opener's empty scope), which v0.1.1 fixes.
 
 Not on this list's critical path: Apple notarisation and Windows Authenticode.
 Both need purchased certificates, and buying them is not the whole job:

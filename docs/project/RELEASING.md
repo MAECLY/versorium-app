@@ -4,19 +4,20 @@ Versorium updates itself from GitHub Releases. Every update artifact is signed,
 and the app refuses an update it cannot verify, so a release built without the
 signing key is worse than no release: it installs nowhere.
 
-Where things stand on 2026-10-03:
+Where things stand on 2026-10-06:
 
-- **No release and no tag exist yet.** Nothing in this document has run end to
-  end. The workflow (`.github/workflows/release.yml`) is written; its first real
-  run will be `v0.1.0`.
-- The repository, `github.com/MAECLY/versorium-app`, is **private**.
-- The in-app updater checks without a GitHub token (spec §11, amended on
-  2026-10-03), so once the repository is public it needs no token at all
-  (section 3).
-- The signing key exists and its pair is verified (section 1). The two GitHub
-  secrets are **set** — set on 2026-10-03 (17:18 UTC). GitHub never shows a secret back, so the first
-  tag build is the end-to-end proof that they are right.
-- The app is version `0.1.0` in all three places that carry it (section 5).
+- **Two releases are out:** `v0.1.0` (2026-10-04, 20:23 UTC) and `v0.1.1`
+  (2026-10-04, 23:17 UTC). Both were built by `.github/workflows/release.yml`,
+  so the signing secrets are right: every update signature verifies against
+  the key compiled into the app (key id `49d39a4987c67a39`).
+- **The update was done end to end,** v0.1.0 → v0.1.1 from inside the app, on
+  macOS and on Windows 11, with no token: the repository is **public** since
+  2026-10-04.
+- **`finalise` now runs on its own:** it finds the draft (it used to look it up
+  by tag, which answers 404 for a draft, so v0.1.0's `SHA256SUMS` and
+  v0.1.1's were written by hand), refuses a `latest.json` that lost a platform,
+  and copies the release's notes into it for the update dialog.
+- The app is version `0.1.1` in all three places that carry it (section 5).
 
 This document assumes you have admin access to the repository: you need it to
 set secrets, change visibility and enable Pages.
@@ -182,7 +183,7 @@ Three files carry the version and **all three must agree**:
 - `src-tauri/Cargo.toml` → `[package] version`
 - `src-tauri/tauri.conf.json` → `version`
 
-All three say `0.1.0` today, so the first release needs no bump.
+All three say `0.1.1` today (v0.1.1 is the latest release).
 
 The updater compares the running app's version with the version in
 `latest.json`, and the build takes that version from `tauri.conf.json`. If the

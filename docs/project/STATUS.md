@@ -1,25 +1,26 @@
 # STATUS
 
-## Where things stand (2026-10-03)
+## Where things stand (2026-10-06)
 
-M0–M7 are complete. Two rounds of work after them are merged into `main`:
-PR #7 (the post-v1 pass and the built-in inference runtime) and PR #9
-(`feat/v11-hardening`, 40 commits, merged 2026-10-03). Work now continues on
-`feat/landing-and-docs`.
+M0–M7 are complete, and so is the work after them up to two releases.
 
-What is **not** true yet:
+- **Released:** v0.1.0 (2026-10-04, 20:23 UTC) and v0.1.1 (2026-10-04,
+  23:17 UTC), from `.github/workflows/release.yml`, signed with the app's key
+  and checked against `SHA256SUMS`. v0.1.1's files are named for the computer
+  they are for (`_apple_silicon`, `_apple_intel`, `_windows_x64`,
+  `_linux_amd64`).
+- **Tested:** macOS on Apple silicon; Windows 11 (both installers); Ubuntu
+  22.04 (v0.1.0's `.deb`). Not yet: Intel Macs, the `.rpm`, the `.AppImage`,
+  and v0.1.1 on Linux.
+- **The update works end to end:** an install of v0.1.0 offered v0.1.1,
+  downloaded it, installed it and restarted into it, on macOS and on
+  Windows 11.
+- **Public:** the repository (`github.com/MAECLY/versorium-app`) since
+  2026-10-04, and the landing at `versorium.maecly.com`, published from
+  `docs/` by `.github/workflows/pages.yml` (which leaves `docs/project/` out).
 
-- **No release has been cut and no tag exists.** `tauri.conf.json` says
-  `Versorium` / `dev.versorium.app` / `0.1.0`. The updater chain, the release
-  workflow and the installers have never run end to end.
-- **The repository is private** (`github.com/MAECLY/versorium-app`), and MAECLY
-  is on GitHub's free plan, where Pages does not serve private repositories.
-- **The landing page is not live.** `versorium.maecly.com` is planned as a
-  GitHub Pages site built from `docs/` by `.github/workflows/pages.yml`, being
-  added on this branch. It goes live only once the repo is public, Pages is
-  enabled, and Cloudflare has `versorium` CNAME → `maecly.github.io`.
-- The release signing secrets are set on 2026-10-03 (17:18 UTC); the first tag build is the
-  end-to-end proof (see "Release readiness").
+Work continues on `feat/landing-and-docs`, merged into `main` for each release
+and each landing deploy.
 
 `TODO.md` lists the work that is half-done in the code, the three AI tasks
 that are specified and not started (Settings → Tasks lists them under "Not
@@ -2859,3 +2860,24 @@ tag). The code change that used to be on this list is done: the updater
 checks without a GitHub token since 2026-10-03 (see "Updater without a
 token"). Whether an ordinary install, with no token, detects, verifies and
 installs a release is the part that needs the public repository and the tag.
+
+## Six short fixes from the to-do list (2026-10-06)
+
+- **The credential store's errors have words.** `keyring_unavailable`,
+  `keyring_locked` and `keyring_failed` showed the raw key or "Something went
+  wrong."; they now say what happened, in English and Spanish, and
+  `settings-keys.test.ts` lists no key as known missing.
+- **About links the third-party notices** (`THIRD-PARTY-NOTICES.md`, bundled
+  with the app), as its seventh link.
+- **The crash report's Open an issue** goes through `openExternal` (https only)
+  instead of its own copy of the opener, and a browser that does not open is
+  said on the report's card with the address.
+- **Creating a branch and restoring a file take the history lock**, like every
+  commit, so neither writes while a backup captures; `repo_busy` now names a
+  backup, bringing changes from GitHub or an assistant's change as the holder.
+- **`STATUS.md`, `RELEASING.md` and "Going public"** describe the two releases
+  and the proven update instead of "no release exists". All seven of v0.1.1's
+  update signatures carry `version:0.1.1`, recorded for the
+  `requireSignedVersion` decision.
+- **`actionlint` is clean:** `sha256sum -- *` in `release.yml` (SC2035); the
+  names in `SHA256SUMS` stay bare, as the app's lookup needs.
