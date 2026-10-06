@@ -19,6 +19,11 @@ export class EngineStore {
     return this.state?.state === "failed";
   }
 
+  /** The GPU check keeps the engine off on this computer (src-tauri/src/gpu). */
+  get unavailable(): boolean {
+    return this.state?.state === "unavailable";
+  }
+
   get warming(): boolean {
     return this.state === null || this.state.state === "warming";
   }

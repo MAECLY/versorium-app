@@ -466,12 +466,41 @@ export interface InstallProgress {
   error: string | null;
 }
 
+/** One GPU as the status modal lists it (src-tauri/src/gpu/classify.rs). */
+export interface GpuInfo {
+  name: string;
+  vendor: "nvidia" | "amd" | "intel" | "microsoft" | "apple" | "virtual" | "software" | "other";
+  driver: string | null;
+  /** `1.3`, when Vulkan sees it. */
+  vulkan: string | null;
+  deviceType: string | null;
+  memoryMb: number | null;
+  /** The engine puts model layers on it. */
+  usable: boolean;
+}
+
+/** What this computer can do for local AI, and what it would need. */
+export interface GpuReadiness {
+  /** `ready`: a GPU (or Metal) runs the models. `cpu`: they run, slower, on
+   *  the processor. `unavailable`: the engine cannot start on this computer. */
+  state: "ready" | "cpu" | "unavailable";
+  backend: "vulkan" | "metal" | "cpu" | "none";
+  platform: "windows" | "linux" | "macos";
+  loaderPresent: boolean;
+  gpus: GpuInfo[];
+  /** Codes, worded by `gpu.missing.*`. */
+  missing: string[];
+  /** Codes, worded by `gpu.hints.*`. */
+  hints: string[];
+  driver: { vendor: "nvidia" | "amd" | "intel"; url: string } | null;
+}
+
 /** Which device llama.cpp will use. Asked for separately from the model cards:
  *  the backend is a property of the machine, not of a model. */
 export interface LlamaBackendState {
   /** `warming` while llama.cpp starts — on Apple Silicon that is ~15s of
    *  Metal shader compilation, long enough to need saying. */
-  state: "warming" | "ready" | "failed";
+  state: "warming" | "ready" | "failed" | "unavailable";
   device: { label: string; deviceType: string; memFreeMb: number; memTotalMb: number } | null;
   /** False on the Windows and Linux builds today, so CPU speeds there are
    *  expected rather than a fault. */
@@ -745,6 +774,9 @@ export const api = {
 
   // --- the in-process engine ---
   llamaBackend: () => invoke<LlamaBackendState>("llama_backend"),
+  /** Null while the check at launch is still running. */
+  gpuReadiness: () => invoke<GpuReadiness | null>("gpu_readiness"),
+  gpuCheckAgain: () => invoke<GpuReadiness>("gpu_check_again"),
   llamaProgress: () => invoke<LlamaProgress | null>("llama_progress"),
   llamaCancel: () => invoke<void>("llama_cancel"),
   llamaUnload: () => invoke<void>("llama_unload"),

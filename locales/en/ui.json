@@ -332,6 +332,7 @@
         "warming": "starting… (preparing the graphics chip, once per computer)",
         "ready": "Ready",
         "failed": "Didn't start",
+        "unavailable": "Not available on this computer",
         "cpuOnly": "This build runs models on the processor, without graphics acceleration, so they are slower."
       },
       "start": {
@@ -1153,6 +1154,70 @@
       "language": "Language",
       "chapters": "Chapters",
       "words": "Words"
+    }
+  },
+  "gpu": {
+    "title": {
+      "ready": "Local AI is ready on this computer",
+      "cpu": "Local AI runs on the processor",
+      "unavailable": "Local AI can't start on this computer",
+      "checking": "Checking this computer…"
+    },
+    "lead": {
+      "ready": "Models run on this computer's graphics card.",
+      "cpu": "Models run, but on the processor, which is several times slower than a graphics card. Below is what keeps them off the graphics card.",
+      "unavailable": "Models on this computer need a graphics driver with Vulkan, and this computer has none yet. Assistants (Claude Code, Codex, OpenCode) still work.",
+      "checking": "Looking at the graphics card and its driver. This can take a few seconds the first time."
+    },
+    "result": {
+      "ready": "Checked: models now run on the graphics card.",
+      "cpu": "Checked: models run on the processor.",
+      "unavailable": "Checked: something is still missing."
+    },
+    "has": "This computer has",
+    "metal": "Apple silicon: models run on its GPU through Metal.",
+    "noAdapters": "No graphics card was found.",
+    "driverVersion": "Driver {version}",
+    "noDriver": "No driver from its maker",
+    "vulkanVersion": "Vulkan {version}",
+    "noVulkan": "No Vulkan",
+    "usable": "Models can run on it.",
+    "notUsable": "Models can't run on it.",
+    "missingTitle": "What is missing",
+    "missing": {
+      "vulkan_loader": "Vulkan, which comes with your graphics card's driver.",
+      "gpu_driver": "The graphics card's own driver: Windows is using its basic display driver.",
+      "vulkan_driver": "A Vulkan driver for the graphics card. Only a software renderer answered.",
+      "loader_outdated": "A newer Vulkan: this one is older than 1.2.",
+      "vulkan_1_2": "A graphics card driver with Vulkan 1.2 or newer.",
+      "feature_16bit_storage": "A graphics card with 16-bit storage support, which the model engine needs.",
+      "no_gpu": "A graphics card: none that the model engine can use was found.",
+      "probe_crashed": "The graphics driver stopped while it was being checked. Updating it usually fixes this.",
+      "probe_timeout": "The graphics driver did not answer in time. Restart the computer, then check again."
+    },
+    "hints": {
+      "remote_session": "This is a Remote Desktop session, which uses Windows' remote display instead of the graphics card. On the computer itself, the card may work.",
+      "virtual_machine": "This looks like a virtual machine. Its virtual display can't run models; the processor still can."
+    },
+    "vendors": {
+      "nvidia": "NVIDIA",
+      "amd": "AMD",
+      "intel": "Intel",
+      "microsoft": "Microsoft basic driver",
+      "apple": "Apple",
+      "virtual": "Virtual display",
+      "software": "Software renderer",
+      "other": "Other"
+    },
+    "getDriver": "Get the {vendor} driver",
+    "afterInstall": "After installing a driver, restart the computer if the installer asks, then press Check again.",
+    "checkAgain": "Check again",
+    "checking": "Checking…",
+    "close": "Close",
+    "notice": {
+      "cpu": "Local AI runs on the processor, which is slower.",
+      "unavailable": "Local AI can't start on this computer yet.",
+      "see": "See what's missing"
     }
   }
 }

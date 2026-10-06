@@ -27,7 +27,9 @@
   let engineWord = $derived(
     engine.warming
       ? t("settings.models.engine.warming")
-      : engine.failed
+      : engine.unavailable
+        ? t("settings.models.engine.unavailable")
+        : engine.failed
         ? t("settings.models.engine.failed")
         : t("settings.models.engine.ready"),
   );
@@ -63,7 +65,7 @@
     <dt>{t("settings.models.about.graphics")}</dt>
     <dd>{graphics}</dd>
     <dt>{t("settings.models.about.engine")}</dt>
-    <dd aria-live="polite" style={engine.failed ? "color: var(--warn);" : ""}>{engineWord}</dd>
+    <dd aria-live="polite" style={engine.failed || engine.unavailable ? "color: var(--warn);" : ""}>{engineWord}</dd>
   </dl>
   {#if engine.state && engine.state.state === "ready" && !engine.state.gpuOffload}
     <p class="v-muted m-0 mt-1" style="font-size: 12px;">{t("settings.models.engine.cpuOnly")}</p>

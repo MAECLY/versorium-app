@@ -7,6 +7,7 @@
   import { notices } from "$lib/notices/state.svelte";
   import { models } from "$lib/models/state.svelte";
   import { engine } from "$lib/models/engine.svelte";
+  import GpuNotice from "$lib/settings/models/GpuNotice.svelte";
   import Select from "$lib/components/forms/Select.svelte";
   import { useSettingsNav } from "$lib/settings/nav";
   import {
@@ -104,6 +105,7 @@
 {#if !isTauri()}
   <p class="v-muted m-0" style="font-size: 13px;">{t("settings.common.desktopOnly")}</p>
 {:else}
+  <GpuNotice />
   {#if engineNotice}
     <p class="m-0 mb-3" style="font-size: 12.5px; line-height: 1.6; color: var(--warn);">
       {t("settings.common.engineDown")}

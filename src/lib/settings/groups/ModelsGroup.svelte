@@ -4,6 +4,8 @@
   import { isTauri, type LocalAiView, type ModelCard, type SlotKind } from "$lib/tauri";
   import { models, humanSize } from "$lib/models/state.svelte";
   import { engine } from "$lib/models/engine.svelte";
+  import { gpu } from "$lib/models/gpu.svelte";
+  import GpuNotice from "$lib/settings/models/GpuNotice.svelte";
   import { chrome } from "$lib/chrome/state.svelte";
   import { notices } from "$lib/notices/state.svelte";
   import { store } from "$lib/binder/store.svelte";
@@ -260,6 +262,7 @@
 {:else if !view}
   <p class="v-muted m-0" style="font-size: 13px;">{t("settings.common.checking")}</p>
 {:else}
+  <GpuNotice />
   {#if engine.failed}
     <p class="m-0 mb-3" style="font-size: 12.5px; line-height: 1.6; color: var(--warn);">{t("settings.common.engineDown")}</p>
   {/if}
@@ -270,6 +273,10 @@
   <section class="mb-6">
     <ThisComputer {view} />
   </section>
+
+  <!-- Where the engine cannot start, the models' sections are shown but out
+       of reach until the GPU check passes: the notice above says why. -->
+  <div inert={gpu.unavailable} data-gpu-locked={gpu.unavailable || undefined} style={gpu.unavailable ? "opacity: 0.45;" : ""}>
 
   {#if firstRun && recommended}
     {@const partial = recommended.state === "partial"}
@@ -537,4 +544,5 @@
       </ul>
     {/if}
   </section>
+  </div>
 {/if}

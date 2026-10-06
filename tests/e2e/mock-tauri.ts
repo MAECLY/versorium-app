@@ -611,6 +611,39 @@ let llamaBusy = false;
 /** `__VERSORIUM_MOCK__.llama.failed = true`: the engine did not start on this computer. */
 const llama = { failed: false };
 
+/**
+ * The GPU check (src-tauri/src/gpu). `?gpu=unavailable` is a Windows PC with
+ * an NVIDIA card and no Vulkan; `?gpu=cpu` a Linux laptop whose Intel GPU has
+ * no Vulkan driver (only llvmpipe). Default: a Mac, ready on Metal. Check
+ * again moves to `gpu.next` when a spec set one, as installing a driver would.
+ */
+type MockGpu = import("$lib/tauri").GpuReadiness;
+const GPU_STATES: Record<string, MockGpu> = {
+  ready: {
+    state: "ready", backend: "metal", platform: "macos", loaderPresent: true,
+    gpus: [], missing: [], hints: [], driver: null,
+  },
+  unavailable: {
+    state: "unavailable", backend: "none", platform: "windows", loaderPresent: false,
+    gpus: [{ name: "NVIDIA GeForce RTX 3060", vendor: "nvidia", driver: null, vulkan: null, deviceType: null, memoryMb: null, usable: false }],
+    missing: ["vulkan_loader"], hints: [],
+    driver: { vendor: "nvidia", url: "https://www.nvidia.com/Download/index.aspx" },
+  },
+  cpu: {
+    state: "cpu", backend: "cpu", platform: "linux", loaderPresent: true,
+    gpus: [
+      { name: "llvmpipe (LLVM 17.0.6, 256 bits)", vendor: "software", driver: "Mesa 24.0.5", vulkan: "1.3", deviceType: "cpu", memoryMb: null, usable: false },
+      { name: "Intel GPU 5917", vendor: "intel", driver: "i915", vulkan: null, deviceType: null, memoryMb: null, usable: false },
+    ],
+    missing: ["vulkan_driver"], hints: [],
+    driver: { vendor: "intel", url: "https://www.intel.com/content/www/us/en/support/detect.html" },
+  },
+};
+const gpu: { current: MockGpu | null; next: MockGpu | null } = {
+  current: GPU_STATES[new URLSearchParams(location.search).get("gpu") ?? "ready"] ?? GPU_STATES.ready,
+  next: null,
+};
+
 /// Mirrors settings::SLOT_KINDS; Rust rejects anything else as `bad_args`.
 const SLOT_KINDS = ["none", "builtin", "ollama", "server", "cli"];
 
@@ -1335,8 +1368,14 @@ const commands: Record<string, (args: Args) => unknown> = {
     return { branch: "main", changed: false };
   },
 
+  gpu_readiness: () => gpu.current,
+  gpu_check_again: () => {
+    if (gpu.next) gpu.current = gpu.next;
+    return gpu.current;
+  },
   llama_backend: () => {
     if (llama.failed) return { state: "failed", device: null, gpuOffload: false };
+    if (gpu.current?.state === "unavailable") return { state: "unavailable", device: null, gpuOffload: false };
     // The real backend reports `warming` while it compiles Metal shaders; the
     // first call here does too so the UI state is reachable in a test.
     llamaWarmCalls += 1;
@@ -1642,6 +1681,9 @@ declare global {
       browser: string[];
       /** True once the app was asked to restart into the new version. */
       relaunched: boolean;
+      /** The GPU check: what `gpu_readiness` answers, and what Check again moves to. */
+      gpu: { current: import("$lib/tauri").GpuReadiness | null; next: import("$lib/tauri").GpuReadiness | null };
+      gpuStates: Record<string, import("$lib/tauri").GpuReadiness>;
       /** A backup in progress, and the outcomes the next Back up now returns. */
       backup: typeof backup;
       /** Start or end a backup the way Rust reports it. */
@@ -1693,7 +1735,7 @@ window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
 };
 Object.defineProperty(window, "__VERSORIUM_MOCK__", {
   value: {
-    projects, settings, calls, failures, agents, ollama, studio, llama, mcpClients, mcpLog, models, slots, update, github, crashes, browser,
+    projects, settings, calls, failures, agents, ollama, studio, llama, gpu, gpuStates: GPU_STATES, mcpClients, mcpLog, models, slots, update, github, crashes, browser,
     backup, setBackupRunning, holdBackup, releaseBackup, emit, listening, fonts, importPreview, hold, release,
     get relaunched() {
       return relaunched;

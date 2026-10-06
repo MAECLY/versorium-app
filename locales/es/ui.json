@@ -332,6 +332,7 @@
         "warming": "iniciando… (preparando el chip gráfico, una vez por equipo)",
         "ready": "Listo",
         "failed": "No arrancó",
+        "unavailable": "No disponible en este equipo",
         "cpuOnly": "Esta versión ejecuta los modelos con el procesador, sin aceleración gráfica, así que van más lentos."
       },
       "start": {
@@ -1153,6 +1154,70 @@
       "language": "Idioma",
       "chapters": "Capítulos",
       "words": "Palabras"
+    }
+  },
+  "gpu": {
+    "title": {
+      "ready": "La IA local está lista en este equipo",
+      "cpu": "La IA local funciona con el procesador",
+      "unavailable": "La IA local no puede arrancar en este equipo",
+      "checking": "Revisando este equipo…"
+    },
+    "lead": {
+      "ready": "Los modelos funcionan con la tarjeta gráfica de este equipo.",
+      "cpu": "Los modelos funcionan, pero con el procesador, que es varias veces más lento que una tarjeta gráfica. Abajo está lo que les impide usar la tarjeta gráfica.",
+      "unavailable": "Los modelos de este equipo necesitan un controlador gráfico con Vulkan, y este equipo todavía no lo tiene. Los asistentes (Claude Code, Codex, OpenCode) siguen funcionando.",
+      "checking": "Revisando la tarjeta gráfica y su controlador. La primera vez puede tardar unos segundos."
+    },
+    "result": {
+      "ready": "Revisado: los modelos ya funcionan con la tarjeta gráfica.",
+      "cpu": "Revisado: los modelos funcionan con el procesador.",
+      "unavailable": "Revisado: todavía falta algo."
+    },
+    "has": "Este equipo tiene",
+    "metal": "Apple silicon: los modelos funcionan con su GPU mediante Metal.",
+    "noAdapters": "No se encontró ninguna tarjeta gráfica.",
+    "driverVersion": "Controlador {version}",
+    "noDriver": "Sin controlador de su fabricante",
+    "vulkanVersion": "Vulkan {version}",
+    "noVulkan": "Sin Vulkan",
+    "usable": "Los modelos pueden funcionar con ella.",
+    "notUsable": "Los modelos no pueden funcionar con ella.",
+    "missingTitle": "Qué falta",
+    "missing": {
+      "vulkan_loader": "Vulkan, que viene con el controlador de tu tarjeta gráfica.",
+      "gpu_driver": "El controlador propio de la tarjeta gráfica: Windows está usando su controlador de pantalla básico.",
+      "vulkan_driver": "Un controlador Vulkan para la tarjeta gráfica. Solo respondió un renderizador por software.",
+      "loader_outdated": "Un Vulkan más nuevo: este es anterior a la 1.2.",
+      "vulkan_1_2": "Un controlador de la tarjeta gráfica con Vulkan 1.2 o posterior.",
+      "feature_16bit_storage": "Una tarjeta gráfica con almacenamiento de 16 bits, que el motor de modelos necesita.",
+      "no_gpu": "Una tarjeta gráfica: no se encontró ninguna que el motor de modelos pueda usar.",
+      "probe_crashed": "El controlador gráfico se detuvo mientras se revisaba. Actualizarlo suele resolverlo.",
+      "probe_timeout": "El controlador gráfico no respondió a tiempo. Reinicia el equipo y vuelve a revisar."
+    },
+    "hints": {
+      "remote_session": "Esta es una sesión de Escritorio remoto, que usa la pantalla remota de Windows en vez de la tarjeta gráfica. En el propio equipo, la tarjeta puede funcionar.",
+      "virtual_machine": "Parece una máquina virtual. Su pantalla virtual no puede ejecutar modelos; el procesador sí."
+    },
+    "vendors": {
+      "nvidia": "NVIDIA",
+      "amd": "AMD",
+      "intel": "Intel",
+      "microsoft": "Controlador básico de Microsoft",
+      "apple": "Apple",
+      "virtual": "Pantalla virtual",
+      "software": "Renderizador por software",
+      "other": "Otro"
+    },
+    "getDriver": "Descarga el controlador de {vendor}",
+    "afterInstall": "Después de instalar un controlador, reinicia el equipo si el instalador lo pide y pulsa Revisar de nuevo.",
+    "checkAgain": "Revisar de nuevo",
+    "checking": "Revisando…",
+    "close": "Cerrar",
+    "notice": {
+      "cpu": "La IA local funciona con el procesador, que es más lento.",
+      "unavailable": "La IA local todavía no puede arrancar en este equipo.",
+      "see": "Ver qué falta"
     }
   }
 }
