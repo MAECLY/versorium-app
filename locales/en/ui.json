@@ -65,6 +65,7 @@
     }
   },
   "editor": {
+    "label": "Chapter text",
     "placeholder": "Start writing…",
     "saved": "Saved",
     "saving": "Saving…",

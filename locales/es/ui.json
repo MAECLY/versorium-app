@@ -65,6 +65,7 @@
     }
   },
   "editor": {
+    "label": "Texto del capítulo",
     "placeholder": "Empieza a escribir…",
     "saved": "Guardado",
     "saving": "Guardando…",

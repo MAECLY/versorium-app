@@ -53,6 +53,10 @@
   const source = Annotation.define<"external" | "rollback">();
   const editable = new Compartment();
   const editing = (locked: boolean) => [EditorState.readOnly.of(locked), EditorView.editable.of(!locked)];
+  // The accessible name goes on CodeMirror's own editable area, the one a
+  // screen reader lands in, and follows the interface's language.
+  const naming = new Compartment();
+  const named = (label: string) => EditorView.contentAttributes.of({ "aria-label": label });
   // Covered by Settings, the page is read-only as well as inert. The browser
   // keeps one undo stack for the whole document, and its own undo (the undo
   // key pressed anywhere in Settings, Edit → Undo in the menu) walks it into
@@ -87,6 +91,7 @@
       parent,
       state: createMarkdownState(initialDoc, [
         editable.of(editing(untrack(() => locked))),
+        naming.of(named(untrack(() => t("editor.label")))),
         ...modes.initial(untrack(() => typewriter)),
         ...choices.initial(untrack(() => preferences), untrack(() => language), untrack(() => font)),
         clearOfNotices(),
@@ -148,6 +153,11 @@
 
   $effect(() => {
     view?.dispatch({ effects: editable.reconfigure(editing(locked)) });
+  });
+
+  $effect(() => {
+    const label = t("editor.label");
+    view?.dispatch({ effects: naming.reconfigure(named(label)) });
   });
 
   $effect(() => {
@@ -252,4 +262,4 @@
   }
 </script>
 
-<div class="h-full min-h-0" bind:this={host} aria-label={t("binder.chapters")} role="textbox"></div>
+<div class="h-full min-h-0" bind:this={host}></div>
