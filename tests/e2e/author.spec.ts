@@ -103,3 +103,22 @@ test("the author settings are their own group, not a second heading under Editor
   await expect(settings.getByRole("region", { name: "Author" })).toBeVisible();
   await expect(settings.getByText("Who the manuscript is by, as the exported file will say it.")).toBeVisible();
 });
+
+test("\"in use\" is read in its button's own colour, pressed or not", async ({ page }) => {
+  const author = await openAuthor(page);
+  const colours = (button: ReturnType<typeof author.getByRole>) =>
+    button.evaluate((el) => {
+      const label = el.querySelector("[data-in-use]");
+      return { button: getComputedStyle(el).color, label: label ? getComputedStyle(label).color : null };
+    });
+  // Work is in use and being edited: the pressed button, on the accent.
+  const work = author.getByRole("button", { name: /^Work/ });
+  await expect(work).toHaveAttribute("aria-pressed", "true");
+  let seen = await colours(work);
+  expect(seen.label).toBe(seen.button);
+  // Editing the other profile, Work's button is not pressed and still says so.
+  await author.getByRole("button", { name: /^Personal/ }).click();
+  await expect(work).toHaveAttribute("aria-pressed", "false");
+  seen = await colours(work);
+  expect(seen.label).toBe(seen.button);
+});

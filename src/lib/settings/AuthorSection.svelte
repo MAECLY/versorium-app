@@ -96,7 +96,9 @@
         >
           {t(`author.profiles.${which}`)}
           {#if active === which}
-            <span class="v-muted" style="font-size: 11px;"> · {t("author.inUseShort")}</span>
+            <!-- In the button's own colour: the muted grey vanished on the
+                 pressed button's accent (1.05 to 1.45:1 in every theme). -->
+            <span data-in-use style="font-size: 11px;"> · {t("author.inUseShort")}</span>
           {/if}
         </button>
       {/each}
