@@ -22,6 +22,7 @@ function families(list: string): string[] {
 
 /** The catalogue Rust embeds: the stacks the page should render in. */
 const CATALOG = JSON.parse(readFileSync("fonts/catalog.json", "utf8")) as {
+  defaultBody: string;
   fonts: { id: string; family: string; role: string; stack: string; bundled: boolean; available: boolean }[];
 };
 const stackOf = (id: string): string[] => families(CATALOG.fonts.find((face) => face.id === id)!.stack);
@@ -547,21 +548,21 @@ test("with no face read at all, the page and the sample are in the stylesheet's 
   expect(families(await sample.evaluate((el) => getComputedStyle(el).fontFamily))).toEqual(await face(page));
 });
 
-test("settings naming a face Typography does not offer mark no row, and the sample shows the page's face", async ({
+test("settings naming a face Typography does not offer put the page in the default, and its row is marked", async ({
   page,
 }) => {
-  // set_editor_font takes the catalogue's mono face, which the panel does not
-  // list (docs/project/TODO.md); a hand edit of settings.json stores it today.
+  // Only a hand edit of settings.json can store the chrome's or the
+  // counters' face: set_editor_font refuses both. It reads as the default.
   await savedSettings(page, { editorFont: "system-mono" });
   await page.goto(SEEDED);
   await continueSeeded(page);
-  expect(await face(page)).toEqual(stackOf("system-mono"));
+  expect(await face(page)).toEqual(stackOf(CATALOG.defaultBody));
 
   const typography = (await openEditorSettings(page)).getByRole("region", { name: "Typography" });
-  await expect(typography.getByRole("button", { name: /^System serif/ })).toBeVisible();
-  await expect(typography.locator('[aria-current="true"]')).toHaveCount(0);
+  await expect(typography.locator('[aria-current="true"]')).toHaveCount(1);
+  await expect(typography.locator('[aria-current="true"]')).toContainText("System serif");
   const sample = typography.getByText("El invierno fue largo, y la niña esperaba junto a la ventana.");
-  expect(families(await sample.evaluate((el) => getComputedStyle(el).fontFamily))).toEqual(stackOf("system-mono"));
+  expect(families(await sample.evaluate((el) => getComputedStyle(el).fontFamily))).toEqual(stackOf(CATALOG.defaultBody));
 });
 
 test("Typography says which faces are sure to be on the machine, and which show only where installed", async ({

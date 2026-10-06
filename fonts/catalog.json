@@ -21,7 +21,7 @@
       "license": "system",
       "bundled": false,
       "available": true,
-      "note": "What the chrome already uses; offered for writers who prefer a sans page."
+      "note": "What the chrome uses. Not offered for the page: Typography lists body faces only."
     },
     {
       "id": "system-mono",

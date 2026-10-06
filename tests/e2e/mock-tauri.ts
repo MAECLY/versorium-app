@@ -327,9 +327,11 @@ const fonts: { version: number; defaultBody: string; fonts: FontEntry[] } = {
  * the default's, under its own id, when settings name a face this catalogue
  * lacks.
  */
+/** As `fonts::resolve`: a body face the catalogue holds, else the default. */
 function editorFont(id: unknown): { id: string; stack: string } {
   const entry =
-    fonts.fonts.find((font) => font.id === id) ?? fonts.fonts.find((font) => font.id === fonts.defaultBody);
+    fonts.fonts.find((font) => font.id === id && font.role === "body") ??
+    fonts.fonts.find((font) => font.id === fonts.defaultBody);
   if (!entry) throw "bad_font_catalog";
   return { id: entry.id, stack: entry.stack };
 }
@@ -1017,7 +1019,8 @@ const commands: Record<string, (args: Args) => unknown> = {
   fonts_catalog: () => JSON.parse(JSON.stringify(fonts)),
   editor_font: () => editorFont(settings.editorFont),
   set_editor_font: ({ id }) => {
-    if (!fonts.fonts.some((f) => f.id === id)) throw "bad_args";
+    // As `fonts::find_for_page`: only the body faces Typography offers.
+    if (!fonts.fonts.some((f) => f.id === id && f.role === "body")) throw "bad_args";
     settings.editorFont = String(id);
     persistSettings();
     return editorFont(settings.editorFont);

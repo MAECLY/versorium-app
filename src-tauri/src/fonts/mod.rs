@@ -86,16 +86,27 @@ pub fn find(id: &str) -> Option<&'static FontEntry> {
     catalog().ok()?.fonts.iter().find(|f| f.id == id)
 }
 
+/// The role of the faces a manuscript page may be set in, the ones
+/// Typography lists. `ui` and `mono` are the chrome's and the counters'.
+pub const PAGE_ROLE: &str = "body";
+
+/// A face the page may use: in the catalogue and a body face.
+pub fn find_for_page(id: &str) -> Option<&'static FontEntry> {
+    find(id).filter(|f| f.role == PAGE_ROLE)
+}
+
 /// The entry a stored id names, or the catalogue's default when settings name
-/// something this catalogue does not hold: a font a later catalogue dropped, or
-/// a value that was never an id. The answer is the entry, id included, so a
+/// something this catalogue does not hold for the page: a font a later
+/// catalogue dropped, a value that was never an id, or a `ui`/`mono` face. The answer is the entry, id included, so a
 /// caller never pairs the id it was asked about with another face's stack.
 pub fn resolve(id: &str) -> Result<&'static FontEntry, String> {
     let catalog = catalog()?;
     catalog
         .fonts
         .iter()
-        .find(|f| f.id == id)
+        // A face Typography does not offer (a hand-edited `system-mono`) is
+        // treated as unknown, so the page and the panel's mark agree.
+        .find(|f| f.id == id && f.role == PAGE_ROLE)
         .or_else(|| catalog.fonts.iter().find(|f| f.id == catalog.default_body))
         .ok_or_else(|| "bad_font_catalog".to_string())
 }
@@ -208,11 +219,12 @@ mod tests {
 
     #[test]
     fn a_stored_id_resolves_to_itself_and_an_unknown_one_to_the_default() {
-        assert_eq!(resolve("system-mono").unwrap(), find("system-mono").unwrap());
-        // Settings could name a font a later catalogue dropped, or hold a
-        // value that was never an id. Either falls back rather than failing,
-        // and the answer names the face it fell back to.
-        for stored in ["a-font-that-was-removed", "\"Iowan Old Style\", serif", ""] {
+        assert_eq!(resolve("source-serif-4").unwrap(), find("source-serif-4").unwrap());
+        // Settings could name a font a later catalogue dropped, hold a value
+        // that was never an id, or name a face that is not for the page.
+        // Each falls back rather than failing, and the answer names the face
+        // it fell back to.
+        for stored in ["a-font-that-was-removed", "\"Iowan Old Style\", serif", "", "system-mono", "system-ui"] {
             let fallback = resolve(stored).unwrap();
             assert_eq!(fallback.id, "system-serif", "{stored:?}");
             assert_eq!(fallback.stack, find("system-serif").unwrap().stack, "{stored:?}");

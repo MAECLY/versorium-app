@@ -57,10 +57,11 @@ fn current_font(store: &SettingsStore) -> Result<fonts::EditorFont, String> {
     fonts::resolve(&store.get().editor_font).map(fonts::EditorFont::from)
 }
 
-/// Choose a face. Only ids the catalogue knows are kept, so settings can never
-/// name something the editor cannot render; the answer is what was kept.
+/// Choose a face. Only the catalogue's body faces are kept, the ones
+/// Typography offers, so settings never name something the panel cannot mark;
+/// the answer is what was kept.
 fn choose_font(store: &SettingsStore, id: &str) -> Result<fonts::EditorFont, String> {
-    let entry = fonts::find(id).ok_or_else(|| "bad_args".to_string())?;
+    let entry = fonts::find_for_page(id).ok_or_else(|| "bad_args".to_string())?;
     store.update(|s| s.editor_font = entry.id.clone());
     Ok(entry.into())
 }
@@ -101,14 +102,28 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = store(dir.path());
 
-        let chosen = choose_font(&store, "system-mono").unwrap();
-        assert!(chosen.stack.contains("monospace"));
-        assert_eq!(store.get().editor_font, "system-mono");
+        let chosen = choose_font(&store, "source-serif-4").unwrap();
+        assert_eq!(chosen.id, "source-serif-4");
+        assert_eq!(store.get().editor_font, "source-serif-4");
 
         // A font we do not ship must not reach settings, or the editor would
         // fall back silently and the panel would lie about what is applied.
         assert_eq!(choose_font(&store, "comic-sans").unwrap_err(), "bad_args");
-        assert_eq!(store.get().editor_font, "system-mono", "the rejected id changed nothing");
+        // Nor the chrome's or the counters' faces: Typography never offers
+        // them, so the panel could not mark them.
+        assert_eq!(choose_font(&store, "system-ui").unwrap_err(), "bad_args");
+        assert_eq!(choose_font(&store, "system-mono").unwrap_err(), "bad_args");
+        assert_eq!(store.get().editor_font, "source-serif-4", "the rejected ids changed nothing");
+    }
+
+    #[test]
+    fn a_stored_chrome_face_falls_back_to_the_page_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = store(dir.path());
+        // As a hand-edited settings.json could have it.
+        store.update(|s| s.editor_font = "system-mono".into());
+        let font = current_font(&store).unwrap();
+        assert_eq!(font.id, fonts::catalog().unwrap().default_body);
     }
 
     #[test]
