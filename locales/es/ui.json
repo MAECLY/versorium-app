@@ -694,7 +694,10 @@
     "backup_write_failed": "No se pudo escribir el archivo.",
     "backup_unreadable": "No se pudo volver a leer el archivo.",
     "backup_corrupt": "El archivo no se pudo releer intacto.",
-    "repo_busy": "Un respaldo está leyendo el historial de la novela. Inténtalo de nuevo en un momento."
+    "repo_busy": "Un respaldo está leyendo el historial de la novela. Inténtalo de nuevo en un momento.",
+    "keyring_unavailable": "Este equipo no tiene un almacén de credenciales que Versorium pueda usar, así que no se puede guardar un token. En Linux, un llavero como GNOME Keyring o KWallet lo ofrece.",
+    "keyring_locked": "El almacén de credenciales está bloqueado, o se rechazó la petición para usarlo. Desbloquéalo y vuelve a intentarlo.",
+    "keyring_failed": "El almacén de credenciales no guardó el token. Vuelve a intentarlo."
   },
   "languages": {
     "en": "English",

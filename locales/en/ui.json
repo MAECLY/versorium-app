@@ -694,7 +694,10 @@
     "backup_write_failed": "The archive could not be written.",
     "backup_unreadable": "The archive could not be read back.",
     "backup_corrupt": "The archive did not read back intact.",
-    "repo_busy": "A backup is reading the novel's history. Try again in a moment."
+    "repo_busy": "A backup is reading the novel's history. Try again in a moment.",
+    "keyring_unavailable": "This computer has no credential store Versorium can use, so a token cannot be saved. On Linux, a keyring such as GNOME Keyring or KWallet provides one.",
+    "keyring_locked": "The credential store is locked, or the request to use it was dismissed. Unlock it and try again.",
+    "keyring_failed": "The credential store did not save the token. Try again."
   },
   "languages": {
     "en": "English",

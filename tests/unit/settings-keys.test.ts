@@ -14,13 +14,11 @@ import es from "../../locales/es/ui.json";
 const ROOT = process.cwd();
 
 /**
- * Missing before the Settings redesign, and outside it: Application's
- * credential-store line asks for a key neither locale has, so the raw key is
- * what a writer would read (docs/project/TODO.md, "Found while building the Settings
- * redesign"). Listed so this test guards everything else; it fails once the
- * key is written, as a reminder to take it off this list.
+ * Keys a source asks for that a locale does not have yet, each with its
+ * reason. Empty: the last ones, the credential store's errors, were written
+ * on 2026-10-06. The test fails when this list and the locales disagree.
  */
-const KNOWN_MISSING = ["en errors.keyring_unavailable", "es errors.keyring_unavailable"];
+const KNOWN_MISSING: string[] = [];
 const SOURCES = [
   "src/lib/settings",
   "src/lib/components/ContinuityPanel.svelte",
