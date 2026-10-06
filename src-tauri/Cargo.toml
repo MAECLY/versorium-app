@@ -1,6 +1,6 @@
 [package]
 name = "versorium"
-version = "0.1.1"
+version = "0.1.2"
 description = "Versorium — local-first novel studio"
 authors = ["maecly"]
 edition = "2021"

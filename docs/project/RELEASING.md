@@ -17,7 +17,7 @@ Where things stand on 2026-10-06:
   by tag, which answers 404 for a draft, so v0.1.0's `SHA256SUMS` and
   v0.1.1's were written by hand), refuses a `latest.json` that lost a platform,
   and copies the release's notes into it for the update dialog.
-- The app is version `0.1.1` in all three places that carry it (section 5).
+- The app is version `0.1.2` in all three places that carry it (section 5).
 
 This document assumes you have admin access to the repository: you need it to
 set secrets, change visibility and enable Pages.
@@ -183,7 +183,7 @@ Three files carry the version and **all three must agree**:
 - `src-tauri/Cargo.toml` → `[package] version`
 - `src-tauri/tauri.conf.json` → `version`
 
-All three say `0.1.1` today (v0.1.1 is the latest release).
+All three say `0.1.2` today (v0.1.2 is the latest release).
 
 The updater compares the running app's version with the version in
 `latest.json`, and the build takes that version from `tauri.conf.json`. If the
