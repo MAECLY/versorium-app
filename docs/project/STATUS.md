@@ -2924,3 +2924,14 @@ installs a release is the part that needs the public repository and the tag.
 - **`--text-mute` holds AA in every theme:** Folio light `#696155` and Quarry
   light `#676561` (4.61:1 and 4.66:1 at worst), in the app and the landing;
   `text-mute-contrast.test.ts` holds all six themes to it.
+
+## Three more (2026-10-06)
+
+- **A synopsis written as a YAML block reads whole:** `split_frontmatter` reads
+  `|` and `>` block values (with `-` and `+`), and an indented line is never
+  taken for a key, which a line like "He says: wait." used to become.
+- **`DESIGN-VERSORIUM.md`'s implementation notes** say what the app does: the
+  chosen face reaches the editor through `--editor-font`, Typography's mark
+  compares ids, and the stylesheet no longer names Source Serif 4 first.
+- **The v0.1.1 names check** leaves the to-do list: the release carried the
+  sixteen names, and v0.1.0 updated to v0.1.1 on macOS and Windows 11.

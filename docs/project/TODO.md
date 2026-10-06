@@ -167,13 +167,6 @@ Neither is a real webview or a real release:
   changed), and WebView2 and WebKitGTK for all of it. WebKit's handling of
   the middle button's release and of a link drag (`draggable="false"`) is
   not tested anywhere.
-- **The first tag build with the new names (v0.1.1).** The draft holds the
-  sixteen names `RELEASING.md` §7 lists, `latest.json` has its eleven keys
-  pointing at them in the API form, `SHA256SUMS` lists them, and an install of
-  v0.1.0 updates to v0.1.1 on at least one platform. The app reads an update
-  by asset id and its checksum line by that asset's name, so v0.1.0's
-  different names should not matter; until that update runs, this is reading
-  the code, not an observation.
 - **VoiceOver and NVDA** read each link as its words, then "(opens in your
   browser)"; the author's as "… (opens www.maecly.com/about in your
   browser)". Chrome's computed names are tested; no screen reader has read
@@ -362,11 +355,6 @@ gate) and in Playwright's WebKit; the real webviews are still to be checked:
   changes the page there; here, without the face, the page stays in its
   stack's next family, Iowan Old Style, and looks the same (its row now says
   it shows only where it is installed).
-- **`DESIGN-VERSORIUM.md`, implementation notes**, still say the chosen face
-  never reaches the editor, that Typography's mark never matches, and that
-  the stylesheet names Source Serif 4 first ("Fuente por defecto del editor",
-  "La fuente elegida no llega al editor"). None of it holds now; the plan
-  left those lines to the owner.
 
 ### Found while building Settings over the editor, not part of it
 
@@ -528,9 +516,9 @@ writes it back (`STATUS.md`, 2026-10-04). What is left:
 
 - **Nothing in the app creates or edits a synopsis.** Only an import writes
   one (`set_synopsis` in `src-tauri/src/commands/chapters.rs`); a card shows
-  it and cannot change it. Hand-editing the chapter file works, but a YAML
-  block (`synopsis: |` and lines under it) reads as no synopsis, because the
-  frontmatter reader takes one line per key.
+  it and cannot change it. Hand-editing the chapter file works, as one line
+  or as a YAML block (`synopsis: |` and indented lines under it, read whole
+  since 2026-10-06).
 - **Only Scrivener export carries it.** Markdown exports one document with a
   single frontmatter block, and DOCX, EPUB and PDF have no per-chapter place
   for one, so a synopsis does not survive a Markdown round trip.
