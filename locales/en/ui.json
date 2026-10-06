@@ -927,9 +927,15 @@
     "replayHint": "The short tour from the first run: this computer, what it found, and a novel to start from."
   },
   "typography": {
+    "families": {
+      "system-serif": "System serif",
+      "system-ui": "System interface",
+      "system-mono": "System monospace"
+    },
+    "systemLicense": "system",
     "intro": "What the editor renders your prose in.",
     "sample": "El invierno fue largo, y la niña esperaba junto a la ventana.",
-    "systemFace": "already on this machine",
+    "systemFace": "already on this computer",
     "ifInstalled": "shows only where it is installed",
     "downloadLater": "Downloadable families arrive with the font downloader in a later release. Nothing here needs fetching.",
     "none": "Typography is handled by the desktop app."

@@ -927,9 +927,15 @@
     "replayHint": "El recorrido corto de la primera vez: este equipo, lo que encontró, y una novela por la que empezar."
   },
   "typography": {
+    "families": {
+      "system-serif": "Serif del sistema",
+      "system-ui": "Interfaz del sistema",
+      "system-mono": "Monoespaciada del sistema"
+    },
+    "systemLicense": "del sistema",
     "intro": "Con qué letra te muestra el editor tu prosa.",
     "sample": "El invierno fue largo, y la niña esperaba junto a la ventana.",
-    "systemFace": "ya está en esta máquina",
+    "systemFace": "ya está en este equipo",
     "ifInstalled": "solo se ve donde esté instalada",
     "downloadLater": "Las familias descargables llegan con el gestor de fuentes en una versión posterior. Nada de esto necesita descarga.",
     "none": "La tipografía la gestiona la app de escritorio."

@@ -6,6 +6,22 @@
   import { editorPreferences } from "$lib/editor/state.svelte";
   import { fontFamilyValue, markedFont } from "$lib/editor/preferences";
 
+  /**
+   * A face's name as the writer reads it. The system faces are descriptions
+   * ("System serif"), so they are said in the interface's language; a
+   * family's own name ("Source Serif 4") is a name and stays.
+   */
+  function familyOf(font: FontEntry): string {
+    const key = `typography.families.${font.id}`;
+    const name = t(key);
+    return name === key ? font.family : name;
+  }
+
+  /** "system" is a description too; a license id ("OFL-1.1") is not. */
+  function licenseOf(font: FontEntry): string {
+    return font.license === "system" ? t("typography.systemLicense") : font.license;
+  }
+
   let fonts = $state<FontEntry[]>([]);
   let defaultBody = $state("");
   let busy = $state(false);
@@ -75,8 +91,8 @@
             style="width: 100%; text-align: left;"
             onclick={() => void choose(font.id)}
           >
-            <span style="font-size: 13px;">{font.family}</span>
-            <span class="v-muted" style="font-size: 11px;">{font.license}</span>
+            <span style="font-size: 13px;">{familyOf(font)}</span>
+            <span class="v-muted" style="font-size: 11px;">{licenseOf(font)}</span>
             <!-- Not bundled, a face renders only if the machine has it. The
                  catalogue knows which are sure to be there (`available`); a
                  face that may not be, chosen, can leave the page looking as

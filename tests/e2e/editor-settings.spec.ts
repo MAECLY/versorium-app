@@ -577,8 +577,8 @@ test("Typography says which faces are sure to be on the machine, and which show 
   for (const font of offered) {
     const row = typography.getByRole("button", { name: new RegExp(`^${font.family}`) });
     const [says, never] = font.available
-      ? ["already on this machine", "shows only where it is installed"]
-      : ["shows only where it is installed", "already on this machine"];
+      ? ["already on this computer", "shows only where it is installed"]
+      : ["shows only where it is installed", "already on this computer"];
     await expect(row, font.id).toContainText(says);
     await expect(row, font.id).not.toContainText(never);
   }
@@ -613,4 +613,21 @@ test("a chosen row is marked so the eye finds it, in every theme, and hover does
     expect(mark!.inside, `against its row, ${theme}`).toBeGreaterThanOrEqual(3);
     expect(mark!.around, `against the panel, ${theme}`).toBeGreaterThanOrEqual(3);
   }
+});
+
+test("in Spanish the system faces are named in Spanish, and a family's own name stays", async ({ page }) => {
+  await page.goto(SEEDED);
+  await page.getByRole("contentinfo").getByRole("button", { name: "ES", exact: true }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Ajustes" }).click();
+  const settings = page.getByRole("region", { name: "Ajustes" });
+  await settings.getByRole("button", { name: "Editor", exact: true }).click();
+  const typography = settings.getByRole("region", { name: "Tipografía" });
+
+  const serif = typography.getByRole("button", { name: /^Serif del sistema/ });
+  await expect(serif).toContainText("del sistema");
+  await expect(serif).toContainText("ya está en este equipo");
+  await expect(typography.getByText("System serif")).toHaveCount(0);
+  // A family's name and a license id are names, in every language.
+  const source = typography.getByRole("button", { name: /^Source Serif 4/ });
+  await expect(source).toContainText("OFL-1.1");
 });
