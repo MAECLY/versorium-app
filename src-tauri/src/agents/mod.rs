@@ -653,7 +653,15 @@ pub async fn ollama_generate(
         .map_err(|_| "ai_failed".to_string())?;
     let body: serde_json::Value =
         response.json().await.map_err(|_| "ai_failed".to_string())?;
-    Ok(body["response"].as_str().unwrap_or("").trim().to_string())
+    Ok(ollama_answer(&body))
+}
+
+/// The prose in Ollama's `/api/generate` answer. A model that thinks out loud
+/// (Qwen3, DeepSeek-R1…) can put its `<think>…</think>` in `response`,
+/// depending on the model and on Ollama's version; it is taken out here as the
+/// built-in engine and the local server do, so it never reaches a chapter.
+fn ollama_answer(body: &serde_json::Value) -> String {
+    crate::llama::runtime::strip_reasoning(body["response"].as_str().unwrap_or(""))
 }
 
 #[cfg(test)]
@@ -1056,6 +1064,16 @@ pub(crate) mod tests {
         let plain = bin.path().join("notexec");
         std::fs::write(&plain, "data").unwrap();
         assert!(find_in_dirs("notexec", [bin.path().to_path_buf()]).is_none());
+    }
+
+    #[test]
+    fn an_ollama_answer_loses_its_reasoning_before_it_reaches_a_chapter() {
+        let answer = |response: &str| ollama_answer(&serde_json::json!({ "response": response }));
+        assert_eq!(answer("<think>The user wants it tighter.</think>\n\nLa niña esperó."), "La niña esperó.");
+        assert_eq!(answer("  La niña esperó.  "), "La niña esperó.");
+        // Out of budget mid-thought: nothing of it is prose.
+        assert_eq!(answer("<think>Let me consider"), "");
+        assert_eq!(ollama_answer(&serde_json::json!({ "error": "model not found" })), "");
     }
 
     #[cfg(unix)]
