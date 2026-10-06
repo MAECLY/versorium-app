@@ -821,3 +821,30 @@ test("a notice's words and its ✕ hold AA contrast in every theme", async ({ pa
     }
   }
 });
+
+test("an error raised in Settings leaves room to scroll the page's foot above it", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 640 });
+  await page.goto("/?mock=tauri");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Settings" });
+  await settings.getByRole("navigation").getByRole("button", { name: "Models", exact: true }).click();
+  await failing(page, "set_settings", "io");
+  await settings.getByRole("checkbox", { name: "Show uncensored models", exact: true }).click();
+  const error = notice(page, "File system error.");
+  await expect(error).toBeVisible();
+
+  // Scrolled to its end, the page's last line clears the stack.
+  const pane = page.locator("#settings-page-title").locator("xpath=ancestor::div[contains(@class,'overflow-y-auto')][1]");
+  await pane.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect
+    .poll(async () => {
+      const stackTop = (await region(page).boundingBox())!.y;
+      // Where the page's content ends: the body's foot less its padding.
+      const last = await pane.evaluate((el) => {
+        const body = el.firstElementChild as HTMLElement;
+        return body.getBoundingClientRect().bottom - parseFloat(getComputedStyle(body).paddingBottom);
+      });
+      return last <= stackTop;
+    })
+    .toBe(true);
+});

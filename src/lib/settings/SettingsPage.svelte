@@ -5,6 +5,8 @@
   import { models } from "$lib/models/state.svelte";
   import { mcp } from "$lib/mcp/state.svelte";
   import { restoreFocus } from "$lib/components/restoreFocus";
+  import { notices } from "$lib/notices/state.svelte";
+  import { scrollMarginBottom } from "$lib/notices/cover";
   import { CATEGORIES, FOOTER, focusKey, type PageId, type SettingsTarget } from "$lib/settings/pages";
   import { provideSettingsNav } from "$lib/settings/nav";
   import AboutGroup from "$lib/settings/groups/AboutGroup.svelte";
@@ -38,6 +40,19 @@
 
   let rail: HTMLElement;
   let pane: HTMLDivElement;
+  let paneBody = $state<HTMLDivElement>();
+  // Room below the page's last field for the notices stack, as the manuscript
+  // keeps (--v-notes-room): an error raised here stays until it is closed,
+  // and without it the stack sat over the foot of the form (a backup card's
+  // path, Author's publisher) with no way to scroll it clear.
+  let notesRoom = $state(0);
+  $effect(() => {
+    void notices.coverRevision;
+    const scroller = pane;
+    const body = paneBody;
+    if (!scroller || !body) return;
+    notesRoom = scrollMarginBottom(scroller.getBoundingClientRect(), body.getBoundingClientRect(), notices.coverRect());
+  });
   let title: HTMLHeadingElement;
   /** Bumped per navigation, so a slow landing gives way to a newer one. */
   let landing = 0;
@@ -186,7 +201,7 @@
   <!-- Not a named region: the pages carry their own regions ("Author",
        "Backup"), and a pane named for the page would collide with them. -->
   <div bind:this={pane} class="min-h-0 flex-1 overflow-y-auto" style="background: var(--bg-editor);">
-    <div style="max-width: 760px; padding: 24px 28px;">
+    <div bind:this={paneBody} style="max-width: 760px; padding: 24px 28px; padding-bottom: max(24px, {notesRoom + 16}px);">
       <header class="mb-5">
         <h2 bind:this={title} id="settings-page-title" class="v-page-title" tabindex="-1">
           {t(`settings.groups.${active}`)}
