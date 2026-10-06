@@ -2370,8 +2370,8 @@ writing.
   `VMark.svelte` built from the same geometry.
 - **Vulkan on Windows and Linux** (`--features vulkan` in the release matrix);
   Metal on macOS as before. CUDA is not offered. The `.deb` declares
-  `libvulkan1` and `libssl3`, because a missing Vulkan loader stops the app
-  starting rather than falling back to CPU.
+  `libvulkan1` and `libssl3`, and the `.rpm` now requires
+  `libvulkan.so.1()(64bit)` and `libssl.so.3()(64bit)`.
 - x86-64 release builds target `x86-64-v2` (through `RUSTFLAGS`), after
   `GGML_CPU_ALL_VARIANTS` was found to make cmake fail on three of four legs.
 - **CI** (`.github/workflows/ci.yml`): types and components, locale parity,
@@ -2563,6 +2563,18 @@ Three things that came from reading the crate rather than assuming it:
   (full toolkit on every runner, hundreds of MB in the installer, for hardware
   Vulkan already reaches). The Vulkan build is compile-checked in CI and has
   not been run on a GPU.
+- **A GPU check runs before local AI starts (Windows and Linux).**
+  `src-tauri/src/gpu/` probes Vulkan in a child process (`versorium
+  --gpu-probe`, 30 s limit), reads the OS's adapter list, and classifies the
+  computer as ready, cpu (the loader is there but no usable GPU, so ggml runs
+  on the processor) or unavailable. Nothing reaches llama.cpp until the check
+  allows it. On Windows `vulkan-1.dll` is delay-loaded, so the app opens
+  without it, but local AI cannot then run even on the processor: ggml's
+  Vulkan backend is linked in statically and needs the loader, and only
+  `dynamic-backends` would separate them. Settings says so, names what is
+  missing and links the vendor's driver page. The delay-load, the SEH shim
+  and the PowerShell adapter list are Windows-only and untested until a
+  Windows build runs them.
 - **In-process means a ggml assertion kills the editor.** `ggml_abort()` calls
   `abort()` even with a callback installed. This is what a sidecar would have
   bought and it is a conscious trade; it is bounded because a malformed GGUF is
