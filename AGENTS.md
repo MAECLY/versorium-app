@@ -226,10 +226,10 @@ move; re-run rather than quote them.
 
 ## State of things outside the code
 
-- The repository `github.com/MAECLY/versorium-app` is private. MAECLY is on
-  GitHub's free plan, where Pages does not serve private repositories.
-- There is no release and no tag yet. Version is `0.1.0`, identifier
-  `dev.versorium.app`, product name `Versorium`.
+- The repository `github.com/MAECLY/versorium-app` is public (since
+  2026-10-04).
+- Released: v0.1.0, v0.1.1 and v0.1.2 (the latest, 2026-10-06). Version is
+  `0.1.2`, identifier `dev.versorium.app`, product name `Versorium`.
 - The landing page at `versorium.maecly.com` lives in its own repository,
   `MAECLY/versorium-app-landing` (site in its `docs/`, checks in its `tests/landing/`).
   Vercel serves it (project `versorium-landing-page`, Git-connected, a push

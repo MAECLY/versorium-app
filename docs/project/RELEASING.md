@@ -109,6 +109,12 @@ empty, rather than producing artifacts the updater would reject.
 
 ## 3. Going live, in order
 
+*Done on 2026-10-04, kept for the record. Steps 3 and 4 describe GitHub Pages,
+which no longer serves the site: since 2026-10-17 the landing lives in
+`MAECLY/versorium-app-landing`, Vercel serves it, Pages is off, and the CNAME
+`versorium` points at Vercel (DNS only). Do not point it back at
+`maecly.github.io`. That repository's README says how it deploys.*
+
 Each step depends on the one before it.
 
 1. **Set the two secrets** (section 2), after verifying the pair (section 1).
@@ -122,8 +128,6 @@ Each step depends on the one before it.
    ignores a `CNAME` file in the uploaded artifact; the custom domain set in
    that field is the only one it serves. Without it the DNS record in step 4
    reaches `maecly.github.io` and GitHub answers 404 for that host name.
-   *(Historical: since 2026-10-17 the landing lives in `MAECLY/versorium-app-landing` and
-   Vercel serves it; Pages is off. See its README.)*
 4. **DNS.** In Cloudflare, add a CNAME `versorium` → `maecly.github.io`, set to
    **DNS only** (not proxied), so the site answers at `versorium.maecly.com`.
    DNS-only is the plan in `TODO.md`; it has not been tried yet with this host
