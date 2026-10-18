@@ -383,10 +383,11 @@ accepting it on their behalf.
 
 ---
 
-## Website (`docs/`)
+## Website (`MAECLY/versorium-app-landing`)
 
-The landing page at versorium.maecly.com is not part of the app. It ships one
-font of its own:
+The landing page at versorium.maecly.com is not part of the app, and since
+2026-10-17 it lives in its own repository; the paths below are in it. It ships
+one font of its own:
 
 - **Aguja Display** (`docs/assets/fonts/aguja-display-400.woff2`): a modified
   version of Source Serif 4 by Adobe — one weight (400) at optical size 60,

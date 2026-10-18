@@ -635,6 +635,10 @@ What it takes in the app:
 
 ## Going public
 
+*Steps 3 and 4 below describe GitHub Pages. On 2026-10-17 the landing moved to
+`MAECLY/versorium-app-landing` and to Vercel (project `versorium-landing-page`); the
+CNAME `versorium` now points at Vercel, DNS only, and Pages is off.*
+
 The recommended order is below. Only two dependencies are hard: the signing
 secrets (step 1) must be set before the tag (step 5), because the `guard` job
 reads them on a tag push and nothing else does; and the landing page is live
