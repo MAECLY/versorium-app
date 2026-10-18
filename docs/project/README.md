@@ -3,9 +3,8 @@
 The documents for people who work on Versorium. The writer-facing introduction
 is the root [README.md](../../README.md) ([español](../../README.es.md)).
 
-This folder sits under `docs/` but is not part of the website:
-`.github/workflows/pages.yml` removes it before publishing, and refuses to
-publish any Markdown file.
+This folder is not published anywhere. The website, versorium.maecly.com, lives
+in its own repository, `MAECLY/versorium-app-landing`.
 
 - [REFERENCE.md](REFERENCE.md) — the developer reference: the rules the
   project keeps, what is in the app, updates, building from source, agents, the

@@ -122,10 +122,8 @@ Each step depends on the one before it.
    ignores a `CNAME` file in the uploaded artifact; the custom domain set in
    that field is the only one it serves. Without it the DNS record in step 4
    reaches `maecly.github.io` and GitHub answers 404 for that host name.
-   The landing page is meant to live in `docs/` and be published by
-   `.github/workflows/pages.yml`. Neither is in the tree yet (they are being
-   written on the `feat/landing-and-docs` branch), so check both are on `main`
-   before this step.
+   *(Historical: since 2026-10-17 the landing lives in `MAECLY/versorium-app-landing` and
+   Vercel serves it; Pages is off. See its README.)*
 4. **DNS.** In Cloudflare, add a CNAME `versorium` → `maecly.github.io`, set to
    **DNS only** (not proxied), so the site answers at `versorium.maecly.com`.
    DNS-only is the plan in `TODO.md`; it has not been tried yet with this host
@@ -291,8 +289,8 @@ Check these five things, then publish.
    the name the same release gives that id. The names carry the version, so a
    link to `releases/latest/download/<name>` changes with every release, and
    the landing page's download links (`docs/index.html` and
-   `docs/en/index.html`, which name v0.1.0's files today) have to be moved to
-   the new release's names by hand.
+   `docs/en/index.html` in `MAECLY/versorium-app-landing`) have to be moved to the new
+   release's names by hand.
 
    `[ext]` drops what told tauri's own names apart (`-setup`, `_en-US`), so two
    files of one kind in one build would get one name. GitHub refuses the

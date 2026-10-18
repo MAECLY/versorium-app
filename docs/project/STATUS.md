@@ -16,11 +16,12 @@ M0–M7 are complete, and so is the work after them up to two releases.
   downloaded it, installed it and restarted into it, on macOS and on
   Windows 11.
 - **Public:** the repository (`github.com/MAECLY/versorium-app`) since
-  2026-10-04, and the landing at `versorium.maecly.com`, published from
-  `docs/` by `.github/workflows/pages.yml` (which leaves `docs/project/` out).
+  2026-10-04, and the landing at `versorium.maecly.com`. GitHub Pages
+  published it from `docs/` until 2026-10-17; since then it lives in
+  `MAECLY/versorium-app-landing` and Vercel serves it.
 
-Work continues on `feat/landing-and-docs`, merged into `main` for each release
-and each landing deploy.
+Work continues on `feat/landing-and-docs`, merged into `main` for each release.
+The landing deploys from its own repository.
 
 `TODO.md` lists the work that is half-done in the code, the three AI tasks
 that are specified and not started (Settings → Tasks lists them under "Not

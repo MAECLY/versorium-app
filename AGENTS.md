@@ -222,7 +222,7 @@ move; re-run rather than quote them.
 | `docs/project/RELEASING.md` | The release procedure and the signing key |
 | `TRADEMARKS.md`, `LICENSE`, `CLA.md`, `CONTRIBUTING.md` | Name and mark use; AGPL-3.0 (since 2026-10-04, was Apache-2.0); contributions need the CLA |
 | `docs/project/AGENT-BOOTSTRAP.md` | The original prompt that built M0–M7. Kept for history. Do not follow it: it tells an agent to build the app from scratch without asking questions. |
-| `docs/` (except `docs/project/`) | The landing page, published by `.github/workflows/pages.yml`. `docs/project/` holds the documents above and is never published; the workflow refuses to publish any `.md` |
+| `docs/project/` | The documents above. `docs/` holds nothing else: the landing page moved to its own repository, `MAECLY/versorium-app-landing`, on 2026-10-17 |
 
 ## State of things outside the code
 
@@ -230,10 +230,14 @@ move; re-run rather than quote them.
   GitHub's free plan, where Pages does not serve private repositories.
 - There is no release and no tag yet. Version is `0.1.0`, identifier
   `dev.versorium.app`, product name `Versorium`.
-- The landing page for `versorium.maecly.com` (a GitHub Pages site built from
-  `docs/` by `.github/workflows/pages.yml`) is being added on this branch and is
-  not live. It needs the repo public, Pages enabled, and a Cloudflare CNAME
-  `versorium` → `maecly.github.io`. `docs/project/TODO.md` has the order.
+- The landing page at `versorium.maecly.com` lives in its own repository,
+  `MAECLY/versorium-app-landing` (site in its `docs/`, checks in its `tests/landing/`).
+  Vercel serves it (project `versorium-landing-page`, Git-connected, a push
+  to its `main` deploys), and in Cloudflare `versorium` is a DNS-only CNAME to
+  the host Vercel gives the project. Its checks read this repository from a
+  clone (`VERSORIUM_APP_DIR`, default `../versorium-app`): the site copies the
+  theme tokens of `src/styles.css` byte for byte, so a palette change here
+  needs `node tests/landing/tokens.mjs` run there. GitHub Pages is off.
 - The release signing secrets (`TAURI_SIGNING_PRIVATE_KEY`,
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) are set in the repository; only the
   maintainer changes them. Never commit a key, and never set or rotate these
