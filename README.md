@@ -23,6 +23,10 @@
 
 <p align="center">
   <a href="https://github.com/MAECLY/versorium-app/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/MAECLY/versorium-app?style=flat-square&label=release&color=2a6f6a&labelColor=1b2422"></a>
+  <a href="https://github.com/MAECLY/versorium-app/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/MAECLY/versorium-app/total?style=flat-square&color=2a6f6a&labelColor=1b2422"></a>
+  <a href="https://github.com/MAECLY/versorium-app/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/MAECLY/versorium-app?style=flat-square&color=2a6f6a&labelColor=1b2422"></a>
+  <a href="https://hits.sh/github.com/MAECLY/versorium-app/"><img alt="Repository views" src="https://hits.sh/github.com/MAECLY/versorium-app.svg?style=flat-square&label=views&color=2a6f6a&labelColor=1b2422"></a>
+  <a href="https://github.com/MAECLY/versorium-app/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/MAECLY/versorium-app?style=flat-square&color=2a6f6a&labelColor=1b2422"></a>
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/github/license/MAECLY/versorium-app?style=flat-square&color=2a6f6a&labelColor=1b2422"></a>
   <a href="#ready-to-download"><img alt="macOS, Windows and Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-desktop-2a6f6a?style=flat-square&labelColor=1b2422"></a>
   <a href="README.es.md"><img alt="English and Spanish" src="https://img.shields.io/badge/English%20%C2%B7%20Espa%C3%B1ol-UI-2a6f6a?style=flat-square&labelColor=1b2422"></a>
