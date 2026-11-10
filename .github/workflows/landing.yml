@@ -1,0 +1,31 @@
+name: Landing
+
+# A published release redeploys versorium.maecly.com at once, so its download
+# buttons offer it. The landing (MAECLY/versorium-app-landing) bakes the
+# latest release into every deployment and also checks for one every hour;
+# this only makes it immediate. The deploy hook of the Vercel project
+# versorium-landing-page is the secret VERCEL_LANDING_DEPLOY_HOOK; without it
+# this does nothing and the hourly check still catches the release.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  redeploy:
+    name: Redeploy versorium.maecly.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the landing's deploy hook
+        env:
+          HOOK: ${{ secrets.VERCEL_LANDING_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::notice::VERCEL_LANDING_DEPLOY_HOOK is not set; the landing's hourly check will pick the release up."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" -o /dev/null
+          echo "The landing is redeploying."
