@@ -13,9 +13,8 @@ in its own repository, `MAECLY/versorium-app-landing`.
 - [DESIGN-VERSORIUM.md](DESIGN-VERSORIUM.md) — the design system
 - [STATUS.md](STATUS.md) — milestones M0–M7 (skeleton, Git and ops, agents, MCP,
   local models, formats, updater, polish) and the post-v1 work
-- [TODO.md](TODO.md) — half-done work, three unbuilt features and the steps to
-  go public (other unbuilt spec items are in the two Implementation notes
-  sections)
+- [TODO.md](TODO.md) — the backlog: everything unfinished, by priority, with
+  the owner's open decisions
 - [FORMATS.md](FORMATS.md) — import and export, per format
 - [RELEASING.md](RELEASING.md) — how a release is cut and signed
 - [AGENT-BOOTSTRAP.md](AGENT-BOOTSTRAP.md) — the original build prompt, kept

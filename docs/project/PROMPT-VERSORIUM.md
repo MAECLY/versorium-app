@@ -1,6 +1,6 @@
 # PROMPT DE IMPLEMENTACIÓN — VERSORIUM
 
-> **Nota (2026-10-03).** Esta es la especificación original y su texto no se ha cambiado. La única adición es la «Enmienda (2026-10-03)» al principio de §11, una decisión del fundador sobre el token de updates; el texto original de §11 sigue debajo de ella. Lo que se entregó, y cómo se verificó, está en [`STATUS.md`](STATUS.md); el trabajo pendiente que se sigue de forma activa, en [`TODO.md`](TODO.md). `TODO.md` no es la lista completa: cada punto de esta especificación que no se construyó, o se construyó de otra forma, está anotado al final, en «Implementation notes (2026-10-03)», con la evidencia en el código.
+> **Nota (2026-10-03).** Esta es la especificación original y su texto no se ha cambiado. La única adición es la «Enmienda (2026-10-03)» al principio de §11, una decisión del fundador sobre el token de updates; el texto original de §11 sigue debajo de ella. Lo que se entregó, y cómo se verificó, está en [`STATUS.md`](STATUS.md); todo el trabajo pendiente, por prioridad, en [`TODO.md`](TODO.md) (desde 2026-11-09 recoge también estas notas). Cada punto de esta especificación que no se construyó, o se construyó de otra forma, sigue anotado al final, en «Implementation notes (2026-10-03)», con la evidencia en el código.
 
 Eres staff engineer + product designer. Implementa **Versorium**: aplicación de escritorio para novelistas. No es un chatbot con textarea. Es un estudio de manuscrito local-first que:
 

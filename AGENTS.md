@@ -7,10 +7,9 @@ frontend; git goes through libgit2 (`git2`), so the app never needs system git.
 
 The original build (milestones M0–M7) is finished and merged. You are not here
 to build the app; you are here to change one that exists. Before you start,
-read `docs/project/STATUS.md` for what shipped, and `docs/project/TODO.md` plus
-the "Implementation notes" at the end of `docs/project/PROMPT-VERSORIUM.md` and
-`docs/project/DESIGN-VERSORIUM.md` for what
-is unfinished. When a request is ambiguous, ask the maintainer.
+read `docs/project/STATUS.md` for what shipped, and `docs/project/TODO.md`,
+the backlog by priority, for what is unfinished. When a request is ambiguous,
+ask the maintainer.
 
 ## Rules that do not bend
 
@@ -217,7 +216,7 @@ move; re-run rather than quote them.
 | `docs/project/PROMPT-VERSORIUM.md` | The product and architecture spec. Wins on product questions. Its "Implementation notes (2026-10-03)" section lists where the code differs from the spec, with evidence |
 | `docs/project/DESIGN-VERSORIUM.md` | Themes, tokens, type. Wins on visual questions. Its "Implementation notes (2026-10-03)" section does the same for design |
 | `docs/project/STATUS.md` | What shipped, per milestone and after, with the known limits |
-| `docs/project/TODO.md` | Half-done work, three unstarted AI tasks (the ones Settings → Tasks lists under "Not built yet"), and the steps to go public. It is not the complete list of unbuilt spec items: the two implementation-notes sections above list more (command palette, BYOK, most CLI subcommands, the downloadable font catalogue, and others) |
+| `docs/project/TODO.md` | The backlog: every known unfinished item, by priority (P0 first), each with an id, a "done when" line and a pointer into the code, then the owner's open decisions and the longer notes. It takes in the two implementation-notes sections, `STATUS.md`'s known limits and the code (which carries no `TODO` comments). Close an item by deleting it and recording the change in `STATUS.md`; add new work at its priority |
 | `THIRD-PARTY-NOTICES.md` | Licences of bundled dependencies. A new dependency updates it |
 | `docs/project/FORMATS.md` | What each import/export format keeps and loses |
 | `docs/project/RELEASING.md` | The release procedure and the signing key |

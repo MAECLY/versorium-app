@@ -23,14 +23,13 @@ M0–M7 are complete, and so is the work after them up to two releases.
 Work continues on `feat/landing-and-docs`, merged into `main` for each release.
 The landing deploys from its own repository.
 
-`TODO.md` lists the work that is half-done in the code, the three AI tasks
-that are specified and not started (Settings → Tasks lists them under "Not
-built yet"), and the steps to going public. It is
-not a complete list of what the spec asks for and the code does not do yet: the
-"Implementation notes (2026-10-03)" sections at the end of
-`PROMPT-VERSORIUM.md` and `DESIGN-VERSORIUM.md` record the rest (among them the
-command palette, BYOK, most CLI subcommands, the downloadable font catalogue),
-each against the code. "Still open" below is the short form of `TODO.md`.
+`TODO.md` is the backlog: everything known to be unfinished, by priority,
+including what the "Implementation notes (2026-10-03)" sections of
+`PROMPT-VERSORIUM.md` and `DESIGN-VERSORIUM.md` record (it was rebuilt from
+them, from this file's known limits and from the code on 2026-11-09). The
+"Still open", "Known holes" and "Next" sections further down predate it and
+are partly stale; `TODO.md` wins where they differ (its item
+`refresh-status-md` brings them up to date).
 
 ## How to run
 

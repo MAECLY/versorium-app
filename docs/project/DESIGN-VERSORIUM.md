@@ -1,6 +1,6 @@
 # VERSORIUM — Brand, tokens, themes, type
 
-> **Nota (2026-10-03).** Esto es la especificación de diseño tal como se pidió; no se ha reescrito. Lo que se entregó está en `STATUS.md`; `TODO.md` lista parte de lo que falta, no todo. Los puntos donde la app entregada difiere de este documento están al final, en "Implementation notes (2026-10-03)".
+> **Nota (2026-10-03).** Esto es la especificación de diseño tal como se pidió; no se ha reescrito. Lo que se entregó está en `STATUS.md`; `TODO.md` es la lista completa de lo que falta, por prioridad (desde 2026-11-09 recoge también estas notas). Los puntos donde la app entregada difiere de este documento están al final, en "Implementation notes (2026-10-03)".
 
 Nombre: **Versorium** (instrumento que señala). Marca: minúsculas en UI `versorium`, título `Versorium`.
 Accent de producto (chrome, no del editor): **Needle Teal** `#2A6F6A` light / `#7EB8B2` dark.
