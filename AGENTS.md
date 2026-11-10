@@ -237,7 +237,12 @@ move; re-run rather than quote them.
   the host Vercel gives the project. Its checks read this repository from a
   clone (`VERSORIUM_APP_DIR`, default `../versorium-app`): the site copies the
   theme tokens of `src/styles.css` byte for byte, so a palette change here
-  needs `node tests/landing/tokens.mjs` run there. GitHub Pages is off.
+  needs `node tests/landing/tokens.mjs` run there. GitHub Pages is off. The
+  landing offers the latest published release on its own: every deployment
+  bakes it from GitHub, an hourly workflow there deploys a new one, and
+  `.github/workflows/landing.yml` here redeploys at once when a release is
+  published, if the secret `VERCEL_LANDING_DEPLOY_HOOK` is set (it is not
+  yet). Publishing a release needs no change to the landing.
 - The release signing secrets (`TAURI_SIGNING_PRIVATE_KEY`,
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) are set in the repository; only the
   maintainer changes them. Never commit a key, and never set or rotate these
