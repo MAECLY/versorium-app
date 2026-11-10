@@ -20,11 +20,12 @@ or docs.
 - **Local-first.** No SaaS, no telemetry, no account required.
 - **One `.md` file per chapter.** Scenes are `##` headings inside it.
 - **No Creative Mode engine.** The UI may say "Coming soon"; nothing generates
-  chapters. No engine exists today. The copy does not follow the rule yet: the
-  disabled button in `src/lib/components/TopBar.svelte` is titled
-  `ai.creativeSoon`, which reads "Creative mode arrives in v1.1." / "El modo
-  creativo llega en la v1.1." and so promises a version. The maintainer has not
-  yet picked the wording. Do not copy it into new strings or docs.
+  chapters. No engine exists today. The disabled button in
+  `src/lib/components/TopBar.svelte` is titled `ai.creativeSoon`, which reads
+  "Creative mode is coming. It is not available yet." / "El modo creativo
+  llegará. Todavía no está disponible." It promises no version; the maintainer
+  has not yet confirmed the wording. Do not promise a version or a date for it
+  in new strings or docs.
 - **MCP starts read-only.** A write requires a setting, a warning, and a git
   checkpoint before it applies. (`mcp_write_clients` in
   `src-tauri/src/commands/settings.rs` is empty by default.) The write path in
@@ -198,7 +199,7 @@ move; re-run rather than quote them.
 - **Form controls use the shared primitives** in `src/lib/components/forms/`:
   `Field`, `TextField`, `NumberField`, `Select`, `Checkbox`. The hint goes in
   `aria-describedby`, and a live status readout stays outside the label so it
-  never becomes part of the accessible name. 17 control tags in 11 files are
+  never becomes part of the accessible name. 15 control tags in 11 files are
   still hand-written; `docs/project/TODO.md` lists them and the command to recount.
 - **`Checkbox` stays strictly controlled.** Two-way call sites write
   `checked={x} onChange={(v) => (x = v)}`. Do not make `checked` `$bindable`:
