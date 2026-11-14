@@ -350,7 +350,7 @@ transporte HTTP opcional está apagado por defecto y solo escucha en
 | [docs/project/REFERENCE.md](docs/project/REFERENCE.md) | La referencia para desarrolladores (en inglés): las reglas del proyecto, los comandos, los agentes, las herramientas MCP y cómo queda una novela en disco |
 | [AGENTS.md](AGENTS.md) | Cómo está organizado el código y qué convenciones sigue |
 | [docs/project/](docs/project/) | La especificación, el sistema de diseño, el estado, la lista de pendientes y cómo se publica una versión |
-| [MAECLY/versorium-app-landing](https://github.com/MAECLY/versorium-app-landing) | La web, [versorium.maecly.com](https://versorium.maecly.com/) |
+| [versorium.maecly.com](https://versorium.maecly.com/) | La web (su código está en un repositorio privado) |
 
 ## Licencia
 
