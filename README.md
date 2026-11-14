@@ -342,7 +342,7 @@ name. An optional HTTP transport is off by default and listens on
 | [docs/project/REFERENCE.md](docs/project/REFERENCE.md) | The developer reference: the rules the project keeps, build commands, agents, the MCP tools, a novel's layout on disk |
 | [AGENTS.md](AGENTS.md) | How the code is laid out, and the conventions it follows |
 | [docs/project/](docs/project/) | The spec, the design system, status, the to-do list and how releases are made |
-| [MAECLY/versorium-app-landing](https://github.com/MAECLY/versorium-app-landing) | The website, [versorium.maecly.com](https://versorium.maecly.com/en/) |
+| [versorium.maecly.com](https://versorium.maecly.com/en/) | The website (its source is in a private repository) |
 
 ## License
 
